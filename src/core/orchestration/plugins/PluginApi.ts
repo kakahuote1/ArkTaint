@@ -7,7 +7,6 @@ export type {
     DetectionInput,
     EnginePlugin,
     EnginePluginConfigSnapshot,
-    EnginePluginRuleKind,
     EntryApi,
     EntryDiscoverer,
     EntryPlan,

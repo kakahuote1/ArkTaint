@@ -58,6 +58,7 @@ export interface ModuleInvokeArgPort {
     surface: string;
     index: number;
     nodeKind?: ModulePortNodeKind;
+    rest?: boolean;
 }
 
 export interface ModuleInvokeBasePort {
@@ -81,6 +82,7 @@ export interface ModuleCallbackParamPort {
     callbackArgIndex: number;
     paramIndex: number;
     maxCandidates?: number;
+    rest?: boolean;
 }
 
 export interface ModuleMethodThisPort {
@@ -195,6 +197,7 @@ export interface ModuleRecipeInvokeArgEndpoint extends ModuleRecipeEndpointBase 
     kind: "invoke_arg";
     index: number;
     nodeKind?: ModulePortNodeKind;
+    rest?: boolean;
 }
 
 export interface ModuleRecipeInvokeBaseEndpoint extends ModuleRecipeEndpointBase {
@@ -212,6 +215,7 @@ export interface ModuleRecipeCallbackParamEndpoint extends ModuleRecipeEndpointB
     callbackArgIndex: number;
     paramIndex: number;
     maxCandidates?: number;
+    rest?: boolean;
 }
 
 export interface ModuleRecipeMethodThisEndpoint extends ModuleRecipeEndpointBase {
@@ -338,6 +342,7 @@ export interface ModuleRecipeDirectBridge {
     kind: "direct_bridge";
     from: ModuleRecipeEndpoint;
     to: ModuleRecipeEndpoint;
+    sourceGuard?: ModuleRecipeEndpoint;
     emit?: ModuleBridgeEmitSpec;
     trigger?: ModuleRecipeCallbackTrigger;
 }
@@ -372,7 +377,6 @@ export interface ModuleRecipeDecoratedFieldAddress {
     kind: "decorated_field_meta";
     surface: string;
     source: ModuleDecoratedFieldAddressSource;
-    decoratorKind?: string;
 }
 
 export type ModuleRecipeAddress =
@@ -449,6 +453,7 @@ export interface ModulePortToPortTransfer extends ModuleTransferBase {
     kind: "port_to_port";
     fromPort: string;
     toPort: string;
+    sourceGuardPort?: string;
     association?: string;
 }
 
@@ -514,6 +519,7 @@ export interface ModuleArgNodeSlotSelector {
     kind: "arg";
     index: number;
     nodeKind?: ModulePortNodeKind;
+    rest?: boolean;
 }
 
 export interface ModuleBaseNodeSlotSelector {
@@ -531,6 +537,7 @@ export interface ModuleCallbackParamNodeSlotSelector {
     callbackArgIndex: number;
     paramIndex: number;
     maxCandidates?: number;
+    rest?: boolean;
 }
 
 export type ModuleNodeSlotSelector =

@@ -2,11 +2,13 @@ import * as fs from "fs";
 import * as path from "path";
 import type { Scene } from "../../../../arkanalyzer/out/src/Scene";
 import { ArkAssignStmt } from "../../../../arkanalyzer/out/src/core/base/Stmt";
+import { ArkStaticInvokeExpr } from "../../../../arkanalyzer/out/src/core/base/Expr";
 import type { ArkMethod } from "../../../../arkanalyzer/out/src/core/model/ArkMethod";
 import {
     isAnalysisLoadableAssetStatus,
     validateAssetDocument,
     type AnalysisAssetLoadMode,
+    type AssetBinding,
     type AssetDocumentBase,
     type AssetEndpoint,
     type CallbackLocator,
@@ -21,6 +23,12 @@ import {
 import {
     resolveMethodsFromAnonymousObjectCarrierByField,
 } from "../../substrate/queries/CalleeResolver";
+import type { ArkanalyzerMethodKey } from "../../api/identity";
+import {
+    isResolvedEndpointRuntimeValueProjection,
+    projectEndpointRuntimeValues,
+    type EndpointRuntimeValueProjection,
+} from "../../api/effects/EndpointAccessPathProjector";
 import type {
     ArkMainEntryFact,
     ArkMainFactKind,
@@ -40,10 +48,33 @@ export interface ArkMainLoaderOptions {
 export interface ArkMainLoadResult {
     methods: ArkMethod[];
     facts: ArkMainEntryFact[];
+    endpointProjectionLedger: ArkMainEndpointProjectionLedgerItem[];
     loadedFiles: string[];
     warnings: string[];
     discoveredArkMainProjects: string[];
     enabledArkMainProjects: string[];
+}
+
+export interface ArkMainEndpointProjectionLedgerItem {
+    consumer: "arkmain";
+    consumerStatus: "consumable" | "blocked";
+    assetId: string;
+    canonicalApiId: string;
+    semanticSurfaceId?: string;
+    semanticBindingId?: string;
+    semanticTemplateId?: string;
+    callbackLocator: string;
+    endpointSpec: AssetEndpoint;
+    endpointPath: string;
+    endpointBaseKind: string;
+    status: EndpointRuntimeValueProjection["status"];
+    reason: string;
+    diagnosticKind?: EndpointRuntimeValueProjection["diagnosticKind"];
+    valueKind: EndpointRuntimeValueProjection["valueKind"];
+    valueCount: number;
+    failureCategory?: EndpointRuntimeValueProjection["failureCategory"];
+    fieldPath?: string[];
+    diagnosticDetails?: Record<string, unknown>;
 }
 
 interface ProjectArkMainAssetPack {
@@ -69,6 +100,7 @@ export function loadArkMainSeeds(
         .sort((a, b) => a.localeCompare(b));
     const methods: ArkMethod[] = [];
     const facts: ArkMainEntryFact[] = [];
+    const endpointProjectionLedger: ArkMainEndpointProjectionLedgerItem[] = [];
     const methodSignatures = new Set<string>();
 
     for (const pack of projectPacks) {
@@ -87,6 +119,7 @@ export function loadArkMainSeeds(
                 continue;
             }
             loadedFiles.add(path.resolve(file));
+            endpointProjectionLedger.push(...loadResult.endpointProjectionLedger);
             for (const fact of loadResult.facts) {
                 facts.push(fact);
                 const signature = fact.method.getSignature?.()?.toString?.() || "";
@@ -106,6 +139,7 @@ export function loadArkMainSeeds(
     return {
         methods,
         facts,
+        endpointProjectionLedger,
         loadedFiles: [...loadedFiles.values()].sort((a, b) => a.localeCompare(b)),
         warnings,
         discoveredArkMainProjects: discoveredArkMainProjects.sort((a, b) => a.localeCompare(b)),
@@ -294,6 +328,15 @@ function collectArkMainAssetFiles(rootDir: string): string[] {
 
 interface LoadedArkMainAsset {
     facts: ArkMainEntryFact[];
+    endpointProjectionLedger: ArkMainEndpointProjectionLedgerItem[];
+}
+
+type ArkMainSemanticSurface = EntrySurface | InvokeSurface;
+
+interface AcceptedArkMainSemanticSurface {
+    surface: ArkMainSemanticSurface;
+    canonicalApiId: string;
+    methodKey: ArkanalyzerMethodKey;
 }
 
 function loadArkMainAssetFile(
@@ -330,9 +373,10 @@ function loadArkMainAssetFile(
     }
 
     const facts: ArkMainEntryFact[] = [];
-    const entrySurfacesById = new Map(
+    const endpointProjectionLedger: ArkMainEndpointProjectionLedgerItem[] = [];
+    const lifecycleSurfacesById = new Map(
         (asset.surfaces || [])
-            .filter((surface): surface is EntrySurface => surface.kind === "entry")
+            .filter((surface): surface is ArkMainSemanticSurface => surface.kind === "entry" || surface.kind === "invoke")
             .map(surface => [surface.surfaceId, surface] as const),
     );
     const invokeSurfacesById = new Map(
@@ -359,27 +403,50 @@ function loadArkMainAssetFile(
         for (const ref of refs) {
             const lifecycleTemplate = lifecycleTemplatesById.get(ref);
             if (lifecycleTemplate) {
-                const surface = entrySurfacesById.get(binding.surfaceId);
-                if (!surface) {
+                const gate = acceptArkMainSemanticSurface(
+                    asset.id,
+                    binding,
+                    lifecycleSurfacesById.get(binding.surfaceId),
+                    lifecycleTemplate.id,
+                    "entry.lifecycle",
+                    warnings,
+                    onWarning,
+                );
+                if (!gate) continue;
+                const phase = parsePhase(lifecycleTemplate.phase);
+                const kind = parseFactKind(lifecycleTemplate.entryKind);
+                const ownerKind = parseOwnerKind(lifecycleTemplate.ownerKind);
+                const entryShape = stableString(lifecycleTemplate.entryShape);
+                if (!phase || !kind || !ownerKind || !entryShape) {
+                    pushWarning(
+                        warnings,
+                        onWarning,
+                        `arkmain asset ${asset.id} entry ${gate.canonicalApiId} has unsupported lifecycle semantics`,
+                    );
                     continue;
                 }
-                const method = findEntryMethod(scene, surface.ownerName, lifecycleTemplate.method || surface.methodName);
+                const method = findEntryMethod(scene, gate.methodKey);
                 if (!method) {
                     pushWarning(
                         warnings,
                         onWarning,
-                        `arkmain asset ${asset.id} entry ${surface.ownerName}.${lifecycleTemplate.method || surface.methodName} did not match a scene method`,
+                        `arkmain asset ${asset.id} entry ${gate.canonicalApiId} did not match a scene method`,
                     );
                     continue;
                 }
                 facts.push({
-                    phase: normalizePhase(surface.phase),
-                    kind: normalizeFactKind(lifecycleTemplate.entryKind || surface.entryKind),
+                    phase,
+                    kind,
                     method,
-                    ownerKind: normalizeOwnerKind(surface.ownerKind),
-                    reason: `Project arkmain asset ${asset.id} selected ${surface.ownerName}.${lifecycleTemplate.method || surface.methodName}`,
-                    entryFamily: binding.semanticsFamily || lifecycleTemplate.entryKind || surface.entryKind,
-                    entryShape: surface.entryKind,
+                    ownerKind,
+                    reason: `Project arkmain asset ${asset.id} selected ${gate.canonicalApiId}`,
+                    canonicalApiId: gate.canonicalApiId,
+                    semanticSurfaceId: gate.surface.surfaceId,
+                    semanticBindingId: binding.bindingId,
+                    semanticTemplateId: lifecycleTemplate.id,
+                    semanticGate: "exact_arkanalyzer_method_key",
+                    entryFamily: binding.semanticsFamily || lifecycleTemplate.entryKind,
+                    entryShape,
                     recognitionLayer: "project_arkmain_asset",
                 });
                 continue;
@@ -387,16 +454,24 @@ function loadArkMainAssetFile(
 
             const callbackTemplate = callbackRegisterTemplatesById.get(ref);
             if (callbackTemplate) {
-                const surface = invokeSurfacesById.get(binding.surfaceId);
-                if (!surface) {
-                    continue;
-                }
+                const gate = acceptArkMainSemanticSurface(
+                    asset.id,
+                    binding,
+                    invokeSurfacesById.get(binding.surfaceId),
+                    callbackTemplate.id,
+                    "entry.callbackRegister",
+                    warnings,
+                    onWarning,
+                );
+                if (!gate) continue;
                 facts.push(...lowerCallbackRegisterTemplate(
                     scene,
                     asset.id,
+                    binding,
+                    gate,
                     binding.semanticsFamily,
-                    surface,
                     callbackTemplate,
+                    endpointProjectionLedger,
                     warnings,
                     onWarning,
                 ));
@@ -404,31 +479,68 @@ function loadArkMainAssetFile(
         }
     }
 
-    return { facts };
+    return { facts, endpointProjectionLedger };
 }
 
 function lowerCallbackRegisterTemplate(
     scene: Scene,
     assetId: string,
+    binding: AssetBinding,
+    gate: AcceptedArkMainSemanticSurface,
     semanticsFamily: string | undefined,
-    surface: InvokeSurface,
     template: EntryCallbackRegisterTemplate,
+    endpointProjectionLedger: ArkMainEndpointProjectionLedgerItem[],
     warnings: string[],
     onWarning?: (warning: string) => void,
 ): ArkMainEntryFact[] {
     const out: ArkMainEntryFact[] = [];
     const seen = new Set<string>();
+    const callbackEntryFamily = stableString(semanticsFamily) || stableString(template.callbackRole);
+    if (!callbackEntryFamily) {
+        pushWarning(
+            warnings,
+            onWarning,
+            `arkmain asset ${assetId} callbackRegister ${gate.canonicalApiId} is missing callback semantic family`,
+        );
+        return out;
+    }
     for (const sourceMethod of scene.getMethods()) {
         const cfg = sourceMethod.getCfg?.();
         if (!cfg) continue;
         for (const stmt of cfg.getStmts?.() || []) {
             const invokeExpr = stmt?.getInvokeExpr?.();
-            if (!invokeExpr || !matchesInvokeSurface(invokeExpr, surface)) {
+            if (!invokeExpr || !matchesInvokeSurface(invokeExpr, gate.methodKey)) {
                 continue;
             }
-            const callbackMethods = resolveCallbackMethodsFromLocator(scene, invokeExpr, template.callback);
-            const registrationSignature = safeInvokeSignature(invokeExpr)
-                || `${surface.ownerName || surface.functionName || surface.methodName || "invoke"}.${surface.methodName || surface.functionName || "call"}`;
+            const callbackResolution = resolveCallbackMethodsFromLocator(scene, stmt, invokeExpr, template.callback);
+            if (callbackResolution.projection) {
+                endpointProjectionLedger.push(createArkMainEndpointProjectionLedgerItem(
+                    assetId,
+                    binding,
+                    gate,
+                    template,
+                    callbackResolution.callbackLocatorKey,
+                    callbackResolution.projection,
+                ));
+            }
+            if (callbackResolution.blockedReason) {
+                pushWarning(
+                    warnings,
+                    onWarning,
+                    `arkmain asset ${assetId} callbackRegister ${gate.canonicalApiId} blocked callback endpoint ${callbackResolution.callbackLocatorKey}: ${callbackResolution.blockedReason}`,
+                );
+                continue;
+            }
+            const callbackMethods = callbackResolution.methods;
+            const registrationSignature = safeInvokeSignature(invokeExpr);
+            if (!registrationSignature) {
+                pushWarning(
+                    warnings,
+                    onWarning,
+                    `arkmain asset ${assetId} callbackRegister ${gate.canonicalApiId} matched without stable registration signature`,
+                );
+                continue;
+            }
             for (const callbackMethod of callbackMethods) {
                 const callbackSignature = callbackMethod.getSignature?.()?.toString?.() || "";
                 if (!callbackSignature) continue;
@@ -441,6 +553,11 @@ function lowerCallbackRegisterTemplate(
                     method: callbackMethod,
                     ownerKind: "component_owner",
                     reason: `Project arkmain asset ${assetId} registered callback ${callbackLocatorKey(template.callback)} at ${registrationSignature}`,
+                    canonicalApiId: gate.canonicalApiId,
+                    semanticSurfaceId: gate.surface.surfaceId,
+                    semanticBindingId: binding.bindingId,
+                    semanticTemplateId: template.id,
+                    semanticGate: "exact_arkanalyzer_method_key",
                     sourceMethod,
                     callbackFlavor: "ui_event",
                     callbackShape: template.callback.kind === "option" ? "options_object_slot" : "direct_callback_slot",
@@ -448,7 +565,7 @@ function lowerCallbackRegisterTemplate(
                     callbackRecognitionLayer: "component_options",
                     callbackRegistrationSignature: registrationSignature,
                     callbackArgIndex: callbackLocatorArgIndex(template.callback),
-                    entryFamily: semanticsFamily || template.callbackRole || "project_component_option_slot",
+                    entryFamily: callbackEntryFamily,
                     entryShape: template.callback.kind === "option" ? "options_object_slot" : "direct_callback_slot",
                     recognitionLayer: "component_options",
                 });
@@ -459,56 +576,125 @@ function lowerCallbackRegisterTemplate(
         pushWarning(
             warnings,
             onWarning,
-            `arkmain asset ${assetId} callbackRegister ${surface.functionName || surface.methodName || surface.surfaceId} did not match a scene callback`,
+            `arkmain asset ${assetId} callbackRegister ${gate.canonicalApiId} did not match a scene callback`,
         );
     }
     return out;
 }
 
-function matchesInvokeSurface(invokeExpr: any, surface: InvokeSurface): boolean {
-    const args = invokeExpr.getArgs ? invokeExpr.getArgs() : [];
-    if (Number.isInteger(surface.argCount) && args.length !== surface.argCount) {
-        return false;
+function acceptArkMainSemanticSurface(
+    assetId: string,
+    binding: AssetBinding,
+    surface: ArkMainSemanticSurface | undefined,
+    templateId: string,
+    effectKind: string,
+    warnings: string[],
+    onWarning?: (warning: string) => void,
+): AcceptedArkMainSemanticSurface | undefined {
+    const bindingId = stableString(binding.bindingId) || "<missing bindingId>";
+    if (!surface) {
+        pushWarning(
+            warnings,
+            onWarning,
+            `arkmain asset ${assetId} ${effectKind} binding ${bindingId} references missing surface ${String(binding.surfaceId || "<missing surfaceId>")}`,
+        );
+        return undefined;
     }
-    const signature = safeInvokeSignature(invokeExpr);
-    if (surface.signatureId && signature && signature !== surface.signatureId) {
-        return false;
+    const bindingCanonicalApiId = stableString(binding.canonicalApiId);
+    const surfaceCanonicalApiId = stableString(surface.canonicalApiId);
+    if (!bindingCanonicalApiId) {
+        pushWarning(
+            warnings,
+            onWarning,
+            `arkmain asset ${assetId} ${effectKind} binding ${bindingId} template ${templateId} is missing canonicalApiId`,
+        );
+        return undefined;
     }
-    const methodName = safeInvokeMethodName(invokeExpr);
-    const expectedName = surface.methodName || surface.functionName;
-    if (expectedName && methodName !== expectedName) {
-        return false;
+    if (!surfaceCanonicalApiId) {
+        pushWarning(
+            warnings,
+            onWarning,
+            `arkmain asset ${assetId} ${effectKind} surface ${surface.surfaceId} template ${templateId} is missing canonicalApiId`,
+        );
+        return undefined;
     }
-    if (surface.ownerName) {
-        const ownerName = safeInvokeOwnerName(invokeExpr);
-        if (ownerName && ownerName !== surface.ownerName) {
-            return false;
-        }
+    if (bindingCanonicalApiId !== surfaceCanonicalApiId) {
+        pushWarning(
+            warnings,
+            onWarning,
+            `arkmain asset ${assetId} ${effectKind} binding ${bindingId} template ${templateId} canonicalApiId does not match surface canonicalApiId`,
+        );
+        return undefined;
     }
-    return !!expectedName;
+    const methodKey = arkanalyzerMethodKeyFromSurface(surface);
+    if (!methodKey) {
+        pushWarning(
+            warnings,
+            onWarning,
+            `arkmain asset ${assetId} ${effectKind} ${surfaceCanonicalApiId} is missing exact Arkanalyzer methodKey evidence`,
+        );
+        return undefined;
+    }
+    return { surface, canonicalApiId: surfaceCanonicalApiId, methodKey };
+}
+
+function matchesInvokeSurface(invokeExpr: any, expected: ArkanalyzerMethodKey): boolean {
+    const actual = arkanalyzerMethodKeyFromInvoke(invokeExpr);
+    return !!actual && sameArkanalyzerMethodKey(expected, actual);
+}
+
+interface ArkMainCallbackMethodResolution {
+    methods: ArkMethod[];
+    callbackLocatorKey: string;
+    projection?: EndpointRuntimeValueProjection;
+    blockedReason?: string;
 }
 
 function resolveCallbackMethodsFromLocator(
     scene: Scene,
+    stmt: any,
     invokeExpr: any,
     locator: CallbackLocator,
-): ArkMethod[] {
-    const args = invokeExpr.getArgs ? invokeExpr.getArgs() : [];
+): ArkMainCallbackMethodResolution {
+    const locatorKey = callbackLocatorKey(locator);
     if (locator.kind === "arg") {
-        const value = args[locator.index];
-        return value ? resolveCallbackMethodsFromValueWithReturns(scene, value, { maxDepth: 4 }) : [];
+        const projection = projectArkMainEndpointValues(scene, stmt, invokeExpr, { base: { kind: "arg", index: locator.index } });
+        if (!isResolvedEndpointRuntimeValueProjection(projection)) {
+            return {
+                methods: [],
+                callbackLocatorKey: locatorKey,
+                projection,
+                blockedReason: `${projection.status}:${projection.reason}`,
+            };
+        }
+        return {
+            methods: projection.values.flatMap(value =>
+                resolveCallbackMethodsFromValueWithReturns(scene, value, { maxDepth: 4 }),
+            ),
+            callbackLocatorKey: locatorKey,
+            projection,
+        };
     }
-    const baseValues = resolveEndpointValues(scene, args, locator.base);
     if (locator.accessPath.length === 0) {
-        return [];
+        return {
+            methods: [],
+            callbackLocatorKey: locatorKey,
+            blockedReason: "asset_endpoint_error:callback_option_access_path_missing",
+        };
     }
-    let ownerValues = baseValues;
-    for (const segment of locator.accessPath.slice(0, -1)) {
-        ownerValues = ownerValues.flatMap(value => resolveAnonymousObjectFieldValues(scene, value, segment));
+    const ownerEndpoint = extendAssetEndpointAccessPath(locator.base, locator.accessPath.slice(0, -1));
+    const projection = projectArkMainEndpointValues(scene, stmt, invokeExpr, ownerEndpoint);
+    if (!isResolvedEndpointRuntimeValueProjection(projection)) {
+        return {
+            methods: [],
+            callbackLocatorKey: locatorKey,
+            projection,
+            blockedReason: `${projection.status}:${projection.reason}`,
+        };
     }
     const callbackFieldName = locator.accessPath[locator.accessPath.length - 1];
     const out = new Map<string, ArkMethod>();
-    for (const value of ownerValues) {
+    for (const value of projection.values) {
         for (const method of resolveMethodsFromAnonymousObjectCarrierByField(scene, value, callbackFieldName, {
             maxCandidates: 16,
             enableLocalBacktrace: true,
@@ -520,22 +706,131 @@ function resolveCallbackMethodsFromLocator(
             out.set(signature, method);
         }
     }
-    return [...out.values()];
+    return {
+        methods: [...out.values()],
+        callbackLocatorKey: locatorKey,
+        projection,
+    };
 }
 
-function resolveEndpointValues(scene: Scene, args: any[], endpoint: AssetEndpoint): any[] {
-    if (endpoint.base.kind !== "arg") {
-        return [];
+function projectArkMainEndpointValues(
+    scene: Scene,
+    stmt: any,
+    invokeExpr: any,
+    endpoint: AssetEndpoint,
+): EndpointRuntimeValueProjection {
+    return projectEndpointRuntimeValues({
+        endpoint,
+        stmt,
+        invokeExpr,
+        resolveAccessPathValues(values, accessPath) {
+            return resolveArkMainAccessPathValues(scene, values, accessPath);
+        },
+    });
+}
+
+function resolveArkMainAccessPathValues(
+    scene: Scene,
+    values: readonly any[],
+    accessPath: readonly string[],
+): any[] {
+    let current = values.filter(value => value !== undefined && value !== null);
+    for (const segment of accessPath) {
+        current = current.flatMap(value => resolveAnonymousObjectFieldValues(scene, value, segment));
+        if (current.length === 0) break;
     }
-    const value = args[endpoint.base.index];
-    if (!value) {
-        return [];
+    return current;
+}
+
+function extendAssetEndpointAccessPath(endpoint: AssetEndpoint, suffix: readonly string[]): AssetEndpoint {
+    const accessPath = [
+        ...(endpoint.accessPath || []),
+        ...suffix,
+    ].map(segment => String(segment || "").trim()).filter(Boolean);
+    const out: AssetEndpoint = {
+        base: cloneEndpointBase(endpoint.base),
+    };
+    if (accessPath.length > 0) out.accessPath = accessPath;
+    if (endpoint.taintScope) out.taintScope = endpoint.taintScope;
+    return out;
+}
+
+function cloneEndpointBase(base: AssetEndpoint["base"]): AssetEndpoint["base"] {
+    switch (base.kind) {
+        case "receiver":
+            return { kind: "receiver" };
+        case "arg":
+            return { kind: "arg", index: base.index };
+        case "rest":
+            return { kind: "rest", startIndex: base.startIndex };
+        case "return":
+            return { kind: "return" };
+        case "callbackArg":
+            return {
+                kind: "callbackArg",
+                callback: cloneCallbackLocator(base.callback),
+                argIndex: base.argIndex,
+            };
+        case "callbackReturn":
+            return {
+                kind: "callbackReturn",
+                callback: cloneCallbackLocator(base.callback),
+            };
+        case "promiseResult":
+            return { kind: "promiseResult" };
+        case "promiseRejected":
+            return { kind: "promiseRejected" };
+        case "constructorResult":
+            return { kind: "constructorResult" };
     }
-    let values = [value];
-    for (const segment of endpoint.accessPath || []) {
-        values = values.flatMap(item => resolveAnonymousObjectFieldValues(scene, item, segment));
-    }
-    return values;
+}
+
+function cloneCallbackLocator(locator: CallbackLocator): CallbackLocator {
+    if (locator.kind === "arg") return { kind: "arg", index: locator.index };
+    return {
+        kind: "option",
+        base: extendAssetEndpointAccessPath(locator.base, []),
+        accessPath: locator.accessPath.map(segment => String(segment || "").trim()).filter(Boolean),
+    };
+}
+
+function createArkMainEndpointProjectionLedgerItem(
+    assetId: string,
+    binding: AssetBinding,
+    gate: AcceptedArkMainSemanticSurface,
+    template: EntryCallbackRegisterTemplate,
+    locatorKey: string,
+    projection: EndpointRuntimeValueProjection,
+): ArkMainEndpointProjectionLedgerItem {
+    const item: ArkMainEndpointProjectionLedgerItem = {
+        consumer: "arkmain",
+        consumerStatus: isResolvedEndpointRuntimeValueProjection(projection) ? "consumable" : "blocked",
+        assetId,
+        canonicalApiId: gate.canonicalApiId,
+        semanticSurfaceId: gate.surface.surfaceId,
+        semanticBindingId: binding.bindingId,
+        semanticTemplateId: template.id,
+        callbackLocator: locatorKey,
+        endpointSpec: projection.endpointSpec,
+        endpointPath: projection.endpointPath,
+        endpointBaseKind: projection.endpointBaseKind,
+        status: projection.status,
+        reason: projection.reason,
+        diagnosticKind: projection.diagnosticKind,
+        valueKind: projection.valueKind,
+        valueCount: projection.values.length,
+        failureCategory: projection.failureCategory,
+        fieldPath: projection.fieldPath ? [...projection.fieldPath] : undefined,
+        diagnosticDetails: projection.diagnosticDetails ? { ...projection.diagnosticDetails } : undefined,
+    };
+    if (!item.semanticSurfaceId) delete item.semanticSurfaceId;
+    if (!item.semanticBindingId) delete item.semanticBindingId;
+    if (!item.semanticTemplateId) delete item.semanticTemplateId;
+    if (!item.diagnosticKind) delete item.diagnosticKind;
+    if (!item.failureCategory || item.failureCategory === "none") delete item.failureCategory;
+    if (!item.fieldPath || item.fieldPath.length === 0) delete item.fieldPath;
+    if (!item.diagnosticDetails || Object.keys(item.diagnosticDetails).length === 0) delete item.diagnosticDetails;
+    return item;
 }
 
 function resolveAnonymousObjectFieldValues(scene: Scene, objectValue: any, fieldName: string): any[] {
@@ -586,27 +881,112 @@ function safeInvokeSignature(invokeExpr: any): string {
     return invokeExpr?.getMethodSignature?.()?.toString?.() || "";
 }
 
-function safeInvokeMethodName(invokeExpr: any): string {
+function findEntryMethod(scene: Scene, expected: ArkanalyzerMethodKey): ArkMethod | undefined {
+    return scene.getMethods().find(method => {
+        const actual = arkanalyzerMethodKeyFromMethod(method);
+        return !!actual && sameArkanalyzerMethodKey(expected, actual);
+    });
+}
+
+function arkanalyzerMethodKeyFromSurface(surface: InvokeSurface | EntrySurface): ArkanalyzerMethodKey | undefined {
+    const methodKey = (surface as any).evidence?.arkanalyzer?.methodKey;
+    if (!methodKey || typeof methodKey !== "object" || Array.isArray(methodKey)) return undefined;
+    const out: ArkanalyzerMethodKey = {
+        declaringFileName: String((methodKey as any).declaringFileName || "").trim(),
+        declaringNamespacePath: Array.isArray((methodKey as any).declaringNamespacePath)
+            ? (methodKey as any).declaringNamespacePath.map((item: unknown) => String(item || "").trim()).filter(Boolean)
+            : [],
+        declaringClassName: String((methodKey as any).declaringClassName || "").trim(),
+        methodName: String((methodKey as any).methodName || "").trim(),
+        parameterTypes: Array.isArray((methodKey as any).parameterTypes)
+            ? (methodKey as any).parameterTypes.map((item: unknown) => String(item || "").trim())
+            : [],
+        returnType: String((methodKey as any).returnType || "").trim(),
+        staticFlag: (methodKey as any).staticFlag === true,
+    };
+    return isCompleteArkanalyzerMethodKey(out) ? out : undefined;
+}
+
+function arkanalyzerMethodKeyFromInvoke(invokeExpr: any): ArkanalyzerMethodKey | undefined {
     const signature = invokeExpr?.getMethodSignature?.();
-    const direct = signature?.getMethodSubSignature?.()?.getMethodName?.();
-    if (direct) return String(direct);
-    const text = signature?.toString?.() || "";
-    const match = /\.([A-Za-z_$][A-Za-z0-9_$]*)\s*\(/.exec(text);
-    return match?.[1] || "";
+    if (!signature) return undefined;
+    return arkanalyzerMethodKeyFromSignature(signature, invokeExpr instanceof ArkStaticInvokeExpr);
 }
 
-function safeInvokeOwnerName(invokeExpr: any): string {
-    return invokeExpr?.getMethodSignature?.()?.getDeclaringClassSignature?.()?.getClassName?.() || "";
+function arkanalyzerMethodKeyFromMethod(method: ArkMethod): ArkanalyzerMethodKey | undefined {
+    const signature = method.getSignature?.();
+    if (!signature) return undefined;
+    return arkanalyzerMethodKeyFromSignature(signature, (method as any).isStatic?.() === true);
 }
 
-function findEntryMethod(scene: Scene, ownerName: string, methodName: string): ArkMethod | undefined {
-    return scene.getMethods().find(method =>
-        method.getName?.() === methodName
-        && method.getDeclaringArkClass?.()?.getName?.() === ownerName
-    );
+function arkanalyzerMethodKeyFromSignature(signature: any, staticFlag: boolean): ArkanalyzerMethodKey | undefined {
+    const declaringClass = signature.getDeclaringClassSignature?.();
+    const subSignature = signature.getMethodSubSignature?.();
+    const key: ArkanalyzerMethodKey = {
+        declaringFileName: String(declaringClass?.getDeclaringFileSignature?.()?.toString?.() || "").trim(),
+        declaringNamespacePath: namespacePathFromClassSignature(declaringClass),
+        declaringClassName: String(declaringClass?.getClassName?.() || "").trim(),
+        methodName: String(subSignature?.getMethodName?.() || "").trim(),
+        parameterTypes: (subSignature?.getParameters?.() || []).map((param: any) => typeTextOf(param)),
+        returnType: typeTextOf(subSignature?.getReturnType?.()),
+        staticFlag,
+    };
+    return isCompleteArkanalyzerMethodKey(key) ? key : undefined;
 }
 
-function normalizePhase(value: string): ArkMainPhaseName {
+function sameArkanalyzerMethodKey(left: ArkanalyzerMethodKey, right: ArkanalyzerMethodKey): boolean {
+    return left.declaringFileName === right.declaringFileName
+        && left.declaringClassName === right.declaringClassName
+        && left.methodName === right.methodName
+        && left.returnType === right.returnType
+        && left.staticFlag === right.staticFlag
+        && arrayEquals(left.declaringNamespacePath, right.declaringNamespacePath)
+        && arrayEquals(left.parameterTypes, right.parameterTypes);
+}
+
+function isCompleteArkanalyzerMethodKey(key: ArkanalyzerMethodKey): boolean {
+    return !!key.declaringFileName
+        && !!key.declaringClassName
+        && !!key.methodName
+        && !!key.returnType
+        && !containsUnknownIdentityText(key.declaringFileName)
+        && !containsUnknownIdentityText(key.declaringClassName)
+        && !containsUnknownIdentityText(key.methodName)
+        && !containsUnknownIdentityText(key.returnType)
+        && key.parameterTypes.every(item => !!item && !containsUnknownIdentityText(item));
+}
+
+function namespacePathFromClassSignature(declaringClass: any): string[] {
+    const text = String(declaringClass?.getDeclaringNamespaceSignature?.()?.toString?.() || "")
+        .replace(/\\/g, "/")
+        .replace(/:\s*$/g, "")
+        .trim();
+    if (!text) return [];
+    const colon = text.lastIndexOf(":");
+    const namespaceText = (colon >= 0 ? text.slice(colon + 1) : text).trim();
+    if (!namespaceText || namespaceText === "%dflt") return [];
+    return namespaceText.split(".").map(part => part.trim()).filter(part => part.length > 0 && part !== "%dflt");
+}
+
+function typeTextOf(value: any): string {
+    return String(value?.getType?.()?.toString?.() || value?.toString?.() || "").trim();
+}
+
+function arrayEquals(left: readonly string[], right: readonly string[]): boolean {
+    return left.length === right.length && left.every((item, index) => item === right[index]);
+}
+
+function stableString(value: unknown): string | undefined {
+    const text = String(value || "").trim();
+    return text.length > 0 ? text : undefined;
+}
+
+function containsUnknownIdentityText(value: unknown): boolean {
+    const text = String(value || "").trim().toLowerCase();
+    return !text || text.includes("%unk") || text.includes("@unk") || text.includes("unknown");
+}
+
+function parsePhase(value: string): ArkMainPhaseName | undefined {
     switch (value) {
         case "bootstrap":
         case "composition":
@@ -615,15 +995,16 @@ function normalizePhase(value: string): ArkMainPhaseName {
         case "teardown":
             return value;
         default:
-            return "composition";
+            return undefined;
     }
 }
 
-function normalizeFactKind(value: string): ArkMainFactKind {
+function parseFactKind(value: string): ArkMainFactKind | undefined {
     switch (value) {
         case "ability_lifecycle":
         case "stage_lifecycle":
         case "extension_lifecycle":
+        case "process_lifecycle":
         case "page_build":
         case "page_lifecycle":
         case "callback":
@@ -635,21 +1016,29 @@ function normalizeFactKind(value: string): ArkMainFactKind {
         case "router_trigger":
             return value;
         default:
-            return "page_build";
+            return undefined;
     }
 }
 
-function normalizeOwnerKind(value: EntrySurface["ownerKind"]): ArkMainOwnerKind {
+function parseOwnerKind(value: string | undefined): ArkMainOwnerKind | undefined {
     switch (value) {
         case "ability":
             return "ability_owner";
+        case "stage":
+            return "stage_owner";
         case "extension":
             return "extension_owner";
+        case "child_process":
+        case "child_process_owner":
+        case "process":
+            return "child_process_owner";
+        case "builder":
+            return "builder_owner";
         case "component":
         case "page":
             return "component_owner";
         default:
-            return "unknown_owner";
+            return undefined;
     }
 }
 

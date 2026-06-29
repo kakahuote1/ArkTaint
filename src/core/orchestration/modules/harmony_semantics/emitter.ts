@@ -1,11 +1,17 @@
 import { Constant } from "../../../../../arkanalyzer/out/src/core/base/Constant";
-import { ArkInstanceInvokeExpr, ArkStaticInvokeExpr } from "../../../../../arkanalyzer/out/src/core/base/Expr";
 import { Local } from "../../../../../arkanalyzer/out/src/core/base/Local";
 import { ArkInstanceFieldRef, ArkStaticFieldRef } from "../../../../../arkanalyzer/out/src/core/base/Ref";
 import { ArkAssignStmt } from "../../../../../arkanalyzer/out/src/core/base/Stmt";
-import { defineModule, TaintModule } from "../../../kernel/contracts/ModuleApi";
+import { parseCanonicalApiId } from "../../../api/identity";
+import {
+    defineModule,
+    type ModuleAnalysisApi,
+    type ModuleScannedInvoke,
+    TaintModule,
+} from "../../../kernel/contracts/ModuleApi";
 import { createHandoffPropagationSession } from "../../../kernel/semantic_handoff/SemanticHandoffPropagation";
 import { createExactHandoffHandle, HandoffEffect } from "../../../kernel/semantic_handoff/SemanticHandoffTypes";
+import { isConsumableSemanticEndpointProjection } from "../../../kernel/contracts/PagNodeResolution";
 
 const MAX_EVENT_BACKTRACE_STEPS = 6;
 const MAX_EVENT_BACKTRACE_VISITED = 24;
@@ -27,8 +33,8 @@ interface EmitterCallbackRegistration {
 export interface HarmonyEventEmitterSemanticsOptions {
     id?: string;
     description?: string;
-    onMethods?: string[];
-    emitMethods?: string[];
+    onCanonicalApiIds?: string[];
+    emitCanonicalApiIds?: string[];
     channelArgIndexes?: number[];
     payloadArgIndex?: number;
     callbackArgIndex?: number;
@@ -39,8 +45,8 @@ export interface HarmonyEventEmitterSemanticsOptions {
 const DEFAULT_EMITTER_OPTIONS: Required<HarmonyEventEmitterSemanticsOptions> = {
     id: "harmony.emitter",
     description: "Built-in Harmony event emitter bridges.",
-    onMethods: ["on"],
-    emitMethods: ["emit"],
+    onCanonicalApiIds: [],
+    emitCanonicalApiIds: [],
     channelArgIndexes: [],
     payloadArgIndex: 1,
     callbackArgIndex: 1,
@@ -69,15 +75,13 @@ export function createHarmonyEventEmitterSemanticModule(
         maxCandidates: Number.isInteger(options.maxCandidates)
             ? options.maxCandidates
             : DEFAULT_EMITTER_OPTIONS.maxCandidates,
-        onMethods: options.onMethods && options.onMethods.length > 0
-            ? [...options.onMethods]
-            : [...DEFAULT_EMITTER_OPTIONS.onMethods],
-        emitMethods: options.emitMethods && options.emitMethods.length > 0
-            ? [...options.emitMethods]
-            : [...DEFAULT_EMITTER_OPTIONS.emitMethods],
+        onCanonicalApiIds: options.onCanonicalApiIds && options.onCanonicalApiIds.length > 0
+            ? [...new Set(options.onCanonicalApiIds)].sort((left, right) => left.localeCompare(right))
+            : [...DEFAULT_EMITTER_OPTIONS.onCanonicalApiIds],
+        emitCanonicalApiIds: options.emitCanonicalApiIds && options.emitCanonicalApiIds.length > 0
+            ? [...new Set(options.emitCanonicalApiIds)].sort((left, right) => left.localeCompare(right))
+            : [...DEFAULT_EMITTER_OPTIONS.emitCanonicalApiIds],
     };
-    const onMethodNames = new Set(resolved.onMethods);
-    const emitMethodNames = new Set(resolved.emitMethods);
     const hasPayloadArg = resolved.payloadArgIndex >= 0;
     const maxChannelArgIndex = resolved.channelArgIndexes.length > 0
         ? Math.max(...resolved.channelArgIndexes)
@@ -108,27 +112,24 @@ export function createHarmonyEventEmitterSemanticModule(
                 }
             }
 
-            const declaredProfiles = buildEmitterClassProfiles(ctx.methods.all(), onMethodNames, emitMethodNames);
-            const observedProfiles = buildEmitterCallsiteProfiles(
-                ctx.methods.all(),
+            const onCalls = scanCanonicalEmitterCalls(ctx, resolved.onCanonicalApiIds);
+            const emitCalls = scanCanonicalEmitterCalls(ctx, resolved.emitCanonicalApiIds);
+            const classProfiles = buildEmitterCallsiteProfiles(
                 ctx,
-                onMethodNames,
-                emitMethodNames,
+                onCalls,
+                emitCalls,
                 resolved.channelArgIndexes,
                 resolved.payloadArgIndex,
                 resolved.callbackArgIndex,
                 resolved.maxCandidates,
             );
-            const classProfiles = mergeEmitterClassProfiles(declaredProfiles, observedProfiles);
             const callbackMethodsByEventKey = new Map<string, Map<string, EmitterCallbackRegistration>>();
 
-            for (const call of ctx.scan.invokes({ minArgs: onMinArgs })) {
-                const isOnCall = resolved.onMethods.some(methodName => call.call.matchesMethod(methodName));
-                if (!isOnCall) {
-                    continue;
-                }
-                const classKey = call.call.declaringClassName || call.call.signature;
-                const profile = classProfiles.get(classKey);
+            for (const call of onCalls) {
+                if (call.args().length < onMinArgs) continue;
+                const ownerKey = emitterOwnerIdentityKey(call);
+                if (!ownerKey) continue;
+                const profile = classProfiles.get(ownerKey);
                 if (
                     !profile
                     || !profile.hasOn
@@ -153,18 +154,24 @@ export function createHarmonyEventEmitterSemanticModule(
                     dynamicEventSkipCount++;
                     continue;
                 }
-                const callbackMethods = ctx.callbacks.methods(
-                    call.arg(resolved.callbackArgIndex),
-                    { maxCandidates: resolved.maxCandidates },
+                const callbackMethods = filterEmitterCallbackMethods(
+                    call,
+                    ctx.callbacks.methods(
+                        call.arg(resolved.callbackArgIndex),
+                        { maxCandidates: resolved.maxCandidates },
+                    ),
                 );
                 if (callbackMethods.length === 0) continue;
-                const callbackParamNodeIds = call.callbackParamNodeIds(
-                    resolved.callbackArgIndex,
-                    resolved.callbackParamIndex,
-                    { maxCandidates: resolved.maxCandidates },
+                const callbackParamNodeIds = callbackParamNodeIdsForEmitterCall(
+                    call,
+                    ctx.callbacks.paramBindings(
+                        call.arg(resolved.callbackArgIndex),
+                        resolved.callbackParamIndex,
+                        { maxCandidates: resolved.maxCandidates },
+                    ),
                 );
                 onRegistrationCount++;
-                for (const eventKey of buildEmitterEventKeys(call, classKey, channelKey)) {
+                for (const eventKey of buildEmitterEventKeys(call, ownerKey, channelKey)) {
                     let bucket = callbackMethodsByEventKey.get(eventKey);
                     if (!bucket) {
                         bucket = new Map<string, EmitterCallbackRegistration>();
@@ -193,13 +200,11 @@ export function createHarmonyEventEmitterSemanticModule(
                 }
             }
 
-            for (const call of ctx.scan.invokes({ minArgs: emitMinArgs })) {
-                const isEmitCall = resolved.emitMethods.some(methodName => call.call.matchesMethod(methodName));
-                if (!isEmitCall) {
-                    continue;
-                }
-                const classKey = call.call.declaringClassName || call.call.signature;
-                const profile = classProfiles.get(classKey);
+            for (const call of emitCalls) {
+                if (call.args().length < emitMinArgs) continue;
+                const ownerKey = emitterOwnerIdentityKey(call);
+                if (!ownerKey) continue;
+                const profile = classProfiles.get(ownerKey);
                 if (
                     !profile
                     || !profile.hasOn
@@ -238,7 +243,7 @@ export function createHarmonyEventEmitterSemanticModule(
                         resolved.payloadArgIndex,
                         resolved.callbackArgIndex,
                     )[0] ?? 0);
-                for (const eventKey of buildEmitterEventKeys(call, classKey, channelKey)) {
+                for (const eventKey of buildEmitterEventKeys(call, ownerKey, channelKey)) {
                     for (const nodeId of payloadNodeIds) {
                         handoffEffects.push({
                             kind: "put",
@@ -274,7 +279,9 @@ export function createHarmonyEventEmitterSemanticModule(
                 deferred_bindings: deferredBindingCount,
                 dynamic_event_skips: dynamicEventSkipCount,
             });
-            const handoff = createHandoffPropagationSession(handoffEffects);
+            const handoff = createHandoffPropagationSession(handoffEffects, {
+                currentnessAnalysis: ctx.raw.currentnessAnalysis,
+            });
             return {
                 onFact(event) {
                     return handoff.emitForFact(event);
@@ -284,36 +291,118 @@ export function createHarmonyEventEmitterSemanticModule(
     });
 }
 
+function scanCanonicalEmitterCalls(
+    ctx: Parameters<NonNullable<TaintModule["setup"]>>[0],
+    canonicalApiIds: string[],
+): ModuleScannedInvoke[] {
+    const out = [];
+    const seen = new Set<string>();
+    for (const canonicalApiId of canonicalApiIds) {
+        for (const call of ctx.scan.invokes({ canonicalApiId })) {
+            if (!hasResolvedModuleSemanticEndpoint(call, ctx.analysis)) continue;
+            const key = [
+                call.ownerMethodSignature,
+                call.call.canonicalApiId || canonicalApiId,
+                call.call.signature,
+                call.stmt?.getOriginPositionInfo?.()?.getLineNo?.() || 0,
+                call.stmt?.getOriginPositionInfo?.()?.getColNo?.() || 0,
+            ].join("|");
+            if (seen.has(key)) continue;
+            seen.add(key);
+            out.push(call);
+        }
+    }
+    return out;
+}
+
+function hasResolvedModuleSemanticEndpoint(
+    call: ModuleScannedInvoke,
+    analysis: ModuleAnalysisApi,
+): boolean {
+    for (const semanticSite of call.call.semanticEffectSites || []) {
+        if (semanticSite.capability !== "module") continue;
+        if (semanticSite.canonicalApiId !== call.call.canonicalApiId) continue;
+        if (semanticSite.occurrenceId !== call.call.occurrenceId) continue;
+        if (semanticSite.rawOccurrenceId !== call.call.rawOccurrenceId) continue;
+        const projection = analysis.projectEndpoint({
+            semanticSite,
+            endpointSpec: semanticSite.endpointSpec,
+            stmt: call.stmt,
+            invokeExpr: call.invokeExpr,
+            allowNodeCreation: false,
+            consumer: "module",
+        });
+        if (isConsumableSemanticEndpointProjection(projection)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 export const harmonyEmitterSemanticModule = createHarmonyEventEmitterSemanticModule();
 export const harmonyEmitterModule: TaintModule = harmonyEmitterSemanticModule;
 
-function resolveClassKeyFromMethodSig(methodSig: any): string {
-    const className = methodSig?.getDeclaringClassSignature?.()?.getClassName?.() || "";
-    const classSigText = methodSig?.getDeclaringClassSignature?.()?.toString?.() || "";
-    const signatureText = methodSig?.toString?.() || "";
-    return className || classSigText || signatureText;
+function emitterOwnerIdentityKey(call: { call?: { canonicalApiId?: string } }): string | undefined {
+    const parts = parseCanonicalApiId(call.call?.canonicalApiId || "");
+    if (!parts) return undefined;
+    return [
+        parts.authority,
+        parts.domain,
+        parts.module,
+        parts.file,
+        parts.export,
+        parts.decl,
+    ].join("|");
 }
 
-function buildEmitterEventKeys(call: any, classKey: string, channelKey: string): string[] {
+function filterEmitterCallbackMethods(call: any, callbacks: any[]): any[] {
+    const ownerFile = methodSignatureFile(call.ownerMethodSignature);
+    if (!ownerFile) return [];
+    return callbacks.filter(callback => methodSignatureFile(callback.methodSignature) === ownerFile);
+}
+
+function callbackParamNodeIdsForEmitterCall(call: any, bindings: any[]): number[] {
+    const ownerFile = methodSignatureFile(call.ownerMethodSignature);
+    if (!ownerFile) return [];
+    const out = new Set<number>();
+    for (const binding of bindings) {
+        if (methodSignatureFile(binding.methodSignature) !== ownerFile) continue;
+        for (const nodeId of binding.localNodeIds()) {
+            out.add(nodeId);
+        }
+        for (const nodeId of binding.localUseNodeIds()) {
+            out.add(nodeId);
+        }
+    }
+    return [...out.values()];
+}
+
+function methodSignatureFile(signature: string | undefined): string | undefined {
+    const text = String(signature || "");
+    const match = /^@([^:]+):/.exec(text);
+    return match?.[1]?.replace(/\\/g, "/");
+}
+
+function buildEmitterEventKeys(call: any, ownerKey: string, channelKey: string): string[] {
     const keys = new Set<string>();
     const baseNodeIds = typeof call.baseNodeIds === "function"
         ? call.baseNodeIds()
         : [];
     if (Array.isArray(baseNodeIds) && baseNodeIds.length > 0) {
         for (const nodeId of baseNodeIds) {
-            keys.add(`${classKey}::node:${nodeId}::${channelKey}`);
+            keys.add(`${ownerKey}::node:${nodeId}::${channelKey}`);
         }
     }
     const fieldBackedReceiverKey = resolveFieldBackedEmitterReceiverKey(call);
     if (fieldBackedReceiverKey) {
-        keys.add(`${classKey}::field:${fieldBackedReceiverKey}::${channelKey}`);
+        keys.add(`${ownerKey}::field:${fieldBackedReceiverKey}::${channelKey}`);
     }
     const baseObjectNodeIds = typeof call.baseObjectNodeIds === "function"
         ? call.baseObjectNodeIds()
         : [];
     if (Array.isArray(baseObjectNodeIds) && baseObjectNodeIds.length === 1) {
         for (const nodeId of baseObjectNodeIds) {
-            keys.add(`${classKey}::obj:${nodeId}::${channelKey}`);
+            keys.add(`${ownerKey}::obj:${nodeId}::${channelKey}`);
         }
     }
     if (keys.size === 0) {
@@ -322,19 +411,19 @@ function buildEmitterEventKeys(call: any, classKey: string, channelKey: string):
             : [];
         if (Array.isArray(baseCarrierNodeIds) && baseCarrierNodeIds.length === 1) {
             for (const nodeId of baseCarrierNodeIds) {
-                keys.add(`${classKey}::carrier:${nodeId}::${channelKey}`);
+                keys.add(`${ownerKey}::carrier:${nodeId}::${channelKey}`);
             }
         }
     }
     if (keys.size === 0) {
         if (Array.isArray(baseObjectNodeIds) && baseObjectNodeIds.length > 0) {
             for (const nodeId of baseObjectNodeIds) {
-                keys.add(`${classKey}::obj:${nodeId}::${channelKey}`);
+                keys.add(`${ownerKey}::obj:${nodeId}::${channelKey}`);
             }
         }
     }
     if (keys.size === 0) {
-        keys.add(`${classKey}::${channelKey}`);
+        keys.add(`${ownerKey}::${channelKey}`);
     }
     return [...keys];
 }
@@ -362,40 +451,10 @@ function resolveFieldBackedEmitterReceiverKey(call: any): string | undefined {
     return text || undefined;
 }
 
-function buildEmitterClassProfiles(
-    methods: any[],
-    onMethodNames: Set<string>,
-    emitMethodNames: Set<string>,
-): Map<string, EmitterClassProfile> {
-    const profiles = new Map<string, EmitterClassProfile>();
-    for (const method of methods) {
-        const methodSig = method.getSignature?.();
-        if (!methodSig) continue;
-        const classKey = resolveClassKeyFromMethodSig(methodSig);
-        const methodName = methodSig.getMethodSubSignature?.()?.getMethodName?.() || "";
-        const profile = profiles.get(classKey) || { hasOn: false, hasEmit: false, hasOnShape: false, hasEmitShape: false };
-        if (onMethodNames.has(methodName)) {
-            profile.hasOn = true;
-            if (isOnMethodShape(method)) {
-                profile.hasOnShape = true;
-            }
-        }
-        if (emitMethodNames.has(methodName)) {
-            profile.hasEmit = true;
-            if (isEmitMethodShape(method)) {
-                profile.hasEmitShape = true;
-            }
-        }
-        profiles.set(classKey, profile);
-    }
-    return profiles;
-}
-
 function buildEmitterCallsiteProfiles(
-    methods: any[],
     ctx: Parameters<NonNullable<TaintModule["setup"]>>[0],
-    onMethodNames: Set<string>,
-    emitMethodNames: Set<string>,
+    onCalls: any[],
+    emitCalls: any[],
     channelArgIndexes: number[],
     payloadArgIndex: number,
     callbackArgIndex: number,
@@ -410,115 +469,51 @@ function buildEmitterCallsiteProfiles(
         return created;
     };
 
-    for (const method of methods) {
-        const cfg = method.getCfg?.();
-        if (!cfg) continue;
-        const methodSignature = method.getSignature?.().toString?.() || "";
+    for (const call of onCalls) {
+        const ownerKey = emitterOwnerIdentityKey(call);
+        if (!ownerKey) continue;
+        const profile = ensure(ownerKey);
+        const invokeArgs = call.args();
+        const resolvedChannelArgIndexes = resolveEmitterChannelArgIndexes(
+            invokeArgs,
+            channelArgIndexes,
+            payloadArgIndex,
+            callbackArgIndex,
+        );
+        const channelLike = hasLikelyChannelShape(call.ownerMethodSignature || "", invokeArgs, resolvedChannelArgIndexes);
+        const callbackLike = invokeArgs.length > callbackArgIndex
+            && filterEmitterCallbackMethods(
+                call,
+                ctx.callbacks.methods(
+                    call.arg(callbackArgIndex),
+                    { maxCandidates },
+                ),
+            ).length > 0;
+        profile.hasOn = true;
+        if (channelLike && callbackLike) {
+            profile.hasOnShape = true;
+        }
+    }
 
-        for (const stmt of cfg.getStmts()) {
-            if (!stmt.containsInvokeExpr || !stmt.containsInvokeExpr()) continue;
-            const invokeExpr = stmt.getInvokeExpr();
-            if (!(invokeExpr instanceof ArkInstanceInvokeExpr || invokeExpr instanceof ArkStaticInvokeExpr)) continue;
-            const invokeMethodSig = invokeExpr.getMethodSignature?.();
-            if (!invokeMethodSig) continue;
-            const invokeMethodName = invokeMethodSig.getMethodSubSignature?.()?.getMethodName?.() || "";
-            const isOn = onMethodNames.has(invokeMethodName);
-            const isEmit = emitMethodNames.has(invokeMethodName);
-            if (!isOn && !isEmit) continue;
-
-            const classKey = resolveClassKeyFromMethodSig(invokeMethodSig);
-            const profile = ensure(classKey);
-            const invokeArgs = invokeExpr.getArgs ? invokeExpr.getArgs() : [];
-            const resolvedChannelArgIndexes = resolveEmitterChannelArgIndexes(
-                invokeArgs,
-                channelArgIndexes,
-                payloadArgIndex,
-                callbackArgIndex,
-            );
-            const channelLike = hasLikelyChannelShape(methodSignature, invokeArgs, resolvedChannelArgIndexes);
-
-            if (isOn) {
-                profile.hasOn = true;
-                const callbackLike = invokeArgs.length > callbackArgIndex
-                    && ctx.callbacks.paramNodeIds(
-                        invokeArgs[callbackArgIndex],
-                        0,
-                        { maxCandidates },
-                    ).length > 0;
-                if (channelLike && callbackLike) {
-                    profile.hasOnShape = true;
-                }
-            } else if (isEmit) {
-                profile.hasEmit = true;
-                if (channelLike && (payloadArgIndex < 0 || invokeArgs.length > payloadArgIndex)) {
-                    profile.hasEmitShape = true;
-                }
-            }
+    for (const call of emitCalls) {
+        const ownerKey = emitterOwnerIdentityKey(call);
+        if (!ownerKey) continue;
+        const profile = ensure(ownerKey);
+        const invokeArgs = call.args();
+        const resolvedChannelArgIndexes = resolveEmitterChannelArgIndexes(
+            invokeArgs,
+            channelArgIndexes,
+            payloadArgIndex,
+            callbackArgIndex,
+        );
+        const channelLike = hasLikelyChannelShape(call.ownerMethodSignature || "", invokeArgs, resolvedChannelArgIndexes);
+        profile.hasEmit = true;
+        if (channelLike && (payloadArgIndex < 0 || invokeArgs.length > payloadArgIndex)) {
+            profile.hasEmitShape = true;
         }
     }
 
     return profiles;
-}
-
-function mergeEmitterClassProfiles(
-    declaredProfiles: Map<string, EmitterClassProfile>,
-    observedProfiles: Map<string, EmitterClassProfile>,
-): Map<string, EmitterClassProfile> {
-    const out = new Map<string, EmitterClassProfile>();
-    const keys = new Set<string>([...declaredProfiles.keys(), ...observedProfiles.keys()]);
-    for (const key of keys) {
-        const declared = declaredProfiles.get(key);
-        const observed = observedProfiles.get(key);
-        out.set(key, {
-            hasOn: Boolean(declared?.hasOn || observed?.hasOn),
-            hasEmit: Boolean(declared?.hasEmit || observed?.hasEmit),
-            hasOnShape: Boolean(declared?.hasOnShape || observed?.hasOnShape),
-            hasEmitShape: Boolean(declared?.hasEmitShape || observed?.hasEmitShape),
-        });
-    }
-    return out;
-}
-
-function isOnMethodShape(method: any): boolean {
-    const params = method.getParameters?.() || [];
-    if (params.length < 2) return false;
-    const eventType = String(params[0]?.getType?.()?.toString?.() || "").toLowerCase();
-    const callbackType = String(params[1]?.getType?.()?.toString?.() || "").toLowerCase();
-    const hasEventChannel = isEmitterChannelTypeText(eventType);
-    const hasCallable = callbackType.includes("=>")
-        || callbackType.includes("function")
-        || callbackType.includes("callable")
-        || callbackType.includes("callback")
-        || callbackType.includes("%am");
-    if (hasEventChannel && hasCallable) {
-        return true;
-    }
-
-    const sigText = String(method.getSignature?.()?.toString?.() || "").toLowerCase();
-    return sigText.includes("on(")
-        && isEmitterChannelTypeText(sigText)
-        && (sigText.includes("=>") || sigText.includes("function") || sigText.includes("%am"));
-}
-
-function isEmitMethodShape(method: any): boolean {
-    const params = method.getParameters?.() || [];
-    if (params.length < 1) return false;
-    const eventType = String(params[0]?.getType?.()?.toString?.() || "").toLowerCase();
-    if (isEmitterChannelTypeText(eventType)) {
-        return true;
-    }
-    const sigText = String(method.getSignature?.()?.toString?.() || "").toLowerCase();
-    return (sigText.includes("emit(") || sigText.includes("send") || sigText.includes("publish"))
-        && isEmitterChannelTypeText(sigText);
-}
-
-function isEmitterChannelTypeText(text: string): boolean {
-    const lowered = String(text || "").toLowerCase();
-    return lowered.includes("string")
-        || lowered.includes("number")
-        || lowered.includes("boolean")
-        || lowered.includes("enum")
-        || lowered.includes("eventkey");
 }
 
 function hasLikelyChannelShape(methodSignature: string, invokeArgs: any[], channelArgIndexes: number[]): boolean {

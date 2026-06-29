@@ -30,7 +30,7 @@ function loadRules(spec: ProbeSpec): { sourceRules: SourceRule[]; sinkRules: Sin
         ruleCatalogPath: path.resolve(spec.ruleCatalogPath || "src/models"),
         projectRulePath: path.resolve(spec.projectRulePath),
         allowMissingProject: false,
-        autoDiscoverLayers: false,
+        autoDiscoverRuleSources: false,
     });
     return {
         sourceRules: loaded.ruleSet.sources || [],

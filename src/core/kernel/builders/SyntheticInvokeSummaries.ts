@@ -6,7 +6,7 @@ import { ArkParameterRef, ArkInstanceFieldRef, ArkStaticFieldRef } from "../../.
 import { Local } from "../../../../arkanalyzer/out/src/core/base/Local";
 import { ArkInstanceInvokeExpr } from "../../../../arkanalyzer/out/src/core/base/Expr";
 import { getMethodBySignature } from "../contracts/MethodLookup";
-import { resolveOrCreateExactPagNodes } from "../contracts/PagNodeResolution";
+import { materializeExactPagNodes } from "../contracts/PagNodeResolution";
 import { collectCarrierNodeIdsForValueAtStmt } from "../ordinary/OrdinaryAliasPropagation";
 import type {
     SyntheticConstructorStoreInfo,
@@ -203,7 +203,7 @@ function collectConstructorReceiverObjectIds(
             addNodeIds(collectCarrierNodeIdsForValueAtStmt(pag, aliasLocal, aliasLocal.getDeclaringStmt?.()));
         }
         if (out.size === 0) {
-            const exactNodeId = firstNodeId(resolveOrCreateExactPagNodes(pag, base, stmt));
+            const exactNodeId = firstNodeId(materializeExactPagNodes(pag, base, stmt));
             if (exactNodeId !== undefined) {
                 addNodeIds([exactNodeId]);
             }
@@ -401,7 +401,7 @@ export function buildSyntheticFieldBridgeMap(
     let bridgeCount = 0;
 
     const pushBridge = (info: SyntheticFieldBridgeInfo): void => {
-        const dedupKey = `${info.sourceObjectNodeId}#${info.sourceFieldName}->${info.targetObjectNodeId}#${info.targetFieldName}`;
+        const dedupKey = `${info.sourceObjectNodeId}#${info.sourceFieldName}->${info.targetObjectNodeId}#${info.targetFieldName}#${info.pathMode}`;
         if (dedup.has(dedupKey)) return;
         dedup.add(dedupKey);
         const key = `${info.sourceObjectNodeId}#${info.sourceFieldName}`;
@@ -453,6 +453,7 @@ export function buildSyntheticFieldBridgeMap(
                                                     targetObjectNodeId,
                                                     targetFieldName,
                                                     methodSignature: caller.getSignature().toString(),
+                                                    pathMode: "append_source_path",
                                                 });
                                             }
                                         }
@@ -509,6 +510,7 @@ export function buildSyntheticFieldBridgeMap(
                                 targetObjectNodeId,
                                 targetFieldName,
                                 methodSignature: caller.getSignature().toString(),
+                                pathMode: "replace_source_head",
                             });
                         }
                     }

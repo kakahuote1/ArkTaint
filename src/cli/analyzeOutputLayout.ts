@@ -1,6 +1,16 @@
 import * as fs from "fs";
 import * as path from "path";
-import { AnalyzeReport } from "./analyzeTypes";
+
+interface AnalyzeRunManifestReport {
+    generatedAt: string;
+    repo: string;
+    profile: string;
+    reportMode: string;
+    flowMode?: string;
+    summary: {
+        statusCount: Record<string, number>;
+    };
+}
 
 export interface AnalyzeOutputLayout {
     rootDir: string;
@@ -20,6 +30,21 @@ export interface AnalyzeOutputLayout {
     pluginAuditJsonPath: string;
     traceGraphJsonPath: string;
     traceGraphMarkdownPath: string;
+    officialOccurrenceLedgerJsonlPath: string;
+    officialOccurrenceEvidenceGraphJsonlPath: string;
+    officialIdentityCoverageJsonPath: string;
+    endpointResolutionLedgerJsonlPath: string;
+    semanticEffectSitesJsonlPath: string;
+    endpointResolutionSummaryJsonPath: string;
+    sourceReachabilityGapsJsonlPath: string;
+    callEdgeMaterializationLedgerJsonlPath: string;
+    sanitizerSemanticSiteConsumptionJsonlPath: string;
+    transferSemanticSiteConsumptionJsonlPath: string;
+    moduleSemanticSiteConsumptionJsonlPath: string;
+    ordinaryPropagationGapsJsonlPath: string;
+    expectedFlowGapReportJsonPath: string;
+    expectedFlowGapReportMarkdownPath: string;
+    officialCoverageForLlmFilteringJsonPath: string;
 }
 
 function toRelative(rootDir: string, targetPath: string): string {
@@ -54,6 +79,21 @@ export function resolveAnalyzeOutputLayout(outputDir: string): AnalyzeOutputLayo
         pluginAuditJsonPath: path.resolve(auditDir, "plugin_audit.json"),
         traceGraphJsonPath: path.resolve(traceGraphDir, "full_trace_graph.json"),
         traceGraphMarkdownPath: path.resolve(traceGraphDir, "full_trace_graph.md"),
+        officialOccurrenceLedgerJsonlPath: path.resolve(auditDir, "official_occurrence_ledger.jsonl"),
+        officialOccurrenceEvidenceGraphJsonlPath: path.resolve(auditDir, "official_occurrence_evidence_graph.jsonl"),
+        officialIdentityCoverageJsonPath: path.resolve(auditDir, "official_identity_coverage.json"),
+        endpointResolutionLedgerJsonlPath: path.resolve(auditDir, "endpoint_resolution_ledger.jsonl"),
+        semanticEffectSitesJsonlPath: path.resolve(auditDir, "semantic_effect_sites.jsonl"),
+        endpointResolutionSummaryJsonPath: path.resolve(auditDir, "endpoint_resolution_summary.json"),
+        sourceReachabilityGapsJsonlPath: path.resolve(auditDir, "source_reachability_gaps.jsonl"),
+        callEdgeMaterializationLedgerJsonlPath: path.resolve(auditDir, "call_edge_materialization_ledger.jsonl"),
+        sanitizerSemanticSiteConsumptionJsonlPath: path.resolve(auditDir, "sanitizer_semantic_site_consumption.jsonl"),
+        transferSemanticSiteConsumptionJsonlPath: path.resolve(auditDir, "transfer_semantic_site_consumption.jsonl"),
+        moduleSemanticSiteConsumptionJsonlPath: path.resolve(auditDir, "module_semantic_site_consumption.jsonl"),
+        ordinaryPropagationGapsJsonlPath: path.resolve(auditDir, "ordinary_propagation_gaps.jsonl"),
+        expectedFlowGapReportJsonPath: path.resolve(auditDir, "expected_flow_gap_report.json"),
+        expectedFlowGapReportMarkdownPath: path.resolve(auditDir, "expected_flow_gap_report.md"),
+        officialCoverageForLlmFilteringJsonPath: path.resolve(auditDir, "official_coverage_for_llm_filtering.json"),
     };
 }
 
@@ -71,12 +111,14 @@ export function ensureAnalyzeOutputLayout(layout: AnalyzeOutputLayout): void {
 
 export function writeAnalyzeRunManifest(
     layout: AnalyzeOutputLayout,
-    report: AnalyzeReport,
+    report: AnalyzeRunManifestReport,
     options: {
         pluginAuditEnabled: boolean;
         traceGraphEnabled?: boolean;
+        analysisAuditEnabled?: boolean;
     },
 ): void {
+    const analysisAuditEnabled = options.analysisAuditEnabled !== false;
     const payload = {
         format: "analyze-run",
         runKind: "analyze",
@@ -84,6 +126,7 @@ export function writeAnalyzeRunManifest(
         repo: report.repo,
         profile: report.profile,
         reportMode: report.reportMode,
+        flowMode: report.flowMode || "postsolve",
         status: report.summary.statusCount.exception ? "completed_with_errors" : "ok",
         paths: {
             summaryJson: toRelative(layout.rootDir, layout.summaryJsonPath),
@@ -100,6 +143,21 @@ export function writeAnalyzeRunManifest(
             traceGraphMd: options.traceGraphEnabled
                 ? toRelative(layout.rootDir, layout.traceGraphMarkdownPath)
                 : undefined,
+            officialOccurrenceLedgerJsonl: analysisAuditEnabled ? toRelative(layout.rootDir, layout.officialOccurrenceLedgerJsonlPath) : undefined,
+            officialOccurrenceEvidenceGraphJsonl: analysisAuditEnabled ? toRelative(layout.rootDir, layout.officialOccurrenceEvidenceGraphJsonlPath) : undefined,
+            officialIdentityCoverageJson: analysisAuditEnabled ? toRelative(layout.rootDir, layout.officialIdentityCoverageJsonPath) : undefined,
+            endpointResolutionLedgerJsonl: analysisAuditEnabled ? toRelative(layout.rootDir, layout.endpointResolutionLedgerJsonlPath) : undefined,
+            semanticEffectSitesJsonl: analysisAuditEnabled ? toRelative(layout.rootDir, layout.semanticEffectSitesJsonlPath) : undefined,
+            endpointResolutionSummaryJson: analysisAuditEnabled ? toRelative(layout.rootDir, layout.endpointResolutionSummaryJsonPath) : undefined,
+            sourceReachabilityGapsJsonl: analysisAuditEnabled ? toRelative(layout.rootDir, layout.sourceReachabilityGapsJsonlPath) : undefined,
+            callEdgeMaterializationLedgerJsonl: analysisAuditEnabled ? toRelative(layout.rootDir, layout.callEdgeMaterializationLedgerJsonlPath) : undefined,
+            sanitizerSemanticSiteConsumptionJsonl: analysisAuditEnabled ? toRelative(layout.rootDir, layout.sanitizerSemanticSiteConsumptionJsonlPath) : undefined,
+            transferSemanticSiteConsumptionJsonl: analysisAuditEnabled ? toRelative(layout.rootDir, layout.transferSemanticSiteConsumptionJsonlPath) : undefined,
+            moduleSemanticSiteConsumptionJsonl: analysisAuditEnabled ? toRelative(layout.rootDir, layout.moduleSemanticSiteConsumptionJsonlPath) : undefined,
+            ordinaryPropagationGapsJsonl: analysisAuditEnabled ? toRelative(layout.rootDir, layout.ordinaryPropagationGapsJsonlPath) : undefined,
+            expectedFlowGapReportJson: analysisAuditEnabled ? toRelative(layout.rootDir, layout.expectedFlowGapReportJsonPath) : undefined,
+            expectedFlowGapReportMd: analysisAuditEnabled ? toRelative(layout.rootDir, layout.expectedFlowGapReportMarkdownPath) : undefined,
+            officialCoverageForLlmFilteringJson: analysisAuditEnabled ? toRelative(layout.rootDir, layout.officialCoverageForLlmFilteringJsonPath) : undefined,
         },
     };
     fs.writeFileSync(layout.runJsonPath, JSON.stringify(payload, null, 2), "utf-8");
@@ -112,6 +170,7 @@ export function writeAnalyzeFailureRunManifest(
         repo?: string;
         profile?: string;
         reportMode?: string;
+        flowMode?: string;
     },
 ): void {
     const payload = {
@@ -121,6 +180,7 @@ export function writeAnalyzeFailureRunManifest(
         repo: options.repo,
         profile: options.profile,
         reportMode: options.reportMode,
+        flowMode: options.flowMode || "postsolve",
         status: "failed",
         paths: {
             diagnosticsJson: toRelative(layout.rootDir, layout.diagnosticsJsonPath),

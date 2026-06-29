@@ -1,16 +1,14 @@
 import { Scene } from "../../../../../arkanalyzer/out/src/Scene";
-import { Pag } from "../../../../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
 import { ArkAssignStmt, ArkReturnStmt } from "../../../../../arkanalyzer/out/src/core/base/Stmt";
-import { ArkInstanceFieldRef } from "../../../../../arkanalyzer/out/src/core/base/Ref";
 import { ArkInstanceInvokeExpr, ArkStaticInvokeExpr } from "../../../../../arkanalyzer/out/src/core/base/Expr";
 import { Local } from "../../../../../arkanalyzer/out/src/core/base/Local";
 import { Constant } from "../../../../../arkanalyzer/out/src/core/base/Constant";
-import { Decorator } from "../../../../../arkanalyzer/out/src/core/base/Decorator";
 import { StringType } from "../../../../../arkanalyzer/out/src/core/base/Type";
 import {
     defineModule,
     type TaintModule,
 } from "../../../kernel/contracts/ModuleApi";
+import type { ModuleScannedInvoke } from "../../../kernel/contracts/ModuleContract";
 import type {
     AppStorageDynamicKeyWarning,
     AppStorageFieldEndpoint,
@@ -19,68 +17,60 @@ import type {
     BuildAppStorageSemanticModelArgs,
 } from "../../../kernel/contracts/AppStorageModuleProvider";
 import {
+    addMapSetValue,
     collectObjectNodeIdsFromValueInMethod,
     resolveHarmonyMethods,
 } from "../../../kernel/contracts/HarmonyModuleUtils";
+import {
+    isConsumableSemanticEndpointProjection,
+} from "../../../kernel/contracts/PagNodeResolution";
+import type { AssetEndpoint } from "../../../assets/schema";
+import type { SemanticEffectSite } from "../../../api/effects/SemanticEffectSite";
 import { createHandoffPropagationSession } from "../../../kernel/semantic_handoff/SemanticHandoffPropagation";
 import { HandoffEffect, createExactHandoffHandle } from "../../../kernel/semantic_handoff/SemanticHandoffTypes";
+
+type KeyedStorageUpdateStrength = "strong" | "weak";
+
+interface HarmonyKeyedStorageWriteApiOption {
+    canonicalApiIds: string[];
+    valueIndex: number;
+    updateStrength?: KeyedStorageUpdateStrength;
+}
 
 export interface HarmonyKeyedStorageSemanticsOptions {
     id?: string;
     description?: string;
-    storageClasses?: string[];
-    writeMethods?: Array<{ methodName: string; valueIndex: number }>;
-    readMethods?: string[];
-    killMethods?: string[];
-    propDecorators?: string[];
-    linkDecorators?: string[];
+    writeApis?: HarmonyKeyedStorageWriteApiOption[];
+    writeResultApis?: HarmonyKeyedStorageWriteApiOption[];
+    readCanonicalApiIds?: string[];
+    killCanonicalApiIds?: string[];
+    propDecoratorCanonicalApiIds?: string[];
+    linkDecoratorCanonicalApiIds?: string[];
 }
 
 const DEFAULT_APPSTORAGE_OPTIONS: Required<HarmonyKeyedStorageSemanticsOptions> = {
     id: "harmony.appstorage",
     description: "Built-in Harmony AppStorage/LocalStorage/PersistentStorage semantics.",
-    storageClasses: [
-        "AppStorage",
-        "LocalStorage",
-        "PersistentStorage",
-    ],
-    writeMethods: [
-        { methodName: "set", valueIndex: 1 },
-        { methodName: "setOrCreate", valueIndex: 1 },
-        { methodName: "persistProp", valueIndex: 1 },
-    ],
-    readMethods: [
-        "get",
-        "prop",
-        "link",
-        "setOrCreate",
-    ],
-    killMethods: [
-        "delete",
-        "deleteSync",
-        "remove",
-        "removeSync",
-        "deleteKey",
-        "deleteItem",
-    ],
-    propDecorators: [
-        "StorageProp",
-        "LocalStorageProp",
-    ],
-    linkDecorators: [
-        "StorageLink",
-        "LocalStorageLink",
-    ],
+    writeApis: [],
+    writeResultApis: [],
+    readCanonicalApiIds: [],
+    killCanonicalApiIds: [],
+    propDecoratorCanonicalApiIds: [],
+    linkDecoratorCanonicalApiIds: [],
 };
 
+interface RuntimeWriteApiSpec {
+    valueIndex: number;
+    updateStrength?: KeyedStorageUpdateStrength;
+}
+
 interface BuildAppStorageInternalOptions {
-    storageApiClasses: Set<string>;
-    writeMethodsByName: Map<string, number>;
-    readMethodNames: Set<string>;
-    killMethodNames: Set<string>;
-    propDecoratorKinds: Set<string>;
-    linkDecoratorKinds: Set<string>;
-    storageDecoratorKinds: Set<string>;
+    writeSpecByCanonicalApiId: Map<string, RuntimeWriteApiSpec>;
+    writeResultSpecByCanonicalApiId: Map<string, RuntimeWriteApiSpec>;
+    readCanonicalApiIds: Set<string>;
+    killCanonicalApiIds: Set<string>;
+    propDecoratorCanonicalApiIds: Set<string>;
+    linkDecoratorCanonicalApiIds: Set<string>;
 }
 
 export function createHarmonyKeyedStorageSemanticModule(
@@ -89,33 +79,28 @@ export function createHarmonyKeyedStorageSemanticModule(
     const resolved = {
         ...DEFAULT_APPSTORAGE_OPTIONS,
         ...options,
-        storageClasses: options.storageClasses && options.storageClasses.length > 0
-            ? [...options.storageClasses]
-            : [...DEFAULT_APPSTORAGE_OPTIONS.storageClasses],
-        writeMethods: options.writeMethods && options.writeMethods.length > 0
-            ? options.writeMethods.map(item => ({ ...item }))
-            : DEFAULT_APPSTORAGE_OPTIONS.writeMethods.map(item => ({ ...item })),
-        readMethods: options.readMethods && options.readMethods.length > 0
-            ? [...options.readMethods]
-            : [...DEFAULT_APPSTORAGE_OPTIONS.readMethods],
-        killMethods: options.killMethods && options.killMethods.length > 0
-            ? [...options.killMethods]
-            : [...DEFAULT_APPSTORAGE_OPTIONS.killMethods],
-        propDecorators: options.propDecorators && options.propDecorators.length > 0
-            ? [...options.propDecorators]
-            : [...DEFAULT_APPSTORAGE_OPTIONS.propDecorators],
-        linkDecorators: options.linkDecorators && options.linkDecorators.length > 0
-            ? [...options.linkDecorators]
-            : [...DEFAULT_APPSTORAGE_OPTIONS.linkDecorators],
+        writeApis: normalizeWriteApiOptions(options.writeApis, DEFAULT_APPSTORAGE_OPTIONS.writeApis),
+        writeResultApis: normalizeWriteApiOptions(options.writeResultApis, DEFAULT_APPSTORAGE_OPTIONS.writeResultApis),
+        readCanonicalApiIds: options.readCanonicalApiIds && options.readCanonicalApiIds.length > 0
+            ? [...options.readCanonicalApiIds]
+            : [],
+        killCanonicalApiIds: options.killCanonicalApiIds && options.killCanonicalApiIds.length > 0
+            ? [...options.killCanonicalApiIds]
+            : [],
+        propDecoratorCanonicalApiIds: options.propDecoratorCanonicalApiIds && options.propDecoratorCanonicalApiIds.length > 0
+            ? [...options.propDecoratorCanonicalApiIds]
+            : [...DEFAULT_APPSTORAGE_OPTIONS.propDecoratorCanonicalApiIds],
+        linkDecoratorCanonicalApiIds: options.linkDecoratorCanonicalApiIds && options.linkDecoratorCanonicalApiIds.length > 0
+            ? [...options.linkDecoratorCanonicalApiIds]
+            : [...DEFAULT_APPSTORAGE_OPTIONS.linkDecoratorCanonicalApiIds],
     };
     const internalOptions: BuildAppStorageInternalOptions = {
-        storageApiClasses: new Set(resolved.storageClasses),
-        writeMethodsByName: new Map(resolved.writeMethods.map(item => [item.methodName, item.valueIndex])),
-        readMethodNames: new Set(resolved.readMethods),
-        killMethodNames: new Set(resolved.killMethods),
-        propDecoratorKinds: new Set(resolved.propDecorators),
-        linkDecoratorKinds: new Set(resolved.linkDecorators),
-        storageDecoratorKinds: new Set([...resolved.propDecorators, ...resolved.linkDecorators]),
+        writeSpecByCanonicalApiId: writeSpecMap(resolved.writeApis),
+        writeResultSpecByCanonicalApiId: writeSpecMap(resolved.writeResultApis),
+        readCanonicalApiIds: new Set(resolved.readCanonicalApiIds),
+        killCanonicalApiIds: new Set(resolved.killCanonicalApiIds),
+        propDecoratorCanonicalApiIds: new Set(resolved.propDecoratorCanonicalApiIds),
+        linkDecoratorCanonicalApiIds: new Set(resolved.linkDecoratorCanonicalApiIds),
     };
 
     return defineModule({
@@ -129,14 +114,28 @@ export function createHarmonyKeyedStorageSemanticModule(
                 analysis: ctx.analysis,
                 scan: ctx.scan,
             }, internalOptions);
-            const handoff = createHandoffPropagationSession(buildAppStorageHandoffEffects(model));
+            const handoff = createHandoffPropagationSession(buildAppStorageHandoffEffects(model), {
+                currentnessAnalysis: ctx.raw.currentnessAnalysis,
+            });
 
             if (model.dynamicKeyWarnings.length > 0) {
                 ctx.log(`[Harmony-AppStorage] dynamic key warnings=${model.dynamicKeyWarnings.length} (only constant-ish keys are modeled).`);
             }
             ctx.debug.summary("Harmony-AppStorage", {
+                decorator_occurrences: ctx.raw.canonicalDecoratorOccurrences?.length || 0,
+                requested_prop_decorator_ids: resolved.propDecoratorCanonicalApiIds.length,
+                requested_link_decorator_ids: resolved.linkDecoratorCanonicalApiIds.length,
                 write_keys: model.writeNodeIdsByKey.size + model.writeFieldNodeIdsByKey.size,
                 read_keys: model.readNodeIdsByKey.size + model.readFieldNodeIdsByKey.size,
+                write_field_endpoint_keys: model.writeFieldEndpointsByKey.size,
+                read_field_endpoint_keys: model.readFieldEndpointsByKey.size,
+                prop_decorator_fields: model.debug?.propDecoratorStats?.fields || 0,
+                prop_decorator_keyed_fields: model.debug?.propDecoratorStats?.keyedFields || 0,
+                prop_decorator_loads: model.debug?.propDecoratorStats?.loads || 0,
+                prop_decorator_read_nodes: model.debug?.propDecoratorStats?.readNodes || 0,
+                prop_decorator_read_endpoints: model.debug?.propDecoratorStats?.readEndpoints || 0,
+                link_decorator_fields: model.debug?.linkDecoratorStats?.fields || 0,
+                link_decorator_keyed_fields: model.debug?.linkDecoratorStats?.keyedFields || 0,
                 dynamic_key_warnings: model.dynamicKeyWarnings.length,
             });
 
@@ -147,6 +146,34 @@ export function createHarmonyKeyedStorageSemanticModule(
             };
         },
     });
+}
+
+function normalizeWriteApiOptions(
+    value: HarmonyKeyedStorageWriteApiOption[] | undefined,
+    fallback: HarmonyKeyedStorageWriteApiOption[],
+): HarmonyKeyedStorageWriteApiOption[] {
+    const source = value && value.length > 0 ? value : fallback;
+    return source.map(item => ({
+        valueIndex: item.valueIndex,
+        canonicalApiIds: [...new Set(item.canonicalApiIds || [])].sort((left, right) => left.localeCompare(right)),
+        ...(item.updateStrength === "strong" || item.updateStrength === "weak"
+            ? { updateStrength: item.updateStrength }
+            : {}),
+    }));
+}
+
+function writeSpecMap(items: HarmonyKeyedStorageWriteApiOption[]): Map<string, RuntimeWriteApiSpec> {
+    return new Map(items.flatMap(item =>
+        item.canonicalApiIds.map(canonicalApiId => [canonicalApiId, {
+            valueIndex: item.valueIndex,
+            ...(item.updateStrength ? { updateStrength: item.updateStrength } : {}),
+        }] as [string, RuntimeWriteApiSpec]),
+    ));
+}
+
+function uniqueStrings(values: readonly string[]): string[] {
+    return [...new Set(values.map(item => String(item || "").trim()).filter(Boolean))]
+        .sort((left, right) => left.localeCompare(right));
 }
 
 export const harmonyAppStorageSemanticModule = createHarmonyKeyedStorageSemanticModule();
@@ -166,18 +193,22 @@ function buildAppStorageHandoffEffects(model: AppStorageModel): HandoffEffect[] 
     for (const [key, operations] of model.writeOperationsByKey.entries()) {
         for (const op of operations) {
             const handle = createExactHandoffHandle(APPSTORAGE_CELL_KIND, APPSTORAGE_HANDOFF_FAMILY, key);
+            const sequence = appStorageOperationSequence(op);
+            const updateStrength = op.updateStrength || "strong";
             sequencedWriteNodes.add(`${key}#${op.nodeId}`);
-            effects.push({
-                kind: "kill",
-                handle,
-                reason: "AppStorage-Write",
-                originModel: "harmony.appstorage",
-                programPoint: appStorageProgramPoint(op),
-                flowScope: op.methodSignature,
-                sequence: op.stmtIndex * 10,
-                updateStrength: "strong",
-                confidence: "certain",
-            });
+            if (updateStrength !== "weak") {
+                effects.push({
+                    kind: "kill",
+                    handle,
+                    reason: "AppStorage-Write",
+                    originModel: "harmony.appstorage",
+                    programPoint: appStorageProgramPoint(op),
+                    flowScope: op.methodSignature,
+                    sequence,
+                    updateStrength: "strong",
+                    confidence: "certain",
+                });
+            }
             effects.push({
                 kind: "put",
                 handle,
@@ -186,8 +217,8 @@ function buildAppStorageHandoffEffects(model: AppStorageModel): HandoffEffect[] 
                 originModel: "harmony.appstorage",
                 programPoint: appStorageProgramPoint(op),
                 flowScope: op.methodSignature,
-                sequence: op.stmtIndex * 10 + 1,
-                updateStrength: "strong",
+                sequence: sequence + 1,
+                updateStrength,
                 confidence: "certain",
             });
         }
@@ -273,7 +304,7 @@ function buildAppStorageHandoffEffects(model: AppStorageModel): HandoffEffect[] 
                 originModel: "harmony.appstorage",
                 programPoint: appStorageProgramPoint(op),
                 flowScope: op.methodSignature,
-                sequence: op.stmtIndex * 10,
+                sequence: appStorageOperationSequence(op),
                 updateStrength: "strong",
                 confidence: "certain",
             });
@@ -324,11 +355,8 @@ function appStorageProgramPoint(op: AppStorageNodeOperation): string {
     return `${op.methodSignature}#${op.stmtIndex}:${op.callSignature || op.apiName}`;
 }
 
-interface DecoratedStorageFieldInfo {
-    key: string;
-    fieldName: string;
-    fieldSignature: string;
-    decoratorKind: string;
+function appStorageOperationSequence(op: AppStorageNodeOperation): number {
+    return op.stmtIndex * 10 + (op.sequenceOffset || 0);
 }
 
 interface StorageKeyToken {
@@ -340,16 +368,12 @@ interface StorageKeyToken {
 export function buildAppStorageModel(
     args: BuildAppStorageModelArgs,
     options: BuildAppStorageInternalOptions = {
-        storageApiClasses: new Set(DEFAULT_APPSTORAGE_OPTIONS.storageClasses),
-        writeMethodsByName: new Map(DEFAULT_APPSTORAGE_OPTIONS.writeMethods.map(item => [item.methodName, item.valueIndex])),
-        readMethodNames: new Set(DEFAULT_APPSTORAGE_OPTIONS.readMethods),
-        killMethodNames: new Set(DEFAULT_APPSTORAGE_OPTIONS.killMethods),
-        propDecoratorKinds: new Set(DEFAULT_APPSTORAGE_OPTIONS.propDecorators),
-        linkDecoratorKinds: new Set(DEFAULT_APPSTORAGE_OPTIONS.linkDecorators),
-        storageDecoratorKinds: new Set([
-            ...DEFAULT_APPSTORAGE_OPTIONS.propDecorators,
-            ...DEFAULT_APPSTORAGE_OPTIONS.linkDecorators,
-        ]),
+        writeSpecByCanonicalApiId: new Map(),
+        writeResultSpecByCanonicalApiId: new Map(),
+        readCanonicalApiIds: new Set(),
+        killCanonicalApiIds: new Set(),
+        propDecoratorCanonicalApiIds: new Set(),
+        linkDecoratorCanonicalApiIds: new Set(),
     },
 ): AppStorageModel {
     const writeNodeIdsByKey = new Map<string, Set<number>>();
@@ -365,16 +389,23 @@ export function buildAppStorageModel(
     const warningByKey = new Map<string, AppStorageDynamicKeyWarning>();
 
     const methods = resolveHarmonyMethods(args.scene, args.allowedMethodSignatures);
-    const decoratedFieldsBySignature = collectDecoratedStorageFieldsBySignature(
-        args.scene,
-        options.storageDecoratorKinds,
-    );
-    const fieldEndpointByKey = new Map<string, Set<string>>();
-    const writeFieldEndpointByKey = new Map<string, Set<string>>();
-
+    const methodBySignature = new Map<string, any>();
+    const stmtIndexByStmt = new WeakMap<object, number>();
+    for (const method of methods) {
+        const methodSignature = method.getSignature?.()?.toString?.() || "";
+        if (methodSignature) methodBySignature.set(methodSignature, method);
+        const cfg = method.getCfg?.();
+        if (!cfg) continue;
+        const stmts = cfg.getStmts?.() || [];
+        for (let stmtIndex = 0; stmtIndex < stmts.length; stmtIndex++) {
+            const stmt = stmts[stmtIndex];
+            if (stmt && (typeof stmt === "object" || typeof stmt === "function")) {
+                stmtIndexByStmt.set(stmt, stmtIndex);
+            }
+        }
+    }
     const addWriteNodeId = (key: string, nodeId: number): void => {
-        if (!writeNodeIdsByKey.has(key)) writeNodeIdsByKey.set(key, new Set<number>());
-        writeNodeIdsByKey.get(key)!.add(nodeId);
+        addMapSetValue(writeNodeIdsByKey, key, nodeId);
     };
     const addWriteOperation = (key: string, operation: AppStorageNodeOperation): void => {
         if (!writeOperationsByKey.has(key)) writeOperationsByKey.set(key, []);
@@ -385,8 +416,7 @@ export function buildAppStorageModel(
         cleanOverwriteOperationsByKey.get(key)!.push(operation);
     };
     const addReadNodeId = (key: string, nodeId: number): void => {
-        if (!readNodeIdsByKey.has(key)) readNodeIdsByKey.set(key, new Set<number>());
-        readNodeIdsByKey.get(key)!.add(nodeId);
+        addMapSetValue(readNodeIdsByKey, key, nodeId);
     };
     const addReadOperation = (key: string, operation: AppStorageNodeOperation): void => {
         if (!readOperationsByKey.has(key)) readOperationsByKey.set(key, []);
@@ -396,178 +426,164 @@ export function buildAppStorageModel(
         if (!killOperationsByKey.has(key)) killOperationsByKey.set(key, []);
         killOperationsByKey.get(key)!.push(operation);
     };
-    const addWriteFieldNodeId = (key: string, nodeId: number): void => {
-        if (!writeFieldNodeIdsByKey.has(key)) writeFieldNodeIdsByKey.set(key, new Set<number>());
-        writeFieldNodeIdsByKey.get(key)!.add(nodeId);
-    };
-    const addWriteFieldEndpoint = (key: string, endpoint: AppStorageFieldEndpoint): void => {
-        if (!writeFieldEndpointsByKey.has(key)) writeFieldEndpointsByKey.set(key, []);
-        const list = writeFieldEndpointsByKey.get(key)!;
-        const endpointKey = `${endpoint.objectNodeId}#${endpoint.fieldName}`;
-        let dedupSet = writeFieldEndpointByKey.get(key);
-        if (!dedupSet) {
-            dedupSet = new Set<string>();
-            writeFieldEndpointByKey.set(key, dedupSet);
-        }
-        if (dedupSet.has(endpointKey)) return;
-        dedupSet.add(endpointKey);
-        list.push(endpoint);
-    };
-    const addFieldEndpoint = (key: string, endpoint: AppStorageFieldEndpoint): void => {
-        if (!readFieldEndpointsByKey.has(key)) readFieldEndpointsByKey.set(key, []);
-        const list = readFieldEndpointsByKey.get(key)!;
-        const endpointKey = `${endpoint.objectNodeId}#${endpoint.fieldName}`;
-        let dedupSet = fieldEndpointByKey.get(key);
-        if (!dedupSet) {
-            dedupSet = new Set<string>();
-            fieldEndpointByKey.set(key, dedupSet);
-        }
-        if (dedupSet.has(endpointKey)) return;
-        dedupSet.add(endpointKey);
-        list.push(endpoint);
-    };
-    const addFieldNodeId = (key: string, fieldNodeId: number): void => {
-        if (!readFieldNodeIdsByKey.has(key)) readFieldNodeIdsByKey.set(key, new Set<number>());
-        readFieldNodeIdsByKey.get(key)!.add(fieldNodeId);
-    };
     const addDynamicKeyWarning = (warning: AppStorageDynamicKeyWarning): void => {
         const k = `${warning.methodSignature}|${warning.callSignature}|${warning.keyExprText}`;
         if (warningByKey.has(k)) return;
         warningByKey.set(k, warning);
     };
 
-    for (const method of methods) {
-        const ownerClassName = method.getDeclaringArkClass?.()?.getName?.() || "";
-        if (options.storageApiClasses.has(ownerClassName)) {
+    const storageCanonicalApiIds = new Set<string>([
+        ...options.writeSpecByCanonicalApiId.keys(),
+        ...options.writeResultSpecByCanonicalApiId.keys(),
+        ...options.readCanonicalApiIds,
+        ...options.killCanonicalApiIds,
+    ]);
+    const storageCalls = storageCanonicalApiIds.size > 0
+        ? args.scan.invokes({ canonicalApiIds: [...storageCanonicalApiIds] })
+        : [];
+    for (const call of storageCalls) {
+        const canonicalApiId = call.call.canonicalApiId || "";
+        if (!canonicalApiId) continue;
+        const methodSignature = call.ownerMethodSignature;
+        const ownerMethod = methodBySignature.get(methodSignature);
+        if (!ownerMethod) continue;
+        const stmt = call.stmt;
+        const stmtIndex = stmt && (typeof stmt === "object" || typeof stmt === "function")
+            ? (stmtIndexByStmt.get(stmt) ?? 0)
+            : 0;
+        const invokeExpr = call.invokeExpr;
+        const className = call.call.declaringClassName || "Storage";
+        const apiName = call.call.methodName;
+        const callSignature = call.call.signature;
+        const invokeArgs = call.args();
+        if (invokeArgs.length === 0) continue;
+
+        const keyArg = invokeArgs[0];
+        const keyToken = resolveStorageKeyToken(args, methodSignature, keyArg);
+        if (!keyToken) {
+            addDynamicKeyWarning({
+                methodSignature,
+                callSignature,
+                apiName,
+                keyExprText: keyArg?.toString?.() || "<unknown>",
+            });
             continue;
         }
-        const methodSignature = method.getSignature().toString();
-        const cfg = method.getCfg();
-        if (!cfg) continue;
+        const scopedKeys = buildScopedStorageKeys(
+            resolveStorageScopeTokens(args, ownerMethod, stmt, invokeExpr, className),
+            keyToken.keys,
+        );
+        if (keyToken.dynamic) {
+            addDynamicKeyWarning({
+                methodSignature,
+                callSignature,
+                apiName,
+                keyExprText: keyToken.keyExprText,
+            });
+        }
 
-        const stmts = cfg.getStmts();
-        for (let stmtIndex = 0; stmtIndex < stmts.length; stmtIndex++) {
-            const stmt = stmts[stmtIndex];
-            if (!stmt.containsInvokeExpr || !stmt.containsInvokeExpr()) continue;
-            const invokeExpr = stmt.getInvokeExpr();
-            if (!(invokeExpr instanceof ArkStaticInvokeExpr || invokeExpr instanceof ArkInstanceInvokeExpr)) {
-                continue;
-            }
+        const writeSpec = options.writeSpecByCanonicalApiId.get(canonicalApiId);
+        if (writeSpec) {
+            processKeyedStorageWriteSpec({
+                args,
+                call,
+                scopedKeys,
+                spec: writeSpec,
+                methodSignature,
+                stmtIndex,
+                callSignature,
+                apiName,
+                invokeArgs,
+                addWriteNodeId,
+                addWriteOperation,
+                addCleanOverwriteOperation,
+            });
+        }
 
-            const methodSig = invokeExpr.getMethodSignature?.();
-            const className = methodSig?.getDeclaringClassSignature?.()?.getClassName?.() || "";
-            if (!options.storageApiClasses.has(className)) {
-                continue;
-            }
-            const apiName = methodSig?.getMethodSubSignature?.()?.getMethodName?.() || "";
-            const callSignature = methodSig?.toString?.() || "";
-            const invokeArgs = invokeExpr.getArgs ? invokeExpr.getArgs() : [];
-            if (invokeArgs.length === 0) continue;
-
-            const keyArg = invokeArgs[0];
-            const keyToken = resolveStorageKeyToken(args, methodSignature, keyArg);
-            if (!keyToken) {
-                addDynamicKeyWarning({
-                    methodSignature,
-                    callSignature,
-                    apiName,
-                    keyExprText: keyArg?.toString?.() || "<unknown>",
-                });
-                continue;
-            }
-            const scopedKeys = buildScopedStorageKeys(
-                resolveStorageScopeTokens(args, method, stmt, invokeExpr, className),
-                keyToken.keys,
-            );
-            if (keyToken.dynamic) {
-                addDynamicKeyWarning({
-                    methodSignature,
-                    callSignature,
-                    apiName,
-                    keyExprText: keyToken.keyExprText,
-                });
-            }
-
-            const writeValueIndex = options.writeMethodsByName.get(apiName);
-            if (writeValueIndex !== undefined) {
-                if (invokeArgs.length > writeValueIndex) {
-                    const valueArg = invokeArgs[writeValueIndex];
-                    const writeNodeIds = collectPagNodeIdsByValue(args.pag, valueArg);
-                    if (writeNodeIds.length > 0) {
-                        for (const key of scopedKeys) {
-                            for (const nodeId of writeNodeIds) {
-                                addWriteNodeId(key, nodeId);
-                                addWriteOperation(key, {
-                                    nodeId,
-                                    methodSignature,
-                                    stmtIndex,
-                                    callSignature,
-                                    apiName,
-                                });
-                            }
-                        }
-                    } else if (isCleanStorageOverwriteValue(valueArg)) {
-                        for (const key of scopedKeys) {
-                            addCleanOverwriteOperation(key, {
-                                nodeId: -1,
-                                methodSignature,
-                                stmtIndex,
-                                callSignature,
-                                apiName,
-                            });
-                        }
-                    }
-                }
-            }
-
-            if (options.readMethodNames.has(apiName)) {
-                if (stmt instanceof ArkAssignStmt) {
-                    const leftOp = stmt.getLeftOp();
-                    const readNodeIds = collectPagNodeIdsByValue(args.pag, leftOp);
-                    for (const key of scopedKeys) {
-                        for (const nodeId of readNodeIds) {
-                            addReadNodeId(key, nodeId);
-                            addReadOperation(key, {
-                                nodeId,
-                                methodSignature,
-                                stmtIndex,
-                                callSignature,
-                                apiName,
-                            });
-                        }
-                    }
-                }
-            }
-
-            if (options.killMethodNames.has(apiName)) {
+        const writeResultSpec = options.writeResultSpecByCanonicalApiId.get(canonicalApiId);
+        if (writeResultSpec) {
+            processKeyedStorageWriteSpec({
+                args,
+                call,
+                scopedKeys,
+                spec: writeResultSpec,
+                methodSignature,
+                stmtIndex,
+                callSignature,
+                apiName,
+                invokeArgs,
+                addWriteNodeId,
+                addWriteOperation,
+                addCleanOverwriteOperation,
+            });
+            if (stmt instanceof ArkAssignStmt) {
+                const readNodeIds = collectConsumableCallEndpointNodeIds(args, call, endpointReturnMatcher, { base: { kind: "return" } });
                 for (const key of scopedKeys) {
-                    addKillOperation(key, {
-                        nodeId: -1,
-                        methodSignature,
-                        stmtIndex,
-                        callSignature,
-                        apiName,
-                    });
+                    for (const nodeId of readNodeIds) {
+                        addReadNodeId(key, nodeId);
+                        addReadOperation(key, {
+                            nodeId,
+                            methodSignature,
+                            stmtIndex,
+                            callSignature,
+                            apiName,
+                            sequenceOffset: 2,
+                        });
+                    }
                 }
             }
         }
 
-        if (decoratedFieldsBySignature.size > 0) {
-            for (const stmt of cfg.getStmts()) {
-                if (!(stmt instanceof ArkAssignStmt)) continue;
-                const left = stmt.getLeftOp();
-                const right = stmt.getRightOp();
-                if (left instanceof ArkInstanceFieldRef) {
-                    collectDecoratorFieldEndpoints(method, left, decoratedFieldsBySignature, args.pag, addFieldEndpoint, addFieldNodeId);
-                    collectDecoratorFieldWriteSourceNodes(left, right, decoratedFieldsBySignature, options.linkDecoratorKinds, args.pag, addWriteNodeId);
-                    collectDecoratorFieldWrites(method, left, decoratedFieldsBySignature, options.linkDecoratorKinds, args.pag, addWriteFieldNodeId, addWriteFieldEndpoint);
+        if (options.readCanonicalApiIds.has(canonicalApiId)) {
+            if (stmt instanceof ArkAssignStmt) {
+                const readNodeIds = collectConsumableCallEndpointNodeIds(args, call, endpointReturnMatcher, { base: { kind: "return" } });
+                for (const key of scopedKeys) {
+                    for (const nodeId of readNodeIds) {
+                        addReadNodeId(key, nodeId);
+                        addReadOperation(key, {
+                            nodeId,
+                            methodSignature,
+                            stmtIndex,
+                            callSignature,
+                            apiName,
+                        });
+                    }
                 }
-                if (right instanceof ArkInstanceFieldRef) {
-                    collectDecoratorFieldEndpoints(method, right, decoratedFieldsBySignature, args.pag, addFieldEndpoint, addFieldNodeId);
-                }
+            }
+        }
+
+        if (options.killCanonicalApiIds.has(canonicalApiId)) {
+            if (!hasResolvedCallEndpointValue(args, call, endpointArgMatcher(0), { base: { kind: "arg", index: 0 } })) {
+                continue;
+            }
+            for (const key of scopedKeys) {
+                addKillOperation(key, {
+                    nodeId: -1,
+                    methodSignature,
+                    stmtIndex,
+                    callSignature,
+                    apiName,
+                });
             }
         }
     }
+
+    const propDecoratorStats = collectDecoratedStorageFields({
+        args,
+        methodBySignature,
+        decoratorCanonicalApiIds: options.propDecoratorCanonicalApiIds,
+        addReadNodeId: (key, nodeId) => addMapSetValue(readFieldNodeIdsByKey, key, nodeId),
+        addReadEndpoint: (key, endpoint) => addUniqueFieldEndpoint(readFieldEndpointsByKey, key, endpoint),
+    });
+    const linkDecoratorStats = collectDecoratedStorageFields({
+        args,
+        methodBySignature,
+        decoratorCanonicalApiIds: options.linkDecoratorCanonicalApiIds,
+        addReadNodeId: (key, nodeId) => addMapSetValue(readFieldNodeIdsByKey, key, nodeId),
+        addReadEndpoint: (key, endpoint) => addUniqueFieldEndpoint(readFieldEndpointsByKey, key, endpoint),
+        addWriteNodeId: (key, nodeId) => addMapSetValue(writeFieldNodeIdsByKey, key, nodeId),
+        addWriteEndpoint: (key, endpoint) => addUniqueFieldEndpoint(writeFieldEndpointsByKey, key, endpoint),
+    });
 
     return {
         writeNodeIdsByKey,
@@ -581,7 +597,274 @@ export function buildAppStorageModel(
         readFieldEndpointsByKey,
         readFieldNodeIdsByKey,
         dynamicKeyWarnings: [...warningByKey.values()],
+        debug: {
+            propDecoratorStats,
+            linkDecoratorStats,
+        },
     };
+}
+
+function processKeyedStorageWriteSpec(input: {
+    args: BuildAppStorageModelArgs;
+    call: ModuleScannedInvoke;
+    scopedKeys: string[];
+    spec: RuntimeWriteApiSpec;
+    methodSignature: string;
+    stmtIndex: number;
+    callSignature: string;
+    apiName: string;
+    invokeArgs: any[];
+    addWriteNodeId: (key: string, nodeId: number) => void;
+    addWriteOperation: (key: string, operation: AppStorageNodeOperation) => void;
+    addCleanOverwriteOperation: (key: string, operation: AppStorageNodeOperation) => void;
+}): void {
+    const { spec, invokeArgs } = input;
+    if (invokeArgs.length <= spec.valueIndex) return;
+    const valueArg = invokeArgs[spec.valueIndex];
+    const updateStrength = spec.updateStrength || "strong";
+    const valueEndpoint: AssetEndpoint = { base: { kind: "arg", index: spec.valueIndex } };
+    const writeNodeIds = collectConsumableCallEndpointNodeIds(input.args, input.call, endpointArgMatcher(spec.valueIndex), valueEndpoint);
+    if (writeNodeIds.length > 0) {
+        for (const key of input.scopedKeys) {
+            for (const nodeId of writeNodeIds) {
+                input.addWriteNodeId(key, nodeId);
+                input.addWriteOperation(key, {
+                    nodeId,
+                    methodSignature: input.methodSignature,
+                    stmtIndex: input.stmtIndex,
+                    callSignature: input.callSignature,
+                    apiName: input.apiName,
+                    updateStrength,
+                });
+            }
+        }
+        return;
+    }
+    if (
+        updateStrength !== "weak"
+        && isCleanStorageOverwriteValue(valueArg)
+        && hasResolvedCallEndpointValue(input.args, input.call, endpointArgMatcher(spec.valueIndex), valueEndpoint)
+    ) {
+        for (const key of input.scopedKeys) {
+            input.addCleanOverwriteOperation(key, {
+                nodeId: -1,
+                methodSignature: input.methodSignature,
+                stmtIndex: input.stmtIndex,
+                callSignature: input.callSignature,
+                apiName: input.apiName,
+                updateStrength,
+            });
+        }
+    }
+}
+
+function endpointArgMatcher(index: number): (endpointSpec: any) => boolean {
+    return (endpointSpec: any): boolean => {
+        const base = endpointSpec?.base;
+        return base?.kind === "arg" && Number(base.index) === index;
+    };
+}
+
+function endpointReturnMatcher(endpointSpec: any): boolean {
+    const base = endpointSpec?.base;
+    return base?.kind === "return" || base?.kind === "constructorResult";
+}
+
+function collectConsumableCallEndpointNodeIds(
+    args: BuildAppStorageModelArgs,
+    call: ModuleScannedInvoke,
+    matchesEndpoint: (endpointSpec: any) => boolean,
+    declaredEndpoint?: AssetEndpoint,
+): number[] {
+    const out = new Set<number>();
+    for (const semanticSite of moduleEndpointSites(call, matchesEndpoint, declaredEndpoint)) {
+        const projection = args.analysis.projectEndpoint({
+            semanticSite,
+            endpointSpec: semanticSite.endpointSpec,
+            stmt: call.stmt,
+            invokeExpr: call.invokeExpr,
+        });
+        if (!isConsumableSemanticEndpointProjection(projection)) continue;
+        for (const nodeId of projection.nodeIds || []) out.add(nodeId);
+        for (const nodeId of projection.carrierNodeIds || []) out.add(nodeId);
+    }
+    return [...out.values()];
+}
+
+function hasResolvedCallEndpointValue(
+    args: BuildAppStorageModelArgs,
+    call: ModuleScannedInvoke,
+    matchesEndpoint: (endpointSpec: any) => boolean,
+    declaredEndpoint?: AssetEndpoint,
+): boolean {
+    for (const semanticSite of moduleEndpointSites(call, matchesEndpoint, declaredEndpoint)) {
+        const projection = args.analysis.projectEndpoint({
+            semanticSite,
+            endpointSpec: semanticSite.endpointSpec,
+            stmt: call.stmt,
+            invokeExpr: call.invokeExpr,
+        });
+        if (isConsumableSemanticEndpointProjection(projection)) {
+            return true;
+        }
+        if (projection.status !== "asset_endpoint_error" && projection.values.length > 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function moduleEndpointSites(
+    call: ModuleScannedInvoke,
+    matchesEndpoint: (endpointSpec: any) => boolean,
+    declaredEndpoint?: AssetEndpoint,
+): SemanticEffectSite[] {
+    const existing = (call.call.semanticEffectSites || [])
+        .filter(semanticSite => semanticSite.capability === "module" && matchesEndpoint(semanticSite.endpointSpec));
+    if (existing.length > 0) return existing;
+    if (!declaredEndpoint || !matchesEndpoint(declaredEndpoint)) return [];
+    return [declaredModuleEndpointSite(call, declaredEndpoint)];
+}
+
+function declaredModuleEndpointSite(call: ModuleScannedInvoke, endpoint: AssetEndpoint): SemanticEffectSite {
+    const endpointKey = JSON.stringify(endpoint);
+    return {
+        effectSiteId: `declared-module-endpoint:${call.call.occurrenceId}:${endpointKey}`,
+        occurrenceId: call.call.occurrenceId,
+        rawOccurrenceId: call.call.rawOccurrenceId,
+        canonicalApiId: call.call.canonicalApiId,
+        capability: "module",
+        effectAssetId: "declared-module-endpoint",
+        endpointSpec: endpoint,
+        endpointBindingRef: "declared",
+    };
+}
+
+function collectDecoratedStorageFields(input: {
+    args: BuildAppStorageModelArgs;
+    methodBySignature: Map<string, any>;
+    decoratorCanonicalApiIds: Set<string>;
+    addReadNodeId: (key: string, nodeId: number) => void;
+    addReadEndpoint: (key: string, endpoint: AppStorageFieldEndpoint) => void;
+    addWriteNodeId?: (key: string, nodeId: number) => void;
+    addWriteEndpoint?: (key: string, endpoint: AppStorageFieldEndpoint) => void;
+}): {
+    fields: number;
+    keyedFields: number;
+    loads: number;
+    stores: number;
+    readNodes: number;
+    readEndpoints: number;
+    writeNodes: number;
+    writeEndpoints: number;
+} {
+    const stats = {
+        fields: 0,
+        keyedFields: 0,
+        loads: 0,
+        stores: 0,
+        readNodes: 0,
+        readEndpoints: 0,
+        writeNodes: 0,
+        writeEndpoints: 0,
+    };
+    if (input.decoratorCanonicalApiIds.size === 0) return stats;
+    const fields = input.args.scan.decoratedFields({
+        decoratorCanonicalApiIds: [...input.decoratorCanonicalApiIds],
+    });
+    stats.fields = fields.length;
+    for (const field of fields) {
+        const keys = storageKeysFromDecoratedField(field, input.decoratorCanonicalApiIds);
+        if (keys.length === 0) continue;
+        stats.keyedFields += 1;
+        const fieldFilter = field.fieldSignature
+            ? { fieldSignature: field.fieldSignature }
+            : { declaringClassName: field.className, fieldName: field.fieldName };
+        for (const load of input.args.scan.fieldLoads(fieldFilter)) {
+            stats.loads += 1;
+            for (const nodeId of load.resultNodeIds()) {
+                for (const key of keys) {
+                    input.addReadNodeId(key, nodeId);
+                    stats.readNodes += 1;
+                }
+            }
+            const ownerMethod = input.methodBySignature.get(load.ownerMethodSignature);
+            const objectNodeIds = load.baseObjectNodeIds();
+            if (objectNodeIds.length === 0 && ownerMethod) {
+                for (const nodeId of collectObjectNodeIdsFromValueInMethod(input.args.pag, ownerMethod, load.base())) {
+                    objectNodeIds.push(nodeId);
+                }
+            }
+            for (const objectNodeId of objectNodeIds) {
+                for (const key of keys) {
+                    input.addReadEndpoint(key, { objectNodeId, fieldName: field.fieldName });
+                    stats.readEndpoints += 1;
+                }
+            }
+        }
+        if (!input.addWriteNodeId && !input.addWriteEndpoint) continue;
+        for (const store of input.args.scan.fieldStores(fieldFilter)) {
+            stats.stores += 1;
+            for (const nodeId of store.valueNodeIds()) {
+                for (const key of keys) {
+                    input.addWriteNodeId?.(key, nodeId);
+                    stats.writeNodes += 1;
+                }
+            }
+            const ownerMethod = input.methodBySignature.get(store.ownerMethodSignature);
+            const objectNodeIds = store.baseObjectNodeIds();
+            if (objectNodeIds.length === 0 && ownerMethod) {
+                for (const nodeId of collectObjectNodeIdsFromValueInMethod(input.args.pag, ownerMethod, store.base())) {
+                    objectNodeIds.push(nodeId);
+                }
+            }
+            for (const objectNodeId of objectNodeIds) {
+                for (const key of keys) {
+                    input.addWriteEndpoint?.(key, { objectNodeId, fieldName: field.fieldName });
+                    stats.writeEndpoints += 1;
+                }
+            }
+        }
+    }
+    return stats;
+}
+
+function storageKeysFromDecoratedField(
+    field: ReturnType<BuildAppStorageModelArgs["scan"]["decoratedFields"]>[number],
+    canonicalApiIds: Set<string>,
+): string[] {
+    const keys = new Set<string>();
+    for (const decorator of field.decorators()) {
+        if (!decorator.canonicalApiId || !canonicalApiIds.has(decorator.canonicalApiId)) continue;
+        for (const key of storageKeyCandidatesFromDecorator(decorator)) {
+            keys.add(key);
+        }
+    }
+    return [...keys.values()];
+}
+
+function storageKeyCandidatesFromDecorator(decorator: { param?: string; content?: string }): string[] {
+    const out = new Set<string>();
+    for (const raw of [decorator.param, decorator.content]) {
+        const normalized = normalizeStorageKey(raw || "");
+        if (normalized) out.add(normalized);
+        for (const quoted of extractQuotedStorageLiterals(raw || "")) {
+            out.add(quoted);
+        }
+    }
+    return [...out.values()];
+}
+
+function addUniqueFieldEndpoint(
+    map: Map<string, AppStorageFieldEndpoint[]>,
+    key: string,
+    endpoint: AppStorageFieldEndpoint,
+): void {
+    const endpoints = map.get(key) || [];
+    if (!endpoints.some(item => item.objectNodeId === endpoint.objectNodeId && item.fieldName === endpoint.fieldName)) {
+        endpoints.push(endpoint);
+    }
+    map.set(key, endpoints);
 }
 
 function buildScopedStorageKeys(scopeTokens: string[], keys: string[]): string[] {
@@ -629,24 +912,6 @@ function resolveStorageScopeTokens(
     return [...scopeTokens].map(token => `${className}::${token}`);
 }
 
-
-function collectPagNodeIdsByValue(pag: Pag, value: any): number[] {
-    const result: number[] = [];
-    let nodes = pag.getNodesByValue(value);
-    if ((!nodes || nodes.size === 0) && value instanceof Local) {
-        try {
-            pag.getOrNewNode(0, value, value.getDeclaringStmt?.() || undefined);
-            nodes = pag.getNodesByValue(value);
-        } catch {
-            nodes = undefined;
-        }
-    }
-    if (!nodes || nodes.size === 0) return result;
-    for (const nodeId of nodes.values()) {
-        result.push(nodeId);
-    }
-    return result;
-}
 
 function isCleanStorageOverwriteValue(value: any): boolean {
     if (!value) return false;
@@ -1001,140 +1266,6 @@ function parseClosedQuotedText(text: string): string | undefined {
     }
     if (escaping) return undefined;
     return out;
-}
-
-function collectDecoratedStorageFieldsBySignature(
-    scene: Scene,
-    storageDecoratorKinds: Set<string>,
-): Map<string, DecoratedStorageFieldInfo[]> {
-    const out = new Map<string, DecoratedStorageFieldInfo[]>();
-    for (const cls of scene.getClasses()) {
-        for (const field of cls.getFields()) {
-            const decorators = field.getDecorators() || [];
-            if (decorators.length === 0) continue;
-            for (const decorator of decorators) {
-                if (!isStorageDecorator(decorator, storageDecoratorKinds)) continue;
-                const key = extractDecoratorStorageKey(decorator);
-                if (!key) continue;
-                const fieldSignature = field.getSignature()?.toString?.() || "";
-                if (!fieldSignature) continue;
-                if (!out.has(fieldSignature)) out.set(fieldSignature, []);
-                out.get(fieldSignature)!.push({
-                    key,
-                    fieldName: field.getName(),
-                    fieldSignature,
-                    decoratorKind: decorator.getKind?.() || "",
-                });
-            }
-        }
-    }
-    return out;
-}
-
-function isStorageDecorator(decorator: Decorator, storageDecoratorKinds: Set<string>): boolean {
-    return storageDecoratorKinds.has(decorator.getKind?.() || "");
-}
-
-function extractDecoratorStorageKey(decorator: Decorator): string | undefined {
-    const fromParam = normalizeStorageKey(decorator.getParam?.() || "");
-    if (fromParam) return fromParam;
-    const content = decorator.getContent?.() || "";
-    const m = content.match(/\(\s*['"`]([^'"`]+)['"`]\s*\)/);
-    if (!m) return undefined;
-    return normalizeStorageKey(m[1]);
-}
-
-function collectDecoratorFieldEndpoints(
-    method: any,
-    fieldRef: ArkInstanceFieldRef,
-    decoratedFieldsBySignature: Map<string, DecoratedStorageFieldInfo[]>,
-    pag: Pag,
-    addFieldEndpoint: (key: string, endpoint: AppStorageFieldEndpoint) => void,
-    addFieldNodeId: (key: string, fieldNodeId: number) => void
-): void {
-    const fieldSignature = fieldRef.getFieldSignature().toString();
-    const decorated = decoratedFieldsBySignature.get(fieldSignature);
-    if (!decorated || decorated.length === 0) return;
-
-    const fieldNodes = pag.getNodesByValue(fieldRef);
-    if (fieldNodes && fieldNodes.size > 0) {
-        for (const info of decorated) {
-            for (const fieldNodeId of fieldNodes.values()) {
-                addFieldNodeId(info.key, fieldNodeId);
-            }
-        }
-    }
-
-    const objectNodeIds = collectObjectNodeIdsFromValueInMethod(pag, method, fieldRef.getBase());
-    if (objectNodeIds.size === 0) return;
-
-    for (const info of decorated) {
-        for (const objectNodeId of objectNodeIds) {
-            addFieldEndpoint(info.key, {
-                objectNodeId,
-                fieldName: info.fieldName,
-            });
-        }
-    }
-}
-
-function collectDecoratorFieldWrites(
-    method: any,
-    fieldRef: ArkInstanceFieldRef,
-    decoratedFieldsBySignature: Map<string, DecoratedStorageFieldInfo[]>,
-    linkDecoratorKinds: Set<string>,
-    pag: Pag,
-    addWriteFieldNodeId: (key: string, nodeId: number) => void,
-    addWriteFieldEndpoint: (key: string, endpoint: AppStorageFieldEndpoint) => void
-): void {
-    const fieldSignature = fieldRef.getFieldSignature().toString();
-    const decorated = decoratedFieldsBySignature.get(fieldSignature);
-    if (!decorated || decorated.length === 0) return;
-
-    const linkDecorated = decorated.filter(info => linkDecoratorKinds.has(info.decoratorKind));
-    if (linkDecorated.length === 0) return;
-
-    const fieldNodes = pag.getNodesByValue(fieldRef);
-    if (!fieldNodes || fieldNodes.size === 0) return;
-    for (const info of linkDecorated) {
-        for (const nodeId of fieldNodes.values()) {
-            addWriteFieldNodeId(info.key, nodeId);
-        }
-    }
-
-    const objectNodeIds = collectObjectNodeIdsFromValueInMethod(pag, method, fieldRef.getBase());
-    if (objectNodeIds.size === 0) return;
-    for (const info of linkDecorated) {
-        for (const objectNodeId of objectNodeIds) {
-            addWriteFieldEndpoint(info.key, {
-                objectNodeId,
-                fieldName: info.fieldName,
-            });
-        }
-    }
-}
-
-function collectDecoratorFieldWriteSourceNodes(
-    leftFieldRef: ArkInstanceFieldRef,
-    rightValue: any,
-    decoratedFieldsBySignature: Map<string, DecoratedStorageFieldInfo[]>,
-    linkDecoratorKinds: Set<string>,
-    pag: Pag,
-    addWriteNodeId: (key: string, nodeId: number) => void
-): void {
-    const fieldSignature = leftFieldRef.getFieldSignature().toString();
-    const decorated = decoratedFieldsBySignature.get(fieldSignature);
-    if (!decorated || decorated.length === 0) return;
-    const linkDecorated = decorated.filter(info => linkDecoratorKinds.has(info.decoratorKind));
-    if (linkDecorated.length === 0) return;
-
-    const rightNodes = pag.getNodesByValue(rightValue);
-    if (!rightNodes || rightNodes.size === 0) return;
-    for (const info of linkDecorated) {
-        for (const nodeId of rightNodes.values()) {
-            addWriteNodeId(info.key, nodeId);
-        }
-    }
 }
 
 export default harmonyAppStorageModule;

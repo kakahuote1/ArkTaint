@@ -790,7 +790,7 @@ async function main(): Promise<void> {
                 kernelRulePath: path.resolve(mutation.rulePaths.kernelRule),
                 ruleCatalogPath: path.resolve(mutation.rulePaths.ruleCatalog),
                 projectRulePath: path.resolve(mutation.rulePaths.project),
-                autoDiscoverLayers: false,
+                autoDiscoverRuleSources: false,
                 allowMissingProject: false,
                 allowMissingCandidate: true,
             });

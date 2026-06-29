@@ -4,6 +4,7 @@ import { TaintPropagationEngine } from "../../core/orchestration/TaintPropagatio
 import { AdaptiveContextSelectorOptions } from "../../core/kernel/context/AdaptiveContextSelector";
 import * as fs from "fs";
 import * as path from "path";
+import { detectSinksByExactMethodsForTest, resolveUniqueMethodByExactNameForTest, resolveUniqueMethodByExactSignatureForTest } from "../helpers/ExactSinkDetectionTestUtils";
 import {
     buildEngineForCase,
     collectCaseSeedNodes,
@@ -84,7 +85,7 @@ async function runSuite(
             }
 
             engine.propagateWithSeeds(seeds);
-            const detected = engine.detectSinks("Sink").length > 0;
+            const detected = detectSinksByExactMethodsForTest(engine, resolveUniqueMethodByExactNameForTest(engine, "Sink")).length > 0;
             if (detected === expected) stats[category].passed++;
             else {
                 stats[category].failed++;

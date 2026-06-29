@@ -1,0 +1,15 @@
+{
+  "id": "No4_full_engine",
+  "label": "Full ArkTaint engine",
+  "description": "Base analysis with UDE and OCLFS/currentness enabled.",
+  "executionHandoff": "enabled",
+  "currentness": "enabled",
+  "autoModel": false,
+  "profile": "default",
+  "reportMode": "full",
+  "entryModel": "arkMain",
+  "maxEntries": 9999,
+  "worklistBudgetMs": 45000,
+  "projectTimeoutSeconds": 480,
+  "sourceDirMode": "auto"
+}

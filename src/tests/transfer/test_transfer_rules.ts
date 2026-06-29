@@ -1,9 +1,10 @@
 ﻿import { Scene } from "../../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../../arkanalyzer/out/src/Config";
 import { TaintPropagationEngine } from "../../core/orchestration/TaintPropagationEngine";
-import type { AssetDocumentBase } from "../../core/assets/schema";
-import { lowerRuleAssetsToRuleSet } from "../../core/rules/RuleAssetLowering";
-import { SinkRule, SourceRule, TransferRule } from "../../core/rules/RuleSchema";
+import { SinkRule, TransferRule } from "../../core/rules/RuleSchema";
+import type { ExactRuleRuntime } from "../rules/ExactRuleTestUtils";
+import { buildExactTransferScenario } from "./ExactTransferScenarioFactory";
+import { findLocalSeedNodes } from "./ExactTransferTestUtils";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -18,13 +19,11 @@ interface CaseResult {
 
 interface CliOptions {
     sourceDir: string;
-    projectRulePath: string;
     k: number;
 }
 
 function parseArgs(argv: string[]): CliOptions {
     let sourceDir = "tests/demo/rule_transfer";
-    let projectRulePath = "tests/rules/transfer_only.rules.json";
     let k = 1;
 
     for (let i = 0; i < argv.length; i++) {
@@ -35,14 +34,6 @@ function parseArgs(argv: string[]): CliOptions {
         }
         if (arg.startsWith("--sourceDir=")) {
             sourceDir = arg.slice("--sourceDir=".length);
-            continue;
-        }
-        if (arg === "--project" && i + 1 < argv.length) {
-            projectRulePath = argv[++i];
-            continue;
-        }
-        if (arg.startsWith("--project=")) {
-            projectRulePath = arg.slice("--project=".length);
             continue;
         }
         if (arg === "--k" && i + 1 < argv.length) {
@@ -61,7 +52,6 @@ function parseArgs(argv: string[]): CliOptions {
 
     return {
         sourceDir: path.resolve(sourceDir),
-        projectRulePath: path.resolve(projectRulePath),
         k,
     };
 }
@@ -86,15 +76,15 @@ async function detectFlowForCase(
     scene: Scene,
     caseName: string,
     k: number,
-    sourceRules: SourceRule[],
     sinkRules: SinkRule[],
-    transferRules: TransferRule[]
+    transferRules: TransferRule[],
+    runtime: ExactRuleRuntime,
 ): Promise<boolean> {
     const entryMethod = scene.getMethods().find(method => method.getName() === caseName);
     if (!entryMethod) {
         throw new Error(`entry method not found: ${caseName}`);
     }
-    const engine = new TaintPropagationEngine(scene, k, { transferRules });
+    const engine = new TaintPropagationEngine(scene, k, { ...runtime, transferRules, includeBuiltinModules: false });
     engine.verbose = false;
     await engine.buildPAG({
         entryModel: "explicit",
@@ -102,8 +92,9 @@ async function detectFlowForCase(
     });
     engine.setActiveReachableMethodSignatures(undefined, { mergeExplicitEntryScope: false });
 
-    const seedInfo = engine.propagateWithSourceRules(sourceRules);
-    if (seedInfo.seedCount === 0) return false;
+    const seedNodes = findLocalSeedNodes(engine, scene, caseName, "taint_src");
+    if (seedNodes.length === 0) return false;
+    engine.propagateWithSeeds(seedNodes);
     const flows = engine.detectSinksByRules(sinkRules);
     return flows.some(flow => flowSinkInCaseMethod(scene, flow.sink, caseName));
 }
@@ -113,21 +104,6 @@ async function main(): Promise<void> {
     if (!fs.existsSync(options.sourceDir)) {
         throw new Error(`Source directory not found: ${options.sourceDir}`);
     }
-    if (!fs.existsSync(options.projectRulePath)) {
-        throw new Error(`Project rule file not found: ${options.projectRulePath}`);
-    }
-
-    const asset = JSON.parse(fs.readFileSync(options.projectRulePath, "utf-8")) as AssetDocumentBase;
-    const lowered = lowerRuleAssetsToRuleSet([asset]);
-    if (lowered.diagnostics.length > 0) {
-        throw new Error(`Rule asset lowering failed: ${lowered.diagnostics.join("; ")}`);
-    }
-    const sourceRules = lowered.ruleSet.sources || [];
-    const sinkRules = lowered.ruleSet.sinks || [];
-    const transferRules = lowered.ruleSet.transfers || [];
-    console.log(`source_rules_loaded=${sourceRules.length}`);
-    console.log(`sink_rules_loaded=${sinkRules.length}`);
-    console.log(`transfer_rules_loaded=${transferRules.length}`);
 
     const sceneConfig = new SceneConfig();
     sceneConfig.buildFromProjectDir(options.sourceDir);
@@ -139,6 +115,18 @@ async function main(): Promise<void> {
     if (cases.length === 0) {
         throw new Error(`No .ets cases found under ${options.sourceDir}`);
     }
+    const scenario = buildExactTransferScenario({
+        scene,
+        scenarioId: "rule_transfer",
+        caseNames: cases,
+    });
+    const sourceRules = scenario.sourceRules;
+    const sinkRules = scenario.sinkRules;
+    const transferRules = scenario.transferRules;
+    const exactRuntime = scenario.exactRuntime;
+    console.log(`source_rules_loaded=${sourceRules.length}`);
+    console.log(`sink_rules_loaded=${sinkRules.length}`);
+    console.log(`transfer_rules_loaded=${transferRules.length}`);
 
     const results: CaseResult[] = [];
     let passCount = 0;
@@ -146,8 +134,8 @@ async function main(): Promise<void> {
 
     for (const caseName of cases) {
         const expected = caseName.endsWith("_T");
-        const detectedWithRules = await detectFlowForCase(scene, caseName, options.k, sourceRules, sinkRules, transferRules);
-        const detectedWithoutRules = await detectFlowForCase(scene, caseName, options.k, sourceRules, sinkRules, []);
+        const detectedWithRules = await detectFlowForCase(scene, caseName, options.k, sinkRules, transferRules, exactRuntime);
+        const detectedWithoutRules = await detectFlowForCase(scene, caseName, options.k, sinkRules, [], exactRuntime);
 
         let pass = false;
         let note = "";

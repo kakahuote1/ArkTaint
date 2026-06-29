@@ -26,14 +26,16 @@ function endpointKey(endpoint: RuleEndpointOrRef | undefined): string {
     return `${endpoint.endpoint}${suffix}${semantic}`;
 }
 
+function decodedCanonicalId(rule: SinkRule): string {
+    return decodeURIComponent(rule.match.value || "");
+}
+
 function sinksFor(sinks: SinkRule[], methodName: string, fileTail: string, className: string): SinkRule[] {
     return sinks.filter(rule =>
-        rule.match.kind === "method_name_equals"
-        && rule.match.value === methodName
-        && rule.scope?.file?.mode === "contains"
-        && rule.scope.file.value === fileTail
-        && rule.scope?.className?.mode === "equals"
-        && rule.scope.className.value === className);
+        rule.match.kind === "canonical_api_id_equals"
+        && decodedCanonicalId(rule).includes(`file=${fileTail}`)
+        && decodedCanonicalId(rule).includes(`decl=class:${className}`)
+        && decodedCanonicalId(rule).includes(`:${methodName}:`));
 }
 
 function assertReviewedProjectAsset(asset: AssetDocumentBase, projectId: string): void {
@@ -87,9 +89,8 @@ function main(): void {
         ...chatLogin,
         ...sendText,
     ]) {
-        assert(rule.match.kind === "method_name_equals", `${rule.id} must not use regex or broad matching`);
-        assert(rule.scope?.file?.mode === "contains", `${rule.id} must be file-scoped`);
-        assert(rule.scope?.className?.mode === "equals", `${rule.id} must be class-scoped`);
+        assert(rule.match.kind === "canonical_api_id_equals", `${rule.id} must use canonical identity`);
+        assert(rule.apiEffect?.canonicalApiId === rule.match.value, `${rule.id} apiEffect canonical id mismatch`);
     }
 
     console.log("PASS test_project_request_wrapper_asset_contract");

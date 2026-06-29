@@ -3,28 +3,18 @@ import { ArkClass } from "../../../../../arkanalyzer/out/src/core/model/ArkClass
 import { ArkMethod } from "../../../../../arkanalyzer/out/src/core/model/ArkMethod";
 import {
     ArkMainContract,
-    ArkMainContractSourceSchema,
     ArkMainEntryFact,
     ArkMainFactKind,
     ArkMainFactOwnership,
     ArkMainOwnerKind,
     ArkMainSurfaceKind,
     ArkMainTriggerKind,
-    ArkMainSourceRule,
     ARK_MAIN_LIFECYCLE_FACT_KINDS,
     classifyArkMainFactOwnership,
 } from "../ArkMainTypes";
 import { ArkMainActivationGraph } from "../edges/ArkMainActivationGraph";
 import { ArkMainSchedule } from "../scheduling/ArkMainScheduler";
 import { collectFrameworkManagedOwners } from "./ArkMainOwnerDiscovery";
-import { shouldArkMainAutoHintCallbackFact } from "./ArkMainFrameworkCallbackBoundary";
-
-const FORM_BINDING_FIELD_PATHS = [
-    ["payload"],
-    ["data"],
-    ["value"],
-    ["content"],
-] as const;
 
 export function buildArkMainContracts(
     scene: Scene,
@@ -45,39 +35,6 @@ export function buildArkMainContracts(
         fact,
         wantHandoffTargetMethodSignatures,
     ));
-}
-
-export function buildArkMainSourceRulesFromContracts(
-    contracts: ArkMainContract[],
-): ArkMainSourceRule[] {
-    const out = new Map<string, ArkMainSourceRule>();
-    for (const contract of contracts) {
-        for (const schema of contract.sourceSchemas) {
-            if (!schema.id || out.has(schema.id)) continue;
-            out.set(schema.id, {
-                id: schema.id,
-                enabled: true,
-                family: schema.family,
-                tier: schema.tier,
-                description: schema.description,
-                tags: schema.tags,
-                match: {
-                    kind: "signature_equals",
-                    value: schema.matchSignature,
-                },
-                scope: schema.scopeClassName || schema.scopeMethodName
-                    ? {
-                        ...(schema.scopeClassName ? { className: { mode: "equals", value: schema.scopeClassName } } : {}),
-                        ...(schema.scopeMethodName ? { methodName: { mode: "equals", value: schema.scopeMethodName } } : {}),
-                    }
-                    : undefined,
-                sourceKind: schema.sourceKind,
-                target: schema.target,
-                callbackArgIndexes: schema.callbackArgIndexes,
-            });
-        }
-    }
-    return [...out.values()];
 }
 
 function buildContractForFact(
@@ -106,11 +63,9 @@ function buildContractForFact(
         callbackRecognitionLayer: fact.callbackRecognitionLayer,
         callbackRegistrationSignature: fact.callbackRegistrationSignature,
         callbackArgIndex: fact.callbackArgIndex,
-        sourceSchemas: [],
     };
 
-    populateLifecycleSourceSchemas(contract, fact, wantHandoffTargetMethodSignatures);
-    populateUnknownCallbackHintSchemas(contract, fact);
+    void wantHandoffTargetMethodSignatures;
     return contract;
 }
 
@@ -136,6 +91,7 @@ function resolveOwnerKindFromClass(
     if (managedOwners.isAbilityOwner(cls)) return "ability_owner";
     if (managedOwners.isStageOwner(cls)) return "stage_owner";
     if (managedOwners.isExtensionOwner(cls)) return "extension_owner";
+    if (managedOwners.isChildProcessOwner(cls)) return "child_process_owner";
     if (managedOwners.isComponentOwner(cls)) return "component_owner";
     if (managedOwners.isBuilderOwner(cls)) return "builder_owner";
     return undefined;
@@ -153,6 +109,9 @@ function defaultOwnerKindForFact(kind: ArkMainFactKind): ArkMainOwnerKind {
     }
     if (kind === "extension_lifecycle") {
         return "extension_owner";
+    }
+    if (kind === "process_lifecycle") {
+        return "child_process_owner";
     }
     return "unknown_owner";
 }
@@ -173,121 +132,4 @@ function classifyTrigger(kind: ArkMainFactKind): ArkMainTriggerKind {
     if (kind === "watch_handler" || kind === "watch_source") return "state_watch";
     if (kind === "router_source" || kind === "router_trigger") return "navigation_channel";
     return "ability_handoff";
-}
-
-function populateLifecycleSourceSchemas(
-    contract: ArkMainContract,
-    fact: ArkMainEntryFact,
-    wantHandoffTargetMethodSignatures: Set<string>,
-): void {
-    if (!ARK_MAIN_LIFECYCLE_FACT_KINDS.has(fact.kind)) {
-        return;
-    }
-    const signature = fact.method.getSignature?.()?.toString?.();
-    if (!signature) return;
-    const isWantHandoffTarget = wantHandoffTargetMethodSignatures.has(signature);
-
-    const parameters = fact.method.getParameters?.() || [];
-    parameters.forEach((parameter: any, index: number) => {
-        const endpoint = `arg${index}` as const;
-        const paramName = String(parameter?.getName?.() || "").toLowerCase();
-        const paramType = String(parameter?.getType?.()?.toString?.() || "").toLowerCase();
-        const wantLikeParam = isWantLikeParam(paramName, paramType);
-        const formBindingLikeParam = isFormBindingLikeParam(paramName, paramType);
-        const payloadLikeParam = isLifecyclePayloadLikeParam(paramName, paramType);
-
-        if ((wantLikeParam || formBindingLikeParam || payloadLikeParam)
-            && !(isWantHandoffTarget && wantLikeParam)
-        ) {
-            contract.sourceSchemas.push({
-                id: `source.arkmain.contract.lifecycle.param.${signature}.${endpoint}`,
-                sourceKind: "entry_param",
-                family: "source.arkmain.contract.lifecycle.param",
-                tier: "A",
-                description: `[arkmain contract] ${fact.kind} param ${endpoint} in ${fact.method.getName()}`,
-                tags: ["arkmain", "contract_source", "lifecycle", fact.kind],
-                matchSignature: signature,
-                target: endpoint,
-            });
-        }
-
-        if (wantLikeParam) {
-            contract.sourceSchemas.push({
-                id: `source.arkmain.contract.lifecycle.want.${signature}.${endpoint}.parameters`,
-                sourceKind: "entry_param",
-                family: "source.arkmain.contract.lifecycle.want",
-                tier: "A",
-                description: `[arkmain contract] ${fact.kind} want.parameters in ${fact.method.getName()}`,
-                tags: ["arkmain", "contract_source", "lifecycle", "want", fact.kind],
-                matchSignature: signature,
-                target: { endpoint, path: ["parameters"] },
-            });
-        }
-
-        if (formBindingLikeParam) {
-            contract.sourceSchemas.push({
-                id: `source.arkmain.contract.lifecycle.formbinding.${signature}.${endpoint}.root`,
-                sourceKind: "entry_param",
-                family: "source.arkmain.contract.lifecycle.form_binding",
-                tier: "A",
-                description: `[arkmain contract] ${fact.kind} form binding root in ${fact.method.getName()}`,
-                tags: ["arkmain", "contract_source", "lifecycle", "form_binding", fact.kind],
-                matchSignature: signature,
-                target: endpoint,
-            });
-
-            for (const path of FORM_BINDING_FIELD_PATHS) {
-                contract.sourceSchemas.push({
-                    id: `source.arkmain.contract.lifecycle.formbinding.${signature}.${endpoint}.${path.join(".")}`,
-                    sourceKind: "entry_param",
-                    family: "source.arkmain.contract.lifecycle.form_binding",
-                    tier: "A",
-                    description: `[arkmain contract] ${fact.kind} form binding ${path.join(".")} in ${fact.method.getName()}`,
-                    tags: ["arkmain", "contract_source", "lifecycle", "form_binding", fact.kind],
-                    matchSignature: signature,
-                    target: { endpoint, path: [...path] },
-                });
-            }
-        }
-    });
-}
-
-function populateUnknownCallbackHintSchemas(contract: ArkMainContract, fact: ArkMainEntryFact): void {
-    if (!shouldArkMainAutoHintCallbackFact(fact)) {
-        return;
-    }
-
-    const parameterCount = fact.method.getParameters?.().length || 0;
-    for (let paramIndex = 0; paramIndex < parameterCount; paramIndex++) {
-        contract.sourceSchemas.push({
-            id: `source.arkmain.callback_hint.${fact.callbackRegistrationSignature}|cbArg:${fact.callbackArgIndex}|param:${paramIndex}`,
-            sourceKind: "callback_param",
-            family: "arkmain_unknown_callback_hint",
-            tier: "C",
-            description: `[auto hint] ${fact.entryFamily} callback param arg${paramIndex}`,
-            tags: ["auto", "source-hint", "callback_param", fact.entryFamily || "unknown_callback"],
-            matchSignature: fact.callbackRegistrationSignature!,
-            target: `arg${paramIndex}`,
-            callbackArgIndexes: [fact.callbackArgIndex!],
-        });
-    }
-}
-
-function isWantLikeParam(paramName: string, paramType: string): boolean {
-    return paramName.includes("want") || paramType.includes("want");
-}
-
-function isFormBindingLikeParam(paramName: string, paramType: string): boolean {
-    return paramName.includes("formbindingdata")
-        || paramName.includes("form_binding_data")
-        || paramName.includes("formdata")
-        || paramType.includes("formbindingdata");
-}
-
-function isLifecyclePayloadLikeParam(paramName: string, paramType: string): boolean {
-    const joined = `${paramName} ${paramType}`;
-    if (/\b(windowstage|launchparam|bundleversion|grantstatus|permission|permissions)\b/.test(joined)) {
-        return false;
-    }
-    return /\b(data|payload|params|parameters|message|event|uri|url|query|record|object|json|result)\b/.test(joined);
 }

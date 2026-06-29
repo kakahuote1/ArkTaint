@@ -2,33 +2,10 @@ import { Scene } from "../../../../arkanalyzer/out/src/Scene";
 import {
     isAnonymousObjectCarrierClassSignature,
     isCallableValue,
-    resolveCalleeCandidates,
     resolveMethodsFromAnonymousObjectCarrierByField,
 } from "../queries/CalleeResolver";
 import { collectFiniteStringCandidatesFromValue } from "../queries/FiniteStringCandidateResolver";
 import { isSdkBackedMethodSignature } from "../queries/SdkProvenance";
-
-interface OwnerQualifiedOptionObjectCallbackSpec {
-    kind: "owner_qualified";
-    ownerClassNames?: Set<string>;
-    methodNames: Set<string>;
-    optionsArgIndex: number;
-    callbackFieldNames: Set<string>;
-    reasonLabel: string;
-}
-
-interface ModuleSemanticOptionObjectCallbackSpec {
-    kind: "module_semantic";
-    methodNames: Set<string>;
-    optionsArgIndex: number;
-    callbackFieldNames: Set<string>;
-    requiredFieldNames?: Set<string>;
-    reasonLabel: string;
-}
-
-type OptionObjectCallbackSpec =
-    | OwnerQualifiedOptionObjectCallbackSpec
-    | ModuleSemanticOptionObjectCallbackSpec;
 
 export interface KnownOptionCallbackRegistrationMatch {
     callbackMethod: any;
@@ -47,32 +24,26 @@ export interface KnownOptionCallbackRegistrationMatch {
     recognitionLayer: "controller_options" | "component_options" | "web_js_proxy_options";
 }
 
-const OPTION_OBJECT_CALLBACK_SPECS: OptionObjectCallbackSpec[] = [
-    {
-        kind: "owner_qualified",
-        ownerClassNames: new Set(["CustomDialogController"]),
-        methodNames: new Set(["constructor"]),
-        optionsArgIndex: 0,
-        callbackFieldNames: new Set(["builder", "cancel", "confirm"]),
-        reasonLabel: "Framework controller callback registration",
-    },
-    {
-        kind: "module_semantic",
-        methodNames: new Set(["animateTo"]),
-        optionsArgIndex: 0,
-        callbackFieldNames: new Set(["onFinish"]),
-        requiredFieldNames: new Set(["duration"]),
-        reasonLabel: "Framework module callback registration",
-    },
-    {
-        kind: "owner_qualified",
-        ownerClassNames: new Set(["MethodChannel"]),
-        methodNames: new Set(["setMethodCallHandler"]),
-        optionsArgIndex: 0,
-        callbackFieldNames: new Set(["onMethodCall"]),
-        reasonLabel: "Flutter MethodChannel callback registration",
-    },
-];
+interface DeclaredFieldShape {
+    name: string;
+    typeText: string;
+    type?: any;
+}
+
+interface WebProxyOptionShape {
+    kind: "options";
+    optionsArgIndex: number;
+    objectFieldNames: string[];
+    methodListFieldNames: string[];
+}
+
+interface WebProxyPositionalShape {
+    kind: "positional";
+    objectArgIndex: number;
+    methodListArgIndex: number;
+}
+
+type WebProxyShape = WebProxyOptionShape | WebProxyPositionalShape;
 
 export function resolveKnownOptionCallbackRegistrationsFromStmt(
     stmt: any,
@@ -82,125 +53,178 @@ export function resolveKnownOptionCallbackRegistrationsFromStmt(
     const invokeExpr = stmt?.getInvokeExpr?.();
     if (!invokeExpr) return [];
 
-    const methodSig = invokeExpr.getMethodSignature?.();
-    const methodName = methodSig?.getMethodSubSignature?.()?.getMethodName?.() || "";
-    const className = methodSig?.getDeclaringClassSignature?.()?.getClassName?.() || "";
-    const explicitArgs = invokeExpr.getArgs ? invokeExpr.getArgs() : [];
     const out = new Map<string, KnownOptionCallbackRegistrationMatch>();
 
-    for (const componentBinding of resolveComponentPropertyCallbackInvocationsFromStmt(stmt, scene, sourceMethod, invokeExpr)) {
-        const callbackSignature = componentBinding.callbackMethod.getSignature?.()?.toString?.() || "";
-        const key = `${callbackSignature}|component:${componentBinding.registrationOwnerName}.${componentBinding.registrationMethodName}`;
-        if (!callbackSignature || out.has(key)) continue;
-        out.set(key, componentBinding);
+    for (const binding of resolveDeclaredOptionFieldCallbacksFromStmt(stmt, scene, sourceMethod, invokeExpr)) {
+        addUniqueBinding(out, binding, "declared-option");
     }
-
-    for (const componentBinding of resolveDirectProjectComponentOptionCallbacksFromStmt(stmt, scene, sourceMethod, invokeExpr)) {
-        const callbackSignature = componentBinding.callbackMethod.getSignature?.()?.toString?.() || "";
-        const key = `${callbackSignature}|project-component:${componentBinding.registrationOwnerName}.${componentBinding.registrationMethodName}`;
-        if (!callbackSignature || out.has(key)) continue;
-        out.set(key, componentBinding);
+    for (const binding of resolveWebJavaScriptProxyCallbacksFromStmt(scene, sourceMethod, invokeExpr)) {
+        addUniqueBinding(out, binding, "web-js-proxy");
     }
-
-    for (const webJsBinding of resolveWebJavaScriptProxyCallbacksFromStmt(stmt, scene, sourceMethod, invokeExpr)) {
-        const callbackSignature = webJsBinding.callbackMethod.getSignature?.()?.toString?.() || "";
-        const key = `${callbackSignature}|web-js-proxy:${webJsBinding.callbackFieldName || ""}`;
-        if (!callbackSignature || out.has(key)) continue;
-        out.set(key, webJsBinding);
+    for (const binding of resolveComponentPropertyCallbackInvocationsFromStmt(stmt, scene, sourceMethod, invokeExpr)) {
+        addUniqueBinding(out, binding, "component-property");
     }
-
-    for (const spec of OPTION_OBJECT_CALLBACK_SPECS) {
-        if (!matchesOptionObjectCallbackSpec(spec, stmt, scene, sourceMethod, invokeExpr, methodName, className)) {
-            continue;
-        }
-
-        const optionsValue = explicitArgs[spec.optionsArgIndex];
-        if (!optionsValue) continue;
-
-        for (const fieldName of spec.callbackFieldNames) {
-            const callbackMethods = resolveMethodsFromAnonymousObjectCarrierByField(scene, optionsValue, fieldName);
-            for (const callbackMethod of callbackMethods) {
-                if (!callbackMethod?.getCfg?.()) continue;
-                const callbackSignature = callbackMethod.getSignature?.()?.toString?.() || "";
-                if (!callbackSignature) continue;
-                const registrationSignature = methodSig?.toString?.() || "";
-                const key = `${callbackSignature}|field:${fieldName}|call:${registrationSignature}`;
-                if (out.has(key)) continue;
-                out.set(key, {
-                    callbackMethod,
-                    sourceMethod,
-                    registrationMethod: sourceMethod,
-                    registrationInvokeExpr: invokeExpr,
-                    registrationMethodName: methodName,
-                    registrationOwnerName: className,
-                    registrationSignature,
-                    callbackArgIndex: spec.optionsArgIndex,
-                    callbackFieldName: fieldName,
-                    reason: `${spec.reasonLabel} ${className}.${fieldName} from ${sourceMethod.getName?.() || ""}`.trim(),
-                    callbackFlavor: "channel",
-                    registrationShape: "options_object_slot",
-                    slotFamily: "controller_option_slot",
-                    recognitionLayer: "controller_options",
-                });
-            }
-        }
+    for (const binding of resolveDirectProjectComponentOptionCallbacksFromStmt(scene, sourceMethod, invokeExpr)) {
+        addUniqueBinding(out, binding, "project-component");
     }
 
     return [...out.values()];
 }
 
-function resolveWebJavaScriptProxyCallbacksFromStmt(
+function addUniqueBinding(
+    out: Map<string, KnownOptionCallbackRegistrationMatch>,
+    binding: KnownOptionCallbackRegistrationMatch,
+    family: string,
+): void {
+    const callbackSignature = binding.callbackMethod.getSignature?.()?.toString?.() || "";
+    if (!callbackSignature) return;
+    const key = `${callbackSignature}|${family}:${binding.registrationSignature}:${binding.callbackArgIndex}:${binding.callbackFieldName || ""}`;
+    if (out.has(key)) return;
+    out.set(key, binding);
+}
+
+function resolveDeclaredOptionFieldCallbacksFromStmt(
     stmt: any,
     scene: Scene,
     sourceMethod: any,
     invokeExpr: any,
 ): KnownOptionCallbackRegistrationMatch[] {
-    const methodSig = invokeExpr?.getMethodSignature?.();
-    const methodName = methodSig?.getMethodSubSignature?.()?.getMethodName?.() || "";
-    if (methodName !== "javaScriptProxy") return [];
+    void stmt;
+    const methodSig = invokeExpr.getMethodSignature?.();
+    if (!hasModuleSemanticRegistrationProvenance(scene, sourceMethod, invokeExpr, methodSig)) {
+        return [];
+    }
 
     const explicitArgs = invokeExpr.getArgs ? invokeExpr.getArgs() : [];
-    const optionsValue = explicitArgs[0];
-    if (!optionsValue) return [];
+    const out = new Map<string, KnownOptionCallbackRegistrationMatch>();
+    for (let argIndex = 0; argIndex < explicitArgs.length; argIndex++) {
+        const optionsValue = explicitArgs[argIndex];
+        if (!optionsValue) continue;
 
-    const objectValues = collectAnonymousObjectFieldValues(scene, optionsValue, "object");
-    if (objectValues.length === 0) return [];
+        const callbackFieldNames = collectDeclaredCallableOptionFieldNames(scene, invokeExpr, argIndex);
+        if (callbackFieldNames.length === 0) continue;
 
-    const methodNames = new Set<string>();
-    for (const candidate of collectAnonymousObjectStringFieldCandidates(scene, optionsValue, "methodList")) {
-        if (isValidJavaScriptProxyMethodName(candidate)) {
-            methodNames.add(candidate);
+        for (const fieldName of callbackFieldNames) {
+            for (const callbackMethod of resolveMethodsFromAnonymousObjectCarrierByField(scene, optionsValue, fieldName, {
+                maxCandidates: 16,
+                enableLocalBacktrace: true,
+                maxBacktraceSteps: 6,
+                maxVisitedDefs: 24,
+            })) {
+                if (!callbackMethod?.getCfg?.()) continue;
+                const binding = buildOptionFieldBinding(
+                    sourceMethod,
+                    invokeExpr,
+                    argIndex,
+                    fieldName,
+                    callbackMethod,
+                    "channel",
+                    "controller_option_slot",
+                    "controller_options",
+                    "Declared option callback field",
+                );
+                addUniqueBinding(out, binding, "declared-option");
+            }
         }
     }
-    if (methodNames.size === 0) return [];
+    return [...out.values()];
+}
 
-    const registrationSignature = methodSig?.toString?.() || "";
-    const ownerName = methodSig?.getDeclaringClassSignature?.()?.getClassName?.() || "";
+function resolveWebJavaScriptProxyCallbacksFromStmt(
+    scene: Scene,
+    sourceMethod: any,
+    invokeExpr: any,
+): KnownOptionCallbackRegistrationMatch[] {
+    const methodSig = invokeExpr?.getMethodSignature?.();
+    if (!hasModuleSemanticRegistrationProvenance(scene, sourceMethod, invokeExpr, methodSig)) {
+        return [];
+    }
+
+    const explicitArgs = invokeExpr.getArgs ? invokeExpr.getArgs() : [];
+    const out = new Map<string, KnownOptionCallbackRegistrationMatch>();
+    for (const shape of collectDeclaredWebProxyShapes(scene, invokeExpr)) {
+        const registrations = shape.kind === "options"
+            ? resolveWebProxyOptionShape(scene, sourceMethod, invokeExpr, explicitArgs, shape)
+            : resolveWebProxyPositionalShape(scene, sourceMethod, invokeExpr, explicitArgs, shape);
+        for (const registration of registrations) {
+            addUniqueBinding(out, registration, "web-js-proxy");
+        }
+    }
+    return [...out.values()];
+}
+
+function resolveWebProxyOptionShape(
+    scene: Scene,
+    sourceMethod: any,
+    invokeExpr: any,
+    explicitArgs: any[],
+    shape: WebProxyOptionShape,
+): KnownOptionCallbackRegistrationMatch[] {
+    const optionsValue = explicitArgs[shape.optionsArgIndex];
+    if (!optionsValue) return [];
+
+    const objectValues = new Map<string, any>();
+    for (const fieldName of shape.objectFieldNames) {
+        for (const value of collectAnonymousObjectFieldValues(scene, optionsValue, fieldName)) {
+            const key = String(value?.toString?.() || value?.getName?.() || fieldName);
+            if (!objectValues.has(key)) objectValues.set(key, value);
+        }
+    }
+
+    const methodNames = new Set<string>();
+    for (const fieldName of shape.methodListFieldNames) {
+        for (const candidate of collectAnonymousObjectStringFieldCandidates(scene, optionsValue, fieldName)) {
+            if (isValidJavaScriptProxyMethodName(candidate)) methodNames.add(candidate);
+        }
+    }
+
+    return resolveWebProxyObjectMethods(scene, sourceMethod, invokeExpr, [...objectValues.values()], [...methodNames], shape.optionsArgIndex);
+}
+
+function resolveWebProxyPositionalShape(
+    scene: Scene,
+    sourceMethod: any,
+    invokeExpr: any,
+    explicitArgs: any[],
+    shape: WebProxyPositionalShape,
+): KnownOptionCallbackRegistrationMatch[] {
+    const objectValue = explicitArgs[shape.objectArgIndex];
+    const methodListValue = explicitArgs[shape.methodListArgIndex];
+    if (!objectValue || !methodListValue) return [];
+
+    const methodNames = collectFiniteStringCandidatesFromValue(scene, methodListValue, 4)
+        .filter(isValidJavaScriptProxyMethodName);
+    return resolveWebProxyObjectMethods(scene, sourceMethod, invokeExpr, [objectValue], methodNames, shape.objectArgIndex);
+}
+
+function resolveWebProxyObjectMethods(
+    scene: Scene,
+    sourceMethod: any,
+    invokeExpr: any,
+    objectValues: any[],
+    methodNames: string[],
+    callbackArgIndex: number,
+): KnownOptionCallbackRegistrationMatch[] {
+    const methodNameSet = [...new Set(methodNames)].sort((a, b) => a.localeCompare(b));
+    if (objectValues.length === 0 || methodNameSet.length === 0) return [];
+
     const out = new Map<string, KnownOptionCallbackRegistrationMatch>();
     for (const objectValue of objectValues) {
-        for (const methodListName of [...methodNames].sort((a, b) => a.localeCompare(b))) {
+        for (const methodListName of methodNameSet) {
             for (const callbackMethod of resolveObjectMethodByName(scene, sourceMethod, objectValue, methodListName)) {
                 if (!callbackMethod?.getCfg?.()) continue;
-                const callbackSignature = callbackMethod.getSignature?.()?.toString?.() || "";
-                if (!callbackSignature) continue;
-                const key = `${callbackSignature}|${methodListName}`;
-                if (out.has(key)) continue;
-                out.set(key, {
-                    callbackMethod,
+                const binding = buildOptionFieldBinding(
                     sourceMethod,
-                    registrationMethod: sourceMethod,
-                    registrationInvokeExpr: invokeExpr,
-                    registrationMethodName: methodName,
-                    registrationOwnerName: ownerName,
-                    registrationSignature,
-                    callbackArgIndex: 0,
-                    callbackFieldName: methodListName,
-                    reason: `Web javaScriptProxy callback ${methodListName} from ${sourceMethod.getName?.() || ""}`.trim(),
-                    callbackFlavor: "channel",
-                    registrationShape: "options_object_slot",
-                    slotFamily: "web_js_proxy_slot",
-                    recognitionLayer: "web_js_proxy_options",
-                });
+                    invokeExpr,
+                    callbackArgIndex,
+                    methodListName,
+                    callbackMethod,
+                    "channel",
+                    "web_js_proxy_slot",
+                    "web_js_proxy_options",
+                    "Web JavaScript proxy method",
+                );
+                addUniqueBinding(out, binding, "web-js-proxy");
             }
         }
     }
@@ -211,6 +235,38 @@ function isValidJavaScriptProxyMethodName(name: string): boolean {
     return /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(String(name || ""));
 }
 
+function collectDeclaredWebProxyShapes(scene: Scene, invokeExpr: any): WebProxyShape[] {
+    const out: WebProxyShape[] = [];
+    const parameterTypes = collectOptionParameterTypes(scene, invokeExpr);
+    for (const [index, parameterType] of parameterTypes.entries()) {
+        const fields = collectDeclaredFieldsFromType(scene, parameterType.type);
+        const objectFieldNames = fields.filter(field => isObjectLikeTypeText(field.typeText)).map(field => field.name);
+        const methodListFieldNames = fields.filter(field => isStringListTypeText(field.typeText)).map(field => field.name);
+        if (objectFieldNames.length > 0 && methodListFieldNames.length > 0) {
+            out.push({
+                kind: "options",
+                optionsArgIndex: index,
+                objectFieldNames: uniqueSorted(objectFieldNames),
+                methodListFieldNames: uniqueSorted(methodListFieldNames),
+            });
+        }
+    }
+
+    const objectArgIndexes = parameterTypes
+        .filter(item => isObjectLikeTypeText(typeText(item.type)))
+        .map(item => item.index);
+    const methodListArgIndexes = parameterTypes
+        .filter(item => isStringListTypeText(typeText(item.type)))
+        .map(item => item.index);
+    for (const objectArgIndex of objectArgIndexes) {
+        for (const methodListArgIndex of methodListArgIndexes) {
+            if (objectArgIndex === methodListArgIndex) continue;
+            out.push({ kind: "positional", objectArgIndex, methodListArgIndex });
+        }
+    }
+    return out;
+}
+
 function collectAnonymousObjectFieldValues(scene: Scene, objectValue: any, fieldName: string): any[] {
     const classSig = String(objectValue?.getType?.()?.getClassSignature?.()?.toString?.() || "");
     if (!classSig || !isAnonymousObjectCarrierClassSignature(classSig)) return [];
@@ -219,8 +275,7 @@ function collectAnonymousObjectFieldValues(scene: Scene, objectValue: any, field
     const seen = new Set<string>();
     for (const method of scene.getMethods()) {
         if (methodDeclaringClassSignatureText(method) !== classSig) continue;
-        const methodName = method?.getName?.() || "";
-        if (!(methodName.includes("constructor(") || methodName.includes("%instInit"))) continue;
+        if (!isAnonymousCarrierInitMethod(method)) continue;
         const cfg = method?.getCfg?.();
         if (!cfg) continue;
         for (const stmt of cfg.getStmts?.() || []) {
@@ -246,8 +301,7 @@ function collectAnonymousObjectStringFieldCandidates(scene: Scene, objectValue: 
     const out = new Set<string>();
     for (const method of scene.getMethods()) {
         if (methodDeclaringClassSignatureText(method) !== classSig) continue;
-        const methodName = method?.getName?.() || "";
-        if (!(methodName.includes("constructor(") || methodName.includes("%instInit"))) continue;
+        if (!isAnonymousCarrierInitMethod(method)) continue;
         const cfg = method?.getCfg?.();
         if (!cfg) continue;
         for (const stmt of cfg.getStmts?.() || []) {
@@ -358,48 +412,26 @@ function resolveObjectMethodByName(
 
 const componentPropertyCallbackCache = new WeakMap<Scene, Map<string, any[]>>();
 
-const OFFICIAL_ARKUI_COMPONENT_FACTORY_NAMES = new Set([
-    "Button",
-    "Checkbox",
-    "Column",
-    "ForEach",
-    "Grid",
-    "Image",
-    "List",
-    "ListItem",
-    "Navigation",
-    "Row",
-    "Scroll",
-    "Search",
-    "Select",
-    "Slider",
-    "Stepper",
-    "Swiper",
-    "Tabs",
-    "Text",
-    "TextArea",
-    "TextInput",
-    "Toggle",
-]);
-
 function resolveDirectProjectComponentOptionCallbacksFromStmt(
-    stmt: any,
     scene: Scene,
     sourceMethod: any,
     invokeExpr: any,
 ): KnownOptionCallbackRegistrationMatch[] {
     if (!isArkUiCompositionSourceMethod(sourceMethod)) return [];
-    const componentName = resolveProjectComponentFactoryName(invokeExpr, stmt);
-    if (!componentName) return [];
+    const componentClass = resolveProjectComponentFactoryClass(scene, invokeExpr);
+    if (!componentClass) return [];
 
     const optionsValue = invokeExpr.getArgs?.()?.[0];
     if (!optionsValue) return [];
 
-    const callbackFieldNames = collectAnonymousObjectOnCallbackFieldNames(scene, optionsValue);
+    const componentFieldNames = new Set<string>((componentClass.getFields?.() || [])
+        .map((field: any) => String(field?.getName?.() || "").trim())
+        .filter(Boolean));
+    const callbackFieldNames = collectAnonymousObjectCallableFieldNames(scene, optionsValue)
+        .filter(fieldName => componentFieldNames.has(fieldName));
     if (callbackFieldNames.length === 0) return [];
 
     const out: KnownOptionCallbackRegistrationMatch[] = [];
-    const registrationSignature = invokeExpr?.getMethodSignature?.()?.toString?.() || `component:${componentName}`;
     for (const fieldName of callbackFieldNames) {
         const callbackMethods = resolveMethodsFromAnonymousObjectCarrierByField(scene, optionsValue, fieldName, {
             maxCandidates: 16,
@@ -408,22 +440,18 @@ function resolveDirectProjectComponentOptionCallbacksFromStmt(
             maxVisitedDefs: 24,
         }).filter(method => !!method?.getCfg?.());
         for (const callbackMethod of callbackMethods) {
-            out.push({
-                callbackMethod,
+            out.push(buildOptionFieldBinding(
                 sourceMethod,
-                registrationMethod: sourceMethod,
-                registrationInvokeExpr: invokeExpr,
-                registrationMethodName: componentName,
-                registrationOwnerName: componentName,
-                registrationSignature,
-                callbackArgIndex: 0,
-                callbackFieldName: fieldName,
-                reason: `Project component option callback ${componentName}.${fieldName} from ${sourceMethod.getName?.() || ""}`.trim(),
-                callbackFlavor: "ui_event",
-                registrationShape: "options_object_slot",
-                slotFamily: "project_component_option_slot",
-                recognitionLayer: "component_options",
-            });
+                invokeExpr,
+                0,
+                fieldName,
+                callbackMethod,
+                "ui_event",
+                "project_component_option_slot",
+                "component_options",
+                "Project component option callback",
+                componentClass.getName?.() || "",
+            ));
         }
     }
     return out;
@@ -432,38 +460,20 @@ function resolveDirectProjectComponentOptionCallbacksFromStmt(
 function isArkUiCompositionSourceMethod(method: any): boolean {
     const cls = method?.getDeclaringArkClass?.();
     if (isArkUiComponentClass(cls)) return true;
-    return hasDecorator(method, "Builder");
+    return !!method?.hasBuilderDecorator?.();
 }
 
-function hasDecorator(owner: any, expected: string): boolean {
-    return (owner?.getDecorators?.() || []).some((decorator: any) =>
-        normalizeDecoratorKind(decorator?.getKind?.()) === expected,
-    );
-}
-
-function resolveProjectComponentFactoryName(invokeExpr: any, stmt: any): string | undefined {
-    const methodSig = invokeExpr?.getMethodSignature?.();
-    const methodName = methodSig?.getMethodSubSignature?.()?.getMethodName?.() || "";
-    const className = methodSig?.getDeclaringClassSignature?.()?.getClassName?.() || "";
-    const candidate = methodName === "constructor" ? className : methodName;
-    if (!isProjectComponentFactoryName(candidate)) return undefined;
-    if (OFFICIAL_ARKUI_COMPONENT_FACTORY_NAMES.has(candidate)) return undefined;
-
-    const stmtText = String(stmt?.toString?.() || "");
-    if (methodName === "constructor") return candidate;
-    if (stmtText.includes(`.${candidate}(`) || stmtText.includes(` ${candidate}(`) || stmtText.includes(`${candidate}(`)) {
-        return candidate;
+function resolveProjectComponentFactoryClass(scene: Scene, invokeExpr: any): any | undefined {
+    const classSignature = invokeExpr?.getMethodSignature?.()?.getDeclaringClassSignature?.();
+    if (!classSignature) return undefined;
+    const cls = scene.getClass?.(classSignature);
+    if (!cls || !isArkUiComponentClass(cls) || isSdkBackedArkClass(scene, cls)) {
+        return undefined;
     }
-    return candidate;
+    return cls;
 }
 
-function isProjectComponentFactoryName(name: string): boolean {
-    if (!/^[A-Z][A-Za-z0-9_$]*$/.test(name)) return false;
-    if (name.startsWith("%")) return false;
-    return !["Array", "Date", "Error", "Map", "Object", "Promise", "RegExp", "Set", "String", "Number", "Boolean"].includes(name);
-}
-
-function collectAnonymousObjectOnCallbackFieldNames(scene: Scene, objectValue: any): string[] {
+function collectAnonymousObjectCallableFieldNames(scene: Scene, objectValue: any): string[] {
     const classSig = String(objectValue?.getType?.()?.getClassSignature?.()?.toString?.() || "");
     if (!classSig || !isAnonymousObjectCarrierClassSignature(classSig)) return [];
 
@@ -471,11 +481,11 @@ function collectAnonymousObjectOnCallbackFieldNames(scene: Scene, objectValue: a
     for (const method of scene.getMethods()) {
         if (methodDeclaringClassSignatureText(method) !== classSig) continue;
         const methodName = method?.getName?.() || "";
-        const fieldFromMethod = extractOnCallbackFieldNameFromAnonymousCarrierMethod(methodName);
+        const fieldFromMethod = extractAnonymousCarrierMethodFieldName(methodName);
         if (fieldFromMethod) {
             out.add(fieldFromMethod);
         }
-        if (!(methodName.includes("constructor(") || methodName.includes("%instInit"))) continue;
+        if (!isAnonymousCarrierInitMethod(method)) continue;
         const cfg = method?.getCfg?.();
         if (!cfg) continue;
         for (const stmt of cfg.getStmts?.() || []) {
@@ -483,7 +493,7 @@ function collectAnonymousObjectOnCallbackFieldNames(scene: Scene, objectValue: a
             const left = anyStmt?.getLeftOp?.();
             const base = left?.getBase?.();
             const fieldName = left?.getFieldSignature?.()?.getFieldName?.() || "";
-            if (base?.getName?.() !== "this" || !isOnCallbackFieldName(fieldName)) continue;
+            if (base?.getName?.() !== "this" || !fieldName) continue;
             if (isCallableValue(anyStmt?.getRightOp?.())) {
                 out.add(fieldName);
             }
@@ -498,17 +508,22 @@ function methodDeclaringClassSignatureText(method: any): string {
         || "");
 }
 
-function extractOnCallbackFieldNameFromAnonymousCarrierMethod(methodName: string): string | undefined {
+function isAnonymousCarrierInitMethod(method: any): boolean {
+    const methodName = method?.getName?.() || "";
+    return methodName.includes("constructor(") || methodName.includes("%instInit");
+}
+
+function extractAnonymousCarrierMethodFieldName(methodName: string): string | undefined {
     const parts = String(methodName || "").split("$").filter(Boolean);
     for (let index = parts.length - 1; index >= 0; index--) {
         const candidate = parts[index].replace(/[()<>]/g, "");
-        if (isOnCallbackFieldName(candidate)) return candidate;
+        if (isValidObjectFieldName(candidate)) return candidate;
     }
-    return isOnCallbackFieldName(methodName) ? methodName : undefined;
+    return isValidObjectFieldName(methodName) ? methodName : undefined;
 }
 
-function isOnCallbackFieldName(name: string): boolean {
-    return /^on[A-Z][A-Za-z0-9_$]*$/.test(String(name || ""));
+function isValidObjectFieldName(name: string): boolean {
+    return /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(String(name || ""));
 }
 
 function resolveComponentPropertyCallbackInvocationsFromStmt(
@@ -524,30 +539,22 @@ function resolveComponentPropertyCallbackInvocationsFromStmt(
     if (!isArkUiComponentClass(componentClass)) return [];
     if (!componentClassHasField(componentClass, fieldName)) return [];
 
-    const componentName = String(componentClass.getName?.() || "");
-    if (!componentName) return [];
-
-    const callbackMethods = resolveComponentFactoryCallbacks(scene, componentName, fieldName)
+    const callbackMethods = resolveComponentFactoryCallbacks(scene, componentClass, fieldName)
         .filter(method => !!method?.getCfg?.());
     const out: KnownOptionCallbackRegistrationMatch[] = [];
-    const registrationSignature = invokeExpr?.getMethodSignature?.()?.toString?.() || `component:${componentName}.${fieldName}`;
     for (const callbackMethod of callbackMethods) {
-        out.push({
-            callbackMethod,
+        out.push(buildOptionFieldBinding(
             sourceMethod,
-            registrationMethod: sourceMethod,
-            registrationInvokeExpr: invokeExpr,
-            registrationMethodName: fieldName,
-            registrationOwnerName: componentName,
-            registrationSignature,
-            callbackArgIndex: 0,
-            callbackFieldName: fieldName,
-            reason: `ArkUI component property callback ${componentName}.${fieldName}`,
-            callbackFlavor: "channel",
-            registrationShape: "options_object_slot",
-            slotFamily: "component_property_slot",
-            recognitionLayer: "component_options",
-        });
+            invokeExpr,
+            0,
+            fieldName,
+            callbackMethod,
+            "channel",
+            "component_property_slot",
+            "component_options",
+            "ArkUI component property callback",
+            componentClass.getName?.() || "",
+        ));
     }
     return out;
 }
@@ -558,20 +565,21 @@ function resolveThisFieldPtrInvokeName(stmt: any): string | undefined {
     return match?.[1];
 }
 
-function resolveComponentFactoryCallbacks(scene: Scene, componentName: string, fieldName: string): any[] {
+function resolveComponentFactoryCallbacks(scene: Scene, componentClass: any, fieldName: string): any[] {
     let sceneCache = componentPropertyCallbackCache.get(scene);
     if (!sceneCache) {
         sceneCache = new Map<string, any[]>();
         componentPropertyCallbackCache.set(scene, sceneCache);
     }
-    const cacheKey = `${componentName}.${fieldName}`;
+    const componentSignature = String(componentClass?.getSignature?.()?.toString?.() || componentClass?.getName?.() || "");
+    const cacheKey = `${componentSignature}.${fieldName}`;
     const cached = sceneCache.get(cacheKey);
     if (cached) return cached;
 
     const out = new Map<string, any>();
     const addFromStmt = (stmt: any): void => {
         const invokeExpr = stmt?.getInvokeExpr?.();
-        if (!invokeExpr || !isComponentFactoryInvoke(invokeExpr, stmt, componentName)) return;
+        if (!invokeExpr || !isComponentFactoryInvoke(invokeExpr, componentClass)) return;
         const optionsValue = invokeExpr.getArgs?.()?.[0];
         if (!optionsValue) return;
         for (const callbackMethod of resolveMethodsFromAnonymousObjectCarrierByField(scene, optionsValue, fieldName)) {
@@ -599,17 +607,10 @@ function resolveComponentFactoryCallbacks(scene: Scene, componentName: string, f
     return values;
 }
 
-function isComponentFactoryInvoke(invokeExpr: any, stmt: any, componentName: string): boolean {
-    const methodName = invokeExpr?.getMethodSignature?.()?.getMethodSubSignature?.()?.getMethodName?.() || "";
-    if (methodName === componentName) return true;
-    const declaringClassName = invokeExpr?.getMethodSignature?.()
-        ?.getDeclaringClassSignature?.()
-        ?.getClassName?.() || "";
-    if (methodName === "constructor" && declaringClassName === componentName) return true;
-    const sigText = String(invokeExpr?.getMethodSignature?.()?.toString?.() || "");
-    if (sigText.includes(`.${componentName}(`)) return true;
-    const stmtText = String(stmt?.toString?.() || "");
-    return stmtText.includes(`.${componentName}(`) || stmtText.includes(` ${componentName}(`);
+function isComponentFactoryInvoke(invokeExpr: any, componentClass: any): boolean {
+    const invokedClassSignature = String(invokeExpr?.getMethodSignature?.()?.getDeclaringClassSignature?.()?.toString?.() || "");
+    const componentSignature = String(componentClass?.getSignature?.()?.toString?.() || "");
+    return !!invokedClassSignature && invokedClassSignature === componentSignature;
 }
 
 function componentClassHasField(cls: any, fieldName: string): boolean {
@@ -617,168 +618,127 @@ function componentClassHasField(cls: any, fieldName: string): boolean {
 }
 
 function isArkUiComponentClass(cls: any): boolean {
-    return (cls?.getDecorators?.() || []).some((decorator: any) => {
-        const kind = normalizeDecoratorKind(decorator?.getKind?.());
-        return kind === "Entry" || kind === "Component" || kind === "ComponentV2" || kind === "CustomDialog";
-    });
+    return !!(cls?.hasEntryDecorator?.() || cls?.hasComponentDecorator?.());
 }
 
-function normalizeDecoratorKind(raw: string | undefined): string | undefined {
-    if (!raw) return undefined;
-    const normalized = raw.replace(/^@/, "").trim();
-    if (!normalized) return undefined;
-    return normalized.endsWith("()")
-        ? normalized.slice(0, normalized.length - 2)
-        : normalized;
+function isSdkBackedArkClass(scene: Scene, cls: any): boolean {
+    const fileSig = cls?.getDeclaringArkFile?.()?.getFileSignature?.();
+    return !!fileSig && scene.hasSdkFile(fileSig);
 }
 
-function matchesOptionObjectCallbackSpec(
-    spec: OptionObjectCallbackSpec,
-    stmt: any,
-    scene: Scene,
+function buildOptionFieldBinding(
     sourceMethod: any,
     invokeExpr: any,
-    methodName: string,
-    className: string,
-): boolean {
-    void stmt;
-    if (!spec.methodNames.has(methodName)) {
-        return false;
-    }
-    if (spec.kind === "owner_qualified") {
-        return !spec.ownerClassNames
-            || spec.ownerClassNames.size === 0
-            || spec.ownerClassNames.has(className)
-            || ownerTypeMatches(invokeExpr, spec.ownerClassNames);
-    }
-    return matchesModuleSemanticOptionObjectCallbackSpec(spec, scene, sourceMethod, invokeExpr);
-}
-
-function ownerTypeMatches(invokeExpr: any, ownerClassNames: Set<string>): boolean {
-    const baseTypeText = String(invokeExpr?.getBase?.()?.getType?.()?.toString?.() || "");
-    if (!baseTypeText) return false;
-    return [...ownerClassNames].some(ownerName =>
-        baseTypeText === ownerName
-        || baseTypeText.endsWith(`: ${ownerName}`)
-        || baseTypeText.includes(`: ${ownerName}|`)
-        || baseTypeText.includes(`|${ownerName}`)
-        || baseTypeText.includes(` ${ownerName}`),
-    );
-}
-
-function matchesModuleSemanticOptionObjectCallbackSpec(
-    spec: ModuleSemanticOptionObjectCallbackSpec,
-    scene: Scene,
-    sourceMethod: any,
-    invokeExpr: any,
-): boolean {
+    callbackArgIndex: number,
+    callbackFieldName: string,
+    callbackMethod: any,
+    callbackFlavor: "channel" | "ui_event",
+    slotFamily: KnownOptionCallbackRegistrationMatch["slotFamily"],
+    recognitionLayer: KnownOptionCallbackRegistrationMatch["recognitionLayer"],
+    reasonPrefix: string,
+    registrationOwnerNameOverride?: string,
+): KnownOptionCallbackRegistrationMatch {
     const methodSig = invokeExpr?.getMethodSignature?.();
-    if (!hasModuleSemanticRegistrationProvenance(scene, sourceMethod, invokeExpr, methodSig)) {
-        return false;
-    }
-    return hasSemanticOptionParameterShape(scene, invokeExpr, spec.optionsArgIndex, {
-        callbackFieldNames: spec.callbackFieldNames,
-        requiredFieldNames: spec.requiredFieldNames || new Set<string>(),
-    });
+    const methodName = methodSig?.getMethodSubSignature?.()?.getMethodName?.() || "";
+    const ownerName = registrationOwnerNameOverride
+        || methodSig?.getDeclaringClassSignature?.()?.getClassName?.()
+        || "";
+    const registrationSignature = methodSig?.toString?.() || "";
+    return {
+        callbackMethod,
+        sourceMethod,
+        registrationMethod: sourceMethod,
+        registrationInvokeExpr: invokeExpr,
+        registrationMethodName: methodName,
+        registrationOwnerName: ownerName,
+        registrationSignature,
+        callbackArgIndex,
+        callbackFieldName,
+        reason: `${reasonPrefix} ${ownerName}.${callbackFieldName} from ${sourceMethod.getName?.() || ""}`.trim(),
+        callbackFlavor,
+        registrationShape: "options_object_slot",
+        slotFamily,
+        recognitionLayer,
+    };
 }
 
-/** True when the callee is SDK-backed, imported into the caller file, or defined in a different file than the caller (module semantic registration). */
+/** True only when the callee is backed by an SDK declaration that carries exact parameter shape evidence. */
 export function hasModuleSemanticRegistrationProvenance(
     scene: Scene,
     sourceMethod: any,
     invokeExpr: any,
     methodSig: any,
 ): boolean {
-    if (isSdkBackedMethodSignature(scene, methodSig, { sourceMethod, invokeExpr })) {
-        return true;
-    }
-
-    const sourceFile = sourceMethod?.getDeclaringArkClass?.()?.getDeclaringArkFile?.()
-        || sourceMethod?.getDeclaringArkFile?.();
-    const methodName = methodSig?.getMethodSubSignature?.()?.getMethodName?.() || "";
-    const importFrom = sourceFile?.getImportInfoBy?.(methodName)?.getFrom?.() || "";
-    if (importFrom) {
-        return true;
-    }
-
-    const sourceFileSigText = sourceFile?.getFileSignature?.()?.toString?.() || "";
-    const resolvedCallees = resolveCalleeCandidates(scene, invokeExpr, { maxNameMatchCandidates: 4 });
-    return resolvedCallees.some(resolved => {
-        const calleeFileSigText = resolved?.method?.getDeclaringArkFile?.()?.getFileSignature?.()?.toString?.()
-            || resolved?.method?.getSignature?.()?.getDeclaringClassSignature?.()?.getDeclaringFileSignature?.()?.toString?.()
-            || "";
-        return !!calleeFileSigText && calleeFileSigText !== sourceFileSigText;
-    });
+    return isSdkBackedMethodSignature(scene, methodSig, { sourceMethod, invokeExpr });
 }
 
-function hasSemanticOptionParameterShape(
-    scene: Scene,
-    invokeExpr: any,
-    optionsArgIndex: number,
-    contract: {
-        callbackFieldNames: Set<string>;
-        requiredFieldNames: Set<string>;
-    },
-): boolean {
-    const parameterTypes = collectOptionParameterTypes(scene, invokeExpr, optionsArgIndex);
-    return parameterTypes.some(parameterType =>
-        optionParameterTypeMatchesContract(scene, parameterType, contract),
-    );
+function collectDeclaredCallableOptionFieldNames(scene: Scene, invokeExpr: any, optionsArgIndex: number): string[] {
+    const out = new Set<string>();
+    for (const parameterType of collectOptionParameterTypes(scene, invokeExpr, optionsArgIndex)) {
+        for (const field of collectDeclaredFieldsFromType(scene, parameterType.type)) {
+            if (isCallableLikeType(scene, field.type) || isInlineCallableTypeText(field.typeText)) {
+                out.add(field.name);
+            }
+        }
+    }
+    return [...out].sort((left, right) => left.localeCompare(right));
 }
 
-function collectOptionParameterTypes(scene: Scene, invokeExpr: any, optionsArgIndex: number): any[] {
-    const out: any[] = [];
+function collectOptionParameterTypes(scene: Scene, invokeExpr: any, onlyIndex?: number): Array<{ index: number; type: any }> {
+    const out: Array<{ index: number; type: any }> = [];
     const seen = new Set<string>();
-    const pushType = (type: any): void => {
+    const pushType = (index: number, type: any): void => {
+        if (onlyIndex !== undefined && index !== onlyIndex) return;
         if (!type) return;
-        const key = String(type.toString?.() || type.getTypeString?.() || "");
+        const key = `${index}:${typeText(type)}`;
         if (seen.has(key)) return;
         seen.add(key);
-        out.push(type);
+        out.push({ index, type });
     };
 
     const invokeParameters = invokeExpr?.getMethodSignature?.()?.getMethodSubSignature?.()?.getParameters?.() || [];
-    const invokeParameter = invokeParameters[optionsArgIndex];
-    pushType(invokeParameter?.getType?.());
-
-    const resolvedCallees = resolveCalleeCandidates(scene, invokeExpr, { maxNameMatchCandidates: 4 });
-    for (const resolved of resolvedCallees) {
-        const parameters = resolved?.method?.getParameters?.() || [];
-        const parameter = parameters[optionsArgIndex];
-        pushType(parameter?.getType?.());
-    }
+    invokeParameters.forEach((parameter: any, index: number) => pushType(index, parameter?.getType?.()));
 
     return out;
 }
 
-function optionParameterTypeMatchesContract(
-    scene: Scene,
-    parameterType: any,
-    contract: {
-        callbackFieldNames: Set<string>;
-        requiredFieldNames: Set<string>;
-    },
-): boolean {
-    for (const klass of resolveArkClassesFromType(scene, parameterType)) {
-        const fields = klass?.getFields?.() || [];
-        const fieldMap = new Map<string, any>();
-        for (const field of fields) {
-            const fieldName = field?.getName?.() || "";
-            if (!fieldName || fieldMap.has(fieldName)) continue;
-            fieldMap.set(fieldName, field);
-        }
-        if ([...contract.requiredFieldNames].some(fieldName => !fieldMap.has(fieldName))) {
-            continue;
-        }
-        if ([...contract.callbackFieldNames].some(fieldName => {
-            const field = fieldMap.get(fieldName);
-            return !field || !isCallableLikeType(field.getType?.());
-        })) {
-            continue;
-        }
-        return true;
+function collectDeclaredFieldsFromType(scene: Scene, type: any): DeclaredFieldShape[] {
+    const out = new Map<string, DeclaredFieldShape>();
+    const add = (name: string, fieldTypeText: string, fieldType?: any): void => {
+        const normalizedName = String(name || "").trim();
+        const normalizedType = String(fieldTypeText || "").trim();
+        if (!normalizedName || !normalizedType || out.has(normalizedName)) return;
+        out.set(normalizedName, { name: normalizedName, typeText: normalizedType, type: fieldType });
+    };
+
+    for (const field of extractInlineObjectFields(typeText(type))) {
+        add(field.name, field.typeText);
     }
-    return false;
+
+    for (const klass of resolveArkClassesFromType(scene, type)) {
+        for (const field of klass?.getFields?.() || []) {
+            const fieldType = field?.getType?.();
+            add(field?.getName?.() || "", typeText(fieldType), fieldType);
+        }
+    }
+
+    return [...out.values()].sort((left, right) => left.name.localeCompare(right.name));
+}
+
+function extractInlineObjectFields(rawTypeText: string): DeclaredFieldShape[] {
+    const text = String(rawTypeText || "").trim();
+    if (!text.startsWith("{") || !text.endsWith("}")) return [];
+
+    const body = text.slice(1, text.length - 1);
+    const fields: DeclaredFieldShape[] = [];
+    const re = /([A-Za-z_$][A-Za-z0-9_$]*)\??\s*:\s*([^,;}]+)/g;
+    let match: RegExpExecArray | null;
+    while ((match = re.exec(body)) !== null) {
+        const name = match[1] || "";
+        const fieldTypeText = match[2] || "";
+        if (name && fieldTypeText) fields.push({ name, typeText: fieldTypeText.trim() });
+    }
+    return fields;
 }
 
 function resolveArkClassesFromType(
@@ -831,29 +791,67 @@ function resolveArkClassesFromType(
     return out;
 }
 
-function isCallableLikeType(type: any, depth: number = 0): boolean {
+function typeText(type: any): string {
+    return String(type?.toString?.() || type?.getTypeString?.() || "").trim();
+}
+
+function isCallableLikeType(
+    scene: Scene,
+    type: any,
+    depth: number = 0,
+): boolean {
+    void scene;
     if (!type || depth > 4) {
         return false;
     }
     if (type.getMethodSignature?.()) {
         return true;
     }
+    const methodSignatures = type.getMethodSignatures?.();
+    if (Array.isArray(methodSignatures) && methodSignatures.length > 0) {
+        return true;
+    }
+    const callSignature = type.getCallSignature?.() || type.getFunctionSignature?.() || type.getFuncSignature?.();
+    if (callSignature) {
+        return true;
+    }
 
     const originalType = type.getOriginalType?.();
-    if (originalType && isCallableLikeType(originalType, depth + 1)) {
+    if (originalType && isCallableLikeType(scene, originalType, depth + 1)) {
         return true;
     }
 
     const unionTypes = type.getTypes?.();
-    if (Array.isArray(unionTypes) && unionTypes.some((unionType: any) => isCallableLikeType(unionType, depth + 1))) {
+    if (Array.isArray(unionTypes) && unionTypes.some((unionType: any) => isCallableLikeType(scene, unionType, depth + 1))) {
         return true;
     }
 
     const currType = type.getCurrType?.();
-    if (currType && currType !== type && isCallableLikeType(currType, depth + 1)) {
+    if (currType && currType !== type && isCallableLikeType(scene, currType, depth + 1)) {
         return true;
     }
 
-    const text = String(type.toString?.() || type.getTypeString?.() || "").toLowerCase();
-    return text.includes("=>") || text.includes("function") || text.includes("%am");
+    return false;
+}
+
+function isInlineCallableTypeText(text: string): boolean {
+    const normalized = String(text || "").trim();
+    return /\([^)]*\)\s*=>/.test(normalized)
+        || /^new\s*\([^)]*\)\s*=>/.test(normalized);
+}
+
+function isStringListTypeText(text: string): boolean {
+    return /\b(Array\s*<\s*string\s*>|string\s*\[\])\b/i.test(String(text || ""));
+}
+
+function isObjectLikeTypeText(text: string): boolean {
+    const normalized = String(text || "").trim();
+    return /^object$/i.test(normalized)
+        || /^\{.*\}$/.test(normalized)
+        || /^[A-Za-z_$][A-Za-z0-9_$.]*$/.test(normalized);
+}
+
+function uniqueSorted(values: string[]): string[] {
+    return [...new Set(values.map(value => String(value || "").trim()).filter(Boolean))]
+        .sort((left, right) => left.localeCompare(right));
 }

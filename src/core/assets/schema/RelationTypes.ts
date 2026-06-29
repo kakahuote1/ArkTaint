@@ -1,6 +1,5 @@
 import type { Confidence, SourceLocation } from "./CommonTypes";
 import type { AssetEndpoint, AssetGuard } from "./EndpointTypes";
-import type { AssetIdentity } from "./SurfaceTypes";
 
 export type AssetRelation = FacadeRelation;
 
@@ -11,7 +10,7 @@ export interface FacadeRelation {
     target: {
         assetId?: string;
         surfaceId?: string;
-        identity?: AssetIdentity;
+        canonicalApiId?: string;
     };
     evidence: "transparent-wrapper" | "delegating-wrapper";
     evidenceLocation: SourceLocation;

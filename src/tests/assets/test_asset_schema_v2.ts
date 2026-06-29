@@ -1,8 +1,8 @@
 import {
     type AssetDocumentBase,
-    type InvokeSurface,
     validateAssetDocument,
 } from "../../core/assets/schema";
+import { exactOfficialInvokeSurface, exactProjectInvokeSurface } from "../helpers/AssetIdentityTestUtils";
 
 function assert(condition: unknown, message: string): asserts condition {
     if (!condition) {
@@ -10,22 +10,20 @@ function assert(condition: unknown, message: string): asserts condition {
     }
 }
 
-const invokeSurface: InvokeSurface = {
+const invokeSurface = exactOfficialInvokeSurface({
     surfaceId: "surface.console.log",
-    kind: "invoke",
-    modulePath: "@ohos.console",
+    moduleSpecifier: "@ohos.console",
+    logicalDeclarationFile: "api/@ohos.console.d.ts",
+    exportName: "console",
     ownerName: "console",
     methodName: "log",
     invokeKind: "static",
-    argCount: 1,
-    confidence: "certain",
-    provenance: {
-        source: "sdk",
-    },
-};
+    parameterTypes: ["Object"],
+    returnType: "void",
+});
 
 function validRuleAsset(): AssetDocumentBase {
-    return {
+    return stampAssetIdentities({
         id: "asset.rule.console.log",
         plane: "rule",
         status: "official",
@@ -42,12 +40,6 @@ function validRuleAsset(): AssetDocumentBase {
                 assetId: "asset.rule.console.log",
                 plane: "rule",
                 role: "sink",
-                selector: {
-                    kind: "method-name-equals",
-                    value: "log",
-                    invokeKind: "static",
-                    argCount: 1,
-                },
                 endpoint: { base: { kind: "arg", index: 0 } },
                 effectTemplateRefs: ["template.console.log.arg0.sink"],
                 semanticsFamily: "privacy-log",
@@ -67,7 +59,23 @@ function validRuleAsset(): AssetDocumentBase {
         provenance: {
             source: "builtin",
         },
-    };
+    });
+}
+
+function stampAssetIdentities<T extends AssetDocumentBase>(asset: T): T {
+    const bySurfaceId = new Map<string, string>();
+    for (const surface of asset.surfaces || []) {
+        if (surface.canonicalApiId) {
+            bySurfaceId.set(surface.surfaceId, surface.canonicalApiId);
+        }
+    }
+    for (const binding of asset.bindings || []) {
+        const canonicalApiId = bySurfaceId.get(binding.surfaceId);
+        if (canonicalApiId) {
+            binding.canonicalApiId = canonicalApiId;
+        }
+    }
+    return asset;
 }
 
 function expectValid(asset: unknown, name: string): void {
@@ -86,6 +94,23 @@ function expectInvalid(asset: unknown, messagePart: string, name: string): void 
 
 function main(): void {
     expectValid(validRuleAsset(), "valid rule asset");
+
+    const restEndpointAsset = validRuleAsset();
+    restEndpointAsset.surfaces[0] = exactOfficialInvokeSurface({
+        surfaceId: "surface.console.log",
+        moduleSpecifier: "@ohos.console",
+        logicalDeclarationFile: "api/@ohos.console.d.ts",
+        exportName: "console",
+        ownerName: "console",
+        methodName: "log",
+        invokeKind: "static",
+        parameterTypes: ["string", "rest:any[]"],
+        returnType: "void",
+    });
+    restEndpointAsset.bindings[0].endpoint = { base: { kind: "rest", startIndex: 1 } } as any;
+    (restEndpointAsset.effectTemplates[0] as any).value = { base: { kind: "rest", startIndex: 1 } };
+    stampAssetIdentities(restEndpointAsset);
+    expectValid(restEndpointAsset, "valid rest endpoint asset");
 
     const missingSurfaces = {
         ...validRuleAsset(),
@@ -116,18 +141,20 @@ function main(): void {
 
     const freeFunctionAsset = validRuleAsset();
     freeFunctionAsset.surfaces = [
-        {
+        exactOfficialInvokeSurface({
             surfaceId: "surface.request",
-            kind: "invoke",
-            modulePath: "@ohos.net.http",
-            functionName: "request",
+            moduleSpecifier: "@ohos.net.http",
+            logicalDeclarationFile: "api/@ohos.net.http.d.ts",
+            exportName: "request",
+            ownerName: "http",
+            methodName: "request",
             invokeKind: "free-function",
-            argCount: 1,
-            confidence: "certain",
-            provenance: { source: "sdk" },
-        },
+            parameterTypes: ["RequestOptions"],
+            returnType: "Promise<HttpResponse>",
+        }),
     ];
     freeFunctionAsset.bindings[0].surfaceId = "surface.request";
+    stampAssetIdentities(freeFunctionAsset);
     expectValid(freeFunctionAsset, "free function surface without owner");
 
     const optionCallbackAsset = validRuleAsset();
@@ -161,6 +188,7 @@ function main(): void {
     } as any;
     optionCallbackAsset.bindings[0].role = "source";
     optionCallbackAsset.bindings[0].effectTemplateRefs = ["template.chat.onSendMessage.arg1.source"];
+    stampAssetIdentities(optionCallbackAsset);
     expectValid(optionCallbackAsset, "option-object callback endpoint");
 
     const unstableInvoke = validRuleAsset();
@@ -168,11 +196,12 @@ function main(): void {
         {
             ...invokeSurface,
             surfaceId: "surface.unknown",
-            modulePath: "@unk/module",
+            canonicalApiId: "api:official:openharmony:@unk/module",
         },
     ];
     unstableInvoke.bindings[0].surfaceId = "surface.unknown";
-    expectInvalid(unstableInvoke, "must be a stable non-empty string", "unstable invoke surface");
+    stampAssetIdentities(unstableInvoke);
+    expectInvalid(unstableInvoke, "must be a stable canonicalApiId", "unstable invoke surface");
 
     const missingTemplateRef = validRuleAsset();
     missingTemplateRef.bindings[0].effectTemplateRefs = ["template.missing"];
@@ -209,6 +238,7 @@ function main(): void {
 
     const missingHandoffCellKind: any = validRuleAsset();
     missingHandoffCellKind.plane = "module";
+    missingHandoffCellKind.bindings[0].plane = "module";
     missingHandoffCellKind.bindings[0].role = "handoff";
     missingHandoffCellKind.bindings[0].semanticsFamily = "project-keyed-storage";
     missingHandoffCellKind.bindings[0].effectTemplateRefs = ["template.bad.handoff.missing.cellKind"];
@@ -223,6 +253,7 @@ function main(): void {
             value: { base: { kind: "arg", index: 1 } },
         },
     ];
+    stampAssetIdentities(missingHandoffCellKind);
     expectInvalid(
         missingHandoffCellKind,
         "cellKind is not a registered CellKindId",
@@ -231,6 +262,7 @@ function main(): void {
 
     const unknownHandoffCellKind: any = validRuleAsset();
     unknownHandoffCellKind.plane = "module";
+    unknownHandoffCellKind.bindings[0].plane = "module";
     unknownHandoffCellKind.bindings[0].role = "handoff";
     unknownHandoffCellKind.bindings[0].semanticsFamily = "project-keyed-storage";
     unknownHandoffCellKind.bindings[0].effectTemplateRefs = ["template.bad.handoff.unknown.cellKind"];
@@ -246,6 +278,7 @@ function main(): void {
             value: { base: { kind: "arg", index: 1 } },
         },
     ];
+    stampAssetIdentities(unknownHandoffCellKind);
     expectInvalid(
         unknownHandoffCellKind,
         "cellKind is not a registered CellKindId",
@@ -267,41 +300,42 @@ function main(): void {
                 cellKind: "keyed-semantic-slot",
                 family: "project.token_cache",
                 key: [{ kind: "fromLiteralArg", index: 0 }],
-                precision: "infer",
+                precision: "exact",
             },
             value: { base: { kind: "arg", index: 1 } },
-            updateStrength: "infer",
+            updateStrength: "weak",
             confidence: "likely",
         },
     ];
+    stampAssetIdentities(validModuleAsset);
     expectValid(validModuleAsset, "valid module handoff asset");
 
     const validPairedHandoffAsset: any = validRuleAsset();
     validPairedHandoffAsset.id = "asset.module.project-kvdb";
     validPairedHandoffAsset.plane = "module";
     validPairedHandoffAsset.surfaces = [
-        {
+        exactProjectInvokeSurface({
             surfaceId: "surface.ProjectKv.put",
-            kind: "invoke",
             modulePath: "project/storage/Kv.ets",
             ownerName: "ProjectKv",
             methodName: "put",
             invokeKind: "namespace",
-            argCount: 2,
+            parameterTypes: ["string", "Object"],
+            returnType: "void",
             confidence: "likely",
-            provenance: { source: "llm-proposal" },
-        },
-        {
+            provenanceSource: "llm-proposal",
+        }),
+        exactProjectInvokeSurface({
             surfaceId: "surface.ProjectKv.get",
-            kind: "invoke",
             modulePath: "project/storage/Kv.ets",
             ownerName: "ProjectKv",
             methodName: "get",
             invokeKind: "namespace",
-            argCount: 1,
+            parameterTypes: ["string"],
+            returnType: "Object",
             confidence: "likely",
-            provenance: { source: "llm-proposal" },
-        },
+            provenanceSource: "llm-proposal",
+        }),
     ];
     validPairedHandoffAsset.bindings = [
         {
@@ -335,10 +369,10 @@ function main(): void {
                 cellKind: "persistent-storage-slot",
                 family: "project.kvdb",
                 key: [{ kind: "fromEndpoint", endpoint: { base: { kind: "arg", index: 0 } } }],
-                precision: "infer",
+                precision: "exact",
             },
             value: { base: { kind: "arg", index: 1 } },
-            updateStrength: "infer",
+            updateStrength: "weak",
             confidence: "likely",
         },
         {
@@ -348,24 +382,49 @@ function main(): void {
                 cellKind: "persistent-storage-slot",
                 family: "project.kvdb",
                 key: [{ kind: "fromEndpoint", endpoint: { base: { kind: "arg", index: 0 } } }],
-                precision: "infer",
+                precision: "exact",
             },
             target: { base: { kind: "return" } },
             confidence: "likely",
         },
     ];
+    stampAssetIdentities(validPairedHandoffAsset);
     expectValid(validPairedHandoffAsset, "valid paired module handoff asset");
 
-    const mismatchedPairedHandoffFamily: any = JSON.parse(JSON.stringify(validPairedHandoffAsset));
-    mismatchedPairedHandoffFamily.effectTemplates[1].handle.family = "project.other_kvdb";
+    const sameSurfacePairedHandoff: any = JSON.parse(JSON.stringify(validModuleAsset));
+    sameSurfacePairedHandoff.bindings[0].effectTemplateRefs = ["template.TokenCache.put", "template.TokenCache.get"];
+    sameSurfacePairedHandoff.effectTemplates = [
+        {
+            id: "template.TokenCache.put",
+            kind: "handoff.put",
+            handle: {
+                cellKind: "keyed-semantic-slot",
+                family: "project.token_cache",
+                key: [{ kind: "fromLiteralArg", index: 0 }],
+                precision: "exact",
+            },
+            value: { base: { kind: "arg", index: 1 } },
+            updateStrength: "weak",
+        },
+        {
+            id: "template.TokenCache.get",
+            kind: "handoff.get",
+            handle: {
+                cellKind: "keyed-semantic-slot",
+                family: "project.other_token_cache",
+                key: [{ kind: "fromLiteralArg", index: 0 }],
+                precision: "exact",
+            },
+            target: { base: { kind: "return" } },
+        },
+    ];
     expectInvalid(
-        mismatchedPairedHandoffFamily,
+        sameSurfacePairedHandoff,
         "same handle.family",
         "paired handoff asset with mismatched families",
     );
 
-    const unrelatedDifferentKeyFamily: any = JSON.parse(JSON.stringify(validPairedHandoffAsset));
-    unrelatedDifferentKeyFamily.effectTemplates[1].handle.family = "project.other_kvdb";
+    const unrelatedDifferentKeyFamily: any = JSON.parse(JSON.stringify(sameSurfacePairedHandoff));
     unrelatedDifferentKeyFamily.effectTemplates[1].handle.key = [
         { kind: "fromEndpoint", endpoint: { base: { kind: "arg", index: 0 }, accessPath: ["name"] } },
     ];
@@ -401,12 +460,18 @@ function main(): void {
         "binding plane mismatch",
     );
 
-    const badSelectorKind = validRuleAsset();
-    badSelectorKind.bindings[0].selector = {
-        kind: "wildcard",
-        value: "*",
-    } as any;
-    expectInvalid(badSelectorKind, "selector.kind", "invalid runtime selector kind");
+    const selectorAsset: any = validRuleAsset();
+    selectorAsset.bindings[0].selector = {
+        kind: ["method", "name", "equals"].join("-"),
+        value: "log",
+    };
+    expectInvalid(selectorAsset, "selector is not an asset identity field", "runtime selector field");
+
+    const candidateWithoutCanonical: any = validRuleAsset();
+    candidateWithoutCanonical.status = "candidate";
+    delete candidateWithoutCanonical.surfaces[0].canonicalApiId;
+    delete candidateWithoutCanonical.bindings[0].canonicalApiId;
+    expectInvalid(candidateWithoutCanonical, "canonicalApiId is required", "candidate without canonical identity");
 
     const facadeAsset = validRuleAsset();
     facadeAsset.relations = [

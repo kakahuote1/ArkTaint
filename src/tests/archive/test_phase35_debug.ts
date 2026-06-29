@@ -5,6 +5,7 @@ import { ArkParameterRef } from "../../../arkanalyzer/out/src/core/base/Ref";
 import { Local } from "../../../arkanalyzer/out/src/core/base/Local";
 import { TaintPropagationEngine } from "../../core/orchestration/TaintPropagationEngine";
 import * as path from "path";
+import { detectSinksByExactMethodsForTest, resolveUniqueMethodByExactNameForTest, resolveUniqueMethodByExactSignatureForTest } from "../helpers/ExactSinkDetectionTestUtils";
 
 function getParameterLocalNames(entryMethod: any): Set<string> {
     const names = new Set<string>();
@@ -60,7 +61,7 @@ async function run(): Promise<void> {
     }
 
     engine.propagateWithSeeds(seeds);
-    const flows = engine.detectSinks("Sink");
+    const flows = detectSinksByExactMethodsForTest(engine, resolveUniqueMethodByExactNameForTest(engine, "Sink"));
 
     const tag = `${entryName}_k1`;
     const outputDir = path.join("tmp", "phase35");

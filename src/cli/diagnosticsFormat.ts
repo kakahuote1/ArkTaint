@@ -211,7 +211,7 @@ export function normalizeDiagnosticsItems(diagnostics: AnalyzeErrorDiagnostics):
         out.push({
             category: "Rule",
             code: desc.code,
-            title: `${issue.layerName} Rules`,
+            title: `${issue.sourceName} Rules`,
             summary: desc.summary,
             rawMessage: issue.message,
             advice: desc.advice,

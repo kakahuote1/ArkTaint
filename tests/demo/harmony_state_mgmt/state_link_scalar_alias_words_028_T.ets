@@ -1,4 +1,4 @@
-import { Link, State, taint } from "./taint_mock";
+import { Prop, State, taint } from "./taint_mock";
 
 class SearchListViewModel028 {
     searchAsync(words: string): void {
@@ -7,7 +7,7 @@ class SearchListViewModel028 {
 }
 
 class SearchListComponent028 {
-    @Link()
+    @Prop()
     searchWords: string = "";
 
     private viewModel: SearchListViewModel028 = new SearchListViewModel028();

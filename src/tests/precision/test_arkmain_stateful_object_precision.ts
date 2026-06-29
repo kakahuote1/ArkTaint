@@ -129,7 +129,7 @@ async function main(): Promise<void> {
         ruleCatalogPath: options.ruleCatalogPath,
         projectRulePath: options.projectRulePath,
         allowMissingProject: false,
-        autoDiscoverLayers: false,
+        autoDiscoverRuleSources: false,
     });
     const sourceRules: SourceRule[] = loaded.ruleSet.sources || [];
     const sinkRules: SinkRule[] = loaded.ruleSet.sinks || [];

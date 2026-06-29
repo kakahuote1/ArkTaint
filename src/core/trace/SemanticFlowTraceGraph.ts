@@ -86,8 +86,11 @@ export function buildSemanticFlowTraceGraph(input: SemanticFlowTraceGraphInput):
 
     for (const item of input.items) {
         const emitted = !!item.asset && item.resolution === "resolved";
+        const anchorSubject = stableTraceSubject(item.anchor.canonicalApiId || item.anchor.id);
         const anchorEvidence = {
             anchorId: item.anchor.id,
+            canonicalApiId: item.anchor.canonicalApiId,
+            identityStatus: item.anchor.canonicalApiId ? "accepted" : "unresolved",
             owner: item.anchor.owner,
             surface: item.anchor.surface,
             methodSignature: item.anchor.methodSignature,
@@ -104,11 +107,11 @@ export function buildSemanticFlowTraceGraph(input: SemanticFlowTraceGraphInput):
             error: item.error,
         };
         pushGate({
-            label: item.anchor.id,
+            label: anchorSubject,
             stage: "coverage_ledger",
             producer: "coverage_ledger",
             gateKind: "coverage_query",
-            scope: `coverage_ledger:item:${item.anchor.id}`,
+            scope: `coverage_ledger:item:${anchorSubject}`,
             attempted: true,
             matched: true,
             emitted: emitted,
@@ -119,11 +122,11 @@ export function buildSemanticFlowTraceGraph(input: SemanticFlowTraceGraphInput):
             },
         });
         pushGate({
-            label: item.anchor.id,
+            label: anchorSubject,
             stage: "semanticflow_llm",
             producer: "semanticflow",
             gateKind: "llm_batch",
-            scope: `semanticflow_llm:batch:${item.anchor.id}`,
+            scope: `semanticflow_llm:batch:${anchorSubject}`,
             attempted: item.resolution !== "irrelevant",
             matched: item.history.length > 0 || !!item.finalSlice,
             emitted: item.history.length > 0 || !!item.finalSlice,
@@ -135,11 +138,11 @@ export function buildSemanticFlowTraceGraph(input: SemanticFlowTraceGraphInput):
             },
         });
         pushGate({
-            label: item.anchor.id,
+            label: anchorSubject,
             stage: "semanticflow_llm",
             producer: "semanticflow",
             gateKind: "llm_output",
-            scope: `semanticflow_llm:output:${item.anchor.id}`,
+            scope: `semanticflow_llm:output:${anchorSubject}`,
             attempted: item.resolution !== "irrelevant",
             matched: item.resolution !== "irrelevant",
             emitted,
@@ -148,11 +151,11 @@ export function buildSemanticFlowTraceGraph(input: SemanticFlowTraceGraphInput):
             evidence: anchorEvidence,
         });
         pushGate({
-            label: item.anchor.id,
+            label: anchorSubject,
             stage: "semanticflow",
             producer: "semanticflow",
             gateKind: "candidate",
-            scope: `semanticflow:item:${item.anchor.id}`,
+            scope: `semanticflow:item:${anchorSubject}`,
             attempted: true,
             matched: item.resolution !== "irrelevant",
             emitted,
@@ -212,6 +215,14 @@ export function buildSemanticFlowTraceGraph(input: SemanticFlowTraceGraphInput):
     }
 
     return buildTraceGraph(input.run, [], [], gates);
+}
+
+function stableTraceSubject(value: string): string {
+    return String(value || "unresolved")
+        .replace(/\\/g, "/")
+        .replace(/[^A-Za-z0-9_.:/@=-]+/g, "_")
+        .replace(/_+/g, "_")
+        .slice(0, 220);
 }
 
 function recordPublishedModelGates(

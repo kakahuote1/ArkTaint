@@ -64,8 +64,8 @@ export function buildIncrementalFingerprint(payload: any): string {
 
 export function buildRuleFingerprint(loadedRules: LoadedRuleSet): string {
     const payload = {
-        appliedLayerOrder: loadedRules.appliedLayerOrder || [],
-        layerStatus: (loadedRules.layerStatus || []).map(s => ({
+        appliedRuleSources: loadedRules.appliedRuleSources || [],
+        ruleSourceStatus: (loadedRules.ruleSourceStatus || []).map(s => ({
             name: s.name,
             path: s.path,
             applied: s.applied,

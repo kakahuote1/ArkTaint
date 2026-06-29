@@ -54,6 +54,7 @@ export type SemanticFlowAssetDraft = Partial<AssetDocumentBase>;
 
 export interface SemanticFlowAnchor {
     id: string;
+    canonicalApiId?: string;
     owner?: string;
     surface: string;
     method?: import("../../../arkanalyzer/out/src/core/model/ArkMethod").ArkMethod;

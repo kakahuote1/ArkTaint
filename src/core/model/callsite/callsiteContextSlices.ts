@@ -11,6 +11,7 @@ import {
 
 export interface NormalizedCallsiteItem {
     callee_signature: string;
+    canonicalApiId?: string;
     method: string;
     invokeKind: "instance" | "static" | "any";
     argCount: number;
@@ -38,7 +39,7 @@ interface OwnerMethodSnippet {
     code: string;
 }
 
-type OwnerMethodEvidenceTier =
+type OwnerMethodEvidenceRank =
     | "registration-companion"
     | "direct-method-reference"
     | "shared-delegate-receiver"
@@ -49,12 +50,12 @@ type OwnerMethodEvidenceTier =
 
 interface OwnerMethodEvidence {
     item: OwnerMethodSnippet;
-    tier: OwnerMethodEvidenceTier;
+    rank: OwnerMethodEvidenceRank;
     reasons: string[];
     originalIndex: number;
 }
 
-const ownerMethodEvidenceTierOrder: OwnerMethodEvidenceTier[] = [
+const ownerMethodEvidenceRankOrder: OwnerMethodEvidenceRank[] = [
     "registration-companion",
     "direct-method-reference",
     "shared-delegate-receiver",
@@ -64,8 +65,8 @@ const ownerMethodEvidenceTierOrder: OwnerMethodEvidenceTier[] = [
     "no-evidence",
 ];
 
-const ownerMethodEvidenceTierIndex = new Map(
-    ownerMethodEvidenceTierOrder.map((tier, index) => [tier, index]),
+const ownerMethodEvidenceRankIndex = new Map(
+    ownerMethodEvidenceRankOrder.map((rank, index) => [rank, index]),
 );
 
 function escapeRegExp(value: string): string {
@@ -90,6 +91,7 @@ export function extractFilePathFromInvokeSignature(signature: string): string {
 
 export function normalizeNoCandidateItem(raw: any): NormalizedCallsiteItem {
     const callee_signature = String(raw?.callee_signature ?? raw?.calleeSignature ?? "").trim();
+    const canonicalApiId = String(raw?.canonicalApiId ?? "").trim() || undefined;
     const method = String(raw?.method ?? "").trim();
     const invokeKindRaw = String(raw?.invokeKind ?? "any").trim();
     const invokeKind: NormalizedCallsiteItem["invokeKind"] =
@@ -99,6 +101,7 @@ export function normalizeNoCandidateItem(raw: any): NormalizedCallsiteItem {
     return {
         ...raw,
         callee_signature,
+        ...(canonicalApiId ? { canonicalApiId } : {}),
         method,
         invokeKind,
         argCount: Number.isFinite(argCount) ? Math.floor(argCount) : 0,
@@ -125,8 +128,8 @@ function invokeKindOf(
 function pathsLooselyAlign(calleeFileFromSig: string, itemSourceFile: string): boolean {
     const cf = normalizeSlashes(calleeFileFromSig);
     const sf = normalizeSlashes(itemSourceFile);
-    if (!sf || sf.includes("%unk")) return true;
-    if (!cf || cf.includes("%unk")) return true;
+    if (!sf || sf.includes("%unk")) return false;
+    if (!cf || cf.includes("%unk")) return false;
     if (cf === sf) return true;
     if (cf.endsWith(sf) || sf.endsWith(cf)) return true;
     if (cf.includes(sf) || sf.includes(cf)) return true;
@@ -138,11 +141,6 @@ function signaturesCompatible(itemSig: string, rawInvokeSig: string): boolean {
     const b = normalizeSlashes(rawInvokeSig).replace(/\s+/g, "");
     if (!a || !b) return false;
     if (a === b) return true;
-    if (a.includes("@%unk/%unk") || b.includes("@%unk/%unk")) {
-        const mItem = itemSig.match(/\.([A-Za-z0-9_$]+)\(/);
-        const mRaw = rawInvokeSig.match(/\.([A-Za-z0-9_$]+)\(/);
-        if (mItem && mRaw && mItem[1] === mRaw[1]) return true;
-    }
     return false;
 }
 
@@ -622,9 +620,9 @@ function classifyOwnerMethodSnippetEvidence(
     currentMethod: string,
     currentCode: string,
     candidate: OwnerMethodSnippet,
-): { tier: OwnerMethodEvidenceTier; reasons: string[] } {
+): { rank: OwnerMethodEvidenceRank; reasons: string[] } {
     if (candidate.method === currentMethod) {
-        return { tier: "no-evidence", reasons: ["same-method"] };
+        return { rank: "no-evidence", reasons: ["same-method"] };
     }
     const reasons: string[] = [];
     const currentReceivers = extractDelegateReceivers(currentCode);
@@ -633,30 +631,30 @@ function classifyOwnerMethodSnippetEvidence(
 
     if (isDispatchLikeMethod(currentMethod) && isRegistrationLikeMethod(candidate.method)) {
         reasons.push("registration-method-for-dispatch");
-        return { tier: "registration-companion", reasons };
+        return { rank: "registration-companion", reasons };
     }
     if (currentMethodText && candidate.code.includes(currentMethodText)) {
         reasons.push("candidate-references-current-method");
-        return { tier: "direct-method-reference", reasons };
+        return { rank: "direct-method-reference", reasons };
     }
     if (candidateReceivers.some(receiver => currentReceivers.includes(receiver))) {
         reasons.push("shared-delegate-receiver");
-        return { tier: "shared-delegate-receiver", reasons };
+        return { rank: "shared-delegate-receiver", reasons };
     }
     if (/return\s+[A-Za-z_$][\w$]*\.[A-Za-z_$][\w$]*\s*\(/.test(candidate.code)) {
         reasons.push("returned-delegated-call");
-        return { tier: "returned-wrapper", reasons };
+        return { rank: "returned-wrapper", reasons };
     }
     if (candidate.code.includes(".then(") || candidate.code.includes(".catch(") || candidate.code.includes(".finally(")) {
         reasons.push("promise-continuation");
-        return { tier: "async-companion", reasons };
+        return { rank: "async-companion", reasons };
     }
     const wrapperTokens = ["push", "replace", "back", "get", "set", "post", "emit", "bind", "subscribe", "publish"];
     if (wrapperTokens.some(token => candidate.method.toLowerCase().includes(token))) {
         reasons.push("wrapper-shaped-method-name");
-        return { tier: "wrapper-name", reasons };
+        return { rank: "wrapper-name", reasons };
     }
-    return { tier: "no-evidence", reasons: ["no-linked-owner-evidence"] };
+    return { rank: "no-evidence", reasons: ["no-linked-owner-evidence"] };
 }
 
 function isDispatchLikeMethod(methodName: string): boolean {
@@ -678,25 +676,25 @@ function selectOwnerFamilySnippets(
             const evidence = classifyOwnerMethodSnippetEvidence(currentMethod, currentCode, item);
             return {
                 item,
-                tier: evidence.tier,
+                rank: evidence.rank,
                 reasons: evidence.reasons,
                 originalIndex,
             };
         })
-        .filter(entry => entry.tier !== "no-evidence")
+        .filter(entry => entry.rank !== "no-evidence")
         .sort(compareOwnerMethodEvidence)
         .slice(0, limit)
         .map(entry => entry.item);
 }
 
 function compareOwnerMethodEvidence(left: OwnerMethodEvidence, right: OwnerMethodEvidence): number {
-    return ownerMethodEvidenceTier(left.tier) - ownerMethodEvidenceTier(right.tier)
+    return ownerMethodEvidenceRank(left.rank) - ownerMethodEvidenceRank(right.rank)
         || left.item.method.localeCompare(right.item.method)
         || left.originalIndex - right.originalIndex;
 }
 
-function ownerMethodEvidenceTier(tier: OwnerMethodEvidenceTier): number {
-    return ownerMethodEvidenceTierIndex.get(tier) ?? ownerMethodEvidenceTierOrder.length;
+function ownerMethodEvidenceRank(rank: OwnerMethodEvidenceRank): number {
+    return ownerMethodEvidenceRankIndex.get(rank) ?? ownerMethodEvidenceRankOrder.length;
 }
 
 function compactOwnerMethodSnippet(
@@ -864,7 +862,7 @@ export function enrichNoCandidateItemsWithCallsiteSlices(options: EnrichCallsite
     const normalized = items.map(normalizeNoCandidateItem);
     const picked = normalized.slice(0, Math.max(0, maxItems));
     const pickedKeys = new Set(
-        picked.map(p => `${p.callee_signature}|${p.method}|${p.invokeKind}|${p.argCount}|${p.sourceFile}`),
+        picked.map(callsiteItemKey),
     );
 
     const scenes: Scene[] = [];
@@ -879,7 +877,7 @@ export function enrichNoCandidateItemsWithCallsiteSlices(options: EnrichCallsite
     }
 
     return normalized.map(item => {
-        const key = `${item.callee_signature}|${item.method}|${item.invokeKind}|${item.argCount}|${item.sourceFile}`;
+        const key = callsiteItemKey(item);
         const shouldEnrich = pickedKeys.has(key);
         if (!shouldEnrich) {
             return item;
@@ -1001,6 +999,17 @@ export function enrichNoCandidateItemsWithCallsiteSlices(options: EnrichCallsite
             } : {}),
         };
     });
+}
+
+function callsiteItemKey(item: NormalizedCallsiteItem): string {
+    return [
+        item.canonicalApiId || "",
+        item.callee_signature,
+        item.method,
+        item.invokeKind,
+        String(item.argCount),
+        item.sourceFile,
+    ].join("|");
 }
 
 function mergeCallsiteContextSlices(

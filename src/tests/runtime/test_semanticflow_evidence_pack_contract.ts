@@ -3,6 +3,7 @@ import { buildPreAnalysisEvidencePack } from "../../core/preanalysis";
 import { buildSemanticFlowRunRecord } from "../../core/semanticflow/SemanticFlowRunRecord";
 import { selectSemanticFlowSlicesFromEvidencePack } from "../../core/semanticflow/SemanticFlowSliceSelector";
 import type { SemanticFlowRunResult } from "../../core/semanticflow/SemanticFlowTypes";
+import { makeHandoffAsset } from "./SemanticFlowV2TestHelpers";
 
 function assert(condition: unknown, message: string): asserts condition {
     if (!condition) throw new Error(message);
@@ -24,14 +25,38 @@ const observed: ObservedSurface[] = [
         observedSurfaceId: "obs.known",
         rawKind: "call",
         location: { file: "Known.ets", line: 1 },
-        analyzerEvidence: { calleeSignature: "@ohos/hilog: hilog.info(number,string,string,string)", argCount: 4 },
+        analyzerEvidence: {
+            arkanalyzer: {
+                methodKey: {
+                    declaringFileName: "@ohos/hilog",
+                    declaringNamespacePath: [],
+                    declaringClassName: "hilog",
+                    methodName: "info",
+                    parameterTypes: ["number", "string", "string", "string"],
+                    returnType: "void",
+                    staticFlag: true,
+                },
+            },
+        },
         resolutionStatus: "resolved",
     },
     {
         observedSurfaceId: "obs.unknown",
         rawKind: "call",
         location: { file: "TokenCache.ets", line: 2 },
-        analyzerEvidence: { calleeSignature: "@project/cache: TokenCache.save(string,string)", argCount: 2 },
+        analyzerEvidence: {
+            arkanalyzer: {
+                methodKey: {
+                    declaringFileName: "@project/cache",
+                    declaringNamespacePath: [],
+                    declaringClassName: "TokenCache",
+                    methodName: "save",
+                    parameterTypes: ["string", "string"],
+                    returnType: "void",
+                    staticFlag: true,
+                },
+            },
+        },
         resolutionStatus: "resolved",
     },
 ];
@@ -55,51 +80,7 @@ const entries: CoverageLedgerEntry[] = [
 ];
 
 function generatedAsset(): AssetDocumentBase {
-    return {
-        id: "asset.project.token-cache",
-        plane: "module",
-        status: "llm-generated",
-        surfaces: [
-            {
-                surfaceId: "surface.TokenCache.save",
-                kind: "invoke",
-                modulePath: "project/cache",
-                ownerName: "TokenCache",
-                methodName: "save",
-                invokeKind: "static",
-                argCount: 2,
-                confidence: "likely",
-                provenance: { source: "llm-proposal", location: { file: "TokenCache.ets", line: 2 } },
-            },
-        ],
-        bindings: [
-            {
-                bindingId: "binding.TokenCache.save",
-                surfaceId: "surface.TokenCache.save",
-                assetId: "asset.project.token-cache",
-                plane: "module",
-                role: "handoff",
-                effectTemplateRefs: ["template.TokenCache.save.put"],
-                completeness: "partial",
-                confidence: "likely",
-            },
-        ],
-        effectTemplates: [
-            {
-                id: "template.TokenCache.save.put",
-                kind: "handoff.put",
-                handle: {
-                    cellKind: "keyed-semantic-slot",
-                    family: "project.token_cache",
-                    key: [{ kind: "fromLiteralArg", index: 0 }],
-                },
-                value: { base: { kind: "arg", index: 1 } },
-                updateStrength: "infer",
-                confidence: "likely",
-            },
-        ],
-        provenance: { source: "llm", projectId: "demo" },
-    };
+    return makeHandoffAsset("asset.project.token-cache");
 }
 
 function main(): void {

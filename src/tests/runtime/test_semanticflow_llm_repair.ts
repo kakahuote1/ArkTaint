@@ -8,26 +8,15 @@ async function main(): Promise<void> {
         asset: makeHandoffAsset(),
         rationale: ["TokenCache.save publishes arg1 under arg0."],
     }), {
-        analyzerBackedSurfaceIds: new Set(["asset.project.token-cache.save.surface"]),
+        analyzerBackedSurfaceIds: new Set([makeHandoffAsset().surfaces[0].surfaceId]),
     });
     assert(decision.status === "done", "expected v2 asset decision");
     assert(decision.asset.plane === "module", "expected module plane");
 
-    const normalizedObjectField = parseSemanticFlowAssetDecision(JSON.stringify({
+    expectThrows(() => parseSemanticFlowAssetDecision(JSON.stringify({
         status: "done",
         asset: makeObjectFieldHandoffShorthandAsset(),
-    }));
-    assert(normalizedObjectField.status === "done", "expected object-field shorthand to normalize to a v2 asset");
-    if (normalizedObjectField.status === "done") {
-        const handle = (normalizedObjectField.asset.effectTemplates[0] as any).handle;
-        assert(handle.key[0].kind === "const" && handle.key[0].value === "appIndex", "string handle key should normalize to const key part");
-        assert(handle.scope === undefined, "empty optional handle scope should be omitted");
-        assert(handle.owner[0].kind === "const" && handle.owner[0].value === "DMPWebViewProxy", "string handle owner should normalize to const key part");
-        assert(handle.precision === "infer", "missing handle precision should normalize to infer");
-        assert((normalizedObjectField.asset.bindings[0] as any).completeness === "partial", "incomplete binding completeness should normalize to partial");
-        assert((normalizedObjectField.asset.bindings[0] as any).endpoint.accessPath === undefined, "empty endpoint accessPath should be omitted");
-        assert((normalizedObjectField.asset.effectTemplates[0] as any).value.accessPath === undefined, "empty value accessPath should be omitted");
-    }
+    })), "forbidden legacy");
 
     expectThrows(() => parseSemanticFlowAssetDecision(JSON.stringify({
         status: "done",
@@ -55,12 +44,14 @@ async function main(): Promise<void> {
     const repairedDecision = await decider.decide(makeDecisionInput());
     assert(calls === 2, `expected one initial LLM call and one repair call, got ${calls}`);
     assert(repairedDecision.status === "done", "expected repaired decision to parse as done");
-    assert(repairedDecision.status === "done" && repairedDecision.asset.bindings[0].completeness === "partial", "expected repaired asset to preserve valid completeness");
+    assert(repairedDecision.status === "done" && repairedDecision.asset.bindings[0].completeness === "complete", "expected repaired asset to preserve exact handoff completeness");
 
     console.log("PASS test_semanticflow_llm_repair");
 }
 
 function makeDecisionInput(): SemanticFlowDecisionInput {
+    const draftAsset = makeHandoffAsset("asset.project.repair-token-cache");
+    const canonicalSurfaceObservation = `canonicalApiSurface: ${JSON.stringify(draftAsset.surfaces[0])}`;
     return {
         anchor: {
             id: "anchor.repair",
@@ -69,11 +60,17 @@ function makeDecisionInput(): SemanticFlowDecisionInput {
             filePath: "TokenCache.ets",
         },
         draftId: "draft.repair",
+        draft: {
+            surfaces: draftAsset.surfaces,
+        },
         slice: {
             anchorId: "anchor.repair",
             round: 0,
             template: "multi-surface",
-            observations: ["TokenCache.save stores arg1 under arg0."],
+            observations: [
+                canonicalSurfaceObservation,
+                "TokenCache.save stores arg1 under arg0.",
+            ],
             snippets: [{ label: "method", code: "save(key: string, value: string) { this.map.set(key, value); }" }],
         },
         round: 0,
@@ -144,7 +141,7 @@ function makeObjectFieldHandoffShorthandAsset(): any {
                     key: ["appIndex"],
                     scope: [],
                     owner: "DMPWebViewProxy",
-                    precision: "field-exact",
+                    precision: "exact",
                 },
                 value: { base: { kind: "arg", index: 1 }, accessPath: [] },
                 updateStrength: "weak",

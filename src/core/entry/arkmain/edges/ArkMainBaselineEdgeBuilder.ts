@@ -3,6 +3,7 @@ import { ArkMainActivationEdge } from "./ArkMainActivationTypes";
 import { ArkMainEntryFact } from "../ArkMainTypes";
 import { ARK_MAIN_LIFECYCLE_FACT_KINDS } from "../ArkMainTypes";
 import { dedupeMethods, reasonFromFact, reasonFromScenarioSeed } from "./ArkMainActivationBuilderUtils";
+import { hasExactArkMainOfficialLifecycleDeclarationForFact } from "../catalog/ArkMainOfficialDeclarationCatalog";
 
 export function buildBaselineRootEdges(
     facts: ArkMainEntryFact[],
@@ -27,9 +28,7 @@ export function buildBaselineRootEdges(
         f.schedule !== false
         && ARK_MAIN_LIFECYCLE_FACT_KINDS.has(f.kind),
     );
-    const hasEntryComponentRoot = baselineFacts.some(fact =>
-        isComponentLifecycleFact(fact) && hasEntryDecorator(fact.method),
-    );
+    const hasEntryComponentRoot = baselineFacts.some(isExactEntryDecoratorComponentRootFact);
     const hasManagedSeedMethod = baselineFacts.some(fact => {
         const signature = fact.method.getSignature?.()?.toString?.();
         return !!signature && seedSignatures.has(signature);
@@ -43,9 +42,7 @@ export function buildBaselineRootEdges(
         if (
             isComponentLifecycleFact(fact)
             && hasEntryComponentRoot
-            && !hasEntryDecorator(fact.method)
-            && !hasRouteDecorator(fact.method)
-            && fact.entryFamily !== "navigation_destination_builder"
+            && !isExactEntryDecoratorComponentRootFact(fact)
             && !matchesSeedMethod
             && !matchesSeedFile
         ) {
@@ -85,17 +82,15 @@ function isComponentLifecycleFact(fact: ArkMainEntryFact): boolean {
     return fact.kind === "page_build" || fact.kind === "page_lifecycle";
 }
 
+function isExactEntryDecoratorComponentRootFact(fact: ArkMainEntryFact): boolean {
+    return isComponentLifecycleFact(fact)
+        && hasEntryDecorator(fact.method)
+        && hasExactArkMainOfficialLifecycleDeclarationForFact(fact);
+}
+
 function hasEntryDecorator(method: ArkMethod): boolean {
     const decorators = method.getDeclaringArkClass?.()?.getDecorators?.() || [];
     return decorators.some(decorator => normalizeDecoratorKind(decorator?.getKind?.()) === "Entry");
-}
-
-function hasRouteDecorator(method: ArkMethod): boolean {
-    const decorators = method.getDeclaringArkClass?.()?.getDecorators?.() || [];
-    return decorators.some(decorator => {
-        const kind = normalizeDecoratorKind(decorator?.getKind?.());
-        return !!kind && /(?:router|route|navigation|nav)/i.test(kind);
-    });
 }
 
 function normalizeDecoratorKind(raw: string | undefined): string | undefined {

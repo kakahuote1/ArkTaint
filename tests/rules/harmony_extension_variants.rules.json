@@ -6,40 +6,485 @@
     {
       "surfaceId": "surface.source.harmony.extension_variants.call_return",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "Source",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "harmony_extension_variants/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=harmony_extension_variants%2Ftaint_mock.ts:file=harmony_extension_variants%2Ftaint_mock.ts:export=namespace%3Ataint.%25dflt:decl=namespace%3Ataint.%25dflt:member=function%3ASource:invoke=call:params=none:ret=string",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_extension_variants/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "taint.%dflt",
+            "methodName": "Source",
+            "parameterTypes": [],
+            "returnType": "string",
+            "staticFlag": true
+          }
+        }
       }
     },
     {
-      "surfaceId": "surface.source.harmony.extension_variants.entry_param",
-      "kind": "access",
-      "modulePath": "@arktaint/local",
-      "ownerName": "LocalBinding",
-      "propertyName": "source.harmony.extension_variants.entry_param",
-      "accessKind": "read",
-      "receiverKind": "namespace",
-      "confidence": "likely",
+      "surfaceId": "surface.source.harmony.extension_variants.entry_param.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_extension_variants%2Ftaint_mock.ts:file=harmony_extension_variants%2Ftaint_mock.ts:export=entry%3Acomponent.onWorkStart:decl=entry%3Acomponent.onWorkStart:member=lifecycle%3Atest.case.onWorkStart:invoke=entry:params=0%3Aany:ret=void",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "harmony_extension_variants/taint_mock.ts"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_extension_variants/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "WorkSchedulerExtensionAbility",
+            "methodName": "onWorkStart",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.extension_variants.entry_param.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_extension_variants%2Fworkscheduler_onworkstart_003_T.ets:file=harmony_extension_variants%2Fworkscheduler_onworkstart_003_T.ets:export=entry%3Acomponent.onWorkStart:decl=entry%3Acomponent.onWorkStart:member=lifecycle%3Atest.case.onWorkStart:invoke=entry:params=0%3Aany:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_extension_variants/workscheduler_onworkstart_003_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_extension_variants/workscheduler_onworkstart_003_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "ProbeWorkSchedulerExtension",
+            "methodName": "onWorkStart",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.extension_variants.entry_param.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_extension_variants%2Ftaint_mock.ts:file=harmony_extension_variants%2Ftaint_mock.ts:export=entry%3Acomponent.onWorkStart:decl=entry%3Acomponent.onWorkStart:member=lifecycle%3Atest.case.onWorkStart:invoke=entry:params=0%3Aany:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_extension_variants/taint_mock.ts"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_extension_variants/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "WorkSchedulerExtensionAbility",
+            "methodName": "onWorkStart",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.extension_variants.entry_param.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_extension_variants%2Fworkscheduler_onworkstart_003_T.ets:file=harmony_extension_variants%2Fworkscheduler_onworkstart_003_T.ets:export=entry%3Acomponent.onWorkStart:decl=entry%3Acomponent.onWorkStart:member=lifecycle%3Atest.case.onWorkStart:invoke=entry:params=0%3Aany:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_extension_variants/workscheduler_onworkstart_003_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_extension_variants/workscheduler_onworkstart_003_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "ProbeWorkSchedulerExtension",
+            "methodName": "onWorkStart",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.extension_variants.entry_param.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_extension_variants%2Ftaint_mock.ts:file=harmony_extension_variants%2Ftaint_mock.ts:export=entry%3Acomponent.onWorkStart:decl=entry%3Acomponent.onWorkStart:member=lifecycle%3Atest.case.onWorkStart:invoke=entry:params=0%3Aany:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_extension_variants/taint_mock.ts"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_extension_variants/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "WorkSchedulerExtensionAbility",
+            "methodName": "onWorkStart",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.extension_variants.entry_param.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_extension_variants%2Fworkscheduler_onworkstart_003_T.ets:file=harmony_extension_variants%2Fworkscheduler_onworkstart_003_T.ets:export=entry%3Acomponent.onWorkStart:decl=entry%3Acomponent.onWorkStart:member=lifecycle%3Atest.case.onWorkStart:invoke=entry:params=0%3Aany:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_extension_variants/workscheduler_onworkstart_003_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_extension_variants/workscheduler_onworkstart_003_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "ProbeWorkSchedulerExtension",
+            "methodName": "onWorkStart",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.extension_variants.entry_param.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_extension_variants%2Ftaint_mock.ts:file=harmony_extension_variants%2Ftaint_mock.ts:export=entry%3Acomponent.onWorkStart:decl=entry%3Acomponent.onWorkStart:member=lifecycle%3Atest.case.onWorkStart:invoke=entry:params=0%3Aany:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_extension_variants/taint_mock.ts"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_extension_variants/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "WorkSchedulerExtensionAbility",
+            "methodName": "onWorkStart",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.extension_variants.entry_param.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_extension_variants%2Fworkscheduler_onworkstart_003_T.ets:file=harmony_extension_variants%2Fworkscheduler_onworkstart_003_T.ets:export=entry%3Acomponent.onWorkStart:decl=entry%3Acomponent.onWorkStart:member=lifecycle%3Atest.case.onWorkStart:invoke=entry:params=0%3Aany:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_extension_variants/workscheduler_onworkstart_003_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_extension_variants/workscheduler_onworkstart_003_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "ProbeWorkSchedulerExtension",
+            "methodName": "onWorkStart",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.extension_variants.entry_param.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_extension_variants%2Ftaint_mock.ts:file=harmony_extension_variants%2Ftaint_mock.ts:export=entry%3Acomponent.onWorkStart:decl=entry%3Acomponent.onWorkStart:member=lifecycle%3Atest.case.onWorkStart:invoke=entry:params=0%3Aany:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_extension_variants/taint_mock.ts"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_extension_variants/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "WorkSchedulerExtensionAbility",
+            "methodName": "onWorkStart",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.extension_variants.entry_param.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_extension_variants%2Fworkscheduler_onworkstart_003_T.ets:file=harmony_extension_variants%2Fworkscheduler_onworkstart_003_T.ets:export=entry%3Acomponent.onWorkStart:decl=entry%3Acomponent.onWorkStart:member=lifecycle%3Atest.case.onWorkStart:invoke=entry:params=0%3Aany:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_extension_variants/workscheduler_onworkstart_003_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_extension_variants/workscheduler_onworkstart_003_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "ProbeWorkSchedulerExtension",
+            "methodName": "onWorkStart",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.extension_variants.entry_param.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_extension_variants%2Ftaint_mock.ts:file=harmony_extension_variants%2Ftaint_mock.ts:export=entry%3Acomponent.onWorkStart:decl=entry%3Acomponent.onWorkStart:member=lifecycle%3Atest.case.onWorkStart:invoke=entry:params=0%3Aany:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_extension_variants/taint_mock.ts"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_extension_variants/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "WorkSchedulerExtensionAbility",
+            "methodName": "onWorkStart",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.extension_variants.entry_param.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_extension_variants%2Fworkscheduler_onworkstart_003_T.ets:file=harmony_extension_variants%2Fworkscheduler_onworkstart_003_T.ets:export=entry%3Acomponent.onWorkStart:decl=entry%3Acomponent.onWorkStart:member=lifecycle%3Atest.case.onWorkStart:invoke=entry:params=0%3Aany:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_extension_variants/workscheduler_onworkstart_003_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_extension_variants/workscheduler_onworkstart_003_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "ProbeWorkSchedulerExtension",
+            "methodName": "onWorkStart",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.extension_variants.entry_param.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_extension_variants%2Ftaint_mock.ts:file=harmony_extension_variants%2Ftaint_mock.ts:export=entry%3Acomponent.onWorkStart:decl=entry%3Acomponent.onWorkStart:member=lifecycle%3Atest.case.onWorkStart:invoke=entry:params=0%3Aany:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_extension_variants/taint_mock.ts"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_extension_variants/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "WorkSchedulerExtensionAbility",
+            "methodName": "onWorkStart",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.extension_variants.entry_param.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_extension_variants%2Fworkscheduler_onworkstart_003_T.ets:file=harmony_extension_variants%2Fworkscheduler_onworkstart_003_T.ets:export=entry%3Acomponent.onWorkStart:decl=entry%3Acomponent.onWorkStart:member=lifecycle%3Atest.case.onWorkStart:invoke=entry:params=0%3Aany:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_extension_variants/workscheduler_onworkstart_003_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_extension_variants/workscheduler_onworkstart_003_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "ProbeWorkSchedulerExtension",
+            "methodName": "onWorkStart",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.extension_variants.entry_param.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_extension_variants%2Ftaint_mock.ts:file=harmony_extension_variants%2Ftaint_mock.ts:export=entry%3Acomponent.onWorkStart:decl=entry%3Acomponent.onWorkStart:member=lifecycle%3Atest.case.onWorkStart:invoke=entry:params=0%3Aany:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_extension_variants/taint_mock.ts"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_extension_variants/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "WorkSchedulerExtensionAbility",
+            "methodName": "onWorkStart",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.extension_variants.entry_param.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_extension_variants%2Fworkscheduler_onworkstart_003_T.ets:file=harmony_extension_variants%2Fworkscheduler_onworkstart_003_T.ets:export=entry%3Acomponent.onWorkStart:decl=entry%3Acomponent.onWorkStart:member=lifecycle%3Atest.case.onWorkStart:invoke=entry:params=0%3Aany:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_extension_variants/workscheduler_onworkstart_003_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_extension_variants/workscheduler_onworkstart_003_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "ProbeWorkSchedulerExtension",
+            "methodName": "onWorkStart",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
       }
     },
     {
       "surfaceId": "surface.sink.harmony.extension_variants.sink",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "Sink",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "harmony_extension_variants/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=harmony_extension_variants%2Ftaint_mock.ts:file=harmony_extension_variants%2Ftaint_mock.ts:export=namespace%3Ataint.%25dflt:decl=namespace%3Ataint.%25dflt:member=function%3ASink:invoke=call:params=0%3Aany:ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_extension_variants/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "taint.%dflt",
+            "methodName": "Sink",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "void",
+            "staticFlag": true
+          }
+        }
       }
     }
   ],
@@ -50,10 +495,6 @@
       "assetId": "asset.rule.test.harmony_extension_variants",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "Source"
-      },
       "endpoint": {
         "base": {
           "kind": "return"
@@ -63,26 +504,17 @@
         "template.source.harmony.extension_variants.call_return"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely",
-      "metadata": {}
+      "completeness": "complete",
+      "confidence": "certain",
+      "metadata": {},
+      "canonicalApiId": "api:project:local:module=harmony_extension_variants%2Ftaint_mock.ts:file=harmony_extension_variants%2Ftaint_mock.ts:export=namespace%3Ataint.%25dflt:decl=namespace%3Ataint.%25dflt:member=function%3ASource:invoke=call:params=none:ret=string"
     },
     {
-      "bindingId": "binding.source.harmony.extension_variants.entry_param.0.method.onWorkStart",
-      "surfaceId": "surface.source.harmony.extension_variants.entry_param",
+      "bindingId": "binding.source.harmony.extension_variants.entry_param.0.method.onWorkStart.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any",
+      "surfaceId": "surface.source.harmony.extension_variants.entry_param.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any",
       "assetId": "asset.rule.test.harmony_extension_variants",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "onWorkStart",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "workscheduler_onworkstart_003_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -90,11 +522,312 @@
         }
       },
       "effectTemplateRefs": [
-        "template.source.harmony.extension_variants.entry_param"
+        "template.source.harmony.extension_variants.entry_param.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_extension_variants%2Ftaint_mock.ts:file=harmony_extension_variants%2Ftaint_mock.ts:export=entry%3Acomponent.onWorkStart:decl=entry%3Acomponent.onWorkStart:member=lifecycle%3Atest.case.onWorkStart:invoke=entry:params=0%3Aany:ret=void"
+    },
+    {
+      "bindingId": "binding.source.harmony.extension_variants.entry_param.0.method.onWorkStart.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any",
+      "surfaceId": "surface.source.harmony.extension_variants.entry_param.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any",
+      "assetId": "asset.rule.test.harmony_extension_variants",
+      "plane": "rule",
+      "role": "source",
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.extension_variants.entry_param.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_extension_variants%2Fworkscheduler_onworkstart_003_T.ets:file=harmony_extension_variants%2Fworkscheduler_onworkstart_003_T.ets:export=entry%3Acomponent.onWorkStart:decl=entry%3Acomponent.onWorkStart:member=lifecycle%3Atest.case.onWorkStart:invoke=entry:params=0%3Aany:ret=void"
+    },
+    {
+      "bindingId": "binding.source.harmony.extension_variants.entry_param.0.method.onWorkStart.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any",
+      "surfaceId": "surface.source.harmony.extension_variants.entry_param.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any",
+      "assetId": "asset.rule.test.harmony_extension_variants",
+      "plane": "rule",
+      "role": "source",
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.extension_variants.entry_param.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_extension_variants%2Ftaint_mock.ts:file=harmony_extension_variants%2Ftaint_mock.ts:export=entry%3Acomponent.onWorkStart:decl=entry%3Acomponent.onWorkStart:member=lifecycle%3Atest.case.onWorkStart:invoke=entry:params=0%3Aany:ret=void"
+    },
+    {
+      "bindingId": "binding.source.harmony.extension_variants.entry_param.0.method.onWorkStart.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any",
+      "surfaceId": "surface.source.harmony.extension_variants.entry_param.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any",
+      "assetId": "asset.rule.test.harmony_extension_variants",
+      "plane": "rule",
+      "role": "source",
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.extension_variants.entry_param.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_extension_variants%2Fworkscheduler_onworkstart_003_T.ets:file=harmony_extension_variants%2Fworkscheduler_onworkstart_003_T.ets:export=entry%3Acomponent.onWorkStart:decl=entry%3Acomponent.onWorkStart:member=lifecycle%3Atest.case.onWorkStart:invoke=entry:params=0%3Aany:ret=void"
+    },
+    {
+      "bindingId": "binding.source.harmony.extension_variants.entry_param.0.method.onWorkStart.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any",
+      "surfaceId": "surface.source.harmony.extension_variants.entry_param.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any",
+      "assetId": "asset.rule.test.harmony_extension_variants",
+      "plane": "rule",
+      "role": "source",
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.extension_variants.entry_param.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_extension_variants%2Ftaint_mock.ts:file=harmony_extension_variants%2Ftaint_mock.ts:export=entry%3Acomponent.onWorkStart:decl=entry%3Acomponent.onWorkStart:member=lifecycle%3Atest.case.onWorkStart:invoke=entry:params=0%3Aany:ret=void"
+    },
+    {
+      "bindingId": "binding.source.harmony.extension_variants.entry_param.0.method.onWorkStart.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any",
+      "surfaceId": "surface.source.harmony.extension_variants.entry_param.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any",
+      "assetId": "asset.rule.test.harmony_extension_variants",
+      "plane": "rule",
+      "role": "source",
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.extension_variants.entry_param.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_extension_variants%2Fworkscheduler_onworkstart_003_T.ets:file=harmony_extension_variants%2Fworkscheduler_onworkstart_003_T.ets:export=entry%3Acomponent.onWorkStart:decl=entry%3Acomponent.onWorkStart:member=lifecycle%3Atest.case.onWorkStart:invoke=entry:params=0%3Aany:ret=void"
+    },
+    {
+      "bindingId": "binding.source.harmony.extension_variants.entry_param.0.method.onWorkStart.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any",
+      "surfaceId": "surface.source.harmony.extension_variants.entry_param.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any",
+      "assetId": "asset.rule.test.harmony_extension_variants",
+      "plane": "rule",
+      "role": "source",
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.extension_variants.entry_param.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_extension_variants%2Ftaint_mock.ts:file=harmony_extension_variants%2Ftaint_mock.ts:export=entry%3Acomponent.onWorkStart:decl=entry%3Acomponent.onWorkStart:member=lifecycle%3Atest.case.onWorkStart:invoke=entry:params=0%3Aany:ret=void"
+    },
+    {
+      "bindingId": "binding.source.harmony.extension_variants.entry_param.0.method.onWorkStart.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any",
+      "surfaceId": "surface.source.harmony.extension_variants.entry_param.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any",
+      "assetId": "asset.rule.test.harmony_extension_variants",
+      "plane": "rule",
+      "role": "source",
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.extension_variants.entry_param.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_extension_variants%2Fworkscheduler_onworkstart_003_T.ets:file=harmony_extension_variants%2Fworkscheduler_onworkstart_003_T.ets:export=entry%3Acomponent.onWorkStart:decl=entry%3Acomponent.onWorkStart:member=lifecycle%3Atest.case.onWorkStart:invoke=entry:params=0%3Aany:ret=void"
+    },
+    {
+      "bindingId": "binding.source.harmony.extension_variants.entry_param.0.method.onWorkStart.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any",
+      "surfaceId": "surface.source.harmony.extension_variants.entry_param.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any",
+      "assetId": "asset.rule.test.harmony_extension_variants",
+      "plane": "rule",
+      "role": "source",
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.extension_variants.entry_param.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_extension_variants%2Ftaint_mock.ts:file=harmony_extension_variants%2Ftaint_mock.ts:export=entry%3Acomponent.onWorkStart:decl=entry%3Acomponent.onWorkStart:member=lifecycle%3Atest.case.onWorkStart:invoke=entry:params=0%3Aany:ret=void"
+    },
+    {
+      "bindingId": "binding.source.harmony.extension_variants.entry_param.0.method.onWorkStart.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any",
+      "surfaceId": "surface.source.harmony.extension_variants.entry_param.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any",
+      "assetId": "asset.rule.test.harmony_extension_variants",
+      "plane": "rule",
+      "role": "source",
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.extension_variants.entry_param.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_extension_variants%2Fworkscheduler_onworkstart_003_T.ets:file=harmony_extension_variants%2Fworkscheduler_onworkstart_003_T.ets:export=entry%3Acomponent.onWorkStart:decl=entry%3Acomponent.onWorkStart:member=lifecycle%3Atest.case.onWorkStart:invoke=entry:params=0%3Aany:ret=void"
+    },
+    {
+      "bindingId": "binding.source.harmony.extension_variants.entry_param.0.method.onWorkStart.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any",
+      "surfaceId": "surface.source.harmony.extension_variants.entry_param.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any",
+      "assetId": "asset.rule.test.harmony_extension_variants",
+      "plane": "rule",
+      "role": "source",
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.extension_variants.entry_param.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_extension_variants%2Ftaint_mock.ts:file=harmony_extension_variants%2Ftaint_mock.ts:export=entry%3Acomponent.onWorkStart:decl=entry%3Acomponent.onWorkStart:member=lifecycle%3Atest.case.onWorkStart:invoke=entry:params=0%3Aany:ret=void"
+    },
+    {
+      "bindingId": "binding.source.harmony.extension_variants.entry_param.0.method.onWorkStart.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any",
+      "surfaceId": "surface.source.harmony.extension_variants.entry_param.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any",
+      "assetId": "asset.rule.test.harmony_extension_variants",
+      "plane": "rule",
+      "role": "source",
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.extension_variants.entry_param.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_extension_variants%2Fworkscheduler_onworkstart_003_T.ets:file=harmony_extension_variants%2Fworkscheduler_onworkstart_003_T.ets:export=entry%3Acomponent.onWorkStart:decl=entry%3Acomponent.onWorkStart:member=lifecycle%3Atest.case.onWorkStart:invoke=entry:params=0%3Aany:ret=void"
+    },
+    {
+      "bindingId": "binding.source.harmony.extension_variants.entry_param.0.method.onWorkStart.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any",
+      "surfaceId": "surface.source.harmony.extension_variants.entry_param.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any",
+      "assetId": "asset.rule.test.harmony_extension_variants",
+      "plane": "rule",
+      "role": "source",
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.extension_variants.entry_param.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_extension_variants%2Ftaint_mock.ts:file=harmony_extension_variants%2Ftaint_mock.ts:export=entry%3Acomponent.onWorkStart:decl=entry%3Acomponent.onWorkStart:member=lifecycle%3Atest.case.onWorkStart:invoke=entry:params=0%3Aany:ret=void"
+    },
+    {
+      "bindingId": "binding.source.harmony.extension_variants.entry_param.0.method.onWorkStart.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any",
+      "surfaceId": "surface.source.harmony.extension_variants.entry_param.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any",
+      "assetId": "asset.rule.test.harmony_extension_variants",
+      "plane": "rule",
+      "role": "source",
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.extension_variants.entry_param.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_extension_variants%2Fworkscheduler_onworkstart_003_T.ets:file=harmony_extension_variants%2Fworkscheduler_onworkstart_003_T.ets:export=entry%3Acomponent.onWorkStart:decl=entry%3Acomponent.onWorkStart:member=lifecycle%3Atest.case.onWorkStart:invoke=entry:params=0%3Aany:ret=void"
+    },
+    {
+      "bindingId": "binding.source.harmony.extension_variants.entry_param.0.method.onWorkStart.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any",
+      "surfaceId": "surface.source.harmony.extension_variants.entry_param.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any",
+      "assetId": "asset.rule.test.harmony_extension_variants",
+      "plane": "rule",
+      "role": "source",
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.extension_variants.entry_param.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_extension_variants%2Ftaint_mock.ts:file=harmony_extension_variants%2Ftaint_mock.ts:export=entry%3Acomponent.onWorkStart:decl=entry%3Acomponent.onWorkStart:member=lifecycle%3Atest.case.onWorkStart:invoke=entry:params=0%3Aany:ret=void"
+    },
+    {
+      "bindingId": "binding.source.harmony.extension_variants.entry_param.0.method.onWorkStart.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any",
+      "surfaceId": "surface.source.harmony.extension_variants.entry_param.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any",
+      "assetId": "asset.rule.test.harmony_extension_variants",
+      "plane": "rule",
+      "role": "source",
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.extension_variants.entry_param.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_extension_variants%2Fworkscheduler_onworkstart_003_T.ets:file=harmony_extension_variants%2Fworkscheduler_onworkstart_003_T.ets:export=entry%3Acomponent.onWorkStart:decl=entry%3Acomponent.onWorkStart:member=lifecycle%3Atest.case.onWorkStart:invoke=entry:params=0%3Aany:ret=void"
     },
     {
       "bindingId": "binding.sink.harmony.extension_variants.sink.0",
@@ -102,10 +835,6 @@
       "assetId": "asset.rule.test.harmony_extension_variants",
       "plane": "rule",
       "role": "sink",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "Sink"
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -116,9 +845,10 @@
         "template.sink.harmony.extension_variants.sink"
       ],
       "semanticsFamily": "sink",
-      "completeness": "partial",
-      "confidence": "likely",
-      "metadata": {}
+      "completeness": "complete",
+      "confidence": "certain",
+      "metadata": {},
+      "canonicalApiId": "api:project:local:module=harmony_extension_variants%2Ftaint_mock.ts:file=harmony_extension_variants%2Ftaint_mock.ts:export=namespace%3Ataint.%25dflt:decl=namespace%3Ataint.%25dflt:member=function%3ASink:invoke=call:params=0%3Aany:ret=void"
     }
   ],
   "effectTemplates": [
@@ -134,7 +864,187 @@
       "sourceKind": "call_return"
     },
     {
-      "id": "template.source.harmony.extension_variants.entry_param",
+      "id": "template.source.harmony.extension_variants.entry_param.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony.extension_variants.entry_param.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony.extension_variants.entry_param.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony.extension_variants.entry_param.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony.extension_variants.entry_param.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony.extension_variants.entry_param.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony.extension_variants.entry_param.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony.extension_variants.entry_param.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony.extension_variants.entry_param.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony.extension_variants.entry_param.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony.extension_variants.entry_param.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony.extension_variants.entry_param.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony.extension_variants.entry_param.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony.extension_variants.entry_param.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony.extension_variants.entry_param.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_taint_mock_ts_WorkSchedulerExtensionAbility_onWorkStart_any",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony.extension_variants.entry_param.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any.for.harmony_extension_variants_workscheduler_onworkstart_003_T_ets_ProbeWorkSchedulerExtension_onWorkStart_any",
       "confidence": "certain",
       "kind": "rule.source",
       "value": {

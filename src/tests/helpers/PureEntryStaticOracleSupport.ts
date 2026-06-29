@@ -60,7 +60,7 @@ interface PureEntryExactFrameworkCallbackSpec {
     methodNames: Set<string>;
     callbackArgIndexes: number[];
     reasonLabel: string;
-    minArgs?: number;
+    argCountAtLeast?: number;
     requiredStringArgIndexes?: number[];
 }
 
@@ -142,7 +142,7 @@ const FRAMEWORK_CALLBACK_SPECS: PureEntryExactFrameworkCallbackSpec[] = [
         ownerClassNames: new Set(["WindowStage"]),
         methodNames: new Set(["loadContent"]),
         callbackArgIndexes: [1],
-        minArgs: 2,
+        argCountAtLeast: 2,
         reasonLabel: "Pure-entry framework system callback",
     },
     {
@@ -161,7 +161,7 @@ const FRAMEWORK_CALLBACK_SPECS: PureEntryExactFrameworkCallbackSpec[] = [
         ownerClassNames: new Set(["MediaQueryListener"]),
         methodNames: new Set(["on"]),
         callbackArgIndexes: [1],
-        minArgs: 2,
+        argCountAtLeast: 2,
         requiredStringArgIndexes: [0],
         reasonLabel: "Pure-entry framework subscription callback",
     },
@@ -169,21 +169,21 @@ const FRAMEWORK_CALLBACK_SPECS: PureEntryExactFrameworkCallbackSpec[] = [
         ownerClassNames: new Set(["CommonEventSubscriber"]),
         methodNames: new Set(["subscribe"]),
         callbackArgIndexes: [1],
-        minArgs: 2,
+        argCountAtLeast: 2,
         reasonLabel: "Pure-entry framework subscription callback",
     },
     {
         ownerClassNames: new Set(["HttpRequest"]),
         methodNames: new Set(["request"]),
         callbackArgIndexes: [1],
-        minArgs: 2,
+        argCountAtLeast: 2,
         reasonLabel: "Pure-entry framework subscription callback",
     },
     {
         ownerClassNames: new Set(["KVStore"]),
         methodNames: new Set(["on"]),
         callbackArgIndexes: [1],
-        minArgs: 2,
+        argCountAtLeast: 2,
         requiredStringArgIndexes: [0],
         reasonLabel: "Pure-entry framework subscription callback",
     },
@@ -191,7 +191,7 @@ const FRAMEWORK_CALLBACK_SPECS: PureEntryExactFrameworkCallbackSpec[] = [
         ownerClassNames: new Set(["Preferences"]),
         methodNames: new Set(["get", "put"]),
         callbackArgIndexes: [2],
-        minArgs: 3,
+        argCountAtLeast: 3,
         reasonLabel: "Pure-entry framework subscription callback",
     },
     {
@@ -251,7 +251,7 @@ export function resolvePureEntryFrameworkCallbackRegistration(
     for (const spec of FRAMEWORK_CALLBACK_SPECS) {
         if (!spec.ownerClassNames.has(ownerName)) continue;
         if (!spec.methodNames.has(methodName)) continue;
-        if (explicitArgs.length < (spec.minArgs || 0)) continue;
+        if (explicitArgs.length < (spec.argCountAtLeast || 0)) continue;
         if (spec.requiredStringArgIndexes?.some(index => !looksLikeStringArg(explicitArgs[index]))) continue;
         return {
             callbackArgIndexes: spec.callbackArgIndexes,

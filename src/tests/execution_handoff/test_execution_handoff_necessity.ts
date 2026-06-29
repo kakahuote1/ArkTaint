@@ -12,7 +12,7 @@ import {
     resolveCaseMethod,
 } from "../helpers/SyntheticCaseHarness";
 import { buildInferenceScene } from "../helpers/ExecutionHandoffInferenceSupport";
-import { detectSinks as runSinkDetector } from "../../core/kernel/rules/SinkDetector";
+import { detectSinksByExactMethodsForTest } from "../helpers/ExactSinkDetectionTestUtils";
 
 interface NecessityCaseSpec {
     sourceDir: string;
@@ -146,8 +146,35 @@ function extractUnitName(unitSignature: string): string {
     return unitSignature.slice(lastDot + 1, paren);
 }
 
-function computeStrictReachableMethodSignatures(engine: any): Set<string> {
-    const reachable = new Set<string>(engine.explicitEntryScopeMethodSignatures || []);
+function computeStrictReachableMethodSignatures(
+    engine: any,
+    entryMethod: any,
+    deferredUnitSignatures: Set<string>,
+): Set<string> {
+    const entrySignature = entryMethod.getSignature?.().toString?.() || "";
+    const reachable = new Set<string>(entrySignature ? [entrySignature] : []);
+    const visitedFuncIds = new Set<number>();
+    const rootNode = entryMethod.getSignature
+        ? engine.cg?.getCallGraphNodeByMethod?.(entryMethod.getSignature())
+        : undefined;
+    const directQueue: number[] = rootNode?.getID ? [rootNode.getID()] : [];
+    for (let head = 0; head < directQueue.length; head++) {
+        const nodeId = directQueue[head];
+        if (visitedFuncIds.has(nodeId)) continue;
+        visitedFuncIds.add(nodeId);
+        const methodSig = engine.cg?.getMethodByFuncID?.(nodeId)?.toString?.() || "";
+        if (methodSig) {
+            reachable.add(methodSig);
+        }
+        const node = engine.cg?.getNode?.(nodeId);
+        if (!node) continue;
+        for (const edge of node.getOutgoingEdges?.() || []) {
+            const dstId = edge.getDstID?.();
+            const dstSignature = engine.cg?.getMethodByFuncID?.(dstId)?.toString?.() || "";
+            if (!dstSignature || deferredUnitSignatures.has(dstSignature)) continue;
+            directQueue.push(dstId);
+        }
+    }
     const syntheticAdj = new Map<string, Set<string>>();
     for (const edges of engine.syntheticInvokeEdgeMap?.values?.() || []) {
         for (const edge of edges) {
@@ -175,20 +202,43 @@ function computeStrictReachableMethodSignatures(engine: any): Set<string> {
     return reachable;
 }
 
-function detectScopedSinkReachability(engine: any): boolean {
-    const allowedMethodSignatures = computeStrictReachableMethodSignatures(engine);
-    return runSinkDetector(
-        engine.scene,
-        engine.cg,
-        engine.pag,
-        engine.tracker,
-        "Sink",
-        () => {},
-        {
-            fieldToVarIndex: engine.fieldToVarIndex,
-            allowedMethodSignatures,
-        },
-    ).length > 0;
+function collectDeferredUnitSignatures(engine: any): Set<string> {
+    return new Set(
+        (engine.getExecutionHandoffContractSnapshot?.()?.contracts || [])
+            .map((contract: any) => contract.unitSignature)
+            .filter((signature: unknown): signature is string => typeof signature === "string" && signature.length > 0),
+    );
+}
+
+function detectScopedSinkReachability(
+    engine: any,
+    entryMethod: any,
+    deferredUnitSignatures: Set<string>,
+    options: { disableExecutionHandoff?: boolean } = {},
+): boolean {
+    const allowedMethodSignatures = computeStrictReachableMethodSignatures(engine, entryMethod, deferredUnitSignatures);
+    const sinkMethod = resolveMockSinkMethod(engine.scene);
+    const previousReachable = engine.getActiveReachableMethodSignatures?.();
+    engine.setActiveReachableMethodSignatures?.(allowedMethodSignatures, { mergeExplicitEntryScope: false });
+    if (options.disableExecutionHandoff) {
+        ablateExecutionHandoff(engine);
+    }
+    try {
+        return detectSinksByExactMethodsForTest(engine, sinkMethod).length > 0;
+    } finally {
+        engine.setActiveReachableMethodSignatures?.(previousReachable, { mergeExplicitEntryScope: false });
+    }
+}
+
+function resolveMockSinkMethod(scene: any): any {
+    const methods = scene
+        .getMethods()
+        .filter((method: any) => {
+            const signature = method.getSignature?.().toString?.() || "";
+            return signature.includes("taint_mock.ts") && signature.includes("Sink(any)");
+        });
+    assert(methods.length === 1, `expected exactly one taint_mock Sink(any), got ${methods.length}`);
+    return methods[0];
 }
 
 async function analyzeCase(spec: NecessityCaseSpec, caseViewRoot: string): Promise<NecessityCaseResult> {
@@ -202,6 +252,7 @@ async function analyzeCase(spec: NecessityCaseSpec, caseViewRoot: string): Promi
         verbose: false,
         entryModel: "explicit",
     });
+    const deferredWithoutD = collectDeferredUnitSignatures(engineWithoutD);
     ablateExecutionHandoff(engineWithoutD as any);
     const seedsWithoutD = collectCaseSeedNodes(engineWithoutD, entryMethodWithoutD!, {
         sourceLocalNames: ["taint_src"],
@@ -209,7 +260,10 @@ async function analyzeCase(spec: NecessityCaseSpec, caseViewRoot: string): Promi
     });
     assert(seedsWithoutD.length > 0, `no seeds found for ${spec.caseName} without D`);
     engineWithoutD.propagateWithSeeds(seedsWithoutD);
-    const observedWithoutD = detectScopedSinkReachability(engineWithoutD as any);
+    const observedWithoutD = detectScopedSinkReachability(engineWithoutD as any, entryMethodWithoutD!, deferredWithoutD, {
+        disableExecutionHandoff: true,
+    });
+    ablateExecutionHandoff(engineWithoutD as any);
     const contractsWithoutD = engineWithoutD.getExecutionHandoffContractSnapshot()?.totalContracts || 0;
 
     const sceneWithD = buildInferenceScene(projectDir);
@@ -221,13 +275,14 @@ async function analyzeCase(spec: NecessityCaseSpec, caseViewRoot: string): Promi
         verbose: false,
         entryModel: "explicit",
     });
+    const deferredWithD = collectDeferredUnitSignatures(engineWithD);
     const seedsWithD = collectCaseSeedNodes(engineWithD, entryMethodWithD!, {
         sourceLocalNames: ["taint_src"],
         includeParameterLocals: true,
     });
     assert(seedsWithD.length > 0, `no seeds found for ${spec.caseName} with D`);
     engineWithD.propagateWithSeeds(seedsWithD);
-    const observedWithD = detectScopedSinkReachability(engineWithD as any);
+    const observedWithD = detectScopedSinkReachability(engineWithD as any, entryMethodWithD!, deferredWithD);
     const contractsWithD = engineWithD.getExecutionHandoffContractSnapshot()?.totalContracts || 0;
 
     assert(

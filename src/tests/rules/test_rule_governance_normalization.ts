@@ -1,52 +1,41 @@
 import * as path from "path";
 import { loadRuleSet } from "../../core/rules/RuleLoader";
-import { collectRulesMissingGovernance } from "../../core/rules/RuleGovernance";
+import { collectRulesMissingFamily } from "../../core/rules/RuleFamily";
 
 function assert(condition: unknown, message: string): asserts condition {
-    if (!condition) {
-        throw new Error(message);
-    }
-}
-
-function countLayers(rules: Array<{ layer?: string }>): Record<string, number> {
-    const counts: Record<string, number> = {};
-    for (const rule of rules) {
-        const key = rule.layer || "missing";
-        counts[key] = (counts[key] || 0) + 1;
-    }
-    return counts;
+    if (!condition) throw new Error(message);
 }
 
 async function main(): Promise<void> {
-    const layered = loadRuleSet({
-        kernelRulePath: path.resolve("tests/rules/layer_priority/kernel.rules.json"),
-        projectRulePath: path.resolve("tests/rules/layer_priority/project.rules.json"),
-        candidateRulePath: path.resolve("tests/rules/layer_priority/llm_candidate.rules.json"),
-    });
-    const layeredMissing = collectRulesMissingGovernance(layered.ruleSet);
-    assert(layeredMissing.length === 0, `layer_priority fixture still has missing governance: ${layeredMissing.join(", ")}`);
-
-    const actual = loadRuleSet({
+    const loaded = loadRuleSet({
         ruleCatalogPath: path.resolve("src/models"),
     });
-    const actualMissing = collectRulesMissingGovernance(actual.ruleSet);
-    assert(actualMissing.length === 0, `active runtime rule set still has missing governance: ${actualMissing.slice(0, 10).join(", ")}`);
+    const missing = collectRulesMissingFamily(loaded.ruleSet);
+    assert(missing.length === 0, `active runtime rule set still has missing family: ${missing.slice(0, 10).join(", ")}`);
 
     const allRules = [
-        ...actual.ruleSet.sources,
-        ...actual.ruleSet.sinks,
-        ...(actual.ruleSet.sanitizers || []),
-        ...actual.ruleSet.transfers,
+        ...loaded.ruleSet.sources,
+        ...loaded.ruleSet.sinks,
+        ...(loaded.ruleSet.sanitizers || []),
+        ...loaded.ruleSet.transfers,
     ];
-    const layerCounts = countLayers(allRules);
-    assert(layerCounts.kernel > 0, "expected kernel-governed rules in active runtime inventory");
-    assert(!layerCounts.missing, "no loaded runtime rule should miss governance layer");
+    const apiEffectRules = allRules.filter(rule => !!rule.apiEffect);
+    assert(allRules.length > 0, "expected loaded runtime rules");
+    assert(apiEffectRules.length > 0, "expected identity-backed runtime rules");
+    assert(
+        loaded.appliedRuleSources.includes("kernel"),
+        "expected kernel rule source to be applied",
+    );
+    assert(
+        loaded.ruleSourceStatus.some(status => status.name === "kernel" && status.applied),
+        "expected applied kernel rule source status",
+    );
 
-    console.log("====== Rule Governance Normalization ======");
-    console.log(`fixture_missing_governance=${layeredMissing.length}`);
-    console.log(`runtime_missing_governance=${actualMissing.length}`);
-    console.log(`runtime_layers=${Object.keys(layerCounts).sort().map(key => `${key}:${layerCounts[key]}`).join(",")}`);
+    console.log("====== Rule Family Normalization ======");
+    console.log(`runtime_missing_family=${missing.length}`);
     console.log(`runtime_rules=${allRules.length}`);
+    console.log(`identity_backed_rules=${apiEffectRules.length}`);
+    console.log(`applied_rule_sources=${loaded.appliedRuleSources.join(",")}`);
 }
 
 main().catch(error => {
@@ -54,4 +43,3 @@ main().catch(error => {
     console.error(error);
     process.exit(1);
 });
-

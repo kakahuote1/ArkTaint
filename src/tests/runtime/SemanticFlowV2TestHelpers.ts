@@ -1,6 +1,7 @@
-import type { AssetDocumentBase, AssetPlane } from "../../core/assets/schema";
+import type { AssetDocumentBase, AssetPlane, AssetSurface } from "../../core/assets/schema";
 import type { AssetRole } from "../../core/assets/schema";
 import type { SemanticEffectKind } from "../../core/assets/schema";
+import { bindExactAssetIdentities, exactProjectInvokeSurface } from "../helpers/AssetIdentityTestUtils";
 
 export function assert(condition: unknown, message: string): asserts condition {
     if (!condition) throw new Error(message);
@@ -50,25 +51,25 @@ export function makeRuleAsset(
             sinkKind: "logging",
             confidence: "likely" as const,
         };
-    return {
+    const asset = bindExactAssetIdentities({
         id,
         plane,
         status: "llm-generated",
         surfaces: [
-            {
+            exactProjectInvokeSurface({
                 surfaceId: `${id}.surface`,
-                kind: "invoke",
                 modulePath: "project/Logger",
                 ownerName: "Logger",
                 methodName: "info",
                 invokeKind: "static",
                 argCount: 1,
+                parameterTypes: ["string"],
                 confidence: "likely",
                 provenance: {
                     source: "llm-proposal",
                     location: { file: "Logger.ets", line: 1 },
                 },
-            },
+            }),
         ],
         bindings: [
             {
@@ -80,7 +81,7 @@ export function makeRuleAsset(
                 endpoint,
                 effectTemplateRefs: [effectId],
                 semanticsFamily: "logging",
-                completeness: "partial",
+                completeness: "complete",
                 confidence: "likely",
             },
         ],
@@ -90,29 +91,30 @@ export function makeRuleAsset(
             projectId: "project-a",
             evidenceLocations: [{ file: "Logger.ets", line: 1 }],
         },
-    };
+    } as any);
+    return normalizeExactTestAsset(asset);
 }
 
 export function makeHandoffAsset(id = "asset.project.token-cache"): AssetDocumentBase {
-    return {
+    const asset = bindExactAssetIdentities({
         id,
         plane: "module",
         status: "llm-generated",
         surfaces: [
-            {
+            exactProjectInvokeSurface({
                 surfaceId: `${id}.save.surface`,
-                kind: "invoke",
                 modulePath: "project/TokenCache",
                 ownerName: "TokenCache",
                 methodName: "save",
                 invokeKind: "static",
                 argCount: 2,
+                parameterTypes: ["string", "Object"],
                 confidence: "likely",
                 provenance: {
                     source: "llm-proposal",
                     location: { file: "TokenCache.ets", line: 3 },
                 },
-            },
+            }),
         ],
         bindings: [
             {
@@ -123,7 +125,7 @@ export function makeHandoffAsset(id = "asset.project.token-cache"): AssetDocumen
                 role: "handoff",
                 endpoint: { base: { kind: "arg", index: 1 } },
                 effectTemplateRefs: [`${id}.save.put`],
-                completeness: "partial",
+                completeness: "complete",
                 confidence: "likely",
             },
         ],
@@ -135,10 +137,10 @@ export function makeHandoffAsset(id = "asset.project.token-cache"): AssetDocumen
                     cellKind: "keyed-semantic-slot",
                     family: "project.token_cache",
                     key: [{ kind: "fromLiteralArg", index: 0 }],
-                    precision: "infer",
+                    precision: "exact",
                 },
                 value: { base: { kind: "arg", index: 1 } },
-                updateStrength: "infer",
+                updateStrength: "weak",
                 confidence: "likely",
             },
         ],
@@ -147,5 +149,47 @@ export function makeHandoffAsset(id = "asset.project.token-cache"): AssetDocumen
             projectId: "project-a",
             evidenceLocations: [{ file: "TokenCache.ets", line: 3 }],
         },
-    };
+    } as any);
+    return normalizeExactTestAsset(asset);
+}
+
+export function normalizeExactTestAsset<T extends AssetDocumentBase>(asset: T): T {
+    const surfaceIdMap = new Map<string, string>();
+    for (const surface of asset.surfaces || []) {
+        const oldSurfaceId = surface.surfaceId;
+        normalizeExactTestSurface(surface);
+        if (oldSurfaceId && oldSurfaceId !== surface.surfaceId) {
+            surfaceIdMap.set(oldSurfaceId, surface.surfaceId);
+        }
+    }
+    const canonicalApiIdsBySurfaceId = new Map<string, string>();
+    for (const surface of asset.surfaces || []) {
+        const canonicalApiId = (surface as any).canonicalApiId;
+        if (surface.surfaceId && canonicalApiId) {
+            canonicalApiIdsBySurfaceId.set(surface.surfaceId, canonicalApiId);
+        }
+    }
+    for (const binding of asset.bindings || []) {
+        const bindingAny = binding as any;
+        if (surfaceIdMap.has(binding.surfaceId)) {
+            bindingAny.surfaceId = surfaceIdMap.get(binding.surfaceId);
+        }
+        const canonicalApiId = canonicalApiIdsBySurfaceId.get(bindingAny.surfaceId);
+        if (canonicalApiId) {
+            bindingAny.canonicalApiId = canonicalApiId;
+        }
+    }
+    return asset;
+}
+
+export function normalizeExactTestSurface<T extends AssetSurface>(surface: T): T {
+    const legacy = surface as any;
+    if (!legacy.canonicalApiId) {
+        throw new Error(`exact test surface ${legacy.surfaceId || "<missing>"} has no canonicalApiId`);
+    }
+    if (!legacy.evidence?.arkanalyzer?.methodKey) {
+        throw new Error(`exact test surface ${legacy.surfaceId || "<missing>"} has no analyzer methodKey evidence`);
+    }
+    legacy.surfaceId = `surface:${legacy.canonicalApiId}`;
+    return surface;
 }

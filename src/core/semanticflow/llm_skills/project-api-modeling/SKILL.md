@@ -28,17 +28,26 @@ Use declarative v2 assets:
 
 Plane and effect families must match. A `rule` asset may contain only `rule.*` templates. A `module` asset may contain only `handoff.*` templates or registered `module.*` templates such as `module.eventEmitter`. An `arkmain` asset may contain only `entry.*` templates. Do not put `rule.*` templates in a `module` asset, and do not put `handoff.*` or `module.*` templates in a `rule` asset.
 
-Surface shape is strict. For a method call or project wrapper method, output an `InvokeSurface`, not a generic API surface:
+Surface shape is strict. For a method call or project wrapper method, output a canonical surface only:
 
 ```json
 {
-  "surfaceId": "surface.Owner.method",
+  "surfaceId": "surface:<canonicalApiId>",
+  "canonicalApiId": "api:project:local:module=relative%2Fsource%2Ffile.ets:file=relative%2Fsource%2Ffile.ets:export=namespace%3AOwner:decl=class%3AOwner:member=method%3Ainstance%3Amethod:invoke=call:params=0%3Astring%2C1%3Anumber:ret=boolean",
   "kind": "invoke",
-  "modulePath": "relative/source/file.ets",
-  "ownerName": "Owner",
-  "methodName": "method",
-  "invokeKind": "instance",
-  "argCount": 2,
+  "evidence": {
+    "arkanalyzer": {
+      "methodKey": {
+        "declaringFileName": "relative/source/file.ets",
+        "declaringNamespacePath": [],
+        "declaringClassName": "Owner",
+        "methodName": "method",
+        "parameterTypes": ["string", "number"],
+        "returnType": "boolean",
+        "staticFlag": false
+      }
+    }
+  },
   "confidence": "likely",
   "provenance": {
     "source": "llm-proposal",
@@ -47,9 +56,13 @@ Surface shape is strict. For a method call or project wrapper method, output an 
 }
 ```
 
-Never output `kind: "api"`, `file`, `owner`, `method`, or `line` directly on a surface. Use the registered surface fields above.
+Never output `kind: "api"`, `file`, `owner`, `method`, `line`, `modulePath`, `ownerName`, `functionName`, `methodName`, `invokeKind`, `argCount`, `signature`, `signatureId`, or `runtimeShape` directly on a surface. Those are not identity fields.
 
-For a directly imported third-party function or ArkUI-style component call, use the import source as `modulePath`, the called symbol as `functionName`, and `invokeKind: "free-function"`. Do not use `invokeKind: "static"` unless there is a stable `ownerName`.
+Every done surface must include `canonicalApiId`. Copy it exactly from `canonicalApiSurface` evidence in the prompt. Every binding must include `canonicalApiId`, and it must exactly equal the referenced surface's `canonicalApiId`. If a required surface has no `canonicalApiSurface` or equivalent analyzer-backed identity evidence, return `need-more-evidence`; do not invent IDs from names, hashes, partial signatures, or compatibility aliases.
+
+Never output `binding.selector`, version fields, broad owner/name keys, or selector-like identity fields.
+
+For a directly imported third-party function or ArkUI-style component call, use only the provided `canonicalApiId`. Import source, called symbol, and call shape may appear under evidence/provenance only when present in the prompt.
 
 For option-object callbacks, use a callback locator with `kind: "option"`:
 
@@ -116,7 +129,7 @@ When the slice shows a stable SDK boundary such as chat login, message send, pus
 - SDK session/cache/store pairs are `module` assets with explicit `cellKind` only when the publish and consume/delete surfaces are visible;
 - same-name local classes, demo stubs, helpers, mocks, and unrelated owners are negative evidence unless the analyzer anchor shows they are the actual SDK/project surface.
 
-Some SDK boundaries appear directly inside page/component/view code rather than in a separate service file. When the slice is marked `candidateOrigin=recall_direct_boundary_surface` or `candidateBoundary=direct_project_or_third_party_callsite_evidence`, treat it as a callsite-anchored project/third-party API modeling question. Use the exact `methodSignature`, typed receiver owner, `importSource`, `callerFile`, and visible option-object payload mapping from the slice. Do not reject it only because the file is under `pages`, `components`, or `views`. Do not model a same-name local helper unless the slice has analyzer-backed receiver/import evidence for that exact helper.
+Some SDK boundaries appear directly inside page/component/view code rather than in a separate service file. When the slice is marked `candidateOrigin=recall_direct_boundary_surface` or `candidateBoundary=direct_project_or_third_party_callsite_evidence`, treat it as a callsite-anchored project/third-party API modeling question only if the slice also provides an exact `canonicalApiSurface`. Use typed receiver owner, import source, caller file, method signature, and visible option-object payload mapping as evidence only. Do not reject it only because the file is under `pages`, `components`, or `views`. Do not model a same-name local helper unless the slice has analyzer-backed receiver/import evidence for that exact helper.
 
 For pub/sub, messaging, MQTT, push, event bus, queue, room, channel, and postMessage-style APIs, distinguish routing selectors from payload. `topic`, `channel`, `queue`, `room`, `conversation`, `target`, `eventName`, and similar identifiers are selector/control metadata by default. They are not `rule.sink` payload endpoints unless the evidence shows that the identifier value itself is disclosed user content. Prefer `payload`, `message`, `body`, `content`, `data`, `attachment`, `file`, or serialized object fields as sink endpoints when they are visibly sent through the boundary.
 
@@ -129,9 +142,9 @@ For WebView, JSBridge, hybrid-container, native-bridge, or message-proxy receive
 - If the evidence only shows a receiver field lookup and does not show how the incoming message payload reaches another surface, return `need-more-evidence` with a payload/companion evidence request. Do not emit an object-field handoff for the incidental receiver field as a substitute for the missing bridge payload model.
 - If both receiver-field carrier snippets and bridge payload snippets are present, model the bridge payload first. A separate receiver-field handoff is allowed only when the current focused flow explicitly concerns that receiver field and the write/read companion is visible.
 
-Always use exact `InvokeSurface` identity from the analyzer-backed evidence: `modulePath`, `ownerName` or `functionName`, `methodName`, `invokeKind`, and `argCount`. When the prompt includes `methodSignature`, treat it as the resolved callsite identity. For receiver method calls, derive `ownerName` and `methodName` from that `methodSignature`. If the callsite is statically resolved to a base class or interface method but the snippets mention a concrete implementation subclass, keep `ownerName` equal to the declaring owner in `methodSignature`; the implementation class is evidence for semantics, not the surface identity. For ownerless function/component signatures shaped like `@%unk/%unk: .ComponentName(...)` or `@entry/.../File.ets: functionName(...)`, use `invokeKind="free-function"`, `functionName="ComponentName"` / `functionName="functionName"`, and no `ownerName` or `methodName`; do not invent a static owner from the source file, file basename, import module, or wrapper variable. Do not output a sibling static surface for the same ownerless function, and do not bind a source/sink role to a static sibling when the analyzer-backed callsite is ownerless/free-function. Do not model `ChatClient`, `sendMessage`, `login`, `on`, `emit`, or `send` by name alone.
+Always use exact `canonicalApiId` identity from analyzer-backed `canonicalApiSurface` evidence. When the prompt includes `methodSignature`, treat it only as optional evidence under `evidence.arkanalyzer.methodKey` or provenance. Do not derive `modulePath`, owner, function, method, invoke kind, argument count, parameter types, or return type from a signature. If the evidence lacks a canonical id, return `need-more-evidence`. Do not model `ChatClient`, `sendMessage`, `login`, `on`, `emit`, or `send` by name alone.
 
-For ownerless free-function/component callback sources, keep `modulePath` as the imported component or function module, but set `surface.provenance.location.file` to the registration callsite file shown by `callerFile` in the evidence slice. This callsite file is where the callback source rule is matched. Do not use the component definition file as `provenance.location.file` unless the same file is also the `callerFile`.
+For ownerless free-function/component callback sources, copy `surfaceId` and `canonicalApiId` exactly from `canonicalApiSurface`. Imported component/function module names and the registration caller file may appear only under provenance or evidence. The registration callsite file shown by `callerFile` is where the callback source rule is matched; do not replace the canonical identity with that file or with the component definition file.
 
 If the slice contains a likely third-party SDK call but the wrapper body, import, owner, endpoint, or payload mapping is missing, return `need-more-evidence` instead of broadening the selector.
 
@@ -225,13 +238,13 @@ Paired handoff surfaces must use the same handle layout. If save/load/delete met
     { "kind": "fromEndpoint", "endpoint": { "base": { "kind": "arg", "index": 0 } } },
     { "kind": "fromEndpoint", "endpoint": { "base": { "kind": "arg", "index": 1 } } }
   ],
-  "precision": "infer"
+  "precision": "exact"
 }
 ```
 
-Use the same handle template for both `handoff.put` and `handoff.get`; only `value` versus `target` changes.
+Use the same exact handle template for both `handoff.put` and `handoff.get`; only `value` versus `target` changes. Return `need-more-evidence` when the visible evidence cannot construct an exact paired handle.
 
-Every observed companion surface arity in the same wrapper family must be represented by an analyzer-backed `InvokeSurface`. If the evidence shows both `get(key)` and `get(key, defaultValue)`, include separate `get` surfaces with `argCount: 1` and `argCount: 2` that share the same `handoff.get` handle when the key layout is the same. Do not model only the shortest overload when another observed call shape is the audited consumer; return `need-more-evidence` if the companion arities or handle layout cannot be anchored.
+Every observed companion overload in the same wrapper family must be represented by its own analyzer-backed `canonicalApiId`. If the evidence shows both `get(key)` and `get(key, defaultValue)`, include separate surfaces only when both exact canonical ids are present, and let them share the same `handoff.get` handle when the key layout is the same. Do not add `argCount` or other selector fields to a surface. Return `need-more-evidence` if a companion overload or handle layout cannot be anchored by canonical evidence.
 
 The schema validator rejects a module asset when paired `handoff.put`, `handoff.get`, or `handoff.kill` templates for the same analyzer-backed owner and identical `cellKind`/`key`/`scope`/`owner` layout use different `family` strings. If a repair prompt reports this mismatch, choose one stable project/API namespace and apply that exact `family` to all paired templates. Do not bypass the error by changing the `key`, `scope`, or `owner` layout unless the code evidence really shows a different storage location.
 
@@ -259,8 +272,8 @@ For project event-bus or pub/sub wrappers where one API registers callbacks and 
 {
   "id": "template.ProjectEventHub.eventEmitter",
   "kind": "module.eventEmitter",
-  "onMethods": ["on"],
-  "emitMethods": ["sendEvent"],
+  "onCanonicalApiIds": ["api:project:local:module=entry%2Fsrc%2Fmain%2Fets%2FEventHub.ets:file=entry%2Fsrc%2Fmain%2Fets%2FEventHub.ets:export=namespace%3AProjectEventHub:decl=class%3AProjectEventHub:member=method%3Astatic%3Aon:invoke=call:params=0%3Astring%2C1%3AEventCallback:ret=void"],
+  "emitCanonicalApiIds": ["api:project:local:module=entry%2Fsrc%2Fmain%2Fets%2FEventHub.ets:file=entry%2Fsrc%2Fmain%2Fets%2FEventHub.ets:export=namespace%3AProjectEventHub:decl=class%3AProjectEventHub:member=method%3Astatic%3AsendEvent:invoke=call:params=0%3Astring:ret=void"],
   "channelArgIndexes": [0],
   "payloadArgIndex": -1,
   "callbackArgIndex": 1,
@@ -281,7 +294,7 @@ Handoff handles must use the registered handle template shape:
     { "kind": "fromEndpoint", "endpoint": { "base": { "kind": "arg", "index": 0 } } },
     { "kind": "fromEndpoint", "endpoint": { "base": { "kind": "arg", "index": 1 } } }
   ],
-  "precision": "infer"
+  "precision": "exact"
 }
 ```
 
@@ -317,13 +330,13 @@ Project UI components that wrap an official input/editor can also be modeled as 
 
 The callback payload `argIndex` must be derived from the visible callback signature or direct callback invocation in the evidence slice. A callback written as `(content: MessageContent) => { ... }` or invoked as `onClickSend(content)` has one payload parameter, so the endpoint is `argIndex: 0`. Use `argIndex: 1` only when the visible callback has a second parameter and the second parameter is the payload. If the callback declaration or invocation is not visible enough to determine the parameter index, return `need-more-evidence` with `kind="q_endpoint"` instead of guessing.
 
-When such a callback source is registered inside a project component `build()` method that is not proven reachable by existing entry evidence, produce or request a companion `plane="arkmain"` asset for that exact component entry. The arkmain asset should use an `EntrySurface` with the analyzer-backed `ownerName` and `methodName` such as `ChatView.build`, a lifecycle template such as `entry.lifecycle` with `entryKind="page_build"`, and `role="entry"`. Keep the callback payload source in the `rule` asset. Do not broaden the source rule to scan all matching component names or all callbacks.
+When such a callback source is registered inside a project component `build()` method that is not proven reachable by existing entry evidence, produce or request a companion `plane="arkmain"` asset for the exact component entry only if the slice provides a canonical entry surface. The arkmain asset uses that canonical entry surface, an entry template such as `entry.lifecycle` with `entryKind="page_build"`, and `role="entry"`. Keep the callback payload source in the `rule` asset. Do not broaden the source rule to scan all matching component names or all callbacks.
 
 Callback registration or scheduling belongs to `entry.callbackRegister` or `entry.scheduleUnit`. Callback argument payload transfer belongs to `rule.*` or `handoff.*`, not to the entry effect itself.
 
-When the slice is a resolved project component or ownerless function callback surface with `candidateOrigin=recall_callback_surface`, `callbackOwnerResolved=true`, and owner evidence showing a framework or lifecycle callback such as `Web.onPageEnd`, `onReady`, `onAppear`, `aboutToAppear`, `onComplete`, or `onSuccess` invoking `this.<optionCallback>()`, emit a `plane="arkmain"` asset with `entry.callbackRegister` for the option-object callback. This is a registration/activation asset only. Do not require evidence for the caller callback body, caller receiver fields, downstream sinks, or upstream source writes before returning `done`; those belong to separate rule/module assets and separate coverage gaps. The surface must stay analyzer-backed: use the resolved component/function identity from `methodSignature`, `modulePath`, `functionName` or owner/method fields, observed `argCount`, and the registration caller file in provenance.
+When the slice is a resolved project component or callback surface with `candidateOrigin=recall_callback_surface`, `callbackOwnerResolved=true`, a canonical entry surface, and owner evidence showing a framework or lifecycle callback such as `Web.onPageEnd`, `onReady`, `onAppear`, `aboutToAppear`, `onComplete`, or `onSuccess` invoking `this.<optionCallback>()`, emit a `plane="arkmain"` asset with `entry.callbackRegister` for the option-object callback. This is a registration/activation asset only. Do not require evidence for the caller callback body, caller receiver fields, downstream sinks, or upstream source writes before returning `done`; those belong to separate rule/module assets and separate coverage gaps. The surface must stay canonical-id backed; method signature, call shape, and registration caller file are provenance evidence only.
 
-For project wrapper methods with trailing optional/default parameters, set `InvokeSurface.argCount` from the observed candidate call shape. If the candidate evidence shows `sendTextMessage(content)` while the declaration is `sendTextMessage(content, flag = false, onError = ..., onSuccess = ...)`, use `argCount: 1` for an `arg0` sink surface. If the evidence models an endpoint at `arg1`, use at least `argCount: 2`. Do not copy the full formal parameter count when the modeled callsite passes fewer arguments.
+For project wrapper methods with trailing optional/default parameters, use the exact analyzer-backed `canonicalApiId` for the observed call shape. Endpoint indices must refer to parameters encoded in that canonical id. If the only available evidence is a shorter call shape and the modeled endpoint needs a missing later parameter, return `need-more-evidence` instead of widening the surface or adding selector fields.
 
 ## Need More Evidence
 

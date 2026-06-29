@@ -5,7 +5,7 @@ import { getAnalyzeSummaryMarkdownPath, readAnalyzeSummary } from "../helpers/An
 import { parseArgs } from "../../cli/analyzeCliOptions";
 import { runAnalyzeCliCommand } from "../../cli/analyze";
 import { writeLlmConfigFile } from "../../cli/llmConfig";
-import { resolvedAsset, ruleTransferAsset, vaultHandoffAsset, withSurfaceModulePath } from "../helpers/SemanticFlowMockAssetDecisions";
+import { resolvedAsset, retargetAssetSurfacesToProjectModule, ruleTransferAsset, vaultHandoffAsset } from "../helpers/SemanticFlowMockAssetDecisions";
 
 function assert(condition: unknown, message: string): asserts condition {
     if (!condition) {
@@ -77,9 +77,9 @@ async function createMockServer(): Promise<{
                     reason: "official ArkMain lifecycle is covered by built-in assets",
                 };
             } else if (surface === "pass" && owner?.includes("Pipe")) {
-                decision = resolvedAsset(withSurfaceModulePath(ruleTransferAsset("Pipe", "pass", 1), modulePath, sourceFile));
+                decision = resolvedAsset(retargetAssetSurfacesToProjectModule(ruleTransferAsset("Pipe", "pass", 1), modulePath, sourceFile));
             } else if (surface === "put" && owner?.includes("Vault")) {
-                decision = resolvedAsset(withSurfaceModulePath(vaultHandoffAsset("analyze_auto_model"), modulePath, sourceFile));
+                decision = resolvedAsset(retargetAssetSurfacesToProjectModule(vaultHandoffAsset("analyze_auto_model"), modulePath, sourceFile));
             } else {
                 decision = {
                     status: "reject",

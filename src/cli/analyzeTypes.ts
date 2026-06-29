@@ -17,14 +17,19 @@ import {
     emptyPagNodeResolutionAuditSnapshot,
     PagNodeResolutionAuditSnapshot,
 } from "../core/kernel/contracts/PagNodeResolution";
+import type {
+    SemanticEffectLedgerRecord,
+    SemanticEffectLedgerSummary,
+} from "../core/api/effects";
 import { RuleLoadIssue } from "../core/rules/RuleLoader";
 import { RuleInvokeKind } from "../core/rules/RuleSchema";
 import {
     SourceRuleSeedAuditEntry,
     SourceRuleZeroHitAuditEntry,
 } from "../core/kernel/rules/SourceRuleSeedCollector";
+import type { CallEdgeMaterializationLedgerRecord } from "../core/kernel/builders/SyntheticInvokeEdgeBuilder";
 import { SinkDetectAuditEntry } from "../core/kernel/rules/SinkDetector";
-import { AnalyzeProfile, ReportMode } from "./analyzeCliOptions";
+import { AnalyzeProfile, FlowMode, ReportMode } from "./analyzeCliOptions";
 import { FlowRuleTrace } from "./analyzeUtils";
 import {
     PostsolveEvidence,
@@ -34,6 +39,11 @@ import {
     PostsolveSkeleton,
 } from "../core/orchestration/postsolve/PostsolveTypes";
 import { TraceGraph } from "../core/trace/TraceGraph";
+import type {
+    OfficialOccurrenceCoverageSnapshot,
+    OfficialOccurrenceRecord,
+} from "../core/api/occurrence";
+import type { TransferSemanticSiteConsumption } from "../core/kernel/rules/TransferTypes";
 
 export interface EntryStageProfile {
     buildPagMs: number;
@@ -98,6 +108,10 @@ export interface EntryAnalyzeResult {
     seedStrategies: string[];
     sourceSeedAudit: SourceRuleSeedAuditEntry[];
     sourceRuleZeroHitAudit: SourceRuleZeroHitAuditEntry[];
+    officialOccurrenceCoverage?: OfficialOccurrenceCoverageSnapshot;
+    officialOccurrenceLedger?: OfficialOccurrenceRecord[];
+    semanticEffectLedger?: SemanticEffectLedgerRecord[];
+    callEdgeMaterializationLedger?: CallEdgeMaterializationLedgerRecord[];
     observedTaintFacts?: Array<{
         factId: string;
         nodeId: number;
@@ -140,12 +154,14 @@ export interface EntryAnalyzeResult {
         elapsedShare: number;
         noCandidateCallsites: Array<{
             calleeSignature: string;
+            canonicalApiId?: string;
             method: string;
             invokeKind: RuleInvokeKind;
             argCount: number;
             sourceFile: string;
             count: number;
         }>;
+        siteConsumptions: TransferSemanticSiteConsumption[];
     };
     detectProfile: DetectProfileSnapshot;
     sinkDetectionAudit: {
@@ -209,10 +225,11 @@ export interface AnalyzeReport {
     sourceDirs: string[];
     profile: AnalyzeProfile;
     reportMode: ReportMode;
+    flowMode: FlowMode;
     k: number;
     maxEntries: number;
-    ruleLayers: string[];
-    ruleLayerStatus: Array<{
+    ruleSources: string[];
+    ruleSourceStatus: Array<{
         name: string;
         path: string;
         applied: boolean;
@@ -231,7 +248,9 @@ export interface AnalyzeReport {
         okEntries: number;
         withSeeds: number;
         withFlows: number;
+        withPartialFlows: number;
         totalFlows: number;
+        partialFlows: number;
         statusCount: Record<string, number>;
         ruleHits: RuleHitCounters;
         ruleHitEndpoints: RuleHitCounters;
@@ -248,17 +267,21 @@ export interface AnalyzeReport {
             elapsedShareAvg: number;
             noCandidateCallsites: Array<{
                 calleeSignature: string;
+                canonicalApiId?: string;
                 method: string;
                 invokeKind: RuleInvokeKind;
                 argCount: number;
                 sourceFile: string;
                 count: number;
             }>;
+            siteConsumptions: TransferSemanticSiteConsumption[];
         };
         detectProfile: DetectProfileSnapshot;
         stageProfile: AnalyzeStageProfile;
         memoryProfile: AnalyzeMemoryProfile;
         transferNoHitReasons: Record<string, number>;
+        officialIdentityCoverage: OfficialOccurrenceCoverageSnapshot;
+        semanticEffectLedgerSummary: SemanticEffectLedgerSummary;
         pagNodeResolutionAudit: PagNodeResolutionAuditSnapshot;
         executionHandoffAudit: ExecutionHandoffAudit;
         diagnostics: AnalyzeErrorDiagnostics;
@@ -294,6 +317,7 @@ export interface AnalyzeReport {
             }>;
             noCandidateCallsites: Array<{
                 callee_signature: string;
+                canonicalApiId?: string;
                 method: string;
                 invokeKind: RuleInvokeKind;
                 argCount: number;
@@ -338,6 +362,7 @@ export function emptyTransferProfile(): EntryAnalyzeResult["transferProfile"] {
         elapsedMs: 0,
         elapsedShare: 0,
         noCandidateCallsites: [],
+        siteConsumptions: [],
     };
 }
 
@@ -348,7 +373,7 @@ export function emptyDetectProfile(): DetectProfileSnapshot {
         reachableMethodsVisited: 0,
         stmtsVisited: 0,
         invokeStmtsVisited: 0,
-        signatureMatchedInvokeCount: 0,
+        effectMatchedInvokeCount: 0,
         constraintRejectedInvokeCount: 0,
         sinksChecked: 0,
         candidateCount: 0,
@@ -358,7 +383,7 @@ export function emptyDetectProfile(): DetectProfileSnapshot {
         fieldPathHitCount: 0,
         sanitizerGuardCheckCount: 0,
         sanitizerGuardHitCount: 0,
-        signatureMatchMs: 0,
+        effectMatchMs: 0,
         candidateResolveMs: 0,
         taintEvalMs: 0,
         sanitizerGuardMs: 0,
@@ -462,7 +487,23 @@ export function elapsedMsSince(t0: bigint): number {
 export function toReportEntry(entry: EntryAnalyzeResult, reportMode: ReportMode): EntryAnalyzeResult {
     const { traceGraph: _traceGraph, ...entryWithoutTraceGraph } = entry;
     if (reportMode === "full") {
-        return entryWithoutTraceGraph as EntryAnalyzeResult;
+        return {
+            ...entryWithoutTraceGraph,
+            officialOccurrenceLedger: [],
+            semanticEffectLedger: [],
+            callEdgeMaterializationLedger: [],
+            observedTaintFacts: [],
+            postsolveResults: [],
+            sinkDetectionAudit: {
+                entries: [],
+                overflowCount: entry.sinkDetectionAudit?.overflowCount || 0,
+            },
+            pagNodeResolutionAudit: {
+                ...entry.pagNodeResolutionAudit,
+                endpointResolutionRecords: [],
+            },
+            worklistProfile: undefined,
+        } as EntryAnalyzeResult;
     }
     return {
         ...entryWithoutTraceGraph,
@@ -478,6 +519,9 @@ export function toReportEntry(entry: EntryAnalyzeResult, reportMode: ReportMode)
         detectProfile: emptyDetectProfile(),
         sinkDetectionAudit: { entries: [], overflowCount: 0 },
         transferNoHitReasons: [],
+        officialOccurrenceLedger: [],
+        semanticEffectLedger: [],
+        callEdgeMaterializationLedger: [],
         pagNodeResolutionAudit: emptyPagNodeResolutionAuditSnapshot(),
         // Keep lightweight numeric/structural audits in light mode so
         // real-project measurements can be diagnosed without switching to

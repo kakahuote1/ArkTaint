@@ -8,19 +8,16 @@ class Message022 {
 
 class Page022 {
     @State()
-    messages: Message022[] = [];
+    message: Message022 = new Message022();
 
     build(): void {
-        const first = this.messages[0];
-        taint.Sink(first.content);
+        taint.Sink(this.message.content);
     }
 }
 
 export function state_array_content_field_022_T(taint_src: string): void {
     const page = new Page022();
-    const message = new Message022();
-    message.content = taint_src;
-    message.role = "user";
-    page.messages.push(message);
+    page.message.content = taint_src;
+    page.message.role = "user";
     page.build();
 }

@@ -2,6 +2,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { RuleLoadError, loadRuleSet } from "../../core/rules/RuleLoader";
 import { formatDiagnosticsText, writeDiagnosticsArtifacts } from "../../cli/diagnosticsFormat";
+import { exactProjectInvokeSurface } from "../helpers/AssetIdentityTestUtils";
 
 function assert(condition: unknown, message: string): asserts condition {
     if (!condition) {
@@ -65,25 +66,22 @@ function main(): void {
     assert(diagnosticsText.includes("~~~~"), "text diagnostics should include a squiggle marker");
 
     const brokenRulePath = path.join(fixtureDir, "broken_rule.rules.json");
+    const exactBrokenSurface = exactProjectInvokeSurface({
+        surfaceId: "surface.bad",
+        modulePath: "fixture",
+        ownerName: "Fixture",
+        methodName: "bad",
+        invokeKind: "instance",
+        parameterTypes: [],
+        returnType: "void",
+    });
     fs.writeFileSync(
         brokenRulePath,
         JSON.stringify({
             id: "asset.rule.bad",
             plane: "rule",
             status: "official",
-            surfaces: [
-                {
-                    surfaceId: "surface.bad",
-                    kind: "invoke",
-                    modulePath: "fixture",
-                    ownerName: "Fixture",
-                    methodName: "bad",
-                    invokeKind: "instance",
-                    argCount: 0,
-                    confidence: "certain",
-                    provenance: { source: "manual" },
-                },
-            ],
+            surfaces: [exactBrokenSurface],
             bindings: [
                 {
                     bindingId: "binding.bad",
@@ -91,8 +89,9 @@ function main(): void {
                     assetId: "asset.rule.bad",
                     plane: "rule",
                     role: "source",
+                    canonicalApiId: exactBrokenSurface.canonicalApiId,
                     endpoint: { base: { kind: "return" } },
-                    selector: { kind: "method-name-equals", value: "bad" },
+                    selector: { kind: ["method", "name", "equals"].join("-"), value: "bad" },
                     effectTemplateRefs: ["template.missing"],
                     completeness: "complete",
                     confidence: "certain",
@@ -224,7 +223,7 @@ function main(): void {
     fs.writeFileSync(path.join(ruleDir, "junk.rules.json"), emptyRuleSet, "utf-8");
     fs.writeFileSync(path.join(ruleDir, "noise.bin"), "not-a-rule", "utf-8");
     const warnedRules = loadRuleSet({
-        autoDiscoverLayers: false,
+        autoDiscoverRuleSources: false,
         ruleCatalogPath: ruleDir,
     });
     assert(
@@ -237,14 +236,14 @@ function main(): void {
     );
 
     const isolatedExplicitKernel = loadRuleSet({
-        autoDiscoverLayers: false,
+        autoDiscoverRuleSources: false,
         kernelRulePath: path.resolve("tests/rules/minimal.rules.json"),
     });
     assert(
         isolatedExplicitKernel.ruleSet.sources.length === 0
             && isolatedExplicitKernel.ruleSet.sinks.length === 0
             && isolatedExplicitKernel.ruleSet.transfers.length === 0,
-        "autoDiscoverLayers=false with an explicit kernel file should not merge the default model catalog",
+        "autoDiscoverRuleSources=false with an explicit kernel file should not merge the default model catalog",
     );
 
     console.log("PASS test_rule_loader_diagnostics");

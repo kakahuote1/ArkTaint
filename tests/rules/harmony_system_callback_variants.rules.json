@@ -4,56 +4,150 @@
   "status": "official",
   "surfaces": [
     {
-      "surfaceId": "surface.source.harmony.system_callbacks.loadContent.arg1",
+      "surfaceId": "surface.source.harmony.system_callbacks.loadContent.arg1.for.harmony_system_callback_variants_taint_mock_ts_WindowStage_loadContent_string_harmony_system_callback_variants_taint_moc",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "loadContent",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "harmony_system_callback_variants/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=harmony_system_callback_variants%2Ftaint_mock.ts:file=harmony_system_callback_variants%2Ftaint_mock.ts:export=namespace%3AWindowStage:decl=class%3AWindowStage:member=method%3Ainstance%3AloadContent:invoke=call:params=0%3Astring%2C1%3A%40harmony_system_callback_variants%2Ftaint_mock.ts%3A%20WindowStage.%25AM0(any%2C%20any):ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_system_callback_variants/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "WindowStage",
+            "methodName": "loadContent",
+            "parameterTypes": [
+              "string",
+              "@harmony_system_callback_variants/taint_mock.ts: WindowStage.%AM0(any, any)"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
       }
     },
     {
-      "surfaceId": "surface.source.harmony.system_callbacks.onMessage.arg0",
+      "surfaceId": "surface.source.harmony.system_callbacks.loadContent.arg1.for.harmony_system_callback_variants_taint_mock_ts_FakeWindowStage_loadContent_string_harmony_system_callback_variants_taint",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "onMessage",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "harmony_system_callback_variants/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=harmony_system_callback_variants%2Ftaint_mock.ts:file=harmony_system_callback_variants%2Ftaint_mock.ts:export=namespace%3AFakeWindowStage:decl=class%3AFakeWindowStage:member=method%3Ainstance%3AloadContent:invoke=call:params=0%3Astring%2C1%3A%40harmony_system_callback_variants%2Ftaint_mock.ts%3A%20FakeWindowStage.%25AM0(any%2C%20any):ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_system_callback_variants/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "FakeWindowStage",
+            "methodName": "loadContent",
+            "parameterTypes": [
+              "string",
+              "@harmony_system_callback_variants/taint_mock.ts: FakeWindowStage.%AM0(any, any)"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.system_callbacks.onMessage.arg0.for.harmony_system_callback_variants_taint_mock_ts_WebView_onMessage_harmony_system_callback_variants_taint_mock_ts_WebView_",
+      "kind": "invoke",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_system_callback_variants/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=harmony_system_callback_variants%2Ftaint_mock.ts:file=harmony_system_callback_variants%2Ftaint_mock.ts:export=namespace%3AWebView:decl=class%3AWebView:member=method%3Ainstance%3AonMessage:invoke=call:params=0%3A%40harmony_system_callback_variants%2Ftaint_mock.ts%3A%20WebView.%25AM0(any):ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_system_callback_variants/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "WebView",
+            "methodName": "onMessage",
+            "parameterTypes": [
+              "@harmony_system_callback_variants/taint_mock.ts: WebView.%AM0(any)"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.system_callbacks.onMessage.arg0.for.harmony_system_callback_variants_taint_mock_ts_FakeWebView_onMessage_harmony_system_callback_variants_taint_mock_ts_Fake",
+      "kind": "invoke",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_system_callback_variants/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=harmony_system_callback_variants%2Ftaint_mock.ts:file=harmony_system_callback_variants%2Ftaint_mock.ts:export=namespace%3AFakeWebView:decl=class%3AFakeWebView:member=method%3Ainstance%3AonMessage:invoke=call:params=0%3A%40harmony_system_callback_variants%2Ftaint_mock.ts%3A%20FakeWebView.%25AM0(any):ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_system_callback_variants/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "FakeWebView",
+            "methodName": "onMessage",
+            "parameterTypes": [
+              "@harmony_system_callback_variants/taint_mock.ts: FakeWebView.%AM0(any)"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
       }
     },
     {
       "surfaceId": "surface.sink.harmony.system_callbacks.sink",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "Sink",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "harmony_system_callback_variants/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=harmony_system_callback_variants%2Ftaint_mock.ts:file=harmony_system_callback_variants%2Ftaint_mock.ts:export=namespace%3A%25AC0%24%25dflt-%25dflt:decl=namespace%3A%25AC0%24%25dflt-%25dflt:member=function%3ASink:invoke=call:params=0%3Aany:ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_system_callback_variants/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%AC0$%dflt-%dflt",
+            "methodName": "Sink",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "void",
+            "staticFlag": true
+          }
+        }
       }
     }
   ],
   "bindings": [
     {
-      "bindingId": "binding.source.harmony.system_callbacks.loadContent.arg1.0",
-      "surfaceId": "surface.source.harmony.system_callbacks.loadContent.arg1",
+      "bindingId": "binding.source.harmony.system_callbacks.loadContent.arg1.0.for.harmony_system_callback_variants_taint_mock_ts_WindowStage_loadContent_string_harmony_system_callback_variants_taint_moc",
+      "surfaceId": "surface.source.harmony.system_callbacks.loadContent.arg1.for.harmony_system_callback_variants_taint_mock_ts_WindowStage_loadContent_string_harmony_system_callback_variants_taint_moc",
       "assetId": "asset.rule.test.harmony_system_callback_variants",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "loadContent"
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -61,23 +155,41 @@
         }
       },
       "effectTemplateRefs": [
-        "template.source.harmony.system_callbacks.loadContent.arg1"
+        "template.source.harmony.system_callbacks.loadContent.arg1.for.harmony_system_callback_variants_taint_mock_ts_WindowStage_loadContent_string_harmony_system_callback_variants_taint_moc"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely",
-      "metadata": {}
+      "completeness": "complete",
+      "confidence": "certain",
+      "metadata": {},
+      "canonicalApiId": "api:project:local:module=harmony_system_callback_variants%2Ftaint_mock.ts:file=harmony_system_callback_variants%2Ftaint_mock.ts:export=namespace%3AWindowStage:decl=class%3AWindowStage:member=method%3Ainstance%3AloadContent:invoke=call:params=0%3Astring%2C1%3A%40harmony_system_callback_variants%2Ftaint_mock.ts%3A%20WindowStage.%25AM0(any%2C%20any):ret=void"
     },
     {
-      "bindingId": "binding.source.harmony.system_callbacks.onMessage.arg0.0",
-      "surfaceId": "surface.source.harmony.system_callbacks.onMessage.arg0",
+      "bindingId": "binding.source.harmony.system_callbacks.loadContent.arg1.0.for.harmony_system_callback_variants_taint_mock_ts_FakeWindowStage_loadContent_string_harmony_system_callback_variants_taint",
+      "surfaceId": "surface.source.harmony.system_callbacks.loadContent.arg1.for.harmony_system_callback_variants_taint_mock_ts_FakeWindowStage_loadContent_string_harmony_system_callback_variants_taint",
       "assetId": "asset.rule.test.harmony_system_callback_variants",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "onMessage"
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
       },
+      "effectTemplateRefs": [
+        "template.source.harmony.system_callbacks.loadContent.arg1.for.harmony_system_callback_variants_taint_mock_ts_FakeWindowStage_loadContent_string_harmony_system_callback_variants_taint"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "complete",
+      "confidence": "certain",
+      "metadata": {},
+      "canonicalApiId": "api:project:local:module=harmony_system_callback_variants%2Ftaint_mock.ts:file=harmony_system_callback_variants%2Ftaint_mock.ts:export=namespace%3AFakeWindowStage:decl=class%3AFakeWindowStage:member=method%3Ainstance%3AloadContent:invoke=call:params=0%3Astring%2C1%3A%40harmony_system_callback_variants%2Ftaint_mock.ts%3A%20FakeWindowStage.%25AM0(any%2C%20any):ret=void"
+    },
+    {
+      "bindingId": "binding.source.harmony.system_callbacks.onMessage.arg0.0.for.harmony_system_callback_variants_taint_mock_ts_WebView_onMessage_harmony_system_callback_variants_taint_mock_ts_WebView_",
+      "surfaceId": "surface.source.harmony.system_callbacks.onMessage.arg0.for.harmony_system_callback_variants_taint_mock_ts_WebView_onMessage_harmony_system_callback_variants_taint_mock_ts_WebView_",
+      "assetId": "asset.rule.test.harmony_system_callback_variants",
+      "plane": "rule",
+      "role": "source",
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -85,12 +197,34 @@
         }
       },
       "effectTemplateRefs": [
-        "template.source.harmony.system_callbacks.onMessage.arg0"
+        "template.source.harmony.system_callbacks.onMessage.arg0.for.harmony_system_callback_variants_taint_mock_ts_WebView_onMessage_harmony_system_callback_variants_taint_mock_ts_WebView_"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely",
-      "metadata": {}
+      "completeness": "complete",
+      "confidence": "certain",
+      "metadata": {},
+      "canonicalApiId": "api:project:local:module=harmony_system_callback_variants%2Ftaint_mock.ts:file=harmony_system_callback_variants%2Ftaint_mock.ts:export=namespace%3AWebView:decl=class%3AWebView:member=method%3Ainstance%3AonMessage:invoke=call:params=0%3A%40harmony_system_callback_variants%2Ftaint_mock.ts%3A%20WebView.%25AM0(any):ret=void"
+    },
+    {
+      "bindingId": "binding.source.harmony.system_callbacks.onMessage.arg0.0.for.harmony_system_callback_variants_taint_mock_ts_FakeWebView_onMessage_harmony_system_callback_variants_taint_mock_ts_Fake",
+      "surfaceId": "surface.source.harmony.system_callbacks.onMessage.arg0.for.harmony_system_callback_variants_taint_mock_ts_FakeWebView_onMessage_harmony_system_callback_variants_taint_mock_ts_Fake",
+      "assetId": "asset.rule.test.harmony_system_callback_variants",
+      "plane": "rule",
+      "role": "source",
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.system_callbacks.onMessage.arg0.for.harmony_system_callback_variants_taint_mock_ts_FakeWebView_onMessage_harmony_system_callback_variants_taint_mock_ts_Fake"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "complete",
+      "confidence": "certain",
+      "metadata": {},
+      "canonicalApiId": "api:project:local:module=harmony_system_callback_variants%2Ftaint_mock.ts:file=harmony_system_callback_variants%2Ftaint_mock.ts:export=namespace%3AFakeWebView:decl=class%3AFakeWebView:member=method%3Ainstance%3AonMessage:invoke=call:params=0%3A%40harmony_system_callback_variants%2Ftaint_mock.ts%3A%20FakeWebView.%25AM0(any):ret=void"
     },
     {
       "bindingId": "binding.sink.harmony.system_callbacks.sink.0",
@@ -98,10 +232,6 @@
       "assetId": "asset.rule.test.harmony_system_callback_variants",
       "plane": "rule",
       "role": "sink",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "Sink"
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -112,14 +242,15 @@
         "template.sink.harmony.system_callbacks.sink"
       ],
       "semanticsFamily": "sink",
-      "completeness": "partial",
-      "confidence": "likely",
-      "metadata": {}
+      "completeness": "complete",
+      "confidence": "certain",
+      "metadata": {},
+      "canonicalApiId": "api:project:local:module=harmony_system_callback_variants%2Ftaint_mock.ts:file=harmony_system_callback_variants%2Ftaint_mock.ts:export=namespace%3A%25AC0%24%25dflt-%25dflt:decl=namespace%3A%25AC0%24%25dflt-%25dflt:member=function%3ASink:invoke=call:params=0%3Aany:ret=void"
     }
   ],
   "effectTemplates": [
     {
-      "id": "template.source.harmony.system_callbacks.loadContent.arg1",
+      "id": "template.source.harmony.system_callbacks.loadContent.arg1.for.harmony_system_callback_variants_taint_mock_ts_WindowStage_loadContent_string_harmony_system_callback_variants_taint_moc",
       "confidence": "certain",
       "kind": "rule.source",
       "value": {
@@ -131,7 +262,31 @@
       "sourceKind": "callback_param"
     },
     {
-      "id": "template.source.harmony.system_callbacks.onMessage.arg0",
+      "id": "template.source.harmony.system_callbacks.loadContent.arg1.for.harmony_system_callback_variants_taint_mock_ts_FakeWindowStage_loadContent_string_harmony_system_callback_variants_taint",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "sourceKind": "callback_param"
+    },
+    {
+      "id": "template.source.harmony.system_callbacks.onMessage.arg0.for.harmony_system_callback_variants_taint_mock_ts_WebView_onMessage_harmony_system_callback_variants_taint_mock_ts_WebView_",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "callback_param"
+    },
+    {
+      "id": "template.source.harmony.system_callbacks.onMessage.arg0.for.harmony_system_callback_variants_taint_mock_ts_FakeWebView_onMessage_harmony_system_callback_variants_taint_mock_ts_Fake",
       "confidence": "certain",
       "kind": "rule.source",
       "value": {

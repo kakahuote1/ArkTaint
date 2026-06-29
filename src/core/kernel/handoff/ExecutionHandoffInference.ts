@@ -29,14 +29,40 @@ export function buildExecutionHandoffContracts(
     budget?: ExecutionHandoffBuildBudget,
 ): ExecutionHandoffContractRecord[] {
     assertExecutionHandoffBudget(budget, "contracts.activation_paths.start");
+    reportExecutionHandoffProgress(budget, "contracts activation_paths start", true);
     const activationPaths = buildExecutionHandoffActivationPaths(scene, cg, explicitBindings, budget);
     assertExecutionHandoffBudget(budget, "contracts.activation_paths.done");
-    return activationPaths
-        .filter(path => isDeferredHandoffActivationToken(path.semantics.activation))
-        .map(path => {
+    reportExecutionHandoffProgress(budget, `contracts activation_paths done paths=${activationPaths.length}`, true);
+    const deferredPaths = activationPaths.filter(path => isDeferredHandoffActivationToken(path.semantics.activation));
+    const out: ExecutionHandoffContractRecord[] = [];
+    let index = 0;
+    for (const path of deferredPaths) {
+            index++;
+            if (index === 1 || index % 50 === 0 || index === deferredPaths.length) {
+                reportExecutionHandoffProgress(
+                    budget,
+                    `contracts export ${index}/${deferredPaths.length}`,
+                );
+            }
             assertExecutionHandoffBudget(budget, "contracts.export");
-            return exportExecutionHandoffContract(scene, cg, pag, path, budget);
-        });
+            out.push(exportExecutionHandoffContract(scene, cg, pag, path, budget));
+    }
+    reportExecutionHandoffProgress(budget, `contracts export done count=${out.length}`, true);
+    return out;
+}
+
+function reportExecutionHandoffProgress(
+    budget: ExecutionHandoffBuildBudget | undefined,
+    msg: string,
+    force: boolean = false,
+): void {
+    const progress = budget?.progress;
+    if (!progress) return;
+    const now = Date.now();
+    const interval = budget.progressIntervalMs || 5000;
+    if (!force && budget.lastProgressAtMs !== undefined && now - budget.lastProgressAtMs < interval) return;
+    budget.lastProgressAtMs = now;
+    progress(`[ExecutionHandoff] ${msg} elapsed_ms=${now - budget.startedAtMs}`);
 }
 
 export function buildExecutionHandoffSnapshot(

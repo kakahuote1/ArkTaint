@@ -3,6 +3,7 @@ import { Scene } from "../../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../../arkanalyzer/out/src/Config";
 import { TaintPropagationEngine } from "../../core/orchestration/TaintPropagationEngine";
 import * as path from 'path';
+import { detectSinksByExactMethodsForTest, resolveUniqueMethodByExactNameForTest, resolveUniqueMethodByExactSignatureForTest } from "../helpers/ExactSinkDetectionTestUtils";
 
 async function runTest() {
     // 1. Set up scene
@@ -30,7 +31,7 @@ async function runTest() {
 
     // 5. Detect Sinks
     console.log("Detecting Flows...");
-    let flows = engine.detectSinks("sink"); // Matches any method containing "sink"
+    let flows = detectSinksByExactMethodsForTest(engine, resolveUniqueMethodByExactNameForTest(engine, "sink")); // Matches any method containing "sink"
 
     // 6. Report
     if (flows.length > 0) {

@@ -1,9 +1,7 @@
 import {
-    resolveAbilityLifecycleContract,
-    resolveComponentLifecycleContract,
-    resolveExtensionLifecycleContract,
-    resolveStageLifecycleContract,
-} from "../facts/ArkMainLifecycleContracts";
+    hasArkMainOfficialComponentDeclarationForMethod,
+    hasArkMainOfficialDeclarationForOwnerKindAndMethod,
+} from "../catalog/ArkMainOfficialDeclarationCatalog";
 import type { ArkMainEntryCandidate } from "./ArkMainEntryCandidateTypes";
 
 export interface SplitArkMainEntryCandidatesResult {
@@ -19,6 +17,10 @@ export function splitArkMainEntryCandidatesForSemanticFlow(
     const kernelCoveredCandidates: ArkMainEntryCandidate[] = [];
     const ineligibleCandidates: ArkMainEntryCandidate[] = [];
     for (const candidate of candidates) {
+        if (inferOwnerKinds(candidate).size === 0) {
+            ineligibleCandidates.push(candidate);
+            continue;
+        }
         if (isArkMainCandidateCoveredByKernelContracts(candidate)) {
             kernelCoveredCandidates.push(candidate);
             continue;
@@ -42,13 +44,20 @@ export function splitArkMainEntryCandidatesForSemanticFlow(
 
 export function isArkMainCandidateCoveredByKernelContracts(candidate: ArkMainEntryCandidate): boolean {
     const ownerKinds = inferOwnerKinds(candidate);
-    if (ownerKinds.has("ability_owner") && resolveAbilityLifecycleContract(candidate.methodName)) {
+    if (ownerKinds.has("ability_owner")
+        && hasArkMainOfficialDeclarationForOwnerKindAndMethod("ability_owner", candidate.methodName)) {
         return true;
     }
-    if (ownerKinds.has("stage_owner") && resolveStageLifecycleContract(candidate.methodName)) {
+    if (ownerKinds.has("stage_owner")
+        && hasArkMainOfficialDeclarationForOwnerKindAndMethod("stage_owner", candidate.methodName)) {
         return true;
     }
-    if (ownerKinds.has("extension_owner") && resolveExtensionLifecycleContract(candidate.methodName)) {
+    if (ownerKinds.has("extension_owner")
+        && hasArkMainOfficialDeclarationForOwnerKindAndMethod("extension_owner", candidate.methodName)) {
+        return true;
+    }
+    if (ownerKinds.has("child_process_owner")
+        && hasArkMainOfficialDeclarationForOwnerKindAndMethod("child_process_owner", candidate.methodName)) {
         return true;
     }
     return false;
@@ -58,7 +67,8 @@ function isRuntimeOwnerCandidateWithoutOverrideEvidence(candidate: ArkMainEntryC
     const ownerKinds = inferOwnerKinds(candidate);
     const hasRuntimeOwner = ownerKinds.has("ability_owner")
         || ownerKinds.has("stage_owner")
-        || ownerKinds.has("extension_owner");
+        || ownerKinds.has("extension_owner")
+        || ownerKinds.has("child_process_owner");
     if (!hasRuntimeOwner) {
         return false;
     }
@@ -73,28 +83,21 @@ function isComponentCandidateOutsideFormalArkMain(candidate: ArkMainEntryCandida
     }
     const hasRuntimeOwner = ownerKinds.has("ability_owner")
         || ownerKinds.has("stage_owner")
-        || ownerKinds.has("extension_owner");
+        || ownerKinds.has("extension_owner")
+        || ownerKinds.has("child_process_owner");
     if (hasRuntimeOwner) {
         return false;
     }
-    return !resolveComponentLifecycleContract(candidate.methodName);
+    return !hasArkMainOfficialComponentDeclarationForMethod(candidate.methodName);
 }
 
 function inferOwnerKinds(candidate: ArkMainEntryCandidate): Set<string> {
     const out = new Set<string>();
     for (const signal of candidate.ownerSignals || []) {
-        const match = String(signal).match(/^owner_contract:([^:]+):/);
-        if (match?.[1]) {
-            out.add(match[1]);
+        const parts = String(signal || "").split(":");
+        if (parts[0] === "owner_contract" && parts[1]) {
+            out.add(parts[1]);
         }
-    }
-    const superClassName = String(candidate.superClassName || "");
-    if (superClassName === "AbilityStage") {
-        out.add("stage_owner");
-    } else if (superClassName.endsWith("ExtensionAbility")) {
-        out.add("extension_owner");
-    } else if (superClassName === "UIAbility" || superClassName === "Ability") {
-        out.add("ability_owner");
     }
     return out;
 }

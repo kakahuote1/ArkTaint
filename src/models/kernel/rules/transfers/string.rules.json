@@ -4,1381 +4,2303 @@
   "status": "official",
   "surfaces": [
     {
-      "surfaceId": "surface.transfer.harmony.string.concat.arg0_to_result.exact.concat.className.String",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3Aconcat:invoke=call:params=0%3Arest%3Astring%5B%5D:ret=string",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3Aconcat:invoke=call:params=0%3Arest%3Astring%5B%5D:ret=string",
       "kind": "invoke",
-      "modulePath": "tsjs.builtin",
-      "ownerName": "String",
-      "methodName": "concat",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "typescript/lib/lib.es5.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "String",
+            "methodName": "concat",
+            "parameterTypes": [
+              "string[]"
+            ],
+            "returnType": "string",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "sdk",
+        "location": {
+          "file": "typescript/lib/lib.es5.d.ts",
+          "line": 430
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.harmony.string.concat.base_to_result.exact.concat.className.String",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3AtoString:invoke=call:params=none:ret=string",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3AtoString:invoke=call:params=none:ret=string",
       "kind": "invoke",
-      "modulePath": "tsjs.builtin",
-      "ownerName": "String",
-      "methodName": "concat",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "typescript/lib/lib.es5.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "String",
+            "methodName": "toString",
+            "parameterTypes": [],
+            "returnType": "string",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "sdk",
+        "location": {
+          "file": "typescript/lib/lib.es5.d.ts",
+          "line": 412
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.toString.className.String",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3AvalueOf:invoke=call:params=none:ret=string",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3AvalueOf:invoke=call:params=none:ret=string",
       "kind": "invoke",
-      "modulePath": "tsjs.builtin",
-      "ownerName": "String",
-      "methodName": "toString",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "typescript/lib/lib.es5.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "String",
+            "methodName": "valueOf",
+            "parameterTypes": [],
+            "returnType": "string",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "sdk",
+        "location": {
+          "file": "typescript/lib/lib.es5.d.ts",
+          "line": 529
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.toLocaleString.className.String",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3Aslice:invoke=call:params=0%3A%3F%3Anumber%2C1%3A%3F%3Anumber:ret=string",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3Aslice:invoke=call:params=0%3A%3F%3Anumber%2C1%3A%3F%3Anumber:ret=string",
       "kind": "invoke",
-      "modulePath": "tsjs.builtin",
-      "ownerName": "String",
-      "methodName": "toLocaleString",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "typescript/lib/lib.es5.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "String",
+            "methodName": "slice",
+            "parameterTypes": [
+              "number",
+              "number"
+            ],
+            "returnType": "string",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "sdk",
+        "location": {
+          "file": "typescript/lib/lib.es5.d.ts",
+          "line": 484
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.valueOf.className.String",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3Asubstring:invoke=call:params=0%3Anumber%2C1%3A%3F%3Anumber:ret=string",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3Asubstring:invoke=call:params=0%3Anumber%2C1%3A%3F%3Anumber:ret=string",
       "kind": "invoke",
-      "modulePath": "tsjs.builtin",
-      "ownerName": "String",
-      "methodName": "valueOf",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "typescript/lib/lib.es5.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "String",
+            "methodName": "substring",
+            "parameterTypes": [
+              "number",
+              "number"
+            ],
+            "returnType": "string",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "sdk",
+        "location": {
+          "file": "typescript/lib/lib.es5.d.ts",
+          "line": 499
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.slice.className.String",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3Asubstr:invoke=call:params=0%3Anumber%2C1%3A%3F%3Anumber:ret=string",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3Asubstr:invoke=call:params=0%3Anumber%2C1%3A%3F%3Anumber:ret=string",
       "kind": "invoke",
-      "modulePath": "tsjs.builtin",
-      "ownerName": "String",
-      "methodName": "slice",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "typescript/lib/lib.es5.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "String",
+            "methodName": "substr",
+            "parameterTypes": [
+              "number",
+              "number"
+            ],
+            "returnType": "string",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "sdk",
+        "location": {
+          "file": "typescript/lib/lib.es5.d.ts",
+          "line": 526
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.substring.className.String",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3Atrim:invoke=call:params=none:ret=string",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3Atrim:invoke=call:params=none:ret=string",
       "kind": "invoke",
-      "modulePath": "tsjs.builtin",
-      "ownerName": "String",
-      "methodName": "substring",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "typescript/lib/lib.es5.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "String",
+            "methodName": "trim",
+            "parameterTypes": [],
+            "returnType": "string",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "sdk",
+        "location": {
+          "file": "typescript/lib/lib.es5.d.ts",
+          "line": 514
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.substr.className.String",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2019.string.d.ts:file=typescript%2Flib%2Flib.es2019.string.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3AtrimStart:invoke=call:params=none:ret=string",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2019.string.d.ts:file=typescript%2Flib%2Flib.es2019.string.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3AtrimStart:invoke=call:params=none:ret=string",
       "kind": "invoke",
-      "modulePath": "tsjs.builtin",
-      "ownerName": "String",
-      "methodName": "substr",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "typescript/lib/lib.es2019.string.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "String",
+            "methodName": "trimStart",
+            "parameterTypes": [],
+            "returnType": "string",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "sdk",
+        "location": {
+          "file": "typescript/lib/lib.es2019.string.d.ts",
+          "line": 24
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.trim.className.String",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2019.string.d.ts:file=typescript%2Flib%2Flib.es2019.string.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3AtrimEnd:invoke=call:params=none:ret=string",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2019.string.d.ts:file=typescript%2Flib%2Flib.es2019.string.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3AtrimEnd:invoke=call:params=none:ret=string",
       "kind": "invoke",
-      "modulePath": "tsjs.builtin",
-      "ownerName": "String",
-      "methodName": "trim",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "typescript/lib/lib.es2019.string.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "String",
+            "methodName": "trimEnd",
+            "parameterTypes": [],
+            "returnType": "string",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "sdk",
+        "location": {
+          "file": "typescript/lib/lib.es2019.string.d.ts",
+          "line": 21
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.trimStart.className.String",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2019.string.d.ts:file=typescript%2Flib%2Flib.es2019.string.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3AtrimLeft:invoke=call:params=none:ret=string",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2019.string.d.ts:file=typescript%2Flib%2Flib.es2019.string.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3AtrimLeft:invoke=call:params=none:ret=string",
       "kind": "invoke",
-      "modulePath": "tsjs.builtin",
-      "ownerName": "String",
-      "methodName": "trimStart",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "typescript/lib/lib.es2019.string.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "String",
+            "methodName": "trimLeft",
+            "parameterTypes": [],
+            "returnType": "string",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "sdk",
+        "location": {
+          "file": "typescript/lib/lib.es2019.string.d.ts",
+          "line": 30
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.trimEnd.className.String",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2019.string.d.ts:file=typescript%2Flib%2Flib.es2019.string.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3AtrimRight:invoke=call:params=none:ret=string",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2019.string.d.ts:file=typescript%2Flib%2Flib.es2019.string.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3AtrimRight:invoke=call:params=none:ret=string",
       "kind": "invoke",
-      "modulePath": "tsjs.builtin",
-      "ownerName": "String",
-      "methodName": "trimEnd",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "typescript/lib/lib.es2019.string.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "String",
+            "methodName": "trimRight",
+            "parameterTypes": [],
+            "returnType": "string",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "sdk",
+        "location": {
+          "file": "typescript/lib/lib.es2019.string.d.ts",
+          "line": 36
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.trimLeft.className.String",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3AtoUpperCase:invoke=call:params=none:ret=string",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3AtoUpperCase:invoke=call:params=none:ret=string",
       "kind": "invoke",
-      "modulePath": "tsjs.builtin",
-      "ownerName": "String",
-      "methodName": "trimLeft",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "typescript/lib/lib.es5.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "String",
+            "methodName": "toUpperCase",
+            "parameterTypes": [],
+            "returnType": "string",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "sdk",
+        "location": {
+          "file": "typescript/lib/lib.es5.d.ts",
+          "line": 508
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.trimRight.className.String",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3AtoLowerCase:invoke=call:params=none:ret=string",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3AtoLowerCase:invoke=call:params=none:ret=string",
       "kind": "invoke",
-      "modulePath": "tsjs.builtin",
-      "ownerName": "String",
-      "methodName": "trimRight",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "typescript/lib/lib.es5.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "String",
+            "methodName": "toLowerCase",
+            "parameterTypes": [],
+            "returnType": "string",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "sdk",
+        "location": {
+          "file": "typescript/lib/lib.es5.d.ts",
+          "line": 502
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.toUpperCase.className.String",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2015.core.d.ts:file=typescript%2Flib%2Flib.es2015.core.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3Arepeat:invoke=call:params=0%3Anumber:ret=string",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2015.core.d.ts:file=typescript%2Flib%2Flib.es2015.core.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3Arepeat:invoke=call:params=0%3Anumber:ret=string",
       "kind": "invoke",
-      "modulePath": "tsjs.builtin",
-      "ownerName": "String",
-      "methodName": "toUpperCase",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "typescript/lib/lib.es2015.core.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "String",
+            "methodName": "repeat",
+            "parameterTypes": [
+              "number"
+            ],
+            "returnType": "string",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "sdk",
+        "location": {
+          "file": "typescript/lib/lib.es2015.core.d.ts",
+          "line": 449
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.toLowerCase.className.String",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3AcharAt:invoke=call:params=0%3Anumber:ret=string",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3AcharAt:invoke=call:params=0%3Anumber:ret=string",
       "kind": "invoke",
-      "modulePath": "tsjs.builtin",
-      "ownerName": "String",
-      "methodName": "toLowerCase",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "typescript/lib/lib.es5.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "String",
+            "methodName": "charAt",
+            "parameterTypes": [
+              "number"
+            ],
+            "returnType": "string",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "sdk",
+        "location": {
+          "file": "typescript/lib/lib.es5.d.ts",
+          "line": 418
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.repeat.className.String",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2015.core.d.ts:file=typescript%2Flib%2Flib.es2015.core.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3Anormalize:invoke=call:params=0%3A%22NFC%22%20%7C%20%22NFD%22%20%7C%20%22NFKC%22%20%7C%20%22NFKD%22:ret=string",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2015.core.d.ts:file=typescript%2Flib%2Flib.es2015.core.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3Anormalize:invoke=call:params=0%3A%22NFC%22%20%7C%20%22NFD%22%20%7C%20%22NFKC%22%20%7C%20%22NFKD%22:ret=string",
       "kind": "invoke",
-      "modulePath": "tsjs.builtin",
-      "ownerName": "String",
-      "methodName": "repeat",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "typescript/lib/lib.es2015.core.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "String",
+            "methodName": "normalize",
+            "parameterTypes": [
+              "\"NFC\" | \"NFD\" | \"NFKC\" | \"NFKD\""
+            ],
+            "returnType": "string",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "sdk",
+        "location": {
+          "file": "typescript/lib/lib.es2015.core.d.ts",
+          "line": 434
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.charAt.className.String",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2015.core.d.ts:file=typescript%2Flib%2Flib.es2015.core.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3Anormalize:invoke=call:params=0%3A%3F%3Astring:ret=string",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2015.core.d.ts:file=typescript%2Flib%2Flib.es2015.core.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3Anormalize:invoke=call:params=0%3A%3F%3Astring:ret=string",
       "kind": "invoke",
-      "modulePath": "tsjs.builtin",
-      "ownerName": "String",
-      "methodName": "charAt",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "typescript/lib/lib.es2015.core.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "String",
+            "methodName": "normalize",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "string",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "sdk",
+        "location": {
+          "file": "typescript/lib/lib.es2015.core.d.ts",
+          "line": 442
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.normalize.className.String",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3AtoLocaleLowerCase:invoke=call:params=0%3A%3F%3Astring%20%7C%20string%5B%5D:ret=string",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3AtoLocaleLowerCase:invoke=call:params=0%3A%3F%3Astring%20%7C%20string%5B%5D:ret=string",
       "kind": "invoke",
-      "modulePath": "tsjs.builtin",
-      "ownerName": "String",
-      "methodName": "normalize",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "typescript/lib/lib.es5.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "String",
+            "methodName": "toLocaleLowerCase",
+            "parameterTypes": [
+              "string | string[]"
+            ],
+            "returnType": "string",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "sdk",
+        "location": {
+          "file": "typescript/lib/lib.es5.d.ts",
+          "line": 505
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.toLocaleLowerCase.className.String",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2020.string.d.ts:file=typescript%2Flib%2Flib.es2020.string.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3AtoLocaleLowerCase:invoke=call:params=0%3A%3F%3AIntl.LocalesArgument:ret=string",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2020.string.d.ts:file=typescript%2Flib%2Flib.es2020.string.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3AtoLocaleLowerCase:invoke=call:params=0%3A%3F%3AIntl.LocalesArgument:ret=string",
       "kind": "invoke",
-      "modulePath": "tsjs.builtin",
-      "ownerName": "String",
-      "methodName": "toLocaleLowerCase",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "typescript/lib/lib.es2020.string.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "String",
+            "methodName": "toLocaleLowerCase",
+            "parameterTypes": [
+              "Intl.LocalesArgument"
+            ],
+            "returnType": "string",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "sdk",
+        "location": {
+          "file": "typescript/lib/lib.es2020.string.d.ts",
+          "line": 32
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.toLocaleUpperCase.className.String",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3AtoLocaleUpperCase:invoke=call:params=0%3A%3F%3Astring%20%7C%20string%5B%5D:ret=string",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3AtoLocaleUpperCase:invoke=call:params=0%3A%3F%3Astring%20%7C%20string%5B%5D:ret=string",
       "kind": "invoke",
-      "modulePath": "tsjs.builtin",
-      "ownerName": "String",
-      "methodName": "toLocaleUpperCase",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "typescript/lib/lib.es5.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "String",
+            "methodName": "toLocaleUpperCase",
+            "parameterTypes": [
+              "string | string[]"
+            ],
+            "returnType": "string",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "sdk",
+        "location": {
+          "file": "typescript/lib/lib.es5.d.ts",
+          "line": 511
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.harmony.string.at.base_to_result.exact.at.className.String",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2020.string.d.ts:file=typescript%2Flib%2Flib.es2020.string.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3AtoLocaleUpperCase:invoke=call:params=0%3A%3F%3AIntl.LocalesArgument:ret=string",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2020.string.d.ts:file=typescript%2Flib%2Flib.es2020.string.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3AtoLocaleUpperCase:invoke=call:params=0%3A%3F%3AIntl.LocalesArgument:ret=string",
       "kind": "invoke",
-      "modulePath": "tsjs.builtin",
-      "ownerName": "String",
-      "methodName": "at",
-      "invokeKind": "instance",
-      "argCount": 1,
-      "confidence": "likely",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "typescript/lib/lib.es2020.string.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "String",
+            "methodName": "toLocaleUpperCase",
+            "parameterTypes": [
+              "Intl.LocalesArgument"
+            ],
+            "returnType": "string",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "sdk",
+        "location": {
+          "file": "typescript/lib/lib.es2020.string.d.ts",
+          "line": 35
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.harmony.string.replace.base_to_result.exact.replace.className.String",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2022.string.d.ts:file=typescript%2Flib%2Flib.es2022.string.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3Aat:invoke=call:params=0%3Anumber:ret=string%20%7C%20undefined",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2022.string.d.ts:file=typescript%2Flib%2Flib.es2022.string.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3Aat:invoke=call:params=0%3Anumber:ret=string%20%7C%20undefined",
       "kind": "invoke",
-      "modulePath": "tsjs.builtin",
-      "ownerName": "String",
-      "methodName": "replace",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "typescript/lib/lib.es2022.string.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "String",
+            "methodName": "at",
+            "parameterTypes": [
+              "number"
+            ],
+            "returnType": "string | undefined",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "sdk",
+        "location": {
+          "file": "typescript/lib/lib.es2022.string.d.ts",
+          "line": 24
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.harmony.string.replace.arg1_to_result.exact.replace.className.String",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3Areplace:invoke=call:params=0%3Astring%20%7C%20RegExp%2C1%3Astring:ret=string",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3Areplace:invoke=call:params=0%3Astring%20%7C%20RegExp%2C1%3Astring:ret=string",
       "kind": "invoke",
-      "modulePath": "tsjs.builtin",
-      "ownerName": "String",
-      "methodName": "replace",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "typescript/lib/lib.es5.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "String",
+            "methodName": "replace",
+            "parameterTypes": [
+              "string | RegExp",
+              "string"
+            ],
+            "returnType": "string",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "sdk",
+        "location": {
+          "file": "typescript/lib/lib.es5.d.ts",
+          "line": 463
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.harmony.string.replaceAll.base_to_result.exact.replaceAll.className.String",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3Areplace:invoke=call:params=0%3Astring%20%7C%20RegExp%2C1%3A(substring%3A%20string%2C%20...args%3A%20any%5B%5D)%20%3D%3E%20string:ret=string",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3Areplace:invoke=call:params=0%3Astring%20%7C%20RegExp%2C1%3A(substring%3A%20string%2C%20...args%3A%20any%5B%5D)%20%3D%3E%20string:ret=string",
       "kind": "invoke",
-      "modulePath": "tsjs.builtin",
-      "ownerName": "String",
-      "methodName": "replaceAll",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "typescript/lib/lib.es5.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "String",
+            "methodName": "replace",
+            "parameterTypes": [
+              "string | RegExp",
+              "(substring: string",
+              " ...args: any[]) => string"
+            ],
+            "returnType": "string",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "sdk",
+        "location": {
+          "file": "typescript/lib/lib.es5.d.ts",
+          "line": 470
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.harmony.string.replaceAll.arg1_to_result.exact.replaceAll.className.String",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2021.string.d.ts:file=typescript%2Flib%2Flib.es2021.string.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3AreplaceAll:invoke=call:params=0%3Astring%20%7C%20RegExp%2C1%3Astring:ret=string",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2021.string.d.ts:file=typescript%2Flib%2Flib.es2021.string.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3AreplaceAll:invoke=call:params=0%3Astring%20%7C%20RegExp%2C1%3Astring:ret=string",
       "kind": "invoke",
-      "modulePath": "tsjs.builtin",
-      "ownerName": "String",
-      "methodName": "replaceAll",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "typescript/lib/lib.es2021.string.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "String",
+            "methodName": "replaceAll",
+            "parameterTypes": [
+              "string | RegExp",
+              "string"
+            ],
+            "returnType": "string",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "sdk",
+        "location": {
+          "file": "typescript/lib/lib.es2021.string.d.ts",
+          "line": 25
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.harmony.string.match.base_to_result.exact.match.className.String",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2021.string.d.ts:file=typescript%2Flib%2Flib.es2021.string.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3AreplaceAll:invoke=call:params=0%3Astring%20%7C%20RegExp%2C1%3A(substring%3A%20string%2C%20...args%3A%20any%5B%5D)%20%3D%3E%20string:ret=string",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2021.string.d.ts:file=typescript%2Flib%2Flib.es2021.string.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3AreplaceAll:invoke=call:params=0%3Astring%20%7C%20RegExp%2C1%3A(substring%3A%20string%2C%20...args%3A%20any%5B%5D)%20%3D%3E%20string:ret=string",
       "kind": "invoke",
-      "modulePath": "tsjs.builtin",
-      "ownerName": "String",
-      "methodName": "match",
-      "invokeKind": "instance",
-      "argCount": 1,
-      "confidence": "likely",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "typescript/lib/lib.es2021.string.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "String",
+            "methodName": "replaceAll",
+            "parameterTypes": [
+              "string | RegExp",
+              "(substring: string",
+              " ...args: any[]) => string"
+            ],
+            "returnType": "string",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "sdk",
+        "location": {
+          "file": "typescript/lib/lib.es2021.string.d.ts",
+          "line": 32
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.harmony.string.matchAll.base_to_result.exact.matchAll.className.String",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3Amatch:invoke=call:params=0%3Astring%20%7C%20RegExp:ret=RegExpMatchArray%20%7C%20null",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3Amatch:invoke=call:params=0%3Astring%20%7C%20RegExp:ret=RegExpMatchArray%20%7C%20null",
       "kind": "invoke",
-      "modulePath": "tsjs.builtin",
-      "ownerName": "String",
-      "methodName": "matchAll",
-      "invokeKind": "instance",
-      "argCount": 1,
-      "confidence": "likely",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "typescript/lib/lib.es5.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "String",
+            "methodName": "match",
+            "parameterTypes": [
+              "string | RegExp"
+            ],
+            "returnType": "RegExpMatchArray | null",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "sdk",
+        "location": {
+          "file": "typescript/lib/lib.es5.d.ts",
+          "line": 456
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.harmony.string.raw.arg0_to_result.exact.raw.className.String",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2020.string.d.ts:file=typescript%2Flib%2Flib.es2020.string.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3AmatchAll:invoke=call:params=0%3ARegExp:ret=RegExpStringIterator%3CRegExpExecArray%3E",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2020.string.d.ts:file=typescript%2Flib%2Flib.es2020.string.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3AmatchAll:invoke=call:params=0%3ARegExp:ret=RegExpStringIterator%3CRegExpExecArray%3E",
       "kind": "invoke",
-      "modulePath": "tsjs.builtin",
-      "ownerName": "String",
-      "methodName": "raw",
-      "invokeKind": "static",
-      "argCount": 0,
-      "confidence": "likely",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "typescript/lib/lib.es2020.string.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "String",
+            "methodName": "matchAll",
+            "parameterTypes": [
+              "RegExp"
+            ],
+            "returnType": "RegExpStringIterator<RegExpExecArray>",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "sdk",
+        "location": {
+          "file": "typescript/lib/lib.es2020.string.d.ts",
+          "line": 29
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.harmony.string.raw.arg1_to_result.exact.raw.className.String",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2017.string.d.ts:file=typescript%2Flib%2Flib.es2017.string.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3ApadStart:invoke=call:params=0%3Anumber%2C1%3A%3F%3Astring:ret=string",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2017.string.d.ts:file=typescript%2Flib%2Flib.es2017.string.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3ApadStart:invoke=call:params=0%3Anumber%2C1%3A%3F%3Astring:ret=string",
       "kind": "invoke",
-      "modulePath": "tsjs.builtin",
-      "ownerName": "String",
-      "methodName": "raw",
-      "invokeKind": "static",
-      "argCount": 0,
-      "confidence": "likely",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "typescript/lib/lib.es2017.string.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "String",
+            "methodName": "padStart",
+            "parameterTypes": [
+              "number",
+              "string"
+            ],
+            "returnType": "string",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "sdk",
+        "location": {
+          "file": "typescript/lib/lib.es2017.string.d.ts",
+          "line": 31
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.harmony.string.padding.base_to_result.exact.padStart.className.String",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2017.string.d.ts:file=typescript%2Flib%2Flib.es2017.string.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3ApadEnd:invoke=call:params=0%3Anumber%2C1%3A%3F%3Astring:ret=string",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2017.string.d.ts:file=typescript%2Flib%2Flib.es2017.string.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3ApadEnd:invoke=call:params=0%3Anumber%2C1%3A%3F%3Astring:ret=string",
       "kind": "invoke",
-      "modulePath": "tsjs.builtin",
-      "ownerName": "String",
-      "methodName": "padStart",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "typescript/lib/lib.es2017.string.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "String",
+            "methodName": "padEnd",
+            "parameterTypes": [
+              "number",
+              "string"
+            ],
+            "returnType": "string",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "sdk",
+        "location": {
+          "file": "typescript/lib/lib.es2017.string.d.ts",
+          "line": 44
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.harmony.string.padding.base_to_result.exact.padEnd.className.String",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3Asplit:invoke=call:params=0%3Astring%20%7C%20RegExp%2C1%3A%3F%3Anumber:ret=string%5B%5D",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3Asplit:invoke=call:params=0%3Astring%20%7C%20RegExp%2C1%3A%3F%3Anumber:ret=string%5B%5D",
       "kind": "invoke",
-      "modulePath": "tsjs.builtin",
-      "ownerName": "String",
-      "methodName": "padEnd",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "typescript/lib/lib.es5.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "String",
+            "methodName": "split",
+            "parameterTypes": [
+              "string | RegExp",
+              "number"
+            ],
+            "returnType": "string[]",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "sdk",
+        "location": {
+          "file": "typescript/lib/lib.es5.d.ts",
+          "line": 491
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.harmony.string.padding.arg1_to_result.exact.padStart.className.String",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2015.core.d.ts:file=typescript%2Flib%2Flib.es2015.core.d.ts:export=interface%3AStringConstructor:decl=interface%3AStringConstructor:member=method%3Ainstance%3Araw:invoke=call:params=0%3A%7B%20raw%3A%20readonly%20string%5B%5D%20%7C%20ArrayLike%3Cstring%3E%3B%20%7D%2C1%3Arest%3Aany%5B%5D:ret=string",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2015.core.d.ts:file=typescript%2Flib%2Flib.es2015.core.d.ts:export=interface%3AStringConstructor:decl=interface%3AStringConstructor:member=method%3Ainstance%3Araw:invoke=call:params=0%3A%7B%20raw%3A%20readonly%20string%5B%5D%20%7C%20ArrayLike%3Cstring%3E%3B%20%7D%2C1%3Arest%3Aany%5B%5D:ret=string",
       "kind": "invoke",
-      "modulePath": "tsjs.builtin",
-      "ownerName": "String",
-      "methodName": "padStart",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "typescript/lib/lib.es2015.core.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "StringConstructor",
+            "methodName": "raw",
+            "parameterTypes": [
+              "{ raw: readonly string[] | ArrayLike<string>; }",
+              "any[]"
+            ],
+            "returnType": "string",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
-      }
-    },
-    {
-      "surfaceId": "surface.transfer.harmony.string.padding.arg1_to_result.exact.padEnd.className.String",
-      "kind": "invoke",
-      "modulePath": "tsjs.builtin",
-      "ownerName": "String",
-      "methodName": "padEnd",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
-      "provenance": {
-        "source": "manual"
-      }
-    },
-    {
-      "surfaceId": "surface.transfer.harmony.string.split.base_to_result.exact.split.className.String",
-      "kind": "invoke",
-      "modulePath": "tsjs.builtin",
-      "ownerName": "String",
-      "methodName": "split",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
-      "provenance": {
-        "source": "manual"
+        "source": "sdk",
+        "location": {
+          "file": "typescript/lib/lib.es2015.core.d.ts",
+          "line": 560
+        }
       }
     }
   ],
   "bindings": [
     {
-      "bindingId": "binding.transfer.harmony.string.concat.arg0_to_result.exact.concat.className.String",
-      "surfaceId": "surface.transfer.harmony.string.concat.arg0_to_result.exact.concat.className.String",
+      "bindingId": "binding:asset.rule.kernel.transfers.string:0001",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3Aconcat:invoke=call:params=0%3Arest%3Astring%5B%5D:ret=string",
       "assetId": "asset.rule.kernel.transfers.string",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "concat",
-        "invokeKind": "instance",
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "String"
-          }
+      "endpoint": {
+        "base": {
+          "kind": "return"
         }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.string.concat.arg0_to_result.exact.concat.className.String"
+        "template:asset.rule.kernel.transfers.string:0001"
       ],
       "semanticsFamily": "transfer",
-      "metadata": {
-        "description": "String.concat(arg): argument taints concatenation result."
-      },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3Aconcat:invoke=call:params=0%3Arest%3Astring%5B%5D:ret=string"
     },
     {
-      "bindingId": "binding.transfer.harmony.string.concat.base_to_result.exact.concat.className.String",
-      "surfaceId": "surface.transfer.harmony.string.concat.base_to_result.exact.concat.className.String",
+      "bindingId": "binding:asset.rule.kernel.transfers.string:0002",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3Aconcat:invoke=call:params=0%3Arest%3Astring%5B%5D:ret=string",
       "assetId": "asset.rule.kernel.transfers.string",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "concat",
-        "invokeKind": "instance",
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "String"
-          }
+      "endpoint": {
+        "base": {
+          "kind": "return"
         }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.string.concat.base_to_result.exact.concat.className.String"
+        "template:asset.rule.kernel.transfers.string:0002"
       ],
       "semanticsFamily": "transfer",
-      "metadata": {
-        "description": "String.concat(arg): receiver string taints concatenation result."
-      },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3Aconcat:invoke=call:params=0%3Arest%3Astring%5B%5D:ret=string"
     },
     {
-      "bindingId": "binding.transfer.harmony.string.pure_transform.base_to_result.exact.toString.className.String",
-      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.toString.className.String",
+      "bindingId": "binding:asset.rule.kernel.transfers.string:0003",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3AtoString:invoke=call:params=none:ret=string",
       "assetId": "asset.rule.kernel.transfers.string",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "toString",
-        "invokeKind": "instance",
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "String"
-          }
+      "endpoint": {
+        "base": {
+          "kind": "return"
         }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.string.pure_transform.base_to_result.exact.toString.className.String"
+        "template:asset.rule.kernel.transfers.string:0003"
       ],
       "semanticsFamily": "transfer",
-      "metadata": {
-        "description": "Pure String transforms conservatively taint their result from the receiver string."
-      },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3AtoString:invoke=call:params=none:ret=string"
     },
     {
-      "bindingId": "binding.transfer.harmony.string.pure_transform.base_to_result.exact.toLocaleString.className.String",
-      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.toLocaleString.className.String",
+      "bindingId": "binding:asset.rule.kernel.transfers.string:0004",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3AvalueOf:invoke=call:params=none:ret=string",
       "assetId": "asset.rule.kernel.transfers.string",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "toLocaleString",
-        "invokeKind": "instance",
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "String"
-          }
+      "endpoint": {
+        "base": {
+          "kind": "return"
         }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.string.pure_transform.base_to_result.exact.toLocaleString.className.String"
+        "template:asset.rule.kernel.transfers.string:0004"
       ],
       "semanticsFamily": "transfer",
-      "metadata": {
-        "description": "Pure String transforms conservatively taint their result from the receiver string."
-      },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3AvalueOf:invoke=call:params=none:ret=string"
     },
     {
-      "bindingId": "binding.transfer.harmony.string.pure_transform.base_to_result.exact.valueOf.className.String",
-      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.valueOf.className.String",
+      "bindingId": "binding:asset.rule.kernel.transfers.string:0005",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3Aslice:invoke=call:params=0%3A%3F%3Anumber%2C1%3A%3F%3Anumber:ret=string",
       "assetId": "asset.rule.kernel.transfers.string",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "valueOf",
-        "invokeKind": "instance",
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "String"
-          }
+      "endpoint": {
+        "base": {
+          "kind": "return"
         }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.string.pure_transform.base_to_result.exact.valueOf.className.String"
+        "template:asset.rule.kernel.transfers.string:0005"
       ],
       "semanticsFamily": "transfer",
-      "metadata": {
-        "description": "Pure String transforms conservatively taint their result from the receiver string."
-      },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3Aslice:invoke=call:params=0%3A%3F%3Anumber%2C1%3A%3F%3Anumber:ret=string"
     },
     {
-      "bindingId": "binding.transfer.harmony.string.pure_transform.base_to_result.exact.slice.className.String",
-      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.slice.className.String",
+      "bindingId": "binding:asset.rule.kernel.transfers.string:0006",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3Asubstring:invoke=call:params=0%3Anumber%2C1%3A%3F%3Anumber:ret=string",
       "assetId": "asset.rule.kernel.transfers.string",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "slice",
-        "invokeKind": "instance",
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "String"
-          }
+      "endpoint": {
+        "base": {
+          "kind": "return"
         }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.string.pure_transform.base_to_result.exact.slice.className.String"
+        "template:asset.rule.kernel.transfers.string:0006"
       ],
       "semanticsFamily": "transfer",
-      "metadata": {
-        "description": "Pure String transforms conservatively taint their result from the receiver string."
-      },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3Asubstring:invoke=call:params=0%3Anumber%2C1%3A%3F%3Anumber:ret=string"
     },
     {
-      "bindingId": "binding.transfer.harmony.string.pure_transform.base_to_result.exact.substring.className.String",
-      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.substring.className.String",
+      "bindingId": "binding:asset.rule.kernel.transfers.string:0007",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3Asubstr:invoke=call:params=0%3Anumber%2C1%3A%3F%3Anumber:ret=string",
       "assetId": "asset.rule.kernel.transfers.string",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "substring",
-        "invokeKind": "instance",
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "String"
-          }
+      "endpoint": {
+        "base": {
+          "kind": "return"
         }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.string.pure_transform.base_to_result.exact.substring.className.String"
+        "template:asset.rule.kernel.transfers.string:0007"
       ],
       "semanticsFamily": "transfer",
-      "metadata": {
-        "description": "Pure String transforms conservatively taint their result from the receiver string."
-      },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3Asubstr:invoke=call:params=0%3Anumber%2C1%3A%3F%3Anumber:ret=string"
     },
     {
-      "bindingId": "binding.transfer.harmony.string.pure_transform.base_to_result.exact.substr.className.String",
-      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.substr.className.String",
+      "bindingId": "binding:asset.rule.kernel.transfers.string:0008",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3Atrim:invoke=call:params=none:ret=string",
       "assetId": "asset.rule.kernel.transfers.string",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "substr",
-        "invokeKind": "instance",
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "String"
-          }
+      "endpoint": {
+        "base": {
+          "kind": "return"
         }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.string.pure_transform.base_to_result.exact.substr.className.String"
+        "template:asset.rule.kernel.transfers.string:0008"
       ],
       "semanticsFamily": "transfer",
-      "metadata": {
-        "description": "Pure String transforms conservatively taint their result from the receiver string."
-      },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3Atrim:invoke=call:params=none:ret=string"
     },
     {
-      "bindingId": "binding.transfer.harmony.string.pure_transform.base_to_result.exact.trim.className.String",
-      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.trim.className.String",
+      "bindingId": "binding:asset.rule.kernel.transfers.string:0009",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2019.string.d.ts:file=typescript%2Flib%2Flib.es2019.string.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3AtrimStart:invoke=call:params=none:ret=string",
       "assetId": "asset.rule.kernel.transfers.string",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "trim",
-        "invokeKind": "instance",
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "String"
-          }
+      "endpoint": {
+        "base": {
+          "kind": "return"
         }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.string.pure_transform.base_to_result.exact.trim.className.String"
+        "template:asset.rule.kernel.transfers.string:0009"
       ],
       "semanticsFamily": "transfer",
-      "metadata": {
-        "description": "Pure String transforms conservatively taint their result from the receiver string."
-      },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2019.string.d.ts:file=typescript%2Flib%2Flib.es2019.string.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3AtrimStart:invoke=call:params=none:ret=string"
     },
     {
-      "bindingId": "binding.transfer.harmony.string.pure_transform.base_to_result.exact.trimStart.className.String",
-      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.trimStart.className.String",
+      "bindingId": "binding:asset.rule.kernel.transfers.string:0010",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2019.string.d.ts:file=typescript%2Flib%2Flib.es2019.string.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3AtrimEnd:invoke=call:params=none:ret=string",
       "assetId": "asset.rule.kernel.transfers.string",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "trimStart",
-        "invokeKind": "instance",
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "String"
-          }
+      "endpoint": {
+        "base": {
+          "kind": "return"
         }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.string.pure_transform.base_to_result.exact.trimStart.className.String"
+        "template:asset.rule.kernel.transfers.string:0010"
       ],
       "semanticsFamily": "transfer",
-      "metadata": {
-        "description": "Pure String transforms conservatively taint their result from the receiver string."
-      },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2019.string.d.ts:file=typescript%2Flib%2Flib.es2019.string.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3AtrimEnd:invoke=call:params=none:ret=string"
     },
     {
-      "bindingId": "binding.transfer.harmony.string.pure_transform.base_to_result.exact.trimEnd.className.String",
-      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.trimEnd.className.String",
+      "bindingId": "binding:asset.rule.kernel.transfers.string:0011",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2019.string.d.ts:file=typescript%2Flib%2Flib.es2019.string.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3AtrimLeft:invoke=call:params=none:ret=string",
       "assetId": "asset.rule.kernel.transfers.string",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "trimEnd",
-        "invokeKind": "instance",
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "String"
-          }
+      "endpoint": {
+        "base": {
+          "kind": "return"
         }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.string.pure_transform.base_to_result.exact.trimEnd.className.String"
+        "template:asset.rule.kernel.transfers.string:0011"
       ],
       "semanticsFamily": "transfer",
-      "metadata": {
-        "description": "Pure String transforms conservatively taint their result from the receiver string."
-      },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2019.string.d.ts:file=typescript%2Flib%2Flib.es2019.string.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3AtrimLeft:invoke=call:params=none:ret=string"
     },
     {
-      "bindingId": "binding.transfer.harmony.string.pure_transform.base_to_result.exact.trimLeft.className.String",
-      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.trimLeft.className.String",
+      "bindingId": "binding:asset.rule.kernel.transfers.string:0012",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2019.string.d.ts:file=typescript%2Flib%2Flib.es2019.string.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3AtrimRight:invoke=call:params=none:ret=string",
       "assetId": "asset.rule.kernel.transfers.string",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "trimLeft",
-        "invokeKind": "instance",
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "String"
-          }
+      "endpoint": {
+        "base": {
+          "kind": "return"
         }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.string.pure_transform.base_to_result.exact.trimLeft.className.String"
+        "template:asset.rule.kernel.transfers.string:0012"
       ],
       "semanticsFamily": "transfer",
-      "metadata": {
-        "description": "Pure String transforms conservatively taint their result from the receiver string."
-      },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2019.string.d.ts:file=typescript%2Flib%2Flib.es2019.string.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3AtrimRight:invoke=call:params=none:ret=string"
     },
     {
-      "bindingId": "binding.transfer.harmony.string.pure_transform.base_to_result.exact.trimRight.className.String",
-      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.trimRight.className.String",
+      "bindingId": "binding:asset.rule.kernel.transfers.string:0013",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3AtoUpperCase:invoke=call:params=none:ret=string",
       "assetId": "asset.rule.kernel.transfers.string",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "trimRight",
-        "invokeKind": "instance",
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "String"
-          }
+      "endpoint": {
+        "base": {
+          "kind": "return"
         }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.string.pure_transform.base_to_result.exact.trimRight.className.String"
+        "template:asset.rule.kernel.transfers.string:0013"
       ],
       "semanticsFamily": "transfer",
-      "metadata": {
-        "description": "Pure String transforms conservatively taint their result from the receiver string."
-      },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3AtoUpperCase:invoke=call:params=none:ret=string"
     },
     {
-      "bindingId": "binding.transfer.harmony.string.pure_transform.base_to_result.exact.toUpperCase.className.String",
-      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.toUpperCase.className.String",
+      "bindingId": "binding:asset.rule.kernel.transfers.string:0014",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3AtoLowerCase:invoke=call:params=none:ret=string",
       "assetId": "asset.rule.kernel.transfers.string",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "toUpperCase",
-        "invokeKind": "instance",
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "String"
-          }
+      "endpoint": {
+        "base": {
+          "kind": "return"
         }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.string.pure_transform.base_to_result.exact.toUpperCase.className.String"
+        "template:asset.rule.kernel.transfers.string:0014"
       ],
       "semanticsFamily": "transfer",
-      "metadata": {
-        "description": "Pure String transforms conservatively taint their result from the receiver string."
-      },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3AtoLowerCase:invoke=call:params=none:ret=string"
     },
     {
-      "bindingId": "binding.transfer.harmony.string.pure_transform.base_to_result.exact.toLowerCase.className.String",
-      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.toLowerCase.className.String",
+      "bindingId": "binding:asset.rule.kernel.transfers.string:0015",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2015.core.d.ts:file=typescript%2Flib%2Flib.es2015.core.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3Arepeat:invoke=call:params=0%3Anumber:ret=string",
       "assetId": "asset.rule.kernel.transfers.string",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "toLowerCase",
-        "invokeKind": "instance",
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "String"
-          }
+      "endpoint": {
+        "base": {
+          "kind": "return"
         }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.string.pure_transform.base_to_result.exact.toLowerCase.className.String"
+        "template:asset.rule.kernel.transfers.string:0015"
       ],
       "semanticsFamily": "transfer",
-      "metadata": {
-        "description": "Pure String transforms conservatively taint their result from the receiver string."
-      },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2015.core.d.ts:file=typescript%2Flib%2Flib.es2015.core.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3Arepeat:invoke=call:params=0%3Anumber:ret=string"
     },
     {
-      "bindingId": "binding.transfer.harmony.string.pure_transform.base_to_result.exact.repeat.className.String",
-      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.repeat.className.String",
+      "bindingId": "binding:asset.rule.kernel.transfers.string:0016",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3AcharAt:invoke=call:params=0%3Anumber:ret=string",
       "assetId": "asset.rule.kernel.transfers.string",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "repeat",
-        "invokeKind": "instance",
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "String"
-          }
+      "endpoint": {
+        "base": {
+          "kind": "return"
         }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.string.pure_transform.base_to_result.exact.repeat.className.String"
+        "template:asset.rule.kernel.transfers.string:0016"
       ],
       "semanticsFamily": "transfer",
-      "metadata": {
-        "description": "Pure String transforms conservatively taint their result from the receiver string."
-      },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3AcharAt:invoke=call:params=0%3Anumber:ret=string"
     },
     {
-      "bindingId": "binding.transfer.harmony.string.pure_transform.base_to_result.exact.charAt.className.String",
-      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.charAt.className.String",
+      "bindingId": "binding:asset.rule.kernel.transfers.string:0017",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2015.core.d.ts:file=typescript%2Flib%2Flib.es2015.core.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3Anormalize:invoke=call:params=0%3A%22NFC%22%20%7C%20%22NFD%22%20%7C%20%22NFKC%22%20%7C%20%22NFKD%22:ret=string",
       "assetId": "asset.rule.kernel.transfers.string",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "charAt",
-        "invokeKind": "instance",
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "String"
-          }
+      "endpoint": {
+        "base": {
+          "kind": "return"
         }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.string.pure_transform.base_to_result.exact.charAt.className.String"
+        "template:asset.rule.kernel.transfers.string:0017"
       ],
       "semanticsFamily": "transfer",
-      "metadata": {
-        "description": "Pure String transforms conservatively taint their result from the receiver string."
-      },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2015.core.d.ts:file=typescript%2Flib%2Flib.es2015.core.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3Anormalize:invoke=call:params=0%3A%22NFC%22%20%7C%20%22NFD%22%20%7C%20%22NFKC%22%20%7C%20%22NFKD%22:ret=string"
     },
     {
-      "bindingId": "binding.transfer.harmony.string.pure_transform.base_to_result.exact.normalize.className.String",
-      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.normalize.className.String",
+      "bindingId": "binding:asset.rule.kernel.transfers.string:0018",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2015.core.d.ts:file=typescript%2Flib%2Flib.es2015.core.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3Anormalize:invoke=call:params=0%3A%3F%3Astring:ret=string",
       "assetId": "asset.rule.kernel.transfers.string",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "normalize",
-        "invokeKind": "instance",
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "String"
-          }
+      "endpoint": {
+        "base": {
+          "kind": "return"
         }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.string.pure_transform.base_to_result.exact.normalize.className.String"
+        "template:asset.rule.kernel.transfers.string:0018"
       ],
       "semanticsFamily": "transfer",
-      "metadata": {
-        "description": "Pure String transforms conservatively taint their result from the receiver string."
-      },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2015.core.d.ts:file=typescript%2Flib%2Flib.es2015.core.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3Anormalize:invoke=call:params=0%3A%3F%3Astring:ret=string"
     },
     {
-      "bindingId": "binding.transfer.harmony.string.pure_transform.base_to_result.exact.toLocaleLowerCase.className.String",
-      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.toLocaleLowerCase.className.String",
+      "bindingId": "binding:asset.rule.kernel.transfers.string:0019",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3AtoLocaleLowerCase:invoke=call:params=0%3A%3F%3Astring%20%7C%20string%5B%5D:ret=string",
       "assetId": "asset.rule.kernel.transfers.string",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "toLocaleLowerCase",
-        "invokeKind": "instance",
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "String"
-          }
+      "endpoint": {
+        "base": {
+          "kind": "return"
         }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.string.pure_transform.base_to_result.exact.toLocaleLowerCase.className.String"
+        "template:asset.rule.kernel.transfers.string:0019"
       ],
       "semanticsFamily": "transfer",
-      "metadata": {
-        "description": "Pure String transforms conservatively taint their result from the receiver string."
-      },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3AtoLocaleLowerCase:invoke=call:params=0%3A%3F%3Astring%20%7C%20string%5B%5D:ret=string"
     },
     {
-      "bindingId": "binding.transfer.harmony.string.pure_transform.base_to_result.exact.toLocaleUpperCase.className.String",
-      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.toLocaleUpperCase.className.String",
+      "bindingId": "binding:asset.rule.kernel.transfers.string:0020",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2020.string.d.ts:file=typescript%2Flib%2Flib.es2020.string.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3AtoLocaleLowerCase:invoke=call:params=0%3A%3F%3AIntl.LocalesArgument:ret=string",
       "assetId": "asset.rule.kernel.transfers.string",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "toLocaleUpperCase",
-        "invokeKind": "instance",
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "String"
-          }
+      "endpoint": {
+        "base": {
+          "kind": "return"
         }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.string.pure_transform.base_to_result.exact.toLocaleUpperCase.className.String"
+        "template:asset.rule.kernel.transfers.string:0020"
       ],
       "semanticsFamily": "transfer",
-      "metadata": {
-        "description": "Pure String transforms conservatively taint their result from the receiver string."
-      },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2020.string.d.ts:file=typescript%2Flib%2Flib.es2020.string.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3AtoLocaleLowerCase:invoke=call:params=0%3A%3F%3AIntl.LocalesArgument:ret=string"
     },
     {
-      "bindingId": "binding.transfer.harmony.string.at.base_to_result.exact.at.className.String",
-      "surfaceId": "surface.transfer.harmony.string.at.base_to_result.exact.at.className.String",
+      "bindingId": "binding:asset.rule.kernel.transfers.string:0021",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3AtoLocaleUpperCase:invoke=call:params=0%3A%3F%3Astring%20%7C%20string%5B%5D:ret=string",
       "assetId": "asset.rule.kernel.transfers.string",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "at",
-        "invokeKind": "instance",
-        "argCount": 1,
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "String"
-          }
+      "endpoint": {
+        "base": {
+          "kind": "return"
         }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.string.at.base_to_result.exact.at.className.String"
+        "template:asset.rule.kernel.transfers.string:0021"
       ],
       "semanticsFamily": "transfer",
-      "metadata": {
-        "description": "String.at(index): receiver string taints indexed result."
-      },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3AtoLocaleUpperCase:invoke=call:params=0%3A%3F%3Astring%20%7C%20string%5B%5D:ret=string"
     },
     {
-      "bindingId": "binding.transfer.harmony.string.replace.base_to_result.exact.replace.className.String",
-      "surfaceId": "surface.transfer.harmony.string.replace.base_to_result.exact.replace.className.String",
+      "bindingId": "binding:asset.rule.kernel.transfers.string:0022",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2020.string.d.ts:file=typescript%2Flib%2Flib.es2020.string.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3AtoLocaleUpperCase:invoke=call:params=0%3A%3F%3AIntl.LocalesArgument:ret=string",
       "assetId": "asset.rule.kernel.transfers.string",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "replace",
-        "invokeKind": "instance",
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "String"
-          }
+      "endpoint": {
+        "base": {
+          "kind": "return"
         }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.string.replace.base_to_result.exact.replace.className.String"
+        "template:asset.rule.kernel.transfers.string:0022"
       ],
       "semanticsFamily": "transfer",
-      "metadata": {
-        "description": "String.replace(search, replacement): receiver string taints replacement result."
-      },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2020.string.d.ts:file=typescript%2Flib%2Flib.es2020.string.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3AtoLocaleUpperCase:invoke=call:params=0%3A%3F%3AIntl.LocalesArgument:ret=string"
     },
     {
-      "bindingId": "binding.transfer.harmony.string.replace.arg1_to_result.exact.replace.className.String",
-      "surfaceId": "surface.transfer.harmony.string.replace.arg1_to_result.exact.replace.className.String",
+      "bindingId": "binding:asset.rule.kernel.transfers.string:0023",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2022.string.d.ts:file=typescript%2Flib%2Flib.es2022.string.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3Aat:invoke=call:params=0%3Anumber:ret=string%20%7C%20undefined",
       "assetId": "asset.rule.kernel.transfers.string",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "replace",
-        "invokeKind": "instance",
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "String"
-          }
+      "endpoint": {
+        "base": {
+          "kind": "return"
         }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.string.replace.arg1_to_result.exact.replace.className.String"
+        "template:asset.rule.kernel.transfers.string:0023"
       ],
       "semanticsFamily": "transfer",
-      "metadata": {
-        "description": "String.replace(search, replacement): replacement text taints replacement result."
-      },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2022.string.d.ts:file=typescript%2Flib%2Flib.es2022.string.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3Aat:invoke=call:params=0%3Anumber:ret=string%20%7C%20undefined"
     },
     {
-      "bindingId": "binding.transfer.harmony.string.replaceAll.base_to_result.exact.replaceAll.className.String",
-      "surfaceId": "surface.transfer.harmony.string.replaceAll.base_to_result.exact.replaceAll.className.String",
+      "bindingId": "binding:asset.rule.kernel.transfers.string:0024",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3Areplace:invoke=call:params=0%3Astring%20%7C%20RegExp%2C1%3Astring:ret=string",
       "assetId": "asset.rule.kernel.transfers.string",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "replaceAll",
-        "invokeKind": "instance",
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "String"
-          }
+      "endpoint": {
+        "base": {
+          "kind": "return"
         }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.string.replaceAll.base_to_result.exact.replaceAll.className.String"
+        "template:asset.rule.kernel.transfers.string:0024"
       ],
       "semanticsFamily": "transfer",
-      "metadata": {
-        "description": "String.replaceAll(search, replacement): receiver string taints replacement result."
-      },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3Areplace:invoke=call:params=0%3Astring%20%7C%20RegExp%2C1%3Astring:ret=string"
     },
     {
-      "bindingId": "binding.transfer.harmony.string.replaceAll.arg1_to_result.exact.replaceAll.className.String",
-      "surfaceId": "surface.transfer.harmony.string.replaceAll.arg1_to_result.exact.replaceAll.className.String",
+      "bindingId": "binding:asset.rule.kernel.transfers.string:0025",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3Areplace:invoke=call:params=0%3Astring%20%7C%20RegExp%2C1%3Astring:ret=string",
       "assetId": "asset.rule.kernel.transfers.string",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "replaceAll",
-        "invokeKind": "instance",
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "String"
-          }
+      "endpoint": {
+        "base": {
+          "kind": "return"
         }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.string.replaceAll.arg1_to_result.exact.replaceAll.className.String"
+        "template:asset.rule.kernel.transfers.string:0025"
       ],
       "semanticsFamily": "transfer",
-      "metadata": {
-        "description": "String.replaceAll(search, replacement): replacement text taints replacement result."
-      },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3Areplace:invoke=call:params=0%3Astring%20%7C%20RegExp%2C1%3Astring:ret=string"
     },
     {
-      "bindingId": "binding.transfer.harmony.string.match.base_to_result.exact.match.className.String",
-      "surfaceId": "surface.transfer.harmony.string.match.base_to_result.exact.match.className.String",
+      "bindingId": "binding:asset.rule.kernel.transfers.string:0026",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3Areplace:invoke=call:params=0%3Astring%20%7C%20RegExp%2C1%3A(substring%3A%20string%2C%20...args%3A%20any%5B%5D)%20%3D%3E%20string:ret=string",
       "assetId": "asset.rule.kernel.transfers.string",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "match",
-        "invokeKind": "instance",
-        "argCount": 1,
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "String"
-          }
+      "endpoint": {
+        "base": {
+          "kind": "return"
         }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.string.match.base_to_result.exact.match.className.String"
+        "template:asset.rule.kernel.transfers.string:0026"
       ],
       "semanticsFamily": "transfer",
-      "metadata": {
-        "description": "String.match(regexp): receiver string taints match result."
-      },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3Areplace:invoke=call:params=0%3Astring%20%7C%20RegExp%2C1%3A(substring%3A%20string%2C%20...args%3A%20any%5B%5D)%20%3D%3E%20string:ret=string"
     },
     {
-      "bindingId": "binding.transfer.harmony.string.matchAll.base_to_result.exact.matchAll.className.String",
-      "surfaceId": "surface.transfer.harmony.string.matchAll.base_to_result.exact.matchAll.className.String",
+      "bindingId": "binding:asset.rule.kernel.transfers.string:0027",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3Areplace:invoke=call:params=0%3Astring%20%7C%20RegExp%2C1%3A(substring%3A%20string%2C%20...args%3A%20any%5B%5D)%20%3D%3E%20string:ret=string",
       "assetId": "asset.rule.kernel.transfers.string",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "matchAll",
-        "invokeKind": "instance",
-        "argCount": 1,
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "String"
-          }
+      "endpoint": {
+        "base": {
+          "kind": "return"
         }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.string.matchAll.base_to_result.exact.matchAll.className.String"
+        "template:asset.rule.kernel.transfers.string:0027"
       ],
       "semanticsFamily": "transfer",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3Areplace:invoke=call:params=0%3Astring%20%7C%20RegExp%2C1%3A(substring%3A%20string%2C%20...args%3A%20any%5B%5D)%20%3D%3E%20string:ret=string",
       "metadata": {
-        "description": "String.matchAll(regexp): receiver string taints match iterator result."
-      },
-      "completeness": "partial",
-      "confidence": "likely"
+        "enabled": false,
+        "tags": [
+          "disabled-after-sdk-audit",
+          "otr-024"
+        ],
+        "description": "Disabled after SDK audit: function replacer object is code/capability; replacement text is callback return, not the function object identity."
+      }
     },
     {
-      "bindingId": "binding.transfer.harmony.string.raw.arg0_to_result.exact.raw.className.String",
-      "surfaceId": "surface.transfer.harmony.string.raw.arg0_to_result.exact.raw.className.String",
+      "bindingId": "binding:asset.rule.kernel.transfers.string:0028",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2021.string.d.ts:file=typescript%2Flib%2Flib.es2021.string.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3AreplaceAll:invoke=call:params=0%3Astring%20%7C%20RegExp%2C1%3Astring:ret=string",
       "assetId": "asset.rule.kernel.transfers.string",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "raw",
-        "invokeKind": "static",
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "String"
-          }
+      "endpoint": {
+        "base": {
+          "kind": "return"
         }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.string.raw.arg0_to_result.exact.raw.className.String"
+        "template:asset.rule.kernel.transfers.string:0028"
       ],
       "semanticsFamily": "transfer",
-      "metadata": {
-        "description": "String.raw(template, ...subs): template taints raw string result."
-      },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2021.string.d.ts:file=typescript%2Flib%2Flib.es2021.string.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3AreplaceAll:invoke=call:params=0%3Astring%20%7C%20RegExp%2C1%3Astring:ret=string"
     },
     {
-      "bindingId": "binding.transfer.harmony.string.raw.arg1_to_result.exact.raw.className.String",
-      "surfaceId": "surface.transfer.harmony.string.raw.arg1_to_result.exact.raw.className.String",
+      "bindingId": "binding:asset.rule.kernel.transfers.string:0029",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2021.string.d.ts:file=typescript%2Flib%2Flib.es2021.string.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3AreplaceAll:invoke=call:params=0%3Astring%20%7C%20RegExp%2C1%3Astring:ret=string",
       "assetId": "asset.rule.kernel.transfers.string",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "raw",
-        "invokeKind": "static",
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "String"
-          }
+      "endpoint": {
+        "base": {
+          "kind": "return"
         }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.string.raw.arg1_to_result.exact.raw.className.String"
+        "template:asset.rule.kernel.transfers.string:0029"
       ],
       "semanticsFamily": "transfer",
-      "metadata": {
-        "description": "String.raw(template, ...subs): first substitution taints raw string result."
-      },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2021.string.d.ts:file=typescript%2Flib%2Flib.es2021.string.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3AreplaceAll:invoke=call:params=0%3Astring%20%7C%20RegExp%2C1%3Astring:ret=string"
     },
     {
-      "bindingId": "binding.transfer.harmony.string.padding.base_to_result.exact.padStart.className.String",
-      "surfaceId": "surface.transfer.harmony.string.padding.base_to_result.exact.padStart.className.String",
+      "bindingId": "binding:asset.rule.kernel.transfers.string:0030",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2021.string.d.ts:file=typescript%2Flib%2Flib.es2021.string.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3AreplaceAll:invoke=call:params=0%3Astring%20%7C%20RegExp%2C1%3A(substring%3A%20string%2C%20...args%3A%20any%5B%5D)%20%3D%3E%20string:ret=string",
       "assetId": "asset.rule.kernel.transfers.string",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "padStart",
-        "invokeKind": "instance",
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "String"
-          }
+      "endpoint": {
+        "base": {
+          "kind": "return"
         }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.string.padding.base_to_result.exact.padStart.className.String"
+        "template:asset.rule.kernel.transfers.string:0030"
       ],
       "semanticsFamily": "transfer",
-      "metadata": {
-        "description": "String pad transforms conservatively taint their result from the receiver string."
-      },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2021.string.d.ts:file=typescript%2Flib%2Flib.es2021.string.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3AreplaceAll:invoke=call:params=0%3Astring%20%7C%20RegExp%2C1%3A(substring%3A%20string%2C%20...args%3A%20any%5B%5D)%20%3D%3E%20string:ret=string"
     },
     {
-      "bindingId": "binding.transfer.harmony.string.padding.base_to_result.exact.padEnd.className.String",
-      "surfaceId": "surface.transfer.harmony.string.padding.base_to_result.exact.padEnd.className.String",
+      "bindingId": "binding:asset.rule.kernel.transfers.string:0031",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2021.string.d.ts:file=typescript%2Flib%2Flib.es2021.string.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3AreplaceAll:invoke=call:params=0%3Astring%20%7C%20RegExp%2C1%3A(substring%3A%20string%2C%20...args%3A%20any%5B%5D)%20%3D%3E%20string:ret=string",
       "assetId": "asset.rule.kernel.transfers.string",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "padEnd",
-        "invokeKind": "instance",
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "String"
-          }
+      "endpoint": {
+        "base": {
+          "kind": "return"
         }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.string.padding.base_to_result.exact.padEnd.className.String"
+        "template:asset.rule.kernel.transfers.string:0031"
       ],
       "semanticsFamily": "transfer",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2021.string.d.ts:file=typescript%2Flib%2Flib.es2021.string.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3AreplaceAll:invoke=call:params=0%3Astring%20%7C%20RegExp%2C1%3A(substring%3A%20string%2C%20...args%3A%20any%5B%5D)%20%3D%3E%20string:ret=string",
       "metadata": {
-        "description": "String pad transforms conservatively taint their result from the receiver string."
-      },
-      "completeness": "partial",
-      "confidence": "likely"
+        "enabled": false,
+        "tags": [
+          "disabled-after-sdk-audit",
+          "otr-024"
+        ],
+        "description": "Disabled after SDK audit: function replacer object is code/capability; replacement text is callback return, not the function object identity."
+      }
     },
     {
-      "bindingId": "binding.transfer.harmony.string.padding.arg1_to_result.exact.padStart.className.String",
-      "surfaceId": "surface.transfer.harmony.string.padding.arg1_to_result.exact.padStart.className.String",
+      "bindingId": "binding:asset.rule.kernel.transfers.string:0032",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3Amatch:invoke=call:params=0%3Astring%20%7C%20RegExp:ret=RegExpMatchArray%20%7C%20null",
       "assetId": "asset.rule.kernel.transfers.string",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "padStart",
-        "invokeKind": "instance",
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "String"
-          }
+      "endpoint": {
+        "base": {
+          "kind": "return"
         }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.string.padding.arg1_to_result.exact.padStart.className.String"
+        "template:asset.rule.kernel.transfers.string:0032"
       ],
       "semanticsFamily": "transfer",
-      "metadata": {
-        "description": "String pad transforms propagate taint from the pad string to the result."
-      },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3Amatch:invoke=call:params=0%3Astring%20%7C%20RegExp:ret=RegExpMatchArray%20%7C%20null"
     },
     {
-      "bindingId": "binding.transfer.harmony.string.padding.arg1_to_result.exact.padEnd.className.String",
-      "surfaceId": "surface.transfer.harmony.string.padding.arg1_to_result.exact.padEnd.className.String",
+      "bindingId": "binding:asset.rule.kernel.transfers.string:0033",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2020.string.d.ts:file=typescript%2Flib%2Flib.es2020.string.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3AmatchAll:invoke=call:params=0%3ARegExp:ret=RegExpStringIterator%3CRegExpExecArray%3E",
       "assetId": "asset.rule.kernel.transfers.string",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "padEnd",
-        "invokeKind": "instance",
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "String"
-          }
+      "endpoint": {
+        "base": {
+          "kind": "return"
         }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.string.padding.arg1_to_result.exact.padEnd.className.String"
+        "template:asset.rule.kernel.transfers.string:0033"
       ],
       "semanticsFamily": "transfer",
-      "metadata": {
-        "description": "String pad transforms propagate taint from the pad string to the result."
-      },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2020.string.d.ts:file=typescript%2Flib%2Flib.es2020.string.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3AmatchAll:invoke=call:params=0%3ARegExp:ret=RegExpStringIterator%3CRegExpExecArray%3E"
     },
     {
-      "bindingId": "binding.transfer.harmony.string.split.base_to_result.exact.split.className.String",
-      "surfaceId": "surface.transfer.harmony.string.split.base_to_result.exact.split.className.String",
+      "bindingId": "binding:asset.rule.kernel.transfers.string:0034",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2017.string.d.ts:file=typescript%2Flib%2Flib.es2017.string.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3ApadStart:invoke=call:params=0%3Anumber%2C1%3A%3F%3Astring:ret=string",
       "assetId": "asset.rule.kernel.transfers.string",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "split",
-        "invokeKind": "instance",
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "String"
-          }
+      "endpoint": {
+        "base": {
+          "kind": "return"
         }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.string.split.base_to_result.exact.split.className.String"
+        "template:asset.rule.kernel.transfers.string:0034"
       ],
       "semanticsFamily": "transfer",
-      "metadata": {
-        "description": "String.split(sep): conservatively taint resulting array from the receiver string."
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2017.string.d.ts:file=typescript%2Flib%2Flib.es2017.string.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3ApadStart:invoke=call:params=0%3Anumber%2C1%3A%3F%3Astring:ret=string"
+    },
+    {
+      "bindingId": "binding:asset.rule.kernel.transfers.string:0035",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2017.string.d.ts:file=typescript%2Flib%2Flib.es2017.string.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3ApadStart:invoke=call:params=0%3Anumber%2C1%3A%3F%3Astring:ret=string",
+      "assetId": "asset.rule.kernel.transfers.string",
+      "plane": "rule",
+      "role": "transfer",
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
       },
-      "completeness": "partial",
-      "confidence": "likely"
+      "effectTemplateRefs": [
+        "template:asset.rule.kernel.transfers.string:0035"
+      ],
+      "semanticsFamily": "transfer",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2017.string.d.ts:file=typescript%2Flib%2Flib.es2017.string.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3ApadStart:invoke=call:params=0%3Anumber%2C1%3A%3F%3Astring:ret=string"
+    },
+    {
+      "bindingId": "binding:asset.rule.kernel.transfers.string:0036",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2017.string.d.ts:file=typescript%2Flib%2Flib.es2017.string.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3ApadEnd:invoke=call:params=0%3Anumber%2C1%3A%3F%3Astring:ret=string",
+      "assetId": "asset.rule.kernel.transfers.string",
+      "plane": "rule",
+      "role": "transfer",
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template:asset.rule.kernel.transfers.string:0036"
+      ],
+      "semanticsFamily": "transfer",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2017.string.d.ts:file=typescript%2Flib%2Flib.es2017.string.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3ApadEnd:invoke=call:params=0%3Anumber%2C1%3A%3F%3Astring:ret=string"
+    },
+    {
+      "bindingId": "binding:asset.rule.kernel.transfers.string:0037",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2017.string.d.ts:file=typescript%2Flib%2Flib.es2017.string.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3ApadEnd:invoke=call:params=0%3Anumber%2C1%3A%3F%3Astring:ret=string",
+      "assetId": "asset.rule.kernel.transfers.string",
+      "plane": "rule",
+      "role": "transfer",
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template:asset.rule.kernel.transfers.string:0037"
+      ],
+      "semanticsFamily": "transfer",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2017.string.d.ts:file=typescript%2Flib%2Flib.es2017.string.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3ApadEnd:invoke=call:params=0%3Anumber%2C1%3A%3F%3Astring:ret=string"
+    },
+    {
+      "bindingId": "binding:asset.rule.kernel.transfers.string:0038",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3Asplit:invoke=call:params=0%3Astring%20%7C%20RegExp%2C1%3A%3F%3Anumber:ret=string%5B%5D",
+      "assetId": "asset.rule.kernel.transfers.string",
+      "plane": "rule",
+      "role": "transfer",
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template:asset.rule.kernel.transfers.string:0038"
+      ],
+      "semanticsFamily": "transfer",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AString:decl=interface%3AString:member=method%3Ainstance%3Asplit:invoke=call:params=0%3Astring%20%7C%20RegExp%2C1%3A%3F%3Anumber:ret=string%5B%5D"
+    },
+    {
+      "bindingId": "binding:asset.rule.kernel.transfers.string:0039",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2015.core.d.ts:file=typescript%2Flib%2Flib.es2015.core.d.ts:export=interface%3AStringConstructor:decl=interface%3AStringConstructor:member=method%3Ainstance%3Araw:invoke=call:params=0%3A%7B%20raw%3A%20readonly%20string%5B%5D%20%7C%20ArrayLike%3Cstring%3E%3B%20%7D%2C1%3Arest%3Aany%5B%5D:ret=string",
+      "assetId": "asset.rule.kernel.transfers.string",
+      "plane": "rule",
+      "role": "transfer",
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template:asset.rule.kernel.transfers.string:0039"
+      ],
+      "semanticsFamily": "transfer",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2015.core.d.ts:file=typescript%2Flib%2Flib.es2015.core.d.ts:export=interface%3AStringConstructor:decl=interface%3AStringConstructor:member=method%3Ainstance%3Araw:invoke=call:params=0%3A%7B%20raw%3A%20readonly%20string%5B%5D%20%7C%20ArrayLike%3Cstring%3E%3B%20%7D%2C1%3Arest%3Aany%5B%5D:ret=string"
+    },
+    {
+      "bindingId": "binding:asset.rule.kernel.transfers.string:0040",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2015.core.d.ts:file=typescript%2Flib%2Flib.es2015.core.d.ts:export=interface%3AStringConstructor:decl=interface%3AStringConstructor:member=method%3Ainstance%3Araw:invoke=call:params=0%3A%7B%20raw%3A%20readonly%20string%5B%5D%20%7C%20ArrayLike%3Cstring%3E%3B%20%7D%2C1%3Arest%3Aany%5B%5D:ret=string",
+      "assetId": "asset.rule.kernel.transfers.string",
+      "plane": "rule",
+      "role": "transfer",
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template:asset.rule.kernel.transfers.string:0040"
+      ],
+      "semanticsFamily": "transfer",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2015.core.d.ts:file=typescript%2Flib%2Flib.es2015.core.d.ts:export=interface%3AStringConstructor:decl=interface%3AStringConstructor:member=method%3Ainstance%3Araw:invoke=call:params=0%3A%7B%20raw%3A%20readonly%20string%5B%5D%20%7C%20ArrayLike%3Cstring%3E%3B%20%7D%2C1%3Arest%3Aany%5B%5D:ret=string"
     }
   ],
   "effectTemplates": [
     {
-      "id": "template.transfer.harmony.string.concat.arg0_to_result.exact.concat.className.String",
+      "id": "template:asset.rule.kernel.transfers.string:0001",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.string:0002",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "rest",
+          "startIndex": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.string:0003",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.string:0004",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.string:0005",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.string:0006",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.string:0007",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.string:0008",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.string:0009",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.string:0010",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.string:0011",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.string:0012",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.string:0013",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.string:0014",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.string:0015",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.string:0016",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.string:0017",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.string:0018",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.string:0019",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.string:0020",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.string:0021",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.string:0022",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.string:0023",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.string:0024",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.string:0025",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.string:0026",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.string:0027",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.string:0028",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.string:0029",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.string:0030",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.string:0031",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.string:0032",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.string:0033",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.string:0034",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.string:0035",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.string:0036",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.string:0037",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.string:0038",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.string:0039",
       "confidence": "certain",
       "kind": "rule.transfer",
       "from": {
         "base": {
           "kind": "arg",
           "index": 0
-        }
+        },
+        "accessPath": [
+          "raw"
+        ]
       },
       "to": {
         "base": {
@@ -1388,530 +2310,13 @@
       "transferKind": "transfer"
     },
     {
-      "id": "template.transfer.harmony.string.concat.base_to_result.exact.concat.className.String",
+      "id": "template:asset.rule.kernel.transfers.string:0040",
       "confidence": "certain",
       "kind": "rule.transfer",
       "from": {
         "base": {
-          "kind": "receiver"
-        }
-      },
-      "to": {
-        "base": {
-          "kind": "return"
-        }
-      },
-      "transferKind": "transfer"
-    },
-    {
-      "id": "template.transfer.harmony.string.pure_transform.base_to_result.exact.toString.className.String",
-      "confidence": "certain",
-      "kind": "rule.transfer",
-      "from": {
-        "base": {
-          "kind": "receiver"
-        }
-      },
-      "to": {
-        "base": {
-          "kind": "return"
-        }
-      },
-      "transferKind": "transfer"
-    },
-    {
-      "id": "template.transfer.harmony.string.pure_transform.base_to_result.exact.toLocaleString.className.String",
-      "confidence": "certain",
-      "kind": "rule.transfer",
-      "from": {
-        "base": {
-          "kind": "receiver"
-        }
-      },
-      "to": {
-        "base": {
-          "kind": "return"
-        }
-      },
-      "transferKind": "transfer"
-    },
-    {
-      "id": "template.transfer.harmony.string.pure_transform.base_to_result.exact.valueOf.className.String",
-      "confidence": "certain",
-      "kind": "rule.transfer",
-      "from": {
-        "base": {
-          "kind": "receiver"
-        }
-      },
-      "to": {
-        "base": {
-          "kind": "return"
-        }
-      },
-      "transferKind": "transfer"
-    },
-    {
-      "id": "template.transfer.harmony.string.pure_transform.base_to_result.exact.slice.className.String",
-      "confidence": "certain",
-      "kind": "rule.transfer",
-      "from": {
-        "base": {
-          "kind": "receiver"
-        }
-      },
-      "to": {
-        "base": {
-          "kind": "return"
-        }
-      },
-      "transferKind": "transfer"
-    },
-    {
-      "id": "template.transfer.harmony.string.pure_transform.base_to_result.exact.substring.className.String",
-      "confidence": "certain",
-      "kind": "rule.transfer",
-      "from": {
-        "base": {
-          "kind": "receiver"
-        }
-      },
-      "to": {
-        "base": {
-          "kind": "return"
-        }
-      },
-      "transferKind": "transfer"
-    },
-    {
-      "id": "template.transfer.harmony.string.pure_transform.base_to_result.exact.substr.className.String",
-      "confidence": "certain",
-      "kind": "rule.transfer",
-      "from": {
-        "base": {
-          "kind": "receiver"
-        }
-      },
-      "to": {
-        "base": {
-          "kind": "return"
-        }
-      },
-      "transferKind": "transfer"
-    },
-    {
-      "id": "template.transfer.harmony.string.pure_transform.base_to_result.exact.trim.className.String",
-      "confidence": "certain",
-      "kind": "rule.transfer",
-      "from": {
-        "base": {
-          "kind": "receiver"
-        }
-      },
-      "to": {
-        "base": {
-          "kind": "return"
-        }
-      },
-      "transferKind": "transfer"
-    },
-    {
-      "id": "template.transfer.harmony.string.pure_transform.base_to_result.exact.trimStart.className.String",
-      "confidence": "certain",
-      "kind": "rule.transfer",
-      "from": {
-        "base": {
-          "kind": "receiver"
-        }
-      },
-      "to": {
-        "base": {
-          "kind": "return"
-        }
-      },
-      "transferKind": "transfer"
-    },
-    {
-      "id": "template.transfer.harmony.string.pure_transform.base_to_result.exact.trimEnd.className.String",
-      "confidence": "certain",
-      "kind": "rule.transfer",
-      "from": {
-        "base": {
-          "kind": "receiver"
-        }
-      },
-      "to": {
-        "base": {
-          "kind": "return"
-        }
-      },
-      "transferKind": "transfer"
-    },
-    {
-      "id": "template.transfer.harmony.string.pure_transform.base_to_result.exact.trimLeft.className.String",
-      "confidence": "certain",
-      "kind": "rule.transfer",
-      "from": {
-        "base": {
-          "kind": "receiver"
-        }
-      },
-      "to": {
-        "base": {
-          "kind": "return"
-        }
-      },
-      "transferKind": "transfer"
-    },
-    {
-      "id": "template.transfer.harmony.string.pure_transform.base_to_result.exact.trimRight.className.String",
-      "confidence": "certain",
-      "kind": "rule.transfer",
-      "from": {
-        "base": {
-          "kind": "receiver"
-        }
-      },
-      "to": {
-        "base": {
-          "kind": "return"
-        }
-      },
-      "transferKind": "transfer"
-    },
-    {
-      "id": "template.transfer.harmony.string.pure_transform.base_to_result.exact.toUpperCase.className.String",
-      "confidence": "certain",
-      "kind": "rule.transfer",
-      "from": {
-        "base": {
-          "kind": "receiver"
-        }
-      },
-      "to": {
-        "base": {
-          "kind": "return"
-        }
-      },
-      "transferKind": "transfer"
-    },
-    {
-      "id": "template.transfer.harmony.string.pure_transform.base_to_result.exact.toLowerCase.className.String",
-      "confidence": "certain",
-      "kind": "rule.transfer",
-      "from": {
-        "base": {
-          "kind": "receiver"
-        }
-      },
-      "to": {
-        "base": {
-          "kind": "return"
-        }
-      },
-      "transferKind": "transfer"
-    },
-    {
-      "id": "template.transfer.harmony.string.pure_transform.base_to_result.exact.repeat.className.String",
-      "confidence": "certain",
-      "kind": "rule.transfer",
-      "from": {
-        "base": {
-          "kind": "receiver"
-        }
-      },
-      "to": {
-        "base": {
-          "kind": "return"
-        }
-      },
-      "transferKind": "transfer"
-    },
-    {
-      "id": "template.transfer.harmony.string.pure_transform.base_to_result.exact.charAt.className.String",
-      "confidence": "certain",
-      "kind": "rule.transfer",
-      "from": {
-        "base": {
-          "kind": "receiver"
-        }
-      },
-      "to": {
-        "base": {
-          "kind": "return"
-        }
-      },
-      "transferKind": "transfer"
-    },
-    {
-      "id": "template.transfer.harmony.string.pure_transform.base_to_result.exact.normalize.className.String",
-      "confidence": "certain",
-      "kind": "rule.transfer",
-      "from": {
-        "base": {
-          "kind": "receiver"
-        }
-      },
-      "to": {
-        "base": {
-          "kind": "return"
-        }
-      },
-      "transferKind": "transfer"
-    },
-    {
-      "id": "template.transfer.harmony.string.pure_transform.base_to_result.exact.toLocaleLowerCase.className.String",
-      "confidence": "certain",
-      "kind": "rule.transfer",
-      "from": {
-        "base": {
-          "kind": "receiver"
-        }
-      },
-      "to": {
-        "base": {
-          "kind": "return"
-        }
-      },
-      "transferKind": "transfer"
-    },
-    {
-      "id": "template.transfer.harmony.string.pure_transform.base_to_result.exact.toLocaleUpperCase.className.String",
-      "confidence": "certain",
-      "kind": "rule.transfer",
-      "from": {
-        "base": {
-          "kind": "receiver"
-        }
-      },
-      "to": {
-        "base": {
-          "kind": "return"
-        }
-      },
-      "transferKind": "transfer"
-    },
-    {
-      "id": "template.transfer.harmony.string.at.base_to_result.exact.at.className.String",
-      "confidence": "certain",
-      "kind": "rule.transfer",
-      "from": {
-        "base": {
-          "kind": "receiver"
-        }
-      },
-      "to": {
-        "base": {
-          "kind": "return"
-        }
-      },
-      "transferKind": "transfer"
-    },
-    {
-      "id": "template.transfer.harmony.string.replace.base_to_result.exact.replace.className.String",
-      "confidence": "certain",
-      "kind": "rule.transfer",
-      "from": {
-        "base": {
-          "kind": "receiver"
-        }
-      },
-      "to": {
-        "base": {
-          "kind": "return"
-        }
-      },
-      "transferKind": "transfer"
-    },
-    {
-      "id": "template.transfer.harmony.string.replace.arg1_to_result.exact.replace.className.String",
-      "confidence": "certain",
-      "kind": "rule.transfer",
-      "from": {
-        "base": {
-          "kind": "arg",
-          "index": 1
-        }
-      },
-      "to": {
-        "base": {
-          "kind": "return"
-        }
-      },
-      "transferKind": "transfer"
-    },
-    {
-      "id": "template.transfer.harmony.string.replaceAll.base_to_result.exact.replaceAll.className.String",
-      "confidence": "certain",
-      "kind": "rule.transfer",
-      "from": {
-        "base": {
-          "kind": "receiver"
-        }
-      },
-      "to": {
-        "base": {
-          "kind": "return"
-        }
-      },
-      "transferKind": "transfer"
-    },
-    {
-      "id": "template.transfer.harmony.string.replaceAll.arg1_to_result.exact.replaceAll.className.String",
-      "confidence": "certain",
-      "kind": "rule.transfer",
-      "from": {
-        "base": {
-          "kind": "arg",
-          "index": 1
-        }
-      },
-      "to": {
-        "base": {
-          "kind": "return"
-        }
-      },
-      "transferKind": "transfer"
-    },
-    {
-      "id": "template.transfer.harmony.string.match.base_to_result.exact.match.className.String",
-      "confidence": "certain",
-      "kind": "rule.transfer",
-      "from": {
-        "base": {
-          "kind": "receiver"
-        }
-      },
-      "to": {
-        "base": {
-          "kind": "return"
-        }
-      },
-      "transferKind": "transfer"
-    },
-    {
-      "id": "template.transfer.harmony.string.matchAll.base_to_result.exact.matchAll.className.String",
-      "confidence": "certain",
-      "kind": "rule.transfer",
-      "from": {
-        "base": {
-          "kind": "receiver"
-        }
-      },
-      "to": {
-        "base": {
-          "kind": "return"
-        }
-      },
-      "transferKind": "transfer"
-    },
-    {
-      "id": "template.transfer.harmony.string.raw.arg0_to_result.exact.raw.className.String",
-      "confidence": "certain",
-      "kind": "rule.transfer",
-      "from": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "to": {
-        "base": {
-          "kind": "return"
-        }
-      },
-      "transferKind": "transfer"
-    },
-    {
-      "id": "template.transfer.harmony.string.raw.arg1_to_result.exact.raw.className.String",
-      "confidence": "certain",
-      "kind": "rule.transfer",
-      "from": {
-        "base": {
-          "kind": "arg",
-          "index": 1
-        }
-      },
-      "to": {
-        "base": {
-          "kind": "return"
-        }
-      },
-      "transferKind": "transfer"
-    },
-    {
-      "id": "template.transfer.harmony.string.padding.base_to_result.exact.padStart.className.String",
-      "confidence": "certain",
-      "kind": "rule.transfer",
-      "from": {
-        "base": {
-          "kind": "receiver"
-        }
-      },
-      "to": {
-        "base": {
-          "kind": "return"
-        }
-      },
-      "transferKind": "transfer"
-    },
-    {
-      "id": "template.transfer.harmony.string.padding.base_to_result.exact.padEnd.className.String",
-      "confidence": "certain",
-      "kind": "rule.transfer",
-      "from": {
-        "base": {
-          "kind": "receiver"
-        }
-      },
-      "to": {
-        "base": {
-          "kind": "return"
-        }
-      },
-      "transferKind": "transfer"
-    },
-    {
-      "id": "template.transfer.harmony.string.padding.arg1_to_result.exact.padStart.className.String",
-      "confidence": "certain",
-      "kind": "rule.transfer",
-      "from": {
-        "base": {
-          "kind": "arg",
-          "index": 1
-        }
-      },
-      "to": {
-        "base": {
-          "kind": "return"
-        }
-      },
-      "transferKind": "transfer"
-    },
-    {
-      "id": "template.transfer.harmony.string.padding.arg1_to_result.exact.padEnd.className.String",
-      "confidence": "certain",
-      "kind": "rule.transfer",
-      "from": {
-        "base": {
-          "kind": "arg",
-          "index": 1
-        }
-      },
-      "to": {
-        "base": {
-          "kind": "return"
-        }
-      },
-      "transferKind": "transfer"
-    },
-    {
-      "id": "template.transfer.harmony.string.split.base_to_result.exact.split.className.String",
-      "confidence": "certain",
-      "kind": "rule.transfer",
-      "from": {
-        "base": {
-          "kind": "receiver"
+          "kind": "rest",
+          "startIndex": 1
         }
       },
       "to": {
@@ -1925,6 +2330,27 @@
   "provenance": {
     "source": "builtin",
     "evidenceLocations": [
+      {
+        "file": "typescript/lib/lib.es5.d.ts"
+      },
+      {
+        "file": "typescript/lib/lib.es2015.core.d.ts"
+      },
+      {
+        "file": "typescript/lib/lib.es2017.string.d.ts"
+      },
+      {
+        "file": "typescript/lib/lib.es2019.string.d.ts"
+      },
+      {
+        "file": "typescript/lib/lib.es2020.string.d.ts"
+      },
+      {
+        "file": "typescript/lib/lib.es2021.string.d.ts"
+      },
+      {
+        "file": "typescript/lib/lib.es2022.string.d.ts"
+      },
       {
         "file": "src/models/kernel/rules/transfers/string.rules.json"
       }

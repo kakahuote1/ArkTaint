@@ -4,49 +4,526 @@
   "status": "official",
   "surfaces": [
     {
-      "surfaceId": "surface.source.harmony.appstorage.mock_source",
-      "kind": "access",
-      "modulePath": "@arktaint/local",
-      "ownerName": "LocalBinding",
-      "propertyName": "source.harmony.appstorage.mock_source",
-      "accessKind": "read",
-      "receiverKind": "namespace",
-      "confidence": "likely",
+      "surfaceId": "surface.source.harmony.appstorage.mock_source.method.appstorage_api_clean_overwrite_018_F.method.appstorage_api_clean_overwrite_018_F.method.appstorage_api_clean_overwrite_018_F.method.appstorage_api_clean_overwrite_018_F.method.appstorage_api_clean_overwrite_018_F",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_appstorage%2Fappstorage_api_clean_overwrite_018_F.ets:file=harmony_appstorage%2Fappstorage_api_clean_overwrite_018_F.ets:export=entry%3Acomponent.appstorage_api_clean_overwrite_018_F:decl=entry%3Acomponent.appstorage_api_clean_overwrite_018_F:member=lifecycle%3Atest.case.appstorage_api_clean_overwrite_018_F:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "harmony_appstorage/appstorage_api_clean_overwrite_018_F.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_appstorage/appstorage_api_clean_overwrite_018_F.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "appstorage_api_clean_overwrite_018_F",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.appstorage.mock_source.method.appstorage_api_dynamic_key_004_F.method.appstorage_api_dynamic_key_004_F.method.appstorage_api_dynamic_key_004_F.method.appstorage_api_dynamic_key_004_F.method.appstorage_api_dynamic_key_004_F",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_appstorage%2Fappstorage_api_dynamic_key_004_F.ets:file=harmony_appstorage%2Fappstorage_api_dynamic_key_004_F.ets:export=entry%3Acomponent.appstorage_api_dynamic_key_004_F:decl=entry%3Acomponent.appstorage_api_dynamic_key_004_F:member=lifecycle%3Atest.case.appstorage_api_dynamic_key_004_F:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_appstorage/appstorage_api_dynamic_key_004_F.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_appstorage/appstorage_api_dynamic_key_004_F.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "appstorage_api_dynamic_key_004_F",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.appstorage.mock_source.method.appstorage_api_dynamic_mismatch_locals_017_F.method.appstorage_api_dynamic_mismatch_locals_017_F.method.appstorage_api_dynamic_mismatch_locals_017_F.method.appstorage_api_dynamic_mismatch_locals_017_F.method.appstorage_api_dynamic_mismatch_locals_017_F",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_appstorage%2Fappstorage_api_dynamic_mismatch_locals_017_F.ets:file=harmony_appstorage%2Fappstorage_api_dynamic_mismatch_locals_017_F.ets:export=entry%3Acomponent.appstorage_api_dynamic_mismatch_locals_017_F:decl=entry%3Acomponent.appstorage_api_dynamic_mismatch_locals_017_F:member=lifecycle%3Atest.case.appstorage_api_dynamic_mismatch_locals_017_F:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_appstorage/appstorage_api_dynamic_mismatch_locals_017_F.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_appstorage/appstorage_api_dynamic_mismatch_locals_017_F.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "appstorage_api_dynamic_mismatch_locals_017_F",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.appstorage.mock_source.method.appstorage_api_dynamic_same_local_016_T.method.appstorage_api_dynamic_same_local_016_T.method.appstorage_api_dynamic_same_local_016_T.method.appstorage_api_dynamic_same_local_016_T.method.appstorage_api_dynamic_same_local_016_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_appstorage%2Fappstorage_api_dynamic_same_local_016_T.ets:file=harmony_appstorage%2Fappstorage_api_dynamic_same_local_016_T.ets:export=entry%3Acomponent.appstorage_api_dynamic_same_local_016_T:decl=entry%3Acomponent.appstorage_api_dynamic_same_local_016_T:member=lifecycle%3Atest.case.appstorage_api_dynamic_same_local_016_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_appstorage/appstorage_api_dynamic_same_local_016_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_appstorage/appstorage_api_dynamic_same_local_016_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "appstorage_api_dynamic_same_local_016_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.appstorage.mock_source.method.appstorage_api_multi_key_mismatch_012_F.method.appstorage_api_multi_key_mismatch_012_F.method.appstorage_api_multi_key_mismatch_012_F.method.appstorage_api_multi_key_mismatch_012_F.method.appstorage_api_multi_key_mismatch_012_F",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_appstorage%2Fappstorage_api_multi_key_mismatch_012_F.ets:file=harmony_appstorage%2Fappstorage_api_multi_key_mismatch_012_F.ets:export=entry%3Acomponent.appstorage_api_multi_key_mismatch_012_F:decl=entry%3Acomponent.appstorage_api_multi_key_mismatch_012_F:member=lifecycle%3Atest.case.appstorage_api_multi_key_mismatch_012_F:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_appstorage/appstorage_api_multi_key_mismatch_012_F.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_appstorage/appstorage_api_multi_key_mismatch_012_F.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "appstorage_api_multi_key_mismatch_012_F",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.appstorage.mock_source.method.appstorage_api_multi_key_token_011_T.method.appstorage_api_multi_key_token_011_T.method.appstorage_api_multi_key_token_011_T.method.appstorage_api_multi_key_token_011_T.method.appstorage_api_multi_key_token_011_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_appstorage%2Fappstorage_api_multi_key_token_011_T.ets:file=harmony_appstorage%2Fappstorage_api_multi_key_token_011_T.ets:export=entry%3Acomponent.appstorage_api_multi_key_token_011_T:decl=entry%3Acomponent.appstorage_api_multi_key_token_011_T:member=lifecycle%3Atest.case.appstorage_api_multi_key_token_011_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_appstorage/appstorage_api_multi_key_token_011_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_appstorage/appstorage_api_multi_key_token_011_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "appstorage_api_multi_key_token_011_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.appstorage.mock_source.method.appstorage_api_object_set_get_005_T.method.appstorage_api_object_set_get_005_T.method.appstorage_api_object_set_get_005_T.method.appstorage_api_object_set_get_005_T.method.appstorage_api_object_set_get_005_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_appstorage%2Fappstorage_api_object_set_get_005_T.ets:file=harmony_appstorage%2Fappstorage_api_object_set_get_005_T.ets:export=entry%3Acomponent.appstorage_api_object_set_get_005_T:decl=entry%3Acomponent.appstorage_api_object_set_get_005_T:member=lifecycle%3Atest.case.appstorage_api_object_set_get_005_T:invoke=entry:params=0%3A%40harmony_appstorage%2Ftaint_mock.ts%3A%20Payload:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_appstorage/appstorage_api_object_set_get_005_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_appstorage/appstorage_api_object_set_get_005_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "appstorage_api_object_set_get_005_T",
+            "parameterTypes": [
+              "@harmony_appstorage/taint_mock.ts: Payload"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.appstorage.mock_source.method.appstorage_api_primitive_set_get_001_T.method.appstorage_api_primitive_set_get_001_T.method.appstorage_api_primitive_set_get_001_T.method.appstorage_api_primitive_set_get_001_T.method.appstorage_api_primitive_set_get_001_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_appstorage%2Fappstorage_api_primitive_set_get_001_T.ets:file=harmony_appstorage%2Fappstorage_api_primitive_set_get_001_T.ets:export=entry%3Acomponent.appstorage_api_primitive_set_get_001_T:decl=entry%3Acomponent.appstorage_api_primitive_set_get_001_T:member=lifecycle%3Atest.case.appstorage_api_primitive_set_get_001_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_appstorage/appstorage_api_primitive_set_get_001_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_appstorage/appstorage_api_primitive_set_get_001_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "appstorage_api_primitive_set_get_001_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.appstorage.mock_source.method.appstorage_api_primitive_wrong_key_002_F.method.appstorage_api_primitive_wrong_key_002_F.method.appstorage_api_primitive_wrong_key_002_F.method.appstorage_api_primitive_wrong_key_002_F.method.appstorage_api_primitive_wrong_key_002_F",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_appstorage%2Fappstorage_api_primitive_wrong_key_002_F.ets:file=harmony_appstorage%2Fappstorage_api_primitive_wrong_key_002_F.ets:export=entry%3Acomponent.appstorage_api_primitive_wrong_key_002_F:decl=entry%3Acomponent.appstorage_api_primitive_wrong_key_002_F:member=lifecycle%3Atest.case.appstorage_api_primitive_wrong_key_002_F:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_appstorage/appstorage_api_primitive_wrong_key_002_F.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_appstorage/appstorage_api_primitive_wrong_key_002_F.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "appstorage_api_primitive_wrong_key_002_F",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.appstorage.mock_source.method.appstorage_api_setorcreate_primitive_003_T.method.appstorage_api_setorcreate_primitive_003_T.method.appstorage_api_setorcreate_primitive_003_T.method.appstorage_api_setorcreate_primitive_003_T.method.appstorage_api_setorcreate_primitive_003_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_appstorage%2Fappstorage_api_setorcreate_primitive_003_T.ets:file=harmony_appstorage%2Fappstorage_api_setorcreate_primitive_003_T.ets:export=entry%3Acomponent.appstorage_api_setorcreate_primitive_003_T:decl=entry%3Acomponent.appstorage_api_setorcreate_primitive_003_T:member=lifecycle%3Atest.case.appstorage_api_setorcreate_primitive_003_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_appstorage/appstorage_api_setorcreate_primitive_003_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_appstorage/appstorage_api_setorcreate_primitive_003_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "appstorage_api_setorcreate_primitive_003_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.appstorage.mock_source.method.appstorage_api_setorcreate_then_get_013_T.method.appstorage_api_setorcreate_then_get_013_T.method.appstorage_api_setorcreate_then_get_013_T.method.appstorage_api_setorcreate_then_get_013_T.method.appstorage_api_setorcreate_then_get_013_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_appstorage%2Fappstorage_api_setorcreate_then_get_013_T.ets:file=harmony_appstorage%2Fappstorage_api_setorcreate_then_get_013_T.ets:export=entry%3Acomponent.appstorage_api_setorcreate_then_get_013_T:decl=entry%3Acomponent.appstorage_api_setorcreate_then_get_013_T:member=lifecycle%3Atest.case.appstorage_api_setorcreate_then_get_013_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_appstorage/appstorage_api_setorcreate_then_get_013_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_appstorage/appstorage_api_setorcreate_then_get_013_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "appstorage_api_setorcreate_then_get_013_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.appstorage.mock_source.method.appstorage_cross_file_api_009_T.method.appstorage_cross_file_api_009_T.method.appstorage_cross_file_api_009_T.method.appstorage_cross_file_api_009_T.method.appstorage_cross_file_api_009_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_appstorage%2Fappstorage_cross_file_api_009_T.ets:file=harmony_appstorage%2Fappstorage_cross_file_api_009_T.ets:export=entry%3Acomponent.appstorage_cross_file_api_009_T:decl=entry%3Acomponent.appstorage_cross_file_api_009_T:member=lifecycle%3Atest.case.appstorage_cross_file_api_009_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_appstorage/appstorage_cross_file_api_009_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_appstorage/appstorage_cross_file_api_009_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "appstorage_cross_file_api_009_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.appstorage.mock_source.method.appstorage_cross_file_api_010_F.method.appstorage_cross_file_api_010_F.method.appstorage_cross_file_api_010_F.method.appstorage_cross_file_api_010_F.method.appstorage_cross_file_api_010_F",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_appstorage%2Fappstorage_cross_file_api_010_F.ets:file=harmony_appstorage%2Fappstorage_cross_file_api_010_F.ets:export=entry%3Acomponent.appstorage_cross_file_api_010_F:decl=entry%3Acomponent.appstorage_cross_file_api_010_F:member=lifecycle%3Atest.case.appstorage_cross_file_api_010_F:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_appstorage/appstorage_cross_file_api_010_F.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_appstorage/appstorage_cross_file_api_010_F.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "appstorage_cross_file_api_010_F",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.appstorage.mock_source.method.appstorage_decorator_storagelink_008_T.method.appstorage_decorator_storagelink_008_T.method.appstorage_decorator_storagelink_008_T.method.appstorage_decorator_storagelink_008_T.method.appstorage_decorator_storagelink_008_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_appstorage%2Fappstorage_decorator_storagelink_008_T.ets:file=harmony_appstorage%2Fappstorage_decorator_storagelink_008_T.ets:export=entry%3Acomponent.appstorage_decorator_storagelink_008_T:decl=entry%3Acomponent.appstorage_decorator_storagelink_008_T:member=lifecycle%3Atest.case.appstorage_decorator_storagelink_008_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_appstorage/appstorage_decorator_storagelink_008_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_appstorage/appstorage_decorator_storagelink_008_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "appstorage_decorator_storagelink_008_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.appstorage.mock_source.method.appstorage_decorator_storagelink_writeback_014_T.method.appstorage_decorator_storagelink_writeback_014_T.method.appstorage_decorator_storagelink_writeback_014_T.method.appstorage_decorator_storagelink_writeback_014_T.method.appstorage_decorator_storagelink_writeback_014_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_appstorage%2Fappstorage_decorator_storagelink_writeback_014_T.ets:file=harmony_appstorage%2Fappstorage_decorator_storagelink_writeback_014_T.ets:export=entry%3Acomponent.appstorage_decorator_storagelink_writeback_014_T:decl=entry%3Acomponent.appstorage_decorator_storagelink_writeback_014_T:member=lifecycle%3Atest.case.appstorage_decorator_storagelink_writeback_014_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_appstorage/appstorage_decorator_storagelink_writeback_014_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_appstorage/appstorage_decorator_storagelink_writeback_014_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "appstorage_decorator_storagelink_writeback_014_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.appstorage.mock_source.method.appstorage_decorator_storagelink_writeback_015_F.method.appstorage_decorator_storagelink_writeback_015_F.method.appstorage_decorator_storagelink_writeback_015_F.method.appstorage_decorator_storagelink_writeback_015_F.method.appstorage_decorator_storagelink_writeback_015_F",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_appstorage%2Fappstorage_decorator_storagelink_writeback_015_F.ets:file=harmony_appstorage%2Fappstorage_decorator_storagelink_writeback_015_F.ets:export=entry%3Acomponent.appstorage_decorator_storagelink_writeback_015_F:decl=entry%3Acomponent.appstorage_decorator_storagelink_writeback_015_F:member=lifecycle%3Atest.case.appstorage_decorator_storagelink_writeback_015_F:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_appstorage/appstorage_decorator_storagelink_writeback_015_F.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_appstorage/appstorage_decorator_storagelink_writeback_015_F.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "appstorage_decorator_storagelink_writeback_015_F",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.appstorage.mock_source.method.appstorage_decorator_storageprop_006_T.method.appstorage_decorator_storageprop_006_T.method.appstorage_decorator_storageprop_006_T.method.appstorage_decorator_storageprop_006_T.method.appstorage_decorator_storageprop_006_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_appstorage%2Fappstorage_decorator_storageprop_006_T.ets:file=harmony_appstorage%2Fappstorage_decorator_storageprop_006_T.ets:export=entry%3Acomponent.appstorage_decorator_storageprop_006_T:decl=entry%3Acomponent.appstorage_decorator_storageprop_006_T:member=lifecycle%3Atest.case.appstorage_decorator_storageprop_006_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_appstorage/appstorage_decorator_storageprop_006_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_appstorage/appstorage_decorator_storageprop_006_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "appstorage_decorator_storageprop_006_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.appstorage.mock_source.method.appstorage_decorator_storageprop_mismatch_007_F.method.appstorage_decorator_storageprop_mismatch_007_F.method.appstorage_decorator_storageprop_mismatch_007_F.method.appstorage_decorator_storageprop_mismatch_007_F.method.appstorage_decorator_storageprop_mismatch_007_F",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_appstorage%2Fappstorage_decorator_storageprop_mismatch_007_F.ets:file=harmony_appstorage%2Fappstorage_decorator_storageprop_mismatch_007_F.ets:export=entry%3Acomponent.appstorage_decorator_storageprop_mismatch_007_F:decl=entry%3Acomponent.appstorage_decorator_storageprop_mismatch_007_F:member=lifecycle%3Atest.case.appstorage_decorator_storageprop_mismatch_007_F:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_appstorage/appstorage_decorator_storageprop_mismatch_007_F.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_appstorage/appstorage_decorator_storageprop_mismatch_007_F.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "appstorage_decorator_storageprop_mismatch_007_F",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
       }
     },
     {
       "surfaceId": "surface.sink.harmony.appstorage.mock_sink",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "Sink",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "harmony_appstorage/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=harmony_appstorage%2Ftaint_mock.ts:file=harmony_appstorage%2Ftaint_mock.ts:export=namespace%3Ataint.%25dflt:decl=namespace%3Ataint.%25dflt:member=function%3ASink:invoke=call:params=0%3Aany:ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_appstorage/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "taint.%dflt",
+            "methodName": "Sink",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "void",
+            "staticFlag": true
+          }
+        }
       }
     }
   ],
   "bindings": [
     {
       "bindingId": "binding.source.harmony.appstorage.mock_source.0.method.appstorage_api_clean_overwrite_018_F",
-      "surfaceId": "surface.source.harmony.appstorage.mock_source",
+      "surfaceId": "surface.source.harmony.appstorage.mock_source.method.appstorage_api_clean_overwrite_018_F.method.appstorage_api_clean_overwrite_018_F.method.appstorage_api_clean_overwrite_018_F.method.appstorage_api_clean_overwrite_018_F.method.appstorage_api_clean_overwrite_018_F",
       "assetId": "asset.rule.test.harmony_appstorage",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "appstorage_api_clean_overwrite_018_F",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "appstorage_api_clean_overwrite_018_F.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -57,25 +534,16 @@
         "template.source.harmony.appstorage.mock_source.for.source.harmony.appstorage.mock_source.0.method.appstorage_api_clean_overwrite_018_F"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_appstorage%2Fappstorage_api_clean_overwrite_018_F.ets:file=harmony_appstorage%2Fappstorage_api_clean_overwrite_018_F.ets:export=entry%3Acomponent.appstorage_api_clean_overwrite_018_F:decl=entry%3Acomponent.appstorage_api_clean_overwrite_018_F:member=lifecycle%3Atest.case.appstorage_api_clean_overwrite_018_F:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony.appstorage.mock_source.0.method.appstorage_api_dynamic_key_004_F",
-      "surfaceId": "surface.source.harmony.appstorage.mock_source",
+      "surfaceId": "surface.source.harmony.appstorage.mock_source.method.appstorage_api_dynamic_key_004_F.method.appstorage_api_dynamic_key_004_F.method.appstorage_api_dynamic_key_004_F.method.appstorage_api_dynamic_key_004_F.method.appstorage_api_dynamic_key_004_F",
       "assetId": "asset.rule.test.harmony_appstorage",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "appstorage_api_dynamic_key_004_F",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "appstorage_api_dynamic_key_004_F.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -86,25 +554,16 @@
         "template.source.harmony.appstorage.mock_source.for.source.harmony.appstorage.mock_source.0.method.appstorage_api_dynamic_key_004_F"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_appstorage%2Fappstorage_api_dynamic_key_004_F.ets:file=harmony_appstorage%2Fappstorage_api_dynamic_key_004_F.ets:export=entry%3Acomponent.appstorage_api_dynamic_key_004_F:decl=entry%3Acomponent.appstorage_api_dynamic_key_004_F:member=lifecycle%3Atest.case.appstorage_api_dynamic_key_004_F:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony.appstorage.mock_source.0.method.appstorage_api_dynamic_mismatch_locals_017_F",
-      "surfaceId": "surface.source.harmony.appstorage.mock_source",
+      "surfaceId": "surface.source.harmony.appstorage.mock_source.method.appstorage_api_dynamic_mismatch_locals_017_F.method.appstorage_api_dynamic_mismatch_locals_017_F.method.appstorage_api_dynamic_mismatch_locals_017_F.method.appstorage_api_dynamic_mismatch_locals_017_F.method.appstorage_api_dynamic_mismatch_locals_017_F",
       "assetId": "asset.rule.test.harmony_appstorage",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "appstorage_api_dynamic_mismatch_locals_017_F",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "appstorage_api_dynamic_mismatch_locals_017_F.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -115,25 +574,16 @@
         "template.source.harmony.appstorage.mock_source.for.source.harmony.appstorage.mock_source.0.method.appstorage_api_dynamic_mismatch_locals_017_F"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_appstorage%2Fappstorage_api_dynamic_mismatch_locals_017_F.ets:file=harmony_appstorage%2Fappstorage_api_dynamic_mismatch_locals_017_F.ets:export=entry%3Acomponent.appstorage_api_dynamic_mismatch_locals_017_F:decl=entry%3Acomponent.appstorage_api_dynamic_mismatch_locals_017_F:member=lifecycle%3Atest.case.appstorage_api_dynamic_mismatch_locals_017_F:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony.appstorage.mock_source.0.method.appstorage_api_dynamic_same_local_016_T",
-      "surfaceId": "surface.source.harmony.appstorage.mock_source",
+      "surfaceId": "surface.source.harmony.appstorage.mock_source.method.appstorage_api_dynamic_same_local_016_T.method.appstorage_api_dynamic_same_local_016_T.method.appstorage_api_dynamic_same_local_016_T.method.appstorage_api_dynamic_same_local_016_T.method.appstorage_api_dynamic_same_local_016_T",
       "assetId": "asset.rule.test.harmony_appstorage",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "appstorage_api_dynamic_same_local_016_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "appstorage_api_dynamic_same_local_016_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -144,25 +594,16 @@
         "template.source.harmony.appstorage.mock_source.for.source.harmony.appstorage.mock_source.0.method.appstorage_api_dynamic_same_local_016_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_appstorage%2Fappstorage_api_dynamic_same_local_016_T.ets:file=harmony_appstorage%2Fappstorage_api_dynamic_same_local_016_T.ets:export=entry%3Acomponent.appstorage_api_dynamic_same_local_016_T:decl=entry%3Acomponent.appstorage_api_dynamic_same_local_016_T:member=lifecycle%3Atest.case.appstorage_api_dynamic_same_local_016_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony.appstorage.mock_source.0.method.appstorage_api_multi_key_mismatch_012_F",
-      "surfaceId": "surface.source.harmony.appstorage.mock_source",
+      "surfaceId": "surface.source.harmony.appstorage.mock_source.method.appstorage_api_multi_key_mismatch_012_F.method.appstorage_api_multi_key_mismatch_012_F.method.appstorage_api_multi_key_mismatch_012_F.method.appstorage_api_multi_key_mismatch_012_F.method.appstorage_api_multi_key_mismatch_012_F",
       "assetId": "asset.rule.test.harmony_appstorage",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "appstorage_api_multi_key_mismatch_012_F",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "appstorage_api_multi_key_mismatch_012_F.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -173,25 +614,16 @@
         "template.source.harmony.appstorage.mock_source.for.source.harmony.appstorage.mock_source.0.method.appstorage_api_multi_key_mismatch_012_F"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_appstorage%2Fappstorage_api_multi_key_mismatch_012_F.ets:file=harmony_appstorage%2Fappstorage_api_multi_key_mismatch_012_F.ets:export=entry%3Acomponent.appstorage_api_multi_key_mismatch_012_F:decl=entry%3Acomponent.appstorage_api_multi_key_mismatch_012_F:member=lifecycle%3Atest.case.appstorage_api_multi_key_mismatch_012_F:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony.appstorage.mock_source.0.method.appstorage_api_multi_key_token_011_T",
-      "surfaceId": "surface.source.harmony.appstorage.mock_source",
+      "surfaceId": "surface.source.harmony.appstorage.mock_source.method.appstorage_api_multi_key_token_011_T.method.appstorage_api_multi_key_token_011_T.method.appstorage_api_multi_key_token_011_T.method.appstorage_api_multi_key_token_011_T.method.appstorage_api_multi_key_token_011_T",
       "assetId": "asset.rule.test.harmony_appstorage",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "appstorage_api_multi_key_token_011_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "appstorage_api_multi_key_token_011_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -202,25 +634,16 @@
         "template.source.harmony.appstorage.mock_source.for.source.harmony.appstorage.mock_source.0.method.appstorage_api_multi_key_token_011_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_appstorage%2Fappstorage_api_multi_key_token_011_T.ets:file=harmony_appstorage%2Fappstorage_api_multi_key_token_011_T.ets:export=entry%3Acomponent.appstorage_api_multi_key_token_011_T:decl=entry%3Acomponent.appstorage_api_multi_key_token_011_T:member=lifecycle%3Atest.case.appstorage_api_multi_key_token_011_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony.appstorage.mock_source.0.method.appstorage_api_object_set_get_005_T",
-      "surfaceId": "surface.source.harmony.appstorage.mock_source",
+      "surfaceId": "surface.source.harmony.appstorage.mock_source.method.appstorage_api_object_set_get_005_T.method.appstorage_api_object_set_get_005_T.method.appstorage_api_object_set_get_005_T.method.appstorage_api_object_set_get_005_T.method.appstorage_api_object_set_get_005_T",
       "assetId": "asset.rule.test.harmony_appstorage",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "appstorage_api_object_set_get_005_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "appstorage_api_object_set_get_005_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -231,25 +654,16 @@
         "template.source.harmony.appstorage.mock_source.for.source.harmony.appstorage.mock_source.0.method.appstorage_api_object_set_get_005_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_appstorage%2Fappstorage_api_object_set_get_005_T.ets:file=harmony_appstorage%2Fappstorage_api_object_set_get_005_T.ets:export=entry%3Acomponent.appstorage_api_object_set_get_005_T:decl=entry%3Acomponent.appstorage_api_object_set_get_005_T:member=lifecycle%3Atest.case.appstorage_api_object_set_get_005_T:invoke=entry:params=0%3A%40harmony_appstorage%2Ftaint_mock.ts%3A%20Payload:ret=void"
     },
     {
       "bindingId": "binding.source.harmony.appstorage.mock_source.0.method.appstorage_api_primitive_set_get_001_T",
-      "surfaceId": "surface.source.harmony.appstorage.mock_source",
+      "surfaceId": "surface.source.harmony.appstorage.mock_source.method.appstorage_api_primitive_set_get_001_T.method.appstorage_api_primitive_set_get_001_T.method.appstorage_api_primitive_set_get_001_T.method.appstorage_api_primitive_set_get_001_T.method.appstorage_api_primitive_set_get_001_T",
       "assetId": "asset.rule.test.harmony_appstorage",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "appstorage_api_primitive_set_get_001_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "appstorage_api_primitive_set_get_001_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -260,25 +674,16 @@
         "template.source.harmony.appstorage.mock_source.for.source.harmony.appstorage.mock_source.0.method.appstorage_api_primitive_set_get_001_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_appstorage%2Fappstorage_api_primitive_set_get_001_T.ets:file=harmony_appstorage%2Fappstorage_api_primitive_set_get_001_T.ets:export=entry%3Acomponent.appstorage_api_primitive_set_get_001_T:decl=entry%3Acomponent.appstorage_api_primitive_set_get_001_T:member=lifecycle%3Atest.case.appstorage_api_primitive_set_get_001_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony.appstorage.mock_source.0.method.appstorage_api_primitive_wrong_key_002_F",
-      "surfaceId": "surface.source.harmony.appstorage.mock_source",
+      "surfaceId": "surface.source.harmony.appstorage.mock_source.method.appstorage_api_primitive_wrong_key_002_F.method.appstorage_api_primitive_wrong_key_002_F.method.appstorage_api_primitive_wrong_key_002_F.method.appstorage_api_primitive_wrong_key_002_F.method.appstorage_api_primitive_wrong_key_002_F",
       "assetId": "asset.rule.test.harmony_appstorage",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "appstorage_api_primitive_wrong_key_002_F",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "appstorage_api_primitive_wrong_key_002_F.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -289,25 +694,16 @@
         "template.source.harmony.appstorage.mock_source.for.source.harmony.appstorage.mock_source.0.method.appstorage_api_primitive_wrong_key_002_F"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_appstorage%2Fappstorage_api_primitive_wrong_key_002_F.ets:file=harmony_appstorage%2Fappstorage_api_primitive_wrong_key_002_F.ets:export=entry%3Acomponent.appstorage_api_primitive_wrong_key_002_F:decl=entry%3Acomponent.appstorage_api_primitive_wrong_key_002_F:member=lifecycle%3Atest.case.appstorage_api_primitive_wrong_key_002_F:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony.appstorage.mock_source.0.method.appstorage_api_setorcreate_primitive_003_T",
-      "surfaceId": "surface.source.harmony.appstorage.mock_source",
+      "surfaceId": "surface.source.harmony.appstorage.mock_source.method.appstorage_api_setorcreate_primitive_003_T.method.appstorage_api_setorcreate_primitive_003_T.method.appstorage_api_setorcreate_primitive_003_T.method.appstorage_api_setorcreate_primitive_003_T.method.appstorage_api_setorcreate_primitive_003_T",
       "assetId": "asset.rule.test.harmony_appstorage",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "appstorage_api_setorcreate_primitive_003_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "appstorage_api_setorcreate_primitive_003_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -318,25 +714,16 @@
         "template.source.harmony.appstorage.mock_source.for.source.harmony.appstorage.mock_source.0.method.appstorage_api_setorcreate_primitive_003_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_appstorage%2Fappstorage_api_setorcreate_primitive_003_T.ets:file=harmony_appstorage%2Fappstorage_api_setorcreate_primitive_003_T.ets:export=entry%3Acomponent.appstorage_api_setorcreate_primitive_003_T:decl=entry%3Acomponent.appstorage_api_setorcreate_primitive_003_T:member=lifecycle%3Atest.case.appstorage_api_setorcreate_primitive_003_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony.appstorage.mock_source.0.method.appstorage_api_setorcreate_then_get_013_T",
-      "surfaceId": "surface.source.harmony.appstorage.mock_source",
+      "surfaceId": "surface.source.harmony.appstorage.mock_source.method.appstorage_api_setorcreate_then_get_013_T.method.appstorage_api_setorcreate_then_get_013_T.method.appstorage_api_setorcreate_then_get_013_T.method.appstorage_api_setorcreate_then_get_013_T.method.appstorage_api_setorcreate_then_get_013_T",
       "assetId": "asset.rule.test.harmony_appstorage",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "appstorage_api_setorcreate_then_get_013_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "appstorage_api_setorcreate_then_get_013_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -347,25 +734,16 @@
         "template.source.harmony.appstorage.mock_source.for.source.harmony.appstorage.mock_source.0.method.appstorage_api_setorcreate_then_get_013_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_appstorage%2Fappstorage_api_setorcreate_then_get_013_T.ets:file=harmony_appstorage%2Fappstorage_api_setorcreate_then_get_013_T.ets:export=entry%3Acomponent.appstorage_api_setorcreate_then_get_013_T:decl=entry%3Acomponent.appstorage_api_setorcreate_then_get_013_T:member=lifecycle%3Atest.case.appstorage_api_setorcreate_then_get_013_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony.appstorage.mock_source.0.method.appstorage_cross_file_api_009_T",
-      "surfaceId": "surface.source.harmony.appstorage.mock_source",
+      "surfaceId": "surface.source.harmony.appstorage.mock_source.method.appstorage_cross_file_api_009_T.method.appstorage_cross_file_api_009_T.method.appstorage_cross_file_api_009_T.method.appstorage_cross_file_api_009_T.method.appstorage_cross_file_api_009_T",
       "assetId": "asset.rule.test.harmony_appstorage",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "appstorage_cross_file_api_009_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "appstorage_cross_file_api_009_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -376,25 +754,16 @@
         "template.source.harmony.appstorage.mock_source.for.source.harmony.appstorage.mock_source.0.method.appstorage_cross_file_api_009_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_appstorage%2Fappstorage_cross_file_api_009_T.ets:file=harmony_appstorage%2Fappstorage_cross_file_api_009_T.ets:export=entry%3Acomponent.appstorage_cross_file_api_009_T:decl=entry%3Acomponent.appstorage_cross_file_api_009_T:member=lifecycle%3Atest.case.appstorage_cross_file_api_009_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony.appstorage.mock_source.0.method.appstorage_cross_file_api_010_F",
-      "surfaceId": "surface.source.harmony.appstorage.mock_source",
+      "surfaceId": "surface.source.harmony.appstorage.mock_source.method.appstorage_cross_file_api_010_F.method.appstorage_cross_file_api_010_F.method.appstorage_cross_file_api_010_F.method.appstorage_cross_file_api_010_F.method.appstorage_cross_file_api_010_F",
       "assetId": "asset.rule.test.harmony_appstorage",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "appstorage_cross_file_api_010_F",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "appstorage_cross_file_api_010_F.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -405,25 +774,16 @@
         "template.source.harmony.appstorage.mock_source.for.source.harmony.appstorage.mock_source.0.method.appstorage_cross_file_api_010_F"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_appstorage%2Fappstorage_cross_file_api_010_F.ets:file=harmony_appstorage%2Fappstorage_cross_file_api_010_F.ets:export=entry%3Acomponent.appstorage_cross_file_api_010_F:decl=entry%3Acomponent.appstorage_cross_file_api_010_F:member=lifecycle%3Atest.case.appstorage_cross_file_api_010_F:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony.appstorage.mock_source.0.method.appstorage_decorator_storagelink_008_T",
-      "surfaceId": "surface.source.harmony.appstorage.mock_source",
+      "surfaceId": "surface.source.harmony.appstorage.mock_source.method.appstorage_decorator_storagelink_008_T.method.appstorage_decorator_storagelink_008_T.method.appstorage_decorator_storagelink_008_T.method.appstorage_decorator_storagelink_008_T.method.appstorage_decorator_storagelink_008_T",
       "assetId": "asset.rule.test.harmony_appstorage",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "appstorage_decorator_storagelink_008_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "appstorage_decorator_storagelink_008_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -434,25 +794,16 @@
         "template.source.harmony.appstorage.mock_source.for.source.harmony.appstorage.mock_source.0.method.appstorage_decorator_storagelink_008_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_appstorage%2Fappstorage_decorator_storagelink_008_T.ets:file=harmony_appstorage%2Fappstorage_decorator_storagelink_008_T.ets:export=entry%3Acomponent.appstorage_decorator_storagelink_008_T:decl=entry%3Acomponent.appstorage_decorator_storagelink_008_T:member=lifecycle%3Atest.case.appstorage_decorator_storagelink_008_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony.appstorage.mock_source.0.method.appstorage_decorator_storagelink_writeback_014_T",
-      "surfaceId": "surface.source.harmony.appstorage.mock_source",
+      "surfaceId": "surface.source.harmony.appstorage.mock_source.method.appstorage_decorator_storagelink_writeback_014_T.method.appstorage_decorator_storagelink_writeback_014_T.method.appstorage_decorator_storagelink_writeback_014_T.method.appstorage_decorator_storagelink_writeback_014_T.method.appstorage_decorator_storagelink_writeback_014_T",
       "assetId": "asset.rule.test.harmony_appstorage",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "appstorage_decorator_storagelink_writeback_014_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "appstorage_decorator_storagelink_writeback_014_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -463,25 +814,16 @@
         "template.source.harmony.appstorage.mock_source.for.source.harmony.appstorage.mock_source.0.method.appstorage_decorator_storagelink_writeback_014_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_appstorage%2Fappstorage_decorator_storagelink_writeback_014_T.ets:file=harmony_appstorage%2Fappstorage_decorator_storagelink_writeback_014_T.ets:export=entry%3Acomponent.appstorage_decorator_storagelink_writeback_014_T:decl=entry%3Acomponent.appstorage_decorator_storagelink_writeback_014_T:member=lifecycle%3Atest.case.appstorage_decorator_storagelink_writeback_014_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony.appstorage.mock_source.0.method.appstorage_decorator_storagelink_writeback_015_F",
-      "surfaceId": "surface.source.harmony.appstorage.mock_source",
+      "surfaceId": "surface.source.harmony.appstorage.mock_source.method.appstorage_decorator_storagelink_writeback_015_F.method.appstorage_decorator_storagelink_writeback_015_F.method.appstorage_decorator_storagelink_writeback_015_F.method.appstorage_decorator_storagelink_writeback_015_F.method.appstorage_decorator_storagelink_writeback_015_F",
       "assetId": "asset.rule.test.harmony_appstorage",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "appstorage_decorator_storagelink_writeback_015_F",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "appstorage_decorator_storagelink_writeback_015_F.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -492,25 +834,16 @@
         "template.source.harmony.appstorage.mock_source.for.source.harmony.appstorage.mock_source.0.method.appstorage_decorator_storagelink_writeback_015_F"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_appstorage%2Fappstorage_decorator_storagelink_writeback_015_F.ets:file=harmony_appstorage%2Fappstorage_decorator_storagelink_writeback_015_F.ets:export=entry%3Acomponent.appstorage_decorator_storagelink_writeback_015_F:decl=entry%3Acomponent.appstorage_decorator_storagelink_writeback_015_F:member=lifecycle%3Atest.case.appstorage_decorator_storagelink_writeback_015_F:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony.appstorage.mock_source.0.method.appstorage_decorator_storageprop_006_T",
-      "surfaceId": "surface.source.harmony.appstorage.mock_source",
+      "surfaceId": "surface.source.harmony.appstorage.mock_source.method.appstorage_decorator_storageprop_006_T.method.appstorage_decorator_storageprop_006_T.method.appstorage_decorator_storageprop_006_T.method.appstorage_decorator_storageprop_006_T.method.appstorage_decorator_storageprop_006_T",
       "assetId": "asset.rule.test.harmony_appstorage",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "appstorage_decorator_storageprop_006_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "appstorage_decorator_storageprop_006_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -521,25 +854,16 @@
         "template.source.harmony.appstorage.mock_source.for.source.harmony.appstorage.mock_source.0.method.appstorage_decorator_storageprop_006_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_appstorage%2Fappstorage_decorator_storageprop_006_T.ets:file=harmony_appstorage%2Fappstorage_decorator_storageprop_006_T.ets:export=entry%3Acomponent.appstorage_decorator_storageprop_006_T:decl=entry%3Acomponent.appstorage_decorator_storageprop_006_T:member=lifecycle%3Atest.case.appstorage_decorator_storageprop_006_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony.appstorage.mock_source.0.method.appstorage_decorator_storageprop_mismatch_007_F",
-      "surfaceId": "surface.source.harmony.appstorage.mock_source",
+      "surfaceId": "surface.source.harmony.appstorage.mock_source.method.appstorage_decorator_storageprop_mismatch_007_F.method.appstorage_decorator_storageprop_mismatch_007_F.method.appstorage_decorator_storageprop_mismatch_007_F.method.appstorage_decorator_storageprop_mismatch_007_F.method.appstorage_decorator_storageprop_mismatch_007_F",
       "assetId": "asset.rule.test.harmony_appstorage",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "appstorage_decorator_storageprop_mismatch_007_F",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "appstorage_decorator_storageprop_mismatch_007_F.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -550,8 +874,9 @@
         "template.source.harmony.appstorage.mock_source.for.source.harmony.appstorage.mock_source.0.method.appstorage_decorator_storageprop_mismatch_007_F"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_appstorage%2Fappstorage_decorator_storageprop_mismatch_007_F.ets:file=harmony_appstorage%2Fappstorage_decorator_storageprop_mismatch_007_F.ets:export=entry%3Acomponent.appstorage_decorator_storageprop_mismatch_007_F:decl=entry%3Acomponent.appstorage_decorator_storageprop_mismatch_007_F:member=lifecycle%3Atest.case.appstorage_decorator_storageprop_mismatch_007_F:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.sink.harmony.appstorage.mock_sink.0",
@@ -559,18 +884,6 @@
       "assetId": "asset.rule.test.harmony_appstorage",
       "plane": "rule",
       "role": "sink",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "Sink",
-        "invokeKind": "static",
-        "argCount": 1,
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "harmony_appstorage"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -581,24 +894,13 @@
         "template.sink.harmony.appstorage.mock_sink"
       ],
       "semanticsFamily": "sink",
-      "completeness": "partial",
-      "confidence": "likely",
-      "metadata": {}
+      "completeness": "complete",
+      "confidence": "certain",
+      "metadata": {},
+      "canonicalApiId": "api:project:local:module=harmony_appstorage%2Ftaint_mock.ts:file=harmony_appstorage%2Ftaint_mock.ts:export=namespace%3Ataint.%25dflt:decl=namespace%3Ataint.%25dflt:member=function%3ASink:invoke=call:params=0%3Aany:ret=void"
     }
   ],
   "effectTemplates": [
-    {
-      "id": "template.sink.harmony.appstorage.mock_sink",
-      "confidence": "certain",
-      "kind": "rule.sink",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sinkKind": "sink"
-    },
     {
       "id": "template.source.harmony.appstorage.mock_source.for.source.harmony.appstorage.mock_source.0.method.appstorage_api_clean_overwrite_018_F",
       "confidence": "certain",
@@ -814,6 +1116,18 @@
         }
       },
       "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.sink.harmony.appstorage.mock_sink",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "sink"
     }
   ],
   "provenance": {

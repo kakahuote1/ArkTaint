@@ -4,93 +4,152 @@
   "status": "official",
   "surfaces": [
     {
-      "surfaceId": "surface.transfer.promise.resolve.arg0_to_result.exact.resolve.className.Promise",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2015.promise.d.ts:file=typescript%2Flib%2Flib.es2015.promise.d.ts:export=interface%3APromiseConstructor:decl=interface%3APromiseConstructor:member=method%3Ainstance%3Areject:invoke=call:params=0%3A%3F%3Aany:ret=Promise%3CT%3E",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2015.promise.d.ts:file=typescript%2Flib%2Flib.es2015.promise.d.ts:export=interface%3APromiseConstructor:decl=interface%3APromiseConstructor:member=method%3Ainstance%3Areject:invoke=call:params=0%3A%3F%3Aany:ret=Promise%3CT%3E",
       "kind": "invoke",
-      "modulePath": "tsjs.builtin",
-      "ownerName": "Promise",
-      "methodName": "resolve",
-      "invokeKind": "static",
-      "argCount": 1,
-      "confidence": "likely",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "typescript/lib/lib.es2015.promise.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "PromiseConstructor",
+            "methodName": "reject",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "Promise<T>",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "sdk",
+        "location": {
+          "file": "typescript/lib/lib.es2015.promise.d.ts",
+          "line": 60
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.promise.reject.arg0_to_result.exact.reject.className.Promise",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2015.promise.d.ts:file=typescript%2Flib%2Flib.es2015.promise.d.ts:export=interface%3APromiseConstructor:decl=interface%3APromiseConstructor:member=method%3Ainstance%3Aresolve:invoke=call:params=0%3AT:ret=Promise%3CAwaited%3CT%3E%3E",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2015.promise.d.ts:file=typescript%2Flib%2Flib.es2015.promise.d.ts:export=interface%3APromiseConstructor:decl=interface%3APromiseConstructor:member=method%3Ainstance%3Aresolve:invoke=call:params=0%3AT:ret=Promise%3CAwaited%3CT%3E%3E",
       "kind": "invoke",
-      "modulePath": "tsjs.builtin",
-      "ownerName": "Promise",
-      "methodName": "reject",
-      "invokeKind": "static",
-      "argCount": 1,
-      "confidence": "likely",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "typescript/lib/lib.es2015.promise.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "PromiseConstructor",
+            "methodName": "resolve",
+            "parameterTypes": [
+              "T"
+            ],
+            "returnType": "Promise<Awaited<T>>",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "sdk",
+        "location": {
+          "file": "typescript/lib/lib.es2015.promise.d.ts",
+          "line": 72
+        }
+      }
+    },
+    {
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2015.promise.d.ts:file=typescript%2Flib%2Flib.es2015.promise.d.ts:export=interface%3APromiseConstructor:decl=interface%3APromiseConstructor:member=method%3Ainstance%3Aresolve:invoke=call:params=0%3AT%20%7C%20PromiseLike%3CT%3E:ret=Promise%3CAwaited%3CT%3E%3E",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2015.promise.d.ts:file=typescript%2Flib%2Flib.es2015.promise.d.ts:export=interface%3APromiseConstructor:decl=interface%3APromiseConstructor:member=method%3Ainstance%3Aresolve:invoke=call:params=0%3AT%20%7C%20PromiseLike%3CT%3E:ret=Promise%3CAwaited%3CT%3E%3E",
+      "kind": "invoke",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "typescript/lib/lib.es2015.promise.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "PromiseConstructor",
+            "methodName": "resolve",
+            "parameterTypes": [
+              "T | PromiseLike<T>"
+            ],
+            "returnType": "Promise<Awaited<T>>",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
+      "provenance": {
+        "source": "sdk",
+        "location": {
+          "file": "typescript/lib/lib.es2015.promise.d.ts",
+          "line": 78
+        }
       }
     }
   ],
   "bindings": [
     {
-      "bindingId": "binding.transfer.promise.resolve.arg0_to_result.exact.resolve.className.Promise",
-      "surfaceId": "surface.transfer.promise.resolve.arg0_to_result.exact.resolve.className.Promise",
+      "bindingId": "binding:asset.rule.kernel.transfers.promise:0001",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2015.promise.d.ts:file=typescript%2Flib%2Flib.es2015.promise.d.ts:export=interface%3APromiseConstructor:decl=interface%3APromiseConstructor:member=method%3Ainstance%3Areject:invoke=call:params=0%3A%3F%3Aany:ret=Promise%3CT%3E",
       "assetId": "asset.rule.kernel.transfers.promise",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "resolve",
-        "invokeKind": "static",
-        "argCount": 1,
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "Promise"
-          }
+      "endpoint": {
+        "base": {
+          "kind": "promiseRejected"
         }
       },
       "effectTemplateRefs": [
-        "template.transfer.promise.resolve.arg0_to_result.exact.resolve.className.Promise"
+        "template:asset.rule.kernel.transfers.promise:0001"
       ],
       "semanticsFamily": "transfer",
-      "metadata": {
-        "description": "Promise.resolve(x): resolved promise carries taint from x."
-      },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2015.promise.d.ts:file=typescript%2Flib%2Flib.es2015.promise.d.ts:export=interface%3APromiseConstructor:decl=interface%3APromiseConstructor:member=method%3Ainstance%3Areject:invoke=call:params=0%3A%3F%3Aany:ret=Promise%3CT%3E"
     },
     {
-      "bindingId": "binding.transfer.promise.reject.arg0_to_result.exact.reject.className.Promise",
-      "surfaceId": "surface.transfer.promise.reject.arg0_to_result.exact.reject.className.Promise",
+      "bindingId": "binding:asset.rule.kernel.transfers.promise:0002",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2015.promise.d.ts:file=typescript%2Flib%2Flib.es2015.promise.d.ts:export=interface%3APromiseConstructor:decl=interface%3APromiseConstructor:member=method%3Ainstance%3Aresolve:invoke=call:params=0%3AT:ret=Promise%3CAwaited%3CT%3E%3E",
       "assetId": "asset.rule.kernel.transfers.promise",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "reject",
-        "invokeKind": "static",
-        "argCount": 1,
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "Promise"
-          }
+      "endpoint": {
+        "base": {
+          "kind": "promiseResult"
         }
       },
       "effectTemplateRefs": [
-        "template.transfer.promise.reject.arg0_to_result.exact.reject.className.Promise"
+        "template:asset.rule.kernel.transfers.promise:0002"
       ],
       "semanticsFamily": "transfer",
-      "metadata": {
-        "description": "Promise.reject(x): rejected promise carries taint from x."
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2015.promise.d.ts:file=typescript%2Flib%2Flib.es2015.promise.d.ts:export=interface%3APromiseConstructor:decl=interface%3APromiseConstructor:member=method%3Ainstance%3Aresolve:invoke=call:params=0%3AT:ret=Promise%3CAwaited%3CT%3E%3E"
+    },
+    {
+      "bindingId": "binding:asset.rule.kernel.transfers.promise:0003",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2015.promise.d.ts:file=typescript%2Flib%2Flib.es2015.promise.d.ts:export=interface%3APromiseConstructor:decl=interface%3APromiseConstructor:member=method%3Ainstance%3Aresolve:invoke=call:params=0%3AT%20%7C%20PromiseLike%3CT%3E:ret=Promise%3CAwaited%3CT%3E%3E",
+      "assetId": "asset.rule.kernel.transfers.promise",
+      "plane": "rule",
+      "role": "transfer",
+      "endpoint": {
+        "base": {
+          "kind": "promiseResult"
+        }
       },
-      "completeness": "partial",
-      "confidence": "likely"
+      "effectTemplateRefs": [
+        "template:asset.rule.kernel.transfers.promise:0003"
+      ],
+      "semanticsFamily": "transfer",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2015.promise.d.ts:file=typescript%2Flib%2Flib.es2015.promise.d.ts:export=interface%3APromiseConstructor:decl=interface%3APromiseConstructor:member=method%3Ainstance%3Aresolve:invoke=call:params=0%3AT%20%7C%20PromiseLike%3CT%3E:ret=Promise%3CAwaited%3CT%3E%3E"
     }
   ],
   "effectTemplates": [
     {
-      "id": "template.transfer.promise.resolve.arg0_to_result.exact.resolve.className.Promise",
+      "id": "template:asset.rule.kernel.transfers.promise:0001",
       "confidence": "certain",
       "kind": "rule.transfer",
       "from": {
@@ -101,13 +160,13 @@
       },
       "to": {
         "base": {
-          "kind": "return"
+          "kind": "promiseRejected"
         }
       },
       "transferKind": "transfer"
     },
     {
-      "id": "template.transfer.promise.reject.arg0_to_result.exact.reject.className.Promise",
+      "id": "template:asset.rule.kernel.transfers.promise:0002",
       "confidence": "certain",
       "kind": "rule.transfer",
       "from": {
@@ -118,7 +177,24 @@
       },
       "to": {
         "base": {
-          "kind": "return"
+          "kind": "promiseResult"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.promise:0003",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "promiseResult"
         }
       },
       "transferKind": "transfer"
@@ -127,6 +203,9 @@
   "provenance": {
     "source": "builtin",
     "evidenceLocations": [
+      {
+        "file": "typescript/lib/lib.es2015.promise.d.ts"
+      },
       {
         "file": "src/models/kernel/rules/transfers/promise.rules.json"
       }

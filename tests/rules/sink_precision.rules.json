@@ -4,159 +4,309 @@
   "status": "official",
   "surfaces": [
     {
-      "surfaceId": "surface.source.test.entry_param.taint_src",
-      "kind": "access",
-      "modulePath": "@arktaint/local",
-      "ownerName": "LocalBinding",
-      "propertyName": "source.test.entry_param.taint_src",
-      "accessKind": "read",
-      "receiverKind": "namespace",
-      "confidence": "likely",
+      "surfaceId": "surface.source.test.call_return.SourceReturn",
+      "kind": "invoke",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "rule_precision_sink/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=rule_precision_sink%2Ftaint_mock.ts:file=rule_precision_sink%2Ftaint_mock.ts:export=namespace%3Ataint.%25dflt:decl=namespace%3Ataint.%25dflt:member=function%3ASourceReturn:invoke=call:params=0%3Aany:ret=any",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_precision_sink/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "taint.%dflt",
+            "methodName": "SourceReturn",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "any",
+            "staticFlag": true
+          }
+        }
       }
     },
     {
       "surfaceId": "surface.sink.precision.arg0",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "SinkArg0",
-      "invokeKind": "static",
-      "argCount": 2,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "rule_precision_sink/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=rule_precision_sink%2Ftaint_mock.ts:file=rule_precision_sink%2Ftaint_mock.ts:export=namespace%3Ataint.%25dflt:decl=namespace%3Ataint.%25dflt:member=function%3ASinkArg0:invoke=call:params=0%3Aany%2C1%3Aany:ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_precision_sink/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "taint.%dflt",
+            "methodName": "SinkArg0",
+            "parameterTypes": [
+              "any",
+              "any"
+            ],
+            "returnType": "void",
+            "staticFlag": true
+          }
+        }
       }
     },
     {
       "surfaceId": "surface.sink.precision.arg1",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "SinkArg1",
-      "invokeKind": "static",
-      "argCount": 2,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "rule_precision_sink/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=rule_precision_sink%2Ftaint_mock.ts:file=rule_precision_sink%2Ftaint_mock.ts:export=namespace%3Ataint.%25dflt:decl=namespace%3Ataint.%25dflt:member=function%3ASinkArg1:invoke=call:params=0%3Aany%2C1%3Aany:ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_precision_sink/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "taint.%dflt",
+            "methodName": "SinkArg1",
+            "parameterTypes": [
+              "any",
+              "any"
+            ],
+            "returnType": "void",
+            "staticFlag": true
+          }
+        }
       }
     },
     {
       "surfaceId": "surface.sink.precision.multi.arg0",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "SinkMulti",
-      "invokeKind": "static",
-      "argCount": 2,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "rule_precision_sink/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=rule_precision_sink%2Ftaint_mock.ts:file=rule_precision_sink%2Ftaint_mock.ts:export=namespace%3Ataint.%25dflt:decl=namespace%3Ataint.%25dflt:member=function%3ASinkMulti:invoke=call:params=0%3Aany%2C1%3Aany:ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_precision_sink/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "taint.%dflt",
+            "methodName": "SinkMulti",
+            "parameterTypes": [
+              "any",
+              "any"
+            ],
+            "returnType": "void",
+            "staticFlag": true
+          }
+        }
       }
     },
     {
       "surfaceId": "surface.sink.precision.multi.arg1",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "SinkMulti",
-      "invokeKind": "static",
-      "argCount": 2,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "rule_precision_sink/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=rule_precision_sink%2Ftaint_mock.ts:file=rule_precision_sink%2Ftaint_mock.ts:export=namespace%3Ataint.%25dflt:decl=namespace%3Ataint.%25dflt:member=function%3ASinkMulti:invoke=call:params=0%3Aany%2C1%3Aany:ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_precision_sink/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "taint.%dflt",
+            "methodName": "SinkMulti",
+            "parameterTypes": [
+              "any",
+              "any"
+            ],
+            "returnType": "void",
+            "staticFlag": true
+          }
+        }
       }
     },
     {
       "surfaceId": "surface.sink.precision.field.secret",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "SinkField",
-      "invokeKind": "static",
-      "argCount": 1,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "rule_precision_sink/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=rule_precision_sink%2Ftaint_mock.ts:file=rule_precision_sink%2Ftaint_mock.ts:export=namespace%3Ataint.%25dflt:decl=namespace%3Ataint.%25dflt:member=function%3ASinkField:invoke=call:params=0%3Aany:ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_precision_sink/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "taint.%dflt",
+            "methodName": "SinkField",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "void",
+            "staticFlag": true
+          }
+        }
       }
     },
     {
-      "surfaceId": "surface.sink.precision.invoke_kind.instance",
+      "surfaceId": "surface.sink.precision.invoke_kind.instance.for.rule_precision_sink_taint_mock_ts_taint_InvokeKindHost_SinkInvokeKind_any",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "InvokeKindHost",
-      "methodName": "SinkInvokeKind",
-      "invokeKind": "instance",
-      "argCount": 1,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "rule_precision_sink/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=rule_precision_sink%2Ftaint_mock.ts:file=rule_precision_sink%2Ftaint_mock.ts:export=namespace%3Ataint.InvokeKindHost:decl=class%3Ataint.InvokeKindHost:member=method%3Ainstance%3ASinkInvokeKind:invoke=call:params=0%3Aany:ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_precision_sink/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "taint.InvokeKindHost",
+            "methodName": "SinkInvokeKind",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
       }
     },
     {
       "surfaceId": "surface.sink.precision.arg_count.two",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "SinkArgCount",
-      "invokeKind": "static",
-      "argCount": 2,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "rule_precision_sink/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=rule_precision_sink%2Ftaint_mock.ts:file=rule_precision_sink%2Ftaint_mock.ts:export=namespace%3Ataint.%25dflt:decl=namespace%3Ataint.%25dflt:member=function%3ASinkArgCount:invoke=call:params=0%3Aany%2C1%3Aany:ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_precision_sink/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "taint.%dflt",
+            "methodName": "SinkArgCount",
+            "parameterTypes": [
+              "any",
+              "any"
+            ],
+            "returnType": "void",
+            "staticFlag": true
+          }
+        }
       }
     },
     {
-      "surfaceId": "surface.sink.precision.type_hint.target",
+      "surfaceId": "surface.sink.precision.type_hint.target.for.rule_precision_sink_taint_mock_ts_taint_TypeHintHostTarget_SinkTypeHint_any",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "TypeHintHostTarget",
-      "methodName": "SinkTypeHint",
-      "invokeKind": "instance",
-      "argCount": 1,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "rule_precision_sink/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=rule_precision_sink%2Ftaint_mock.ts:file=rule_precision_sink%2Ftaint_mock.ts:export=namespace%3Ataint.TypeHintHostTarget:decl=class%3Ataint.TypeHintHostTarget:member=method%3Ainstance%3ASinkTypeHint:invoke=call:params=0%3Aany:ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_precision_sink/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "taint.TypeHintHostTarget",
+            "methodName": "SinkTypeHint",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
       }
     },
     {
-      "surfaceId": "surface.source.test.call_return.SourceReturn",
+      "surfaceId": "surface.sink.precision.inline_db.update.for.rule_precision_sink_sink_inline_transfer_payload_017_T_ets_InlineDb_update_any_any_any",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "SourceReturn",
-      "invokeKind": "static",
-      "argCount": 1,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "rule_precision_sink/sink_inline_transfer_payload_017_T.ets"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=rule_precision_sink%2Fsink_inline_transfer_payload_017_T.ets:file=rule_precision_sink%2Fsink_inline_transfer_payload_017_T.ets:export=namespace%3AInlineDb:decl=class%3AInlineDb:member=method%3Ainstance%3Aupdate:invoke=call:params=0%3Aany%2C1%3Aany%2C2%3Aany:ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_precision_sink/sink_inline_transfer_payload_017_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "InlineDb",
+            "methodName": "update",
+            "parameterTypes": [
+              "any",
+              "any",
+              "any"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
       }
     },
     {
-      "surfaceId": "surface.sink.precision.inline_db.update",
+      "surfaceId": "surface.sink.precision.rdb_store.update.for.rule_precision_sink_taint_mock_ts_taint_RdbStore_update_any_any_any",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "InlineDb",
-      "methodName": "update",
-      "invokeKind": "instance",
-      "argCount": 3,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
-      }
-    },
-    {
-      "surfaceId": "surface.sink.precision.rdb_store.update",
-      "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RdbStore",
-      "methodName": "update",
-      "invokeKind": "instance",
-      "argCount": 3,
-      "confidence": "likely",
-      "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "rule_precision_sink/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=rule_precision_sink%2Ftaint_mock.ts:file=rule_precision_sink%2Ftaint_mock.ts:export=namespace%3Ataint.RdbStore:decl=class%3Ataint.RdbStore:member=method%3Ainstance%3Aupdate:invoke=call:params=0%3Aany%2C1%3Aany%2C2%3Aany:ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_precision_sink/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "taint.RdbStore",
+            "methodName": "update",
+            "parameterTypes": [
+              "any",
+              "any",
+              "any"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
       }
     }
   ],
@@ -167,10 +317,6 @@
       "assetId": "asset.rule.test.sink_precision",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "SourceReturn"
-      },
       "endpoint": {
         "base": {
           "kind": "return"
@@ -181,356 +327,9 @@
       ],
       "semanticsFamily": "source",
       "metadata": {},
-      "completeness": "partial",
-      "confidence": "likely"
-    },
-    {
-      "bindingId": "binding.source.test.entry_param.taint_src.0.method.sink_arg_count_009_T",
-      "surfaceId": "surface.source.test.entry_param.taint_src",
-      "assetId": "asset.rule.test.sink_precision",
-      "plane": "rule",
-      "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "sink_arg_count_009_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "sink_arg_count_009_T.ets"
-          }
-        }
-      },
-      "endpoint": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "effectTemplateRefs": [
-        "template.source.test.entry_param.taint_src.for.source.test.entry_param.taint_src.0.method.sink_arg_count_009_T"
-      ],
-      "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
-    },
-    {
-      "bindingId": "binding.source.test.entry_param.taint_src.0.method.sink_arg_count_010_F",
-      "surfaceId": "surface.source.test.entry_param.taint_src",
-      "assetId": "asset.rule.test.sink_precision",
-      "plane": "rule",
-      "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "sink_arg_count_010_F",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "sink_arg_count_010_F.ets"
-          }
-        }
-      },
-      "endpoint": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "effectTemplateRefs": [
-        "template.source.test.entry_param.taint_src.for.source.test.entry_param.taint_src.0.method.sink_arg_count_010_F"
-      ],
-      "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
-    },
-    {
-      "bindingId": "binding.source.test.entry_param.taint_src.0.method.sink_field_secret_005_T",
-      "surfaceId": "surface.source.test.entry_param.taint_src",
-      "assetId": "asset.rule.test.sink_precision",
-      "plane": "rule",
-      "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "sink_field_secret_005_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "sink_field_secret_005_T.ets"
-          }
-        }
-      },
-      "endpoint": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "effectTemplateRefs": [
-        "template.source.test.entry_param.taint_src.for.source.test.entry_param.taint_src.0.method.sink_field_secret_005_T"
-      ],
-      "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
-    },
-    {
-      "bindingId": "binding.source.test.entry_param.taint_src.0.method.sink_field_secret_006_F",
-      "surfaceId": "surface.source.test.entry_param.taint_src",
-      "assetId": "asset.rule.test.sink_precision",
-      "plane": "rule",
-      "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "sink_field_secret_006_F",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "sink_field_secret_006_F.ets"
-          }
-        }
-      },
-      "endpoint": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "effectTemplateRefs": [
-        "template.source.test.entry_param.taint_src.for.source.test.entry_param.taint_src.0.method.sink_field_secret_006_F"
-      ],
-      "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
-    },
-    {
-      "bindingId": "binding.source.test.entry_param.taint_src.0.method.sink_invoke_kind_007_T",
-      "surfaceId": "surface.source.test.entry_param.taint_src",
-      "assetId": "asset.rule.test.sink_precision",
-      "plane": "rule",
-      "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "sink_invoke_kind_007_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "sink_invoke_kind_007_T.ets"
-          }
-        }
-      },
-      "endpoint": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "effectTemplateRefs": [
-        "template.source.test.entry_param.taint_src.for.source.test.entry_param.taint_src.0.method.sink_invoke_kind_007_T"
-      ],
-      "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
-    },
-    {
-      "bindingId": "binding.source.test.entry_param.taint_src.0.method.sink_invoke_kind_008_F",
-      "surfaceId": "surface.source.test.entry_param.taint_src",
-      "assetId": "asset.rule.test.sink_precision",
-      "plane": "rule",
-      "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "sink_invoke_kind_008_F",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "sink_invoke_kind_008_F.ets"
-          }
-        }
-      },
-      "endpoint": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "effectTemplateRefs": [
-        "template.source.test.entry_param.taint_src.for.source.test.entry_param.taint_src.0.method.sink_invoke_kind_008_F"
-      ],
-      "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
-    },
-    {
-      "bindingId": "binding.source.test.entry_param.taint_src.0.method.sink_target_arg0_001_T",
-      "surfaceId": "surface.source.test.entry_param.taint_src",
-      "assetId": "asset.rule.test.sink_precision",
-      "plane": "rule",
-      "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "sink_target_arg0_001_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "sink_target_arg0_001_T.ets"
-          }
-        }
-      },
-      "endpoint": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "effectTemplateRefs": [
-        "template.source.test.entry_param.taint_src.for.source.test.entry_param.taint_src.0.method.sink_target_arg0_001_T"
-      ],
-      "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
-    },
-    {
-      "bindingId": "binding.source.test.entry_param.taint_src.0.method.sink_target_arg0_002_F",
-      "surfaceId": "surface.source.test.entry_param.taint_src",
-      "assetId": "asset.rule.test.sink_precision",
-      "plane": "rule",
-      "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "sink_target_arg0_002_F",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "sink_target_arg0_002_F.ets"
-          }
-        }
-      },
-      "endpoint": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "effectTemplateRefs": [
-        "template.source.test.entry_param.taint_src.for.source.test.entry_param.taint_src.0.method.sink_target_arg0_002_F"
-      ],
-      "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
-    },
-    {
-      "bindingId": "binding.source.test.entry_param.taint_src.0.method.sink_target_arg1_003_T",
-      "surfaceId": "surface.source.test.entry_param.taint_src",
-      "assetId": "asset.rule.test.sink_precision",
-      "plane": "rule",
-      "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "sink_target_arg1_003_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "sink_target_arg1_003_T.ets"
-          }
-        }
-      },
-      "endpoint": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "effectTemplateRefs": [
-        "template.source.test.entry_param.taint_src.for.source.test.entry_param.taint_src.0.method.sink_target_arg1_003_T"
-      ],
-      "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
-    },
-    {
-      "bindingId": "binding.source.test.entry_param.taint_src.0.method.sink_target_arg1_004_F",
-      "surfaceId": "surface.source.test.entry_param.taint_src",
-      "assetId": "asset.rule.test.sink_precision",
-      "plane": "rule",
-      "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "sink_target_arg1_004_F",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "sink_target_arg1_004_F.ets"
-          }
-        }
-      },
-      "endpoint": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "effectTemplateRefs": [
-        "template.source.test.entry_param.taint_src.for.source.test.entry_param.taint_src.0.method.sink_target_arg1_004_F"
-      ],
-      "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
-    },
-    {
-      "bindingId": "binding.source.test.entry_param.taint_src.0.method.sink_type_hint_011_T",
-      "surfaceId": "surface.source.test.entry_param.taint_src",
-      "assetId": "asset.rule.test.sink_precision",
-      "plane": "rule",
-      "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "sink_type_hint_011_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "sink_type_hint_011_T.ets"
-          }
-        }
-      },
-      "endpoint": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "effectTemplateRefs": [
-        "template.source.test.entry_param.taint_src.for.source.test.entry_param.taint_src.0.method.sink_type_hint_011_T"
-      ],
-      "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
-    },
-    {
-      "bindingId": "binding.source.test.entry_param.taint_src.0.method.sink_type_hint_012_F",
-      "surfaceId": "surface.source.test.entry_param.taint_src",
-      "assetId": "asset.rule.test.sink_precision",
-      "plane": "rule",
-      "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "sink_type_hint_012_F",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "sink_type_hint_012_F.ets"
-          }
-        }
-      },
-      "endpoint": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "effectTemplateRefs": [
-        "template.source.test.entry_param.taint_src.for.source.test.entry_param.taint_src.0.method.sink_type_hint_012_F"
-      ],
-      "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=rule_precision_sink%2Ftaint_mock.ts:file=rule_precision_sink%2Ftaint_mock.ts:export=namespace%3Ataint.%25dflt:decl=namespace%3Ataint.%25dflt:member=function%3ASourceReturn:invoke=call:params=0%3Aany:ret=any"
     },
     {
       "bindingId": "binding.sink.precision.arg0.0",
@@ -538,10 +337,6 @@
       "assetId": "asset.rule.test.sink_precision",
       "plane": "rule",
       "role": "sink",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "SinkArg0"
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -555,8 +350,9 @@
       "metadata": {
         "severity": "medium"
       },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=rule_precision_sink%2Ftaint_mock.ts:file=rule_precision_sink%2Ftaint_mock.ts:export=namespace%3Ataint.%25dflt:decl=namespace%3Ataint.%25dflt:member=function%3ASinkArg0:invoke=call:params=0%3Aany%2C1%3Aany:ret=void"
     },
     {
       "bindingId": "binding.sink.precision.arg1.0",
@@ -564,10 +360,6 @@
       "assetId": "asset.rule.test.sink_precision",
       "plane": "rule",
       "role": "sink",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "SinkArg1"
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -581,8 +373,9 @@
       "metadata": {
         "severity": "medium"
       },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=rule_precision_sink%2Ftaint_mock.ts:file=rule_precision_sink%2Ftaint_mock.ts:export=namespace%3Ataint.%25dflt:decl=namespace%3Ataint.%25dflt:member=function%3ASinkArg1:invoke=call:params=0%3Aany%2C1%3Aany:ret=void"
     },
     {
       "bindingId": "binding.sink.precision.multi.arg0.0",
@@ -590,10 +383,6 @@
       "assetId": "asset.rule.test.sink_precision",
       "plane": "rule",
       "role": "sink",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "SinkMulti"
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -607,8 +396,9 @@
       "metadata": {
         "severity": "medium"
       },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=rule_precision_sink%2Ftaint_mock.ts:file=rule_precision_sink%2Ftaint_mock.ts:export=namespace%3Ataint.%25dflt:decl=namespace%3Ataint.%25dflt:member=function%3ASinkMulti:invoke=call:params=0%3Aany%2C1%3Aany:ret=void"
     },
     {
       "bindingId": "binding.sink.precision.multi.arg1.0",
@@ -616,10 +406,6 @@
       "assetId": "asset.rule.test.sink_precision",
       "plane": "rule",
       "role": "sink",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "SinkMulti"
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -633,8 +419,9 @@
       "metadata": {
         "severity": "medium"
       },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=rule_precision_sink%2Ftaint_mock.ts:file=rule_precision_sink%2Ftaint_mock.ts:export=namespace%3Ataint.%25dflt:decl=namespace%3Ataint.%25dflt:member=function%3ASinkMulti:invoke=call:params=0%3Aany%2C1%3Aany:ret=void"
     },
     {
       "bindingId": "binding.sink.precision.field.secret.0",
@@ -642,10 +429,6 @@
       "assetId": "asset.rule.test.sink_precision",
       "plane": "rule",
       "role": "sink",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "SinkField"
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -663,20 +446,16 @@
         "category": "field_path",
         "severity": "high"
       },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=rule_precision_sink%2Ftaint_mock.ts:file=rule_precision_sink%2Ftaint_mock.ts:export=namespace%3Ataint.%25dflt:decl=namespace%3Ataint.%25dflt:member=function%3ASinkField:invoke=call:params=0%3Aany:ret=void"
     },
     {
-      "bindingId": "binding.sink.precision.invoke_kind.instance.0",
-      "surfaceId": "surface.sink.precision.invoke_kind.instance",
+      "bindingId": "binding.sink.precision.invoke_kind.instance.0.for.rule_precision_sink_taint_mock_ts_taint_InvokeKindHost_SinkInvokeKind_any",
+      "surfaceId": "surface.sink.precision.invoke_kind.instance.for.rule_precision_sink_taint_mock_ts_taint_InvokeKindHost_SinkInvokeKind_any",
       "assetId": "asset.rule.test.sink_precision",
       "plane": "rule",
       "role": "sink",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "SinkInvokeKind",
-        "invokeKind": "instance"
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -684,15 +463,16 @@
         }
       },
       "effectTemplateRefs": [
-        "template.sink.precision.invoke_kind.instance"
+        "template.sink.precision.invoke_kind.instance.for.rule_precision_sink_taint_mock_ts_taint_InvokeKindHost_SinkInvokeKind_any"
       ],
       "semanticsFamily": "invoke_kind",
       "metadata": {
         "category": "invoke_kind",
         "severity": "medium"
       },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=rule_precision_sink%2Ftaint_mock.ts:file=rule_precision_sink%2Ftaint_mock.ts:export=namespace%3Ataint.InvokeKindHost:decl=class%3Ataint.InvokeKindHost:member=method%3Ainstance%3ASinkInvokeKind:invoke=call:params=0%3Aany:ret=void"
     },
     {
       "bindingId": "binding.sink.precision.arg_count.two.0",
@@ -700,11 +480,6 @@
       "assetId": "asset.rule.test.sink_precision",
       "plane": "rule",
       "role": "sink",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "SinkArgCount",
-        "argCount": 2
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -719,21 +494,16 @@
         "category": "arg_count",
         "severity": "medium"
       },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=rule_precision_sink%2Ftaint_mock.ts:file=rule_precision_sink%2Ftaint_mock.ts:export=namespace%3Ataint.%25dflt:decl=namespace%3Ataint.%25dflt:member=function%3ASinkArgCount:invoke=call:params=0%3Aany%2C1%3Aany:ret=void"
     },
     {
-      "bindingId": "binding.sink.precision.type_hint.target.0",
-      "surfaceId": "surface.sink.precision.type_hint.target",
+      "bindingId": "binding.sink.precision.type_hint.target.0.for.rule_precision_sink_taint_mock_ts_taint_TypeHintHostTarget_SinkTypeHint_any",
+      "surfaceId": "surface.sink.precision.type_hint.target.for.rule_precision_sink_taint_mock_ts_taint_TypeHintHostTarget_SinkTypeHint_any",
       "assetId": "asset.rule.test.sink_precision",
       "plane": "rule",
       "role": "sink",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "SinkTypeHint",
-        "invokeKind": "instance",
-        "typeHint": "TypeHintHostTarget"
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -741,15 +511,16 @@
         }
       },
       "effectTemplateRefs": [
-        "template.sink.precision.type_hint.target"
+        "template.sink.precision.type_hint.target.for.rule_precision_sink_taint_mock_ts_taint_TypeHintHostTarget_SinkTypeHint_any"
       ],
       "semanticsFamily": "type_hint",
       "metadata": {
         "category": "type_hint",
         "severity": "medium"
       },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=rule_precision_sink%2Ftaint_mock.ts:file=rule_precision_sink%2Ftaint_mock.ts:export=namespace%3Ataint.TypeHintHostTarget:decl=class%3Ataint.TypeHintHostTarget:member=method%3Ainstance%3ASinkTypeHint:invoke=call:params=0%3Aany:ret=void"
     },
     {
       "bindingId": "binding.sink.precision.field.phone.0",
@@ -757,10 +528,6 @@
       "assetId": "asset.rule.test.sink_precision",
       "plane": "rule",
       "role": "sink",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "SinkField"
-      },
       "effectTemplateRefs": [
         "template.sink.precision.field.phone"
       ],
@@ -768,48 +535,70 @@
       "metadata": {
         "category": "field_path"
       },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=rule_precision_sink%2Ftaint_mock.ts:file=rule_precision_sink%2Ftaint_mock.ts:export=namespace%3Ataint.%25dflt:decl=namespace%3Ataint.%25dflt:member=function%3ASinkField:invoke=call:params=0%3Aany:ret=void",
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        },
+        "accessPath": [
+          "phone"
+        ]
+      }
     },
     {
-      "bindingId": "binding.sink.precision.inline_db.update.content.0",
-      "surfaceId": "surface.sink.precision.inline_db.update",
+      "bindingId": "binding.sink.precision.inline_db.update.content.0.for.rule_precision_sink_sink_inline_transfer_payload_017_T_ets_InlineDb_update_any_any_any",
+      "surfaceId": "surface.sink.precision.inline_db.update.for.rule_precision_sink_sink_inline_transfer_payload_017_T_ets_InlineDb_update_any_any_any",
       "assetId": "asset.rule.test.sink_precision",
       "plane": "rule",
       "role": "sink",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "update"
-      },
       "effectTemplateRefs": [
-        "template.sink.precision.inline_db.update.content"
+        "template.sink.precision.inline_db.update.content.for.rule_precision_sink_sink_inline_transfer_payload_017_T_ets_InlineDb_update_any_any_any"
       ],
       "semanticsFamily": "sink",
       "metadata": {
         "category": "field_path"
       },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=rule_precision_sink%2Fsink_inline_transfer_payload_017_T.ets:file=rule_precision_sink%2Fsink_inline_transfer_payload_017_T.ets:export=namespace%3AInlineDb:decl=class%3AInlineDb:member=method%3Ainstance%3Aupdate:invoke=call:params=0%3Aany%2C1%3Aany%2C2%3Aany:ret=void",
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        },
+        "accessPath": [
+          "content"
+        ]
+      }
     },
     {
-      "bindingId": "binding.sink.precision.rdb_store.update.content_text.0",
-      "surfaceId": "surface.sink.precision.rdb_store.update",
+      "bindingId": "binding.sink.precision.rdb_store.update.content_text.0.for.rule_precision_sink_taint_mock_ts_taint_RdbStore_update_any_any_any",
+      "surfaceId": "surface.sink.precision.rdb_store.update.for.rule_precision_sink_taint_mock_ts_taint_RdbStore_update_any_any_any",
       "assetId": "asset.rule.test.sink_precision",
       "plane": "rule",
       "role": "sink",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "update"
-      },
       "effectTemplateRefs": [
-        "template.sink.precision.rdb_store.update.content_text"
+        "template.sink.precision.rdb_store.update.content_text.for.rule_precision_sink_taint_mock_ts_taint_RdbStore_update_any_any_any"
       ],
       "semanticsFamily": "sink",
       "metadata": {
         "category": "field_path"
       },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=rule_precision_sink%2Ftaint_mock.ts:file=rule_precision_sink%2Ftaint_mock.ts:export=namespace%3Ataint.RdbStore:decl=class%3Ataint.RdbStore:member=method%3Ainstance%3Aupdate:invoke=call:params=0%3Aany%2C1%3Aany%2C2%3Aany:ret=void",
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        },
+        "accessPath": [
+          "content_text"
+        ]
+      }
     }
   ],
   "effectTemplates": [
@@ -880,15 +669,12 @@
         "base": {
           "kind": "arg",
           "index": 0
-        },
-        "accessPath": [
-          "secret"
-        ]
+        }
       },
       "sinkKind": "field_path"
     },
     {
-      "id": "template.sink.precision.invoke_kind.instance",
+      "id": "template.sink.precision.invoke_kind.instance.for.rule_precision_sink_taint_mock_ts_taint_InvokeKindHost_SinkInvokeKind_any",
       "confidence": "certain",
       "kind": "rule.sink",
       "value": {
@@ -912,7 +698,7 @@
       "sinkKind": "arg_count"
     },
     {
-      "id": "template.sink.precision.type_hint.target",
+      "id": "template.sink.precision.type_hint.target.for.rule_precision_sink_taint_mock_ts_taint_TypeHintHostTarget_SinkTypeHint_any",
       "confidence": "certain",
       "kind": "rule.sink",
       "value": {
@@ -924,150 +710,6 @@
       "sinkKind": "type_hint"
     },
     {
-      "id": "template.source.test.entry_param.taint_src.for.source.test.entry_param.taint_src.0.method.sink_arg_count_009_T",
-      "confidence": "certain",
-      "kind": "rule.source",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sourceKind": "entry_param"
-    },
-    {
-      "id": "template.source.test.entry_param.taint_src.for.source.test.entry_param.taint_src.0.method.sink_arg_count_010_F",
-      "confidence": "certain",
-      "kind": "rule.source",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sourceKind": "entry_param"
-    },
-    {
-      "id": "template.source.test.entry_param.taint_src.for.source.test.entry_param.taint_src.0.method.sink_field_secret_005_T",
-      "confidence": "certain",
-      "kind": "rule.source",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sourceKind": "entry_param"
-    },
-    {
-      "id": "template.source.test.entry_param.taint_src.for.source.test.entry_param.taint_src.0.method.sink_field_secret_006_F",
-      "confidence": "certain",
-      "kind": "rule.source",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sourceKind": "entry_param"
-    },
-    {
-      "id": "template.source.test.entry_param.taint_src.for.source.test.entry_param.taint_src.0.method.sink_invoke_kind_007_T",
-      "confidence": "certain",
-      "kind": "rule.source",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sourceKind": "entry_param"
-    },
-    {
-      "id": "template.source.test.entry_param.taint_src.for.source.test.entry_param.taint_src.0.method.sink_invoke_kind_008_F",
-      "confidence": "certain",
-      "kind": "rule.source",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sourceKind": "entry_param"
-    },
-    {
-      "id": "template.source.test.entry_param.taint_src.for.source.test.entry_param.taint_src.0.method.sink_target_arg0_001_T",
-      "confidence": "certain",
-      "kind": "rule.source",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sourceKind": "entry_param"
-    },
-    {
-      "id": "template.source.test.entry_param.taint_src.for.source.test.entry_param.taint_src.0.method.sink_target_arg0_002_F",
-      "confidence": "certain",
-      "kind": "rule.source",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sourceKind": "entry_param"
-    },
-    {
-      "id": "template.source.test.entry_param.taint_src.for.source.test.entry_param.taint_src.0.method.sink_target_arg1_003_T",
-      "confidence": "certain",
-      "kind": "rule.source",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sourceKind": "entry_param"
-    },
-    {
-      "id": "template.source.test.entry_param.taint_src.for.source.test.entry_param.taint_src.0.method.sink_target_arg1_004_F",
-      "confidence": "certain",
-      "kind": "rule.source",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sourceKind": "entry_param"
-    },
-    {
-      "id": "template.source.test.entry_param.taint_src.for.source.test.entry_param.taint_src.0.method.sink_type_hint_011_T",
-      "confidence": "certain",
-      "kind": "rule.source",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sourceKind": "entry_param"
-    },
-    {
-      "id": "template.source.test.entry_param.taint_src.for.source.test.entry_param.taint_src.0.method.sink_type_hint_012_F",
-      "confidence": "certain",
-      "kind": "rule.source",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sourceKind": "entry_param"
-    },
-    {
       "id": "template.sink.precision.field.phone",
       "confidence": "certain",
       "kind": "rule.sink",
@@ -1075,40 +717,31 @@
         "base": {
           "kind": "arg",
           "index": 0
-        },
-        "accessPath": [
-          "phone"
-        ]
+        }
       },
       "sinkKind": "field_path"
     },
     {
-      "id": "template.sink.precision.inline_db.update.content",
+      "id": "template.sink.precision.inline_db.update.content.for.rule_precision_sink_sink_inline_transfer_payload_017_T_ets_InlineDb_update_any_any_any",
       "confidence": "certain",
       "kind": "rule.sink",
       "value": {
         "base": {
           "kind": "arg",
           "index": 0
-        },
-        "accessPath": [
-          "content"
-        ]
+        }
       },
       "sinkKind": "field_path"
     },
     {
-      "id": "template.sink.precision.rdb_store.update.content_text",
+      "id": "template.sink.precision.rdb_store.update.content_text.for.rule_precision_sink_taint_mock_ts_taint_RdbStore_update_any_any_any",
       "confidence": "certain",
       "kind": "rule.sink",
       "value": {
         "base": {
           "kind": "arg",
           "index": 0
-        },
-        "accessPath": [
-          "content_text"
-        ]
+        }
       },
       "sinkKind": "field_path"
     }

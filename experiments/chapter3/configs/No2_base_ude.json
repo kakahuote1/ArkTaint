@@ -1,0 +1,15 @@
+{
+  "id": "No2_base_ude",
+  "label": "Base plus UDE",
+  "description": "No.1 plus deferred execution handoff recovery; OCLFS currentness disabled.",
+  "executionHandoff": "enabled",
+  "currentness": "disabled",
+  "autoModel": false,
+  "profile": "default",
+  "reportMode": "full",
+  "entryModel": "arkMain",
+  "maxEntries": 9999,
+  "worklistBudgetMs": 45000,
+  "projectTimeoutSeconds": 480,
+  "sourceDirMode": "auto"
+}

@@ -9,6 +9,7 @@ import { explainTraceResult } from "../../core/trace/TraceExplain";
 import { buildSourceCandidateCoverageTraceGraph } from "../../core/trace/SourceCandidateCoverageTraceGraph";
 import { buildCurrentAssetCandidateTraceGraph } from "../../cli/ruleFeedbackTrace";
 import { resolveTestRunDir } from "../helpers/TestWorkspaceLayout";
+import { exactProjectInvokeSurface } from "../helpers/AssetIdentityTestUtils";
 
 function assert(condition: unknown, message: string): asserts condition {
     if (!condition) throw new Error(message);
@@ -564,27 +565,28 @@ function assertRecorderTypedSinkAndPostsolveGates(): void {
 }
 
 function assertSemanticFlowTraceGraphGates(): void {
+    const surface = exactProjectInvokeSurface({
+        surfaceId: "asset.semanticflow.project.wrapper.surface",
+        modulePath: "@project/client",
+        ownerName: "Client",
+        methodName: "send",
+        invokeKind: "instance",
+        parameterTypes: ["string"],
+        returnType: "void",
+        provenanceSource: "analyzer",
+    });
     const asset = {
         id: "asset.semanticflow.project.wrapper",
         plane: "rule",
         status: "schema-valid",
-        surfaces: [{
-            surfaceId: "asset.semanticflow.project.wrapper.surface",
-            kind: "invoke",
-            modulePath: "@project/client",
-            ownerName: "Client",
-            methodName: "send",
-            invokeKind: "instance",
-            argCount: 1,
-            confidence: "certain",
-            provenance: { source: "analyzer", importPath: "@project/client" },
-        }],
+        surfaces: [surface],
         bindings: [{
             bindingId: "asset.semanticflow.project.wrapper.binding",
             surfaceId: "asset.semanticflow.project.wrapper.surface",
             assetId: "asset.semanticflow.project.wrapper",
             plane: "rule",
             role: "sink",
+            canonicalApiId: surface.canonicalApiId,
             endpoint: { base: { kind: "arg", index: 0 } },
             effectTemplateRefs: ["asset.semanticflow.project.wrapper.sink"],
             completeness: "complete",
@@ -614,6 +616,7 @@ function assertSemanticFlowTraceGraphGates(): void {
         items: [{
             anchor: {
                 id: "anchor.project.client.send",
+                canonicalApiId: surface.canonicalApiId,
                 owner: "Client",
                 surface: "Client.send",
                 methodSignature: "@project/client: Client.send(string)",
@@ -694,7 +697,7 @@ function assertCurrentAssetCandidateCoverageGraph(): void {
             generatedAt: "2026-06-05T00:00:00.000Z",
             repo: "dimina-fixture",
             sourceDirs: ["dimina/src/main/ets"],
-            ruleLayerStatus: [{
+            ruleSourceStatus: [{
                 name: "project",
                 path: "tmp/generated/project/semanticflow/rules",
                 applied: true,
@@ -761,15 +764,16 @@ function assertSourceCandidateCoverageGraph(): void {
         },
         sourceDir: "HarmonyOS/markdown/src/main/ets",
         candidates: [{
-            kind: "decorated_field",
-            subject: "decorated_field|Markdown|content|Param",
+            kind: "formal_parameter",
+            subject: "formal_parameter|Markdown.onContentChange|0|content",
             ownerClass: "Markdown",
             targetName: "content",
             methodNames: ["Markdown.onContentChange"],
             methodSignatures: ["@project/HarmonyOS/markdown/src/main/ets/markdown.ets: Markdown.onContentChange(ChangeEvent)"],
-            decoratorKinds: ["Param"],
-            endpoint: "field.content",
-            reason: "component decorator field is an external input candidate but no current source seed covers it",
+            paramIndex: 0,
+            paramName: "content",
+            endpoint: "arg0",
+            reason: "component callback formal parameter is an external input candidate but no current source seed covers it",
         }, {
             kind: "formal_parameter",
             subject: "formal_parameter|MarkdownController.update|0|content",

@@ -5,12 +5,14 @@ import { discoverArkTsSourceDirs, normalizeSourceDirsForCli } from "./sourceDisc
 
 export type AnalyzeProfile = "default" | "strict" | "fast";
 export type ReportMode = "light" | "full";
+export type FlowMode = "postsolve" | "candidate" | "raw";
 export type AnalyzeEntryModel = "arkMain" | "explicit";
 
 export interface CliOptions {
     repo: string;
     sourceDirs: string[];
     executionHandoff?: "enabled" | "disabled";
+    currentness?: "enabled" | "disabled";
     autoModel?: boolean;
     publishModel?: string;
     llmConfigPath?: string;
@@ -47,6 +49,7 @@ export interface CliOptions {
     k: number;
     maxEntries: number;
     reportMode: ReportMode;
+    flowMode: FlowMode;
     outputDir: string;
     concurrency: number;
     incremental: boolean;
@@ -74,6 +77,7 @@ export function parseArgs(argv: string[]): CliOptions {
     let repo = "";
     let sourceDirs: string[] = [];
     let executionHandoff: "enabled" | "disabled" = "enabled";
+    let currentness: "enabled" | "disabled" = "enabled";
     let autoModel = false;
     let publishModel: string | undefined;
     let llmConfigPath: string | undefined;
@@ -108,6 +112,7 @@ export function parseArgs(argv: string[]): CliOptions {
     let profile: AnalyzeProfile = "default";
     let entryModel: AnalyzeEntryModel = "arkMain";
     let reportMode: ReportMode = "light";
+    let flowMode: FlowMode = "postsolve";
     let kRaw: number | undefined;
     let maxEntriesRaw: number | undefined;
     let outputDir = "";
@@ -161,6 +166,12 @@ export function parseArgs(argv: string[]): CliOptions {
         if (executionHandoffArg !== undefined) {
             executionHandoff = executionHandoffArg.trim() === "disabled" ? "disabled" : "enabled";
             if (arg === "--executionHandoff" || arg === "--execution-handoff") i++;
+            continue;
+        }
+        const currentnessArg = readValue("--currentness");
+        if (currentnessArg !== undefined) {
+            currentness = currentnessArg.trim() === "disabled" ? "disabled" : "enabled";
+            if (arg === "--currentness") i++;
             continue;
         }
         const llmConfigArg = readValue("--llmConfig");
@@ -359,6 +370,16 @@ export function parseArgs(argv: string[]): CliOptions {
             if (arg === "--reportMode" || arg === "--report") i++;
             continue;
         }
+        const flowModeArg = readValue("--flowMode") ?? readValue("--flow-mode");
+        if (flowModeArg !== undefined) {
+            if (flowModeArg === "postsolve" || flowModeArg === "candidate" || flowModeArg === "raw") {
+                flowMode = flowModeArg;
+            } else {
+                throw new Error(`invalid --flowMode: ${flowModeArg}`);
+            }
+            if (arg === "--flowMode" || arg === "--flow-mode") i++;
+            continue;
+        }
         const kArg = readValue("--k");
         if (kArg !== undefined) {
             kRaw = Number(kArg);
@@ -399,6 +420,12 @@ export function parseArgs(argv: string[]): CliOptions {
         if (candidateRuleArg !== undefined) {
             ruleOptions.candidateRulePath = candidateRuleArg;
             if (arg === "--candidate") i++;
+            continue;
+        }
+        const canonicalRegistryArg = readValue("--canonicalRegistry") ?? readValue("--canonical-registry");
+        if (canonicalRegistryArg !== undefined) {
+            ruleOptions.canonicalApiRegistrySnapshotPath = canonicalRegistryArg;
+            if (arg === "--canonicalRegistry" || arg === "--canonical-registry") i++;
             continue;
         }
         if (arg === "--incremental") {
@@ -496,6 +523,9 @@ export function parseArgs(argv: string[]): CliOptions {
     }
     if (publishModel && !autoModel) {
         throw new Error("--publish-model requires --autoModel");
+    }
+    if (flowMode === "candidate" && autoModel) {
+        throw new Error("--flowMode candidate is no-LLM and cannot be combined with --autoModel");
     }
     if (!repo) throw new Error("missing required --repo <path>");
     const normalizedRepo = path.isAbsolute(repo) ? repo : path.resolve(repo);
@@ -622,12 +652,17 @@ export function parseArgs(argv: string[]): CliOptions {
         ruleOptions.ruleCatalogPaths = [...modelRoots];
         ruleOptions.ruleCatalogPath = modelRoots[0];
     }
-    ruleOptions.autoDiscoverLayers = true;
+    ruleOptions.autoDiscoverRuleSources = true;
     if (ruleOptions.enabledRulePacks) {
         ruleOptions.enabledRulePacks = [...new Set(ruleOptions.enabledRulePacks.map(item => item.trim()).filter(Boolean))];
     }
     if (ruleOptions.disabledRulePacks) {
         ruleOptions.disabledRulePacks = [...new Set(ruleOptions.disabledRulePacks.map(item => item.trim()).filter(Boolean))];
+    }
+    if (ruleOptions.canonicalApiRegistrySnapshotPath) {
+        ruleOptions.canonicalApiRegistrySnapshotPath = path.isAbsolute(ruleOptions.canonicalApiRegistrySnapshotPath)
+            ? ruleOptions.canonicalApiRegistrySnapshotPath
+            : path.resolve(ruleOptions.canonicalApiRegistrySnapshotPath);
     }
     if (incrementalCachePath) {
         incrementalCachePath = path.isAbsolute(incrementalCachePath)
@@ -641,6 +676,7 @@ export function parseArgs(argv: string[]): CliOptions {
         repo: normalizedRepo,
         sourceDirs,
         executionHandoff,
+        currentness,
         autoModel,
         publishModel: publishModel || undefined,
         llmConfigPath: llmConfigPath
@@ -677,6 +713,7 @@ export function parseArgs(argv: string[]): CliOptions {
         profile,
         entryModel,
         reportMode,
+        flowMode,
         k,
         maxEntries: Math.floor(maxEntries),
         outputDir,

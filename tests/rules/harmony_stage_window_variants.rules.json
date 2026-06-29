@@ -6,27 +6,53 @@
     {
       "surfaceId": "surface.source.harmony.stage_window.source",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "Source",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "harmony_stage_window_variants/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=harmony_stage_window_variants%2Ftaint_mock.ts:file=harmony_stage_window_variants%2Ftaint_mock.ts:export=namespace%3A%25AC0%24%25dflt-%25dflt:decl=namespace%3A%25AC0%24%25dflt-%25dflt:member=function%3ASource:invoke=call:params=none:ret=string",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_stage_window_variants/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%AC0$%dflt-%dflt",
+            "methodName": "Source",
+            "parameterTypes": [],
+            "returnType": "string",
+            "staticFlag": true
+          }
+        }
       }
     },
     {
       "surfaceId": "surface.sink.harmony.stage_window.sink",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "Sink",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "harmony_stage_window_variants/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=harmony_stage_window_variants%2Ftaint_mock.ts:file=harmony_stage_window_variants%2Ftaint_mock.ts:export=namespace%3A%25AC0%24%25dflt-%25dflt:decl=namespace%3A%25AC0%24%25dflt-%25dflt:member=function%3ASink:invoke=call:params=0%3Aany:ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_stage_window_variants/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%AC0$%dflt-%dflt",
+            "methodName": "Sink",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "void",
+            "staticFlag": true
+          }
+        }
       }
     }
   ],
@@ -37,10 +63,6 @@
       "assetId": "asset.rule.test.harmony_stage_window_variants",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "Source"
-      },
       "endpoint": {
         "base": {
           "kind": "return"
@@ -50,9 +72,10 @@
         "template.source.harmony.stage_window.source"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely",
-      "metadata": {}
+      "completeness": "complete",
+      "confidence": "certain",
+      "metadata": {},
+      "canonicalApiId": "api:project:local:module=harmony_stage_window_variants%2Ftaint_mock.ts:file=harmony_stage_window_variants%2Ftaint_mock.ts:export=namespace%3A%25AC0%24%25dflt-%25dflt:decl=namespace%3A%25AC0%24%25dflt-%25dflt:member=function%3ASource:invoke=call:params=none:ret=string"
     },
     {
       "bindingId": "binding.sink.harmony.stage_window.sink.0",
@@ -60,10 +83,6 @@
       "assetId": "asset.rule.test.harmony_stage_window_variants",
       "plane": "rule",
       "role": "sink",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "Sink"
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -74,9 +93,10 @@
         "template.sink.harmony.stage_window.sink"
       ],
       "semanticsFamily": "sink",
-      "completeness": "partial",
-      "confidence": "likely",
-      "metadata": {}
+      "completeness": "complete",
+      "confidence": "certain",
+      "metadata": {},
+      "canonicalApiId": "api:project:local:module=harmony_stage_window_variants%2Ftaint_mock.ts:file=harmony_stage_window_variants%2Ftaint_mock.ts:export=namespace%3A%25AC0%24%25dflt-%25dflt:decl=namespace%3A%25AC0%24%25dflt-%25dflt:member=function%3ASink:invoke=call:params=0%3Aany:ret=void"
     }
   ],
   "effectTemplates": [

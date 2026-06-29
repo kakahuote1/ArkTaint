@@ -6,6 +6,11 @@ import {
 import {
     collectSdkOverrideCandidates,
 } from "../facts/ArkMainStructuralDiscovery";
+import { arkanalyzerMethodKeyFromArkMethod } from "../facts/ArkMainArkanalyzerMethodKey";
+import {
+    resolveArkMainOfficialLifecycleDeclarationsByMethodKey,
+    resolveArkMainOfficialLifecycleDeclarationsByOwnerKindAndMethod,
+} from "../catalog/ArkMainOfficialDeclarationCatalog";
 import { ArkMainEntryCandidate } from "./ArkMainEntryCandidateTypes";
 
 export interface BuildArkMainEntryCandidateOptions {
@@ -24,25 +29,6 @@ type ArkMainClassLike = {
 type ArkMainSceneLike = {
     getClasses(): ArkMainClassLike[];
 };
-
-const FRAMEWORK_HINT_WORDS = [
-    "ability",
-    "stage",
-    "extension",
-    "component",
-    "page",
-    "router",
-    "route",
-    "nav",
-    "navigation",
-    "context",
-    "window",
-    "ui",
-    "service",
-    "plugin",
-    "want",
-    "app",
-];
 
 export function buildArkMainEntryCandidates(
     scene: ArkMainSceneLike,
@@ -130,17 +116,13 @@ function buildCandidate(
             ? [`override:sdk_base_method:${sdkOverrideCandidate.baseMethod.getName()}`]
             : []),
     ];
-    const frameworkSignals = collectHintSignals([methodName, ...parameterTypes, returnType || ""])
-        .map(signal => `framework_hint:${signal}`);
+    const officialDeclarationSignals = collectOfficialDeclarationSignals(
+        methodName,
+        ownerEvidenceSignals,
+        sdkOverrideCandidate,
+    );
 
-    if (ownerSignals.length === 0 && overrideSignals.length === 0) {
-        return null;
-    }
-    if (
-        overrideSignals.length === 0
-        && frameworkSignals.length === 0
-        && !looksEntryLikeMethodName(methodName)
-    ) {
+    if (ownerSignals.length === 0 || officialDeclarationSignals.length === 0) {
         return null;
     }
 
@@ -156,28 +138,8 @@ function buildCandidate(
         isOverride,
         ownerSignals,
         overrideSignals,
-        frameworkSignals,
+        frameworkSignals: officialDeclarationSignals,
     };
-}
-
-function looksEntryLikeMethodName(methodName: string): boolean {
-    const normalized = String(methodName || "").trim();
-    if (!normalized) {
-        return false;
-    }
-    if (/^on[A-Z]/.test(normalized)) {
-        return true;
-    }
-    const lower = normalized.toLowerCase();
-    return lower === "build"
-        || lower === "initialrender"
-        || lower === "rerender"
-        || lower === "abouttoappear"
-        || lower === "abouttodisappear"
-        || lower === "abouttoreuse"
-        || lower === "onpageload"
-        || lower === "onpageshow"
-        || lower === "onpagehide";
 }
 
 function isEligibleMethod(method: ArkMainMethod): boolean {
@@ -194,31 +156,50 @@ function isEligibleMethod(method: ArkMainMethod): boolean {
     return true;
 }
 
-function collectHintSignals(texts: string[]): string[] {
-    const hits = new Set<string>();
-    for (const raw of texts) {
-        const tokens = splitHintTokens(raw);
-        for (const word of FRAMEWORK_HINT_WORDS) {
-            if (tokens.has(word)) {
-                hits.add(word);
-            }
-        }
-    }
-    return [...hits.values()];
-}
-
-function splitHintTokens(raw: string): Set<string> {
-    const text = String(raw || "")
-        .replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2")
-        .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
-        .toLowerCase();
-    const tokens = text.split(/[^a-z0-9]+/g).filter(Boolean);
-    return new Set(tokens);
-}
-
 function safeGetDeclaringFilePath(cls: ArkMainClassLike): string | undefined {
     const file = cls.getDeclaringArkFile?.();
     return file?.getFilePath?.() || file?.getName?.() || undefined;
+}
+
+function collectOfficialDeclarationSignals(
+    methodName: string,
+    ownerEvidenceSignals: string[],
+    sdkOverrideCandidate?: ReturnType<typeof collectSdkOverrideCandidates>[number],
+): string[] {
+    const out = new Set<string>();
+    for (const ownerKind of ownerKindsFromEvidenceSignals(ownerEvidenceSignals)) {
+        for (const declaration of resolveArkMainOfficialLifecycleDeclarationsByOwnerKindAndMethod(ownerKind, methodName)) {
+            out.add(officialDeclarationSignal(declaration.canonicalApiId, declaration.templateId));
+        }
+    }
+    for (const declaration of sdkOverrideCandidate?.officialDeclarations || []) {
+        out.add(officialDeclarationSignal(declaration.canonicalApiId, declaration.templateId));
+    }
+    const baseMethodKey = sdkOverrideCandidate?.baseMethod
+        ? arkanalyzerMethodKeyFromArkMethod(sdkOverrideCandidate.baseMethod)
+        : undefined;
+    if (baseMethodKey) {
+        for (const declaration of resolveArkMainOfficialLifecycleDeclarationsByMethodKey(baseMethodKey)) {
+            out.add(officialDeclarationSignal(declaration.canonicalApiId, declaration.templateId));
+        }
+    }
+    return [...out.values()].sort((left, right) => left.localeCompare(right));
+}
+
+function ownerKindsFromEvidenceSignals(signals: string[]): string[] {
+    const out = new Set<string>();
+    for (const signal of signals) {
+        const separatorIndex = signal.indexOf(":");
+        const ownerKind = separatorIndex >= 0 ? signal.slice(0, separatorIndex) : signal;
+        if (ownerKind) {
+            out.add(ownerKind);
+        }
+    }
+    return [...out.values()].sort((left, right) => left.localeCompare(right));
+}
+
+function officialDeclarationSignal(canonicalApiId: string, templateId: string): string {
+    return `official_declaration:${canonicalApiId}:${templateId}`;
 }
 
 function isSyntheticDefaultOwner(className: string): boolean {

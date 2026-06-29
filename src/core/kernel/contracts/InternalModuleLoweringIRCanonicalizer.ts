@@ -24,15 +24,7 @@ function semanticSurfaceIdentity(surface: ModuleSemanticSurfaceRef): string {
     return `${surface.kind}:${stableSerialize(surface.selector)}`;
 }
 
-export function normalizeSurfaceRef(surfaceRef: ModuleSemanticSurfaceRef | string): ModuleSemanticSurfaceRef {
-    if (typeof surfaceRef === "string") {
-        return {
-            kind: "invoke",
-            selector: {
-                methodName: surfaceRef,
-            },
-        };
-    }
+export function normalizeSurfaceRef(surfaceRef: ModuleSemanticSurfaceRef): ModuleSemanticSurfaceRef {
     return surfaceRef;
 }
 

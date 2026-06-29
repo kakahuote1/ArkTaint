@@ -79,21 +79,8 @@ function matchesCandidate(method: any, candidate: any): boolean {
   const signature = method.getSignature().toString();
   const classSig = method.getDeclaringArkClass()?.getSignature?.()?.toString?.() || "";
   const className = method.getDeclaringArkClass()?.getName?.() || "";
-  const methodName = method.getName();
-  const matchKind = String(candidate.matchKind || "");
-  const matchValue = String(candidate.matchValue || "");
-
-  let basicMatch = false;
-  if (matchKind === "method_name_equals") {
-    basicMatch = methodName === matchValue;
-  } else if (matchKind === "declaring_class_equals") {
-    basicMatch = classSig === matchValue || className === matchValue;
-  } else if (matchKind === "signature_equals" || matchKind === "callee_signature_equals") {
-    basicMatch = signature === matchValue;
-  } else {
-    basicMatch = false;
-  }
-  if (!basicMatch) return false;
+  const expectedSignature = String(candidate.signature || "");
+  if (!expectedSignature || signature !== expectedSignature) return false;
 
   const invokeKind = String(candidate.invokeKind || "");
   if (invokeKind === "instance" && method.isStatic?.()) return false;

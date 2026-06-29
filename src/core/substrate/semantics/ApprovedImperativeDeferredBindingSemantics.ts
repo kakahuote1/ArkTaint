@@ -1,5 +1,4 @@
 import { Scene } from "../../../../arkanalyzer/out/src/Scene";
-import { CALLBACK_METHOD_NAME } from "../../../../arkanalyzer/out/src/utils/entryMethodUtils";
 import { ArkAssignStmt } from "../../../../arkanalyzer/out/src/core/base/Stmt";
 import { ArkInstanceFieldRef, ClosureFieldRef } from "../../../../arkanalyzer/out/src/core/base/Ref";
 import { Local } from "../../../../arkanalyzer/out/src/core/base/Local";
@@ -10,7 +9,6 @@ import {
     ResolvedCallbackRegistration,
     resolveCallbackMethodsFromValueWithReturns,
 } from "../queries/CallbackBindingQuery";
-import { isCallableValue } from "../queries/CalleeResolver";
 import { resolveMethodsFromAnonymousObjectCarrierByField } from "../queries/CalleeResolver";
 
 export type CallbackRegistrationFlavor = "ui_event" | "channel";
@@ -32,11 +30,11 @@ export type CallbackRegistrationSlotFamily =
     | "web_js_proxy_slot"
     | "keyed_dispatch_slot"
     | "scheduler_slot"
-    | "p2p_message_receiver_slot";
+    | "p2p_message_receiver_slot"
+    | "builder_node_build_slot";
 
 export type CallbackRegistrationRecognitionLayer =
     | "sdk_provenance"
-    | "official_catalog"
     | "controller_options"
     | "web_js_proxy_options"
     | "keyed_dispatch";
@@ -51,219 +49,72 @@ export interface CallbackRegistrationMatch extends CallbackRegistrationMatchBase
 export type FrameworkResolvedCallbackRegistration = ResolvedCallbackRegistration<CallbackRegistrationMatch>;
 
 const DEFAULT_MAX_CALLBACK_HELPER_DEPTH = 4;
-const UI_COMPONENT_CALLBACK_METHOD_NAMES = new Set([
-    ...CALLBACK_METHOD_NAME,
-    "onChange",
-    "onInput",
-    "onSubmit",
-    "onChange2",
-    "onTouch",
-    "onAppear",
-    "onHover",
-    "onFocus",
-    "onBlur",
-    "onScroll",
-    "onScrollIndex",
-    "onReachStart",
-    "onReachEnd",
-    "onTabBarClick",
-    "onAnimationStart",
-    "onAnimationEnd",
-]);
-const GESTURE_CALLBACK_METHOD_NAMES = new Set([
-    "onAction",
-    "onActionStart",
-    "onActionUpdate",
-    "onActionEnd",
-]);
-const DIRECT_SYSTEM_CALLBACK_METHOD_NAMES = new Set([
-    "onMessage",
-    "onError",
-]);
-const WEB_LIFECYCLE_CALLBACK_METHOD_NAMES = new Set([
-    "onPageBegin",
-    "onPageEnd",
-    "onErrorReceive",
-]);
-const STRING_PLUS_SUBSCRIPTION_METHOD_NAMES = new Set([
-    "loadContent",
-    "on",
-]);
-const TRAILING_CALLBACK_METHOD_NAMES = new Set([
-    "subscribe",
-    "request",
-    "registerMessageReceiver",
-]);
-const PREFERENCES_CALLBACK_METHOD_NAMES = new Set([
-    "get",
-    "put",
-]);
-const KNOWN_SCHEDULER_METHOD_NAMES = new Set([
-    "setTimeout",
-    "setInterval",
-    "requestAnimationFrame",
-    "queueMicrotask",
-    "execute",
-]);
-const KNOWN_SCHEDULER_EXECUTOR_OWNER_NAMES = new Set([
-    "TaskPool",
-    "taskpool",
-]);
-const KNOWN_SYNC_HOF_METHOD_NAMES = new Set([
-    "map",
-    "filter",
-    "sort",
-    "reduce",
-    "forEach",
-    "find",
-    "findIndex",
-    "some",
-    "every",
-    "flatMap",
-]);
-const KNOWN_FRAMEWORK_CALLBACK_METHOD_NAMES = new Set([
-    ...UI_COMPONENT_CALLBACK_METHOD_NAMES,
-    ...GESTURE_CALLBACK_METHOD_NAMES,
-    "onMessage",
-    "onPageBegin",
-    "onPageEnd",
-    "onErrorReceive",
-    "onError",
-    "on",
-    "request",
-    "subscribe",
-    "get",
-    "put",
-    "loadContent",
-    "constructor",
-]);
-const KNOWN_COLLECTION_CLASS_NAMES = new Set([
-    "Array", "Map", "Set", "WeakMap", "WeakSet",
-    "Int8Array", "Uint8Array", "Int16Array", "Uint16Array",
-    "Int32Array", "Uint32Array", "Float32Array", "Float64Array",
-    "BigInt64Array", "BigUint64Array",
-]);
 
 export function resolveKnownFrameworkCallbackRegistration(
     args: CallbackRegistrationMatchArgs,
 ): CallbackRegistrationMatch | null {
-    if (isPromiseContinuationRegistration(args.invokeExpr)) {
-        return null;
-    }
-    if (isKnownSynchronousHigherOrderFunction(args.invokeExpr)) {
-        return null;
-    }
     const methodSig = args.invokeExpr?.getMethodSignature?.();
     if (!isSdkBackedMethodSignature(args.scene, methodSig, { sourceMethod: args.sourceMethod, invokeExpr: args.invokeExpr })) {
         return null;
     }
-    const methodName = methodSig?.getMethodSubSignature?.()?.getMethodName?.() || "";
-    const slotFamily = inferFrameworkCallbackSlotFamily(methodName, args.explicitArgs || []);
-    if (!slotFamily) {
+    if (isTypeScriptStandardLibrarySignature(methodSig)) {
         return null;
     }
-    const callbackArgIndexes = inferCallableArgIndexes(args.scene, args.explicitArgs || []);
+
+    const callbackArgIndexes = inferDeclaredCallableArgIndexes(args.scene, methodSig, args.explicitArgs || []);
     if (callbackArgIndexes.length === 0) {
         return null;
     }
-    return buildSdkProvenanceFrameworkCallbackRegistration(args, methodSig, methodName, slotFamily, callbackArgIndexes);
-}
 
-export function resolveKnownSchedulerCallbackRegistration(
-    args: CallbackRegistrationMatchArgs,
-): CallbackRegistrationMatch | null {
-    const methodSig = args.invokeExpr?.getMethodSignature?.();
-    const methodName = methodSig?.getMethodSubSignature?.().getMethodName?.() || "";
-    if (isPromiseContinuationRegistration(args.invokeExpr)) {
-        return null;
-    }
-    if (!KNOWN_SCHEDULER_METHOD_NAMES.has(methodName)) {
-        return null;
-    }
-    if (methodName === "execute") {
-        const ownerName = methodSig?.getDeclaringClassSignature?.()?.getClassName?.() || "";
-        if (!KNOWN_SCHEDULER_EXECUTOR_OWNER_NAMES.has(ownerName)) {
-            return null;
-        }
-        return {
-            callbackArgIndexes: [0],
-            reason: `Scheduler callback registration ${ownerName}.${methodName} from ${args.sourceMethod.getName()}`,
-            callbackFlavor: "channel",
-            registrationShape: "direct_callback_slot",
-            slotFamily: "scheduler_slot",
-            recognitionLayer: "official_catalog",
-        };
-    }
+    const methodName = methodSig?.getMethodSubSignature?.()?.getMethodName?.() || "<unknown>";
+
     return {
-        callbackArgIndexes: [0],
-        reason: `Scheduler callback registration ${methodName} from ${args.sourceMethod.getName()}`,
-        callbackFlavor: "channel",
-        registrationShape: "direct_callback_slot",
-        slotFamily: "scheduler_slot",
-        recognitionLayer: "official_catalog",
+        callbackArgIndexes,
+        reason: `SDK-declared callback registration ${describeRegistrationOwner(methodSig)}.${methodName} from ${args.sourceMethod.getName()}`,
+        registrationShape: inferRegistrationShape(args.explicitArgs || [], callbackArgIndexes),
+        recognitionLayer: "sdk_provenance",
     };
 }
 
-export function resolveKnownChannelCallbackRegistration(
-    args: CallbackRegistrationMatchArgs,
-): CallbackRegistrationMatch | null {
-    const methodSig = args.invokeExpr?.getMethodSignature?.();
-    const methodName = methodSig?.getMethodSubSignature?.()?.getMethodName?.() || "";
-    const className = methodSig?.getDeclaringClassSignature?.()?.getClassName?.() || "";
-    if (methodName === "on") {
-        const explicitArgs = args.explicitArgs || [];
-        if (explicitArgs.length < 2 || !looksLikeStringArg(explicitArgs[0])) {
-            return null;
-        }
-        if (!(className === "Emitter" || className === "EventHub")) {
-            return null;
-        }
-        return {
-            callbackArgIndexes: [1],
-            reason: `Channel callback registration ${describeRegistrationOwner(methodSig)}.${methodName} from ${args.sourceMethod.getName()}`,
-            callbackFlavor: "channel",
-            registrationShape: "string_plus_callback_slot",
-            slotFamily: "subscription_event_slot",
-            recognitionLayer: "official_catalog",
-        };
-    }
-    if (methodName === "onMessage" && className === "Worker") {
-        return {
-            callbackArgIndexes: [0],
-            reason: `Channel callback registration ${describeRegistrationOwner(methodSig)}.${methodName} from ${args.sourceMethod.getName()}`,
-            callbackFlavor: "channel",
-            registrationShape: "direct_callback_slot",
-            slotFamily: "system_direct_slot",
-            recognitionLayer: "official_catalog",
-        };
-    }
-    return null;
-}
-
-export function isKnownFrameworkCallbackMethodName(methodName: string): boolean {
-    return KNOWN_FRAMEWORK_CALLBACK_METHOD_NAMES.has(methodName || "");
-}
-
-export function isKnownSchedulerMethodName(methodName: string): boolean {
-    return KNOWN_SCHEDULER_METHOD_NAMES.has(methodName || "");
-}
-
 function describeRegistrationOwner(methodSig: any): string {
-    return methodSig?.getDeclaringClassSignature?.()?.getClassName?.() || "@channel";
+    return methodSig?.getDeclaringClassSignature?.()?.getClassName?.() || "@sdk";
 }
 
-function inferCallableArgIndexes(scene: Scene, explicitArgs: any[]): number[] {
+function inferDeclaredCallableArgIndexes(scene: Scene, methodSig: any, explicitArgs: any[]): number[] {
+    const parameterSlots = collectCallableParameterSlots(scene, methodSig);
+    if (parameterSlots.length === 0) {
+        return [];
+    }
+
     const callbackArgIndexes: number[] = [];
     explicitArgs.forEach((arg, index) => {
+        if (!parameterSlots.some(slot => slot.index === index || (slot.rest && index >= slot.index))) {
+            return;
+        }
         const methods = resolveCallbackMethodsFromValueWithReturns(scene, arg, {
             maxDepth: DEFAULT_MAX_CALLBACK_HELPER_DEPTH,
         });
         const anonymousCarrierMethods = collectAnonymousCarrierFieldMethods(scene, arg);
-        if (methods.length > 0 || anonymousCarrierMethods.length > 0 || isCallableValue(arg)) {
+        if (methods.length > 0 || anonymousCarrierMethods.length > 0) {
             callbackArgIndexes.push(index);
         }
     });
     return callbackArgIndexes;
+}
+
+function collectCallableParameterSlots(scene: Scene, methodSig: any): Array<{ index: number; rest: boolean }> {
+    const parameters = methodSig?.getMethodSubSignature?.()?.getParameters?.() || [];
+    const out: Array<{ index: number; rest: boolean }> = [];
+    parameters.forEach((parameter: any, index: number) => {
+        if (!isCallableLikeType(scene, parameter?.getType?.())) {
+            return;
+        }
+        out.push({
+            index,
+            rest: isRestParameter(parameter),
+        });
+    });
+    return out;
 }
 
 function collectAnonymousCarrierFieldMethods(scene: Scene, value: any): any[] {
@@ -342,54 +193,13 @@ function inferRegistrationShape(
     return "trailing_callback_slot";
 }
 
-function inferFrameworkCallbackSlotFamily(
-    methodName: string,
-    explicitArgs: any[],
-): CallbackRegistrationSlotFamily | undefined {
-    if (GESTURE_CALLBACK_METHOD_NAMES.has(methodName)) {
-        return "gesture_direct_slot";
-    }
-    if (UI_COMPONENT_CALLBACK_METHOD_NAMES.has(methodName)) {
-        return "ui_direct_slot";
-    }
-    if (DIRECT_SYSTEM_CALLBACK_METHOD_NAMES.has(methodName) || WEB_LIFECYCLE_CALLBACK_METHOD_NAMES.has(methodName)) {
-        return "system_direct_slot";
-    }
-    if (
-        STRING_PLUS_SUBSCRIPTION_METHOD_NAMES.has(methodName)
-        && explicitArgs.length >= 2
-        && looksLikeStringArg(explicitArgs[0])
-    ) {
-        return "subscription_event_slot";
-    }
-    if (TRAILING_CALLBACK_METHOD_NAMES.has(methodName) || PREFERENCES_CALLBACK_METHOD_NAMES.has(methodName)) {
-        if (methodName === "registerMessageReceiver" && explicitArgs.length >= 3) {
-            return "p2p_message_receiver_slot";
-        }
-        return "completion_callback_slot";
-    }
-    return undefined;
+function isTypeScriptStandardLibrarySignature(methodSig: any): boolean {
+    const declaringFileText = signatureDeclaringFileText(methodSig).toLowerCase();
+    return /(?:^|[\\/])lib\.[^\\/]+\.d\.ts$/.test(declaringFileText);
 }
 
-function buildSdkProvenanceFrameworkCallbackRegistration(
-    args: CallbackRegistrationMatchArgs,
-    methodSig: any,
-    methodName: string,
-    slotFamily: CallbackRegistrationSlotFamily,
-    callbackArgIndexes: number[],
-): CallbackRegistrationMatch | null {
-    const callbackFlavor: CallbackRegistrationFlavor =
-        slotFamily === "ui_direct_slot" || slotFamily === "gesture_direct_slot"
-            ? "ui_event"
-            : "channel";
-    return {
-        callbackArgIndexes,
-        reason: `Framework SDK callback registration ${describeRegistrationOwner(methodSig)}.${methodName} from ${args.sourceMethod.getName()}`,
-        callbackFlavor,
-        registrationShape: inferRegistrationShape(args.explicitArgs || [], callbackArgIndexes),
-        slotFamily,
-        recognitionLayer: "sdk_provenance",
-    };
+function signatureDeclaringFileText(methodSig: any): string {
+    return String(methodSig?.getDeclaringClassSignature?.()?.getDeclaringFileSignature?.()?.toString?.() || "");
 }
 
 function looksLikeStringArg(value: any): boolean {
@@ -402,21 +212,59 @@ function looksLikeStringArg(value: any): boolean {
     return /^['"`].+['"`]$/.test(text);
 }
 
-function isPromiseContinuationRegistration(invokeExpr: any): boolean {
-    const methodSig = invokeExpr?.getMethodSignature?.();
-    const methodName = methodSig?.getMethodSubSignature?.()?.getMethodName?.() || "";
-    return methodName === "then" || methodName === "catch" || methodName === "finally";
-}
-
-function isKnownSynchronousHigherOrderFunction(invokeExpr: any): boolean {
-    const methodSig = invokeExpr?.getMethodSignature?.();
-    const methodName = methodSig?.getMethodSubSignature?.()?.getMethodName?.() || "";
-    if (!KNOWN_SYNC_HOF_METHOD_NAMES.has(methodName)) {
+function isCallableLikeType(
+    scene: Scene,
+    type: any,
+    depth: number = 0,
+    seen: Set<string> = new Set<string>(),
+): boolean {
+    void scene;
+    if (!type || depth > 4) {
         return false;
     }
-    const className = methodSig?.getDeclaringClassSignature?.()?.getClassName?.() || "";
-    if (!className || KNOWN_COLLECTION_CLASS_NAMES.has(className)) {
+    const key = String(type.toString?.() || type.getTypeString?.() || type.constructor?.name || "");
+    if (key && seen.has(key)) {
+        return false;
+    }
+    if (key) {
+        seen.add(key);
+    }
+
+    if (type.getMethodSignature?.()) {
         return true;
     }
+    const methodSignatures = type.getMethodSignatures?.();
+    if (Array.isArray(methodSignatures) && methodSignatures.length > 0) {
+        return true;
+    }
+    const callSignature = type.getCallSignature?.() || type.getFunctionSignature?.() || type.getFuncSignature?.();
+    if (callSignature) {
+        return true;
+    }
+
+    const originalType = type.getOriginalType?.();
+    if (originalType && isCallableLikeType(scene, originalType, depth + 1, seen)) {
+        return true;
+    }
+    const currType = type.getCurrType?.();
+    if (currType && currType !== type && isCallableLikeType(scene, currType, depth + 1, seen)) {
+        return true;
+    }
+    const unionTypes = type.getTypes?.();
+    if (Array.isArray(unionTypes)) {
+        return unionTypes.some((unionType: any) => isCallableLikeType(scene, unionType, depth + 1, seen));
+    }
     return false;
+}
+
+function isRestParameter(parameter: any): boolean {
+    if (parameter?.isRestParameter?.()) {
+        return true;
+    }
+    const name = String(parameter?.getName?.() || parameter?.name || "");
+    if (name.startsWith("...")) {
+        return true;
+    }
+    const text = String(parameter?.toString?.() || "");
+    return text.trim().startsWith("...");
 }

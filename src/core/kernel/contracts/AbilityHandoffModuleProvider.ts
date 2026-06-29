@@ -1,6 +1,7 @@
 import type { Scene } from "../../../../arkanalyzer/out/src/Scene";
 import type { Pag } from "../../../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
 import type { FrameworkModuleProvider } from "./FrameworkModuleProvider";
+import type { ModuleScanApi } from "./ModuleContract";
 
 export type AbilityHandoffBoundaryKind = "serialized_copy";
 
@@ -24,6 +25,7 @@ export interface BuildAbilityHandoffSemanticModelArgs {
     scene: Scene;
     pag: Pag;
     allowedMethodSignatures?: Set<string>;
+    scan?: ModuleScanApi;
 }
 
 export interface AbilityHandoffModuleProvider extends FrameworkModuleProvider {

@@ -1,8 +1,10 @@
 import {
     AssetDocumentBase,
     AssetEndpoint,
+    AssetSurface,
 } from "../../core/assets/schema";
 import { lowerRuleAssetsToRuleSet } from "../../core/rules/RuleAssetLowering";
+import { canonicalApiIdFromTestDeclaration, indexedTestParameters } from "../helpers/CanonicalApiTestDeclarations";
 
 function assert(condition: unknown, message: string): asserts condition {
     if (!condition) {
@@ -12,62 +14,42 @@ function assert(condition: unknown, message: string): asserts condition {
 
 const arg0: AssetEndpoint = { base: { kind: "arg", index: 0 } };
 const arg1: AssetEndpoint = { base: { kind: "arg", index: 1 } };
+const rest1: AssetEndpoint = { base: { kind: "rest", startIndex: 1 } } as any;
 const resultEndpoint: AssetEndpoint = { base: { kind: "return" } };
 
 function ruleAsset(): AssetDocumentBase {
-    return {
+    return stampRuleAsset({
         id: "asset.rule.test",
         plane: "rule",
         status: "official",
         surfaces: [
-            {
-                surfaceId: "surface.token.cache",
-                kind: "invoke",
-                modulePath: "project/token",
-                ownerName: "TokenCache",
-                methodName: "save",
-                invokeKind: "instance",
-                argCount: 2,
-                confidence: "certain",
-                provenance: { source: "manual" },
-            },
+            invokeSurface("surface.token.cache.load", "project/token", "TokenCache", "load", "instance", ["string"], "Object"),
+            invokeSurface("surface.logger.info", "project/logger", "Logger", "info", "static", ["Object"], "void"),
+            invokeSurface("surface.token.map.set", "project/token", "TokenMap", "set", "instance", ["string", "Object"], "void"),
         ],
         bindings: [
             {
                 bindingId: "binding.source.result",
-                surfaceId: "surface.token.cache",
+                surfaceId: "surface.token.cache.load",
                 assetId: "asset.rule.test",
                 plane: "rule",
                 role: "source",
-                selector: {
-                    kind: "method-name-equals",
-                    value: "load",
-                    invokeKind: "instance",
-                    argCount: 1,
-                    scope: { className: { mode: "equals", value: "TokenCache" } },
-                },
                 endpoint: resultEndpoint,
                 effectTemplateRefs: ["template.source.result"],
                 semanticsFamily: "credential-source",
                 metadata: {
                     severity: "high",
                     category: "credential",
-                    layer: "kernel",
-                    tier: "A",
                 },
                 completeness: "complete",
                 confidence: "certain",
             },
             {
                 bindingId: "binding.sink.arg0",
-                surfaceId: "surface.token.cache",
+                surfaceId: "surface.logger.info",
                 assetId: "asset.rule.test",
                 plane: "rule",
                 role: "sink",
-                selector: {
-                    kind: "method-name-equals",
-                    value: "info",
-                },
                 endpoint: arg0,
                 effectTemplateRefs: ["template.sink.arg0"],
                 semanticsFamily: "privacy-log",
@@ -76,19 +58,10 @@ function ruleAsset(): AssetDocumentBase {
             },
             {
                 bindingId: "binding.transfer.arg1.to.slot",
-                surfaceId: "surface.token.cache",
+                surfaceId: "surface.token.map.set",
                 assetId: "asset.rule.test",
                 plane: "rule",
                 role: "transfer",
-                selector: {
-                    kind: "method-name-equals",
-                    value: "set",
-                    invokeKind: "instance",
-                    argCount: 2,
-                    scope: {
-                        className: { mode: "contains", value: "TokenMap" },
-                    },
-                },
                 endpoint: { base: { kind: "receiver" } },
                 effectTemplateRefs: ["template.transfer.arg1.to.slot"],
                 semanticsFamily: "container-transfer",
@@ -119,38 +92,119 @@ function ruleAsset(): AssetDocumentBase {
                     endpoint: { base: { kind: "receiver" } },
                     pathFrom: arg0,
                     slotKind: "map",
+                    slotWriteMode: "append",
                 },
                 transferKind: "map-slot",
                 confidence: "certain",
             },
         ],
         provenance: { source: "builtin" },
+    });
+}
+
+function invokeSurface(
+    surfaceId: string,
+    modulePath: string,
+    ownerName: string,
+    methodName: string,
+    invokeKind: "instance" | "static" | "free-function",
+    parameterTypes: string[],
+    returnType: string,
+    options: {
+        confidence?: AssetSurface["confidence"];
+        provenance?: AssetSurface["provenance"];
+    } = {},
+): AssetSurface {
+    const memberIsFunction = invokeKind === "free-function";
+    const staticFlag = invokeKind === "static" || memberIsFunction;
+    const canonicalApiId = canonicalApiIdFromTestDeclaration({
+        authority: "project",
+        domain: "local",
+        moduleSpecifier: modulePath,
+        logicalDeclarationFile: modulePath,
+        exportPath: [{ kind: "named", name: memberIsFunction ? methodName : ownerName }],
+        declarationOwner: memberIsFunction
+            ? { kind: "namespace", path: [ownerName], normalizedName: ownerName }
+            : { kind: "class", path: [ownerName], normalizedName: ownerName },
+        member: memberIsFunction
+            ? { kind: "function", name: methodName }
+            : { kind: "method", name: methodName, static: staticFlag },
+        invoke: { kind: "call" },
+        signature: {
+            parameters: indexedTestParameters(parameterTypes),
+            returnType: { text: returnType },
+        },
+        arkanalyzer: {
+            declaringFileName: modulePath,
+            declaringNamespacePath: [],
+            declaringClassName: ownerName,
+            methodName,
+            parameterTypes,
+            returnType,
+            staticFlag,
+        },
+        declarationLocations: [{ file: modulePath }],
+    });
+    return {
+        surfaceId,
+        kind: "invoke",
+        canonicalApiId,
+        evidence: {
+            arkanalyzer: {
+                methodKey: {
+                    declaringFileName: modulePath,
+                    declaringNamespacePath: [],
+                    declaringClassName: ownerName,
+                    methodName,
+                    parameterTypes,
+                    returnType,
+                    staticFlag,
+                },
+            },
+        },
+        confidence: options.confidence || "certain",
+        provenance: options.provenance || { source: "manual" },
     };
 }
 
+function stampRuleAsset<T extends AssetDocumentBase>(asset: T): T {
+    const bySurfaceId = new Map<string, string>();
+    for (const surface of asset.surfaces) {
+        assert(surface.canonicalApiId, `${surface.surfaceId} must declare canonicalApiId`);
+        bySurfaceId.set(surface.surfaceId, surface.canonicalApiId);
+    }
+    for (const binding of asset.bindings) {
+        const canonicalApiId = bySurfaceId.get(binding.surfaceId);
+        if (canonicalApiId) binding.canonicalApiId = canonicalApiId;
+    }
+    return asset;
+}
+
 function semanticFlowGeneratedProjectSinkAsset(): AssetDocumentBase {
-    return {
+    return stampRuleAsset({
         id: "project.semanticflow.chat.rule",
         plane: "rule",
         status: "schema-valid",
         surfaces: [
-            {
-                surfaceId: "surface.MessageViewModel.sendTextMessage",
-                kind: "invoke",
-                modulePath: "chatuikit/src/main/ets/viewmodels/MessageViewModel.ets",
-                ownerName: "MessageViewModel",
-                methodName: "sendTextMessage",
-                invokeKind: "instance",
-                argCount: 4,
-                confidence: "likely",
-                provenance: {
-                    source: "llm-proposal",
-                    location: {
-                        file: "chatuikit/src/main/ets/viewmodels/MessageViewModel.ets",
-                        line: 228,
+            invokeSurface(
+                "surface.MessageViewModel.sendTextMessage",
+                "chatuikit/src/main/ets/viewmodels/MessageViewModel.ets",
+                "MessageViewModel",
+                "sendTextMessage",
+                "instance",
+                ["MessageParam", "string", "SendOptions", "Callback"],
+                "Promise<void>",
+                {
+                    confidence: "likely",
+                    provenance: {
+                        source: "llm-proposal",
+                        location: {
+                            file: "chatuikit/src/main/ets/viewmodels/MessageViewModel.ets",
+                            line: 228,
+                        },
                     },
                 },
-            },
+            ),
         ],
         bindings: [
             {
@@ -185,32 +239,34 @@ function semanticFlowGeneratedProjectSinkAsset(): AssetDocumentBase {
                 },
             ],
         },
-    };
+    });
 }
 
 function semanticFlowGeneratedProjectReceiverFieldSinkAsset(): AssetDocumentBase {
-    return {
+    return stampRuleAsset({
         id: "project.semanticflow.receiver.field.rule",
         plane: "rule",
         status: "schema-valid",
         surfaces: [
-            {
-                surfaceId: "surface.WebDavClient._request",
-                kind: "invoke",
-                modulePath: "entry/src/main/ets/common/utils/webdav/client.ts",
-                ownerName: "WebDavClient",
-                methodName: "_request",
-                invokeKind: "instance",
-                argCount: 5,
-                confidence: "likely",
-                provenance: {
-                    source: "llm-proposal",
-                    location: {
-                        file: "entry/src/main/ets/common/utils/webdav/client.ts",
-                        line: 283,
+            invokeSurface(
+                "surface.WebDavClient._request",
+                "entry/src/main/ets/common/utils/webdav/client.ts",
+                "WebDavClient",
+                "_request",
+                "instance",
+                ["string", "string", "Headers", "Object", "RequestOptions"],
+                "Promise<Response>",
+                {
+                    confidence: "likely",
+                    provenance: {
+                        source: "llm-proposal",
+                        location: {
+                            file: "entry/src/main/ets/common/utils/webdav/client.ts",
+                            line: 283,
+                        },
                     },
                 },
-            },
+            ),
         ],
         bindings: [
             {
@@ -251,31 +307,34 @@ function semanticFlowGeneratedProjectReceiverFieldSinkAsset(): AssetDocumentBase
                 },
             ],
         },
-    };
+    });
 }
 
 function semanticFlowGeneratedProjectComponentSourceAsset(): AssetDocumentBase {
-    return {
+    return stampRuleAsset({
         id: "project.semanticflow.component.source",
         plane: "rule",
         status: "schema-valid",
         surfaces: [
-            {
-                surfaceId: "surface.ExternalButton.onBtnClick",
-                kind: "invoke",
-                modulePath: "action_button_callback.ets",
-                functionName: "ExternalButton",
-                invokeKind: "free-function",
-                argCount: 1,
-                confidence: "likely",
-                provenance: {
-                    source: "llm-proposal",
-                    location: {
-                        file: "action_button_callback.ets",
-                        line: 12,
+            invokeSurface(
+                "surface.ExternalButton.onBtnClick",
+                "action_button_callback.ets",
+                "file",
+                "ExternalButton",
+                "free-function",
+                ["ExternalButtonOptions"],
+                "void",
+                {
+                    confidence: "likely",
+                    provenance: {
+                        source: "llm-proposal",
+                        location: {
+                            file: "action_button_callback.ets",
+                            line: 12,
+                        },
                     },
                 },
-            },
+            ),
         ],
         bindings: [
             {
@@ -330,6 +389,75 @@ function semanticFlowGeneratedProjectComponentSourceAsset(): AssetDocumentBase {
                 },
             ],
         },
+    });
+}
+
+function entryParamRuleAsset(): AssetDocumentBase {
+    const canonicalApiId = canonicalApiIdFromTestDeclaration({
+        authority: "project",
+        domain: "local",
+        moduleSpecifier: "tests/demo/harmony_router_bridge/router_bridge_001_T.ets",
+        logicalDeclarationFile: "tests/api/harmony_router_bridge_entries.d.ts",
+        exportPath: [{ kind: "entry", name: "component.RouterBridgeCase" }],
+        declarationOwner: {
+            kind: "entry",
+            path: ["component.RouterBridgeCase"],
+            normalizedName: "component.RouterBridgeCase",
+            arkanalyzerName: "RouterBridgeCase",
+        },
+        member: { kind: "lifecycle", name: "test.case.router_bridge_001_T" },
+        invoke: { kind: "entry" },
+        signature: {
+            parameters: indexedTestParameters(["string"]),
+            returnType: { text: "void" },
+        },
+        declarationLocations: [{ file: "tests/api/harmony_router_bridge_entries.d.ts" }],
+    });
+    return {
+        id: "asset.rule.test.entry_param",
+        plane: "rule",
+        status: "official",
+        surfaces: [{
+            surfaceId: "surface.source.entry_param.router_bridge_001_T",
+            canonicalApiId,
+            kind: "entry",
+            evidence: {
+                arkanalyzer: {
+                    methodKey: {
+                        declaringFileName: "tests/demo/harmony_router_bridge/router_bridge_001_T.ets",
+                        declaringNamespacePath: [],
+                        declaringClassName: "RouterBridgeCase",
+                        methodName: "router_bridge_001_T",
+                        parameterTypes: ["string"],
+                        returnType: "void",
+                        staticFlag: false,
+                    },
+                },
+            },
+            confidence: "certain",
+            provenance: { source: "manual" },
+        } as any],
+        bindings: [{
+            bindingId: "binding.source.entry_param.router_bridge_001_T.arg0",
+            surfaceId: "surface.source.entry_param.router_bridge_001_T",
+            assetId: "asset.rule.test.entry_param",
+            plane: "rule",
+            role: "source",
+            endpoint: arg0,
+            effectTemplateRefs: ["template.source.entry_param.router_bridge_001_T.arg0"],
+            semanticsFamily: "source",
+            completeness: "complete",
+            confidence: "certain",
+            canonicalApiId,
+        }],
+        effectTemplates: [{
+            id: "template.source.entry_param.router_bridge_001_T.arg0",
+            kind: "rule.source",
+            value: arg0,
+            sourceKind: "entry_param",
+            confidence: "certain",
+        }],
+        provenance: { source: "builtin" },
     };
 }
 
@@ -341,14 +469,16 @@ function main(): void {
     assert(lowered.ruleSet.transfers.length === 1, "transfer should be lowered");
 
     const source = lowered.ruleSet.sources[0];
-    assert(source.match.kind === "method_name_equals", "selector should lower to old rule matcher");
+    assert(source.match.kind === "canonical_api_id_equals", "canonical surface should lower to canonical API identity gate");
+    assert(source.match.value === source.apiEffect?.canonicalApiId, "source match value should equal apiEffect canonicalApiId");
     assert(source.sourceKind === "call_return", "source kind should be preserved");
     assert(source.target === "result", "return endpoint should lower to result");
     assert(source.category === "credential", "metadata category should be preserved");
     assert(source.severity === "high", "metadata severity should be preserved");
 
     const sink = lowered.ruleSet.sinks[0];
-    assert(sink.match.kind === "method_name_equals", "exact method selector should be preserved");
+    assert(sink.match.kind === "canonical_api_id_equals", "sink should lower to canonical API identity gate");
+    assert(sink.match.value === sink.apiEffect?.canonicalApiId, "sink match value should equal apiEffect canonicalApiId");
     assert(sink.target === "arg0", "arg endpoint should lower to arg0");
 
     const bindingEndpointAsset = ruleAsset();
@@ -361,6 +491,18 @@ function main(): void {
         loweredFromBindingEndpoint.ruleSet.sinks[0].target === "arg0",
         "rule.sink without template value should lower from binding.endpoint",
     );
+
+    const restEndpointAsset = ruleAsset();
+    restEndpointAsset.surfaces[1] = invokeSurface("surface.logger.info", "project/logger", "Logger", "info", "static", ["Object", "rest:Object[]"], "void");
+    restEndpointAsset.bindings[1].endpoint = rest1;
+    (restEndpointAsset.effectTemplates!.find(template => template.id === "template.sink.arg0") as any).value = rest1;
+    stampRuleAsset(restEndpointAsset);
+    const loweredRestEndpoint = lowerRuleAssetsToRuleSet([restEndpointAsset]);
+    assert(loweredRestEndpoint.diagnostics.length === 0, `rest endpoint lowering should not produce diagnostics: ${loweredRestEndpoint.diagnostics.join("; ")}`);
+    const restSink = loweredRestEndpoint.ruleSet.sinks[0].target as any;
+    assert(typeof restSink === "object", "rest endpoint should lower to an endpoint ref");
+    assert(restSink.endpoint === "arg1", `rest endpoint should lower to the rest start arg, got ${restSink.endpoint}`);
+    assert(restSink.semanticEndpointKind === "rest", `rest endpoint lowering should retain rest semantics, got ${restSink.semanticEndpointKind}`);
 
     const sharedTemplateEndpointAsset = ruleAsset();
     const sharedTemplate = sharedTemplateEndpointAsset.effectTemplates!.find(template => template.id === "template.sink.arg0") as any;
@@ -397,26 +539,21 @@ function main(): void {
     assert(transfer.to.endpoint === "base", "slot target should lower to base endpoint");
     assert(transfer.to.pathFrom === "arg0", "slot path source should lower to pathFrom");
     assert(transfer.to.slotKind === "map", "slot kind should lower");
-    assert(
-        transfer.scope?.className?.value === "TokenMap",
-        "transfer selector scope should lower into runtime transfer scope",
-    );
+    assert(transfer.to.slotWriteMode === "append", "slot write mode should lower");
+    assert(transfer.match.kind === "canonical_api_id_equals", "transfer should lower to canonical API identity gate");
+    assert(transfer.match.value === transfer.apiEffect?.canonicalApiId, "transfer match value should equal apiEffect canonicalApiId");
+    assert((transfer as any).scope === undefined, "transfer should not carry owner-name runtime scope");
 
-    const missingSelectorAsset = ruleAsset();
-    missingSelectorAsset.bindings[0].selector = undefined;
-    missingSelectorAsset.surfaces[0] = {
-        ...(missingSelectorAsset.surfaces[0] as any),
-        methodName: "load",
-        argCount: 1,
-    };
-    const inferred = lowerRuleAssetsToRuleSet([missingSelectorAsset]);
-    assert(inferred.diagnostics.length === 0, "invoke surface should provide a surface-derived selector");
-    assert(inferred.ruleSet.sources[0].match.value === "load", "surface-derived selector should use invoke surface method");
-    assert(inferred.ruleSet.sources[0].scope === undefined, "surface-derived selector must not constrain the caller scope");
+    const surfaceGateAsset = ruleAsset();
+    const inferred = lowerRuleAssetsToRuleSet([surfaceGateAsset]);
+    assert(inferred.diagnostics.length === 0, "invoke surface should provide a surface-derived execution gate");
+    assert(inferred.ruleSet.sources[0].match.kind === "canonical_api_id_equals", "surface-derived gate should use canonical identity");
     assert(
-        inferred.ruleSet.sources[0].calleeScope?.className?.value === "TokenCache",
-        "surface-derived selector should constrain the callee owner through calleeScope",
+        inferred.ruleSet.sources[0].match.value === inferred.ruleSet.sources[0].apiEffect?.canonicalApiId,
+        "surface-derived gate should use the apiEffect canonicalApiId",
     );
+    assert((inferred.ruleSet.sources[0] as any).scope === undefined, "surface-derived gate must not constrain the caller scope");
+    assert((inferred.ruleSet.sources[0] as any).calleeScope === undefined, "surface-derived gate must not carry callee owner runtime scope");
 
     const generatedProjectLowering = lowerRuleAssetsToRuleSet(
         [semanticFlowGeneratedProjectSinkAsset()],
@@ -427,23 +564,20 @@ function main(): void {
         `semanticflow generated project asset should lower cleanly: ${generatedProjectLowering.diagnostics.join("; ")}`,
     );
     const generatedSink = generatedProjectLowering.ruleSet.sinks[0];
-    assert(generatedSink.match.value === "sendTextMessage", "generated project sink should keep exact method name");
+    assert(generatedSink.match.kind === "canonical_api_id_equals", "generated project sink should use canonical identity");
     assert(
-        generatedSink.match.argCount === undefined,
+        generatedSink.match.value === generatedSink.apiEffect?.canonicalApiId,
+        "generated project sink should use the apiEffect canonicalApiId",
+    );
+    assert(
+        (generatedSink.match as any).argCount === undefined,
         "generated project sink should not use declaration argCount as a runtime exact arity guard",
     );
     assert(
-        generatedSink.scope === undefined,
+        (generatedSink as any).scope === undefined,
         "generated project sink should not constrain the caller scope from an invoke surface",
     );
-    assert(
-        generatedSink.calleeScope?.className?.value === "MessageViewModel",
-        "generated project sink should keep exact owner calleeScope",
-    );
-    assert(
-        generatedSink.calleeScope?.file?.value === "ets/viewmodels/MessageViewModel.ets",
-        `generated project sink should keep analyzer-backed callee file scope, got ${generatedSink.calleeScope?.file?.value}`,
-    );
+    assert((generatedSink as any).calleeScope === undefined, "generated project sink should not carry owner/file runtime scope");
 
     const generatedReceiverFieldSinkLowering = lowerRuleAssetsToRuleSet(
         [semanticFlowGeneratedProjectReceiverFieldSinkAsset()],
@@ -454,8 +588,12 @@ function main(): void {
         `semanticflow generated receiver-field sink asset should lower cleanly: ${generatedReceiverFieldSinkLowering.diagnostics.join("; ")}`,
     );
     const generatedReceiverSink = generatedReceiverFieldSinkLowering.ruleSet.sinks[0];
-    assert(generatedReceiverSink.match.value === "_request", "receiver-field project sink should keep exact method name");
-    assert(generatedReceiverSink.calleeScope?.className?.value === "WebDavClient", "receiver-field project sink should keep exact owner calleeScope");
+    assert(generatedReceiverSink.match.kind === "canonical_api_id_equals", "receiver-field project sink should use canonical identity");
+    assert(
+        generatedReceiverSink.match.value === generatedReceiverSink.apiEffect?.canonicalApiId,
+        "receiver-field project sink should use the apiEffect canonicalApiId",
+    );
+    assert((generatedReceiverSink as any).calleeScope === undefined, "receiver-field project sink should not carry owner runtime scope");
     assert(typeof generatedReceiverSink.target === "object", "receiver-field sink target should lower to an endpoint ref");
     assert(generatedReceiverSink.target.endpoint === "base", "receiver-field sink target should lower receiver to base endpoint");
     assert(generatedReceiverSink.target.path?.join(".") === "authHeaders", "receiver-field sink target should preserve accessPath");
@@ -467,8 +605,8 @@ function main(): void {
         provenance: { source: "builtin" },
     } as AssetDocumentBase]);
     assert(
-        officialSurfaceLowering.ruleSet.sinks[0].match.argCount === 4,
-        "official assets should preserve surface argCount in runtime selector",
+        (officialSurfaceLowering.ruleSet.sinks[0].match as any).argCount === undefined,
+        "official assets should not preserve legacy surface argCount in runtime gate",
     );
 
     const generatedComponentSourceLowering = lowerRuleAssetsToRuleSet(
@@ -482,20 +620,34 @@ function main(): void {
     const generatedComponentSource = generatedComponentSourceLowering.ruleSet.sources[0];
     assert(
         generatedComponentSource.match.value.includes("ExternalButton"),
-        "generated component source should keep exact component identity in the runtime selector",
+        "generated component source should keep exact component identity in the runtime gate",
     );
     assert(
-        generatedComponentSource.match.argCount === undefined,
+        (generatedComponentSource.match as any).argCount === undefined,
         "generated component source should not use source surface argCount as a runtime exact arity guard",
     );
     assert(
-        generatedComponentSource.callbackResolution === "known_option",
-        "generated component source should use known-option callback resolution",
+        (generatedComponentSource as any).callbackResolution === undefined,
+        "generated component source should not lower legacy callback resolution fields",
     );
     assert(
-        generatedComponentSource.callbackFieldNames?.[0] === "onBtnClick",
-        "generated component source should preserve callback field endpoint",
+        (generatedComponentSource as any).callbackFieldNames === undefined,
+        "generated component source should not lower legacy callback field selector fields",
     );
+
+    const entryParamLowering = lowerRuleAssetsToRuleSet([entryParamRuleAsset()]);
+    assert(
+        entryParamLowering.diagnostics.length === 0,
+        `entry-param source asset should lower cleanly: ${entryParamLowering.diagnostics.join("; ")}`,
+    );
+    const entryParamSource = entryParamLowering.ruleSet.sources[0];
+    assert(entryParamSource.sourceKind === "entry_param", "entry source kind should be preserved");
+    assert(entryParamSource.match.kind === "canonical_api_id_equals", "entry source should lower to canonical identity");
+    assert(
+        entryParamSource.match.value === entryParamSource.apiEffect?.canonicalApiId,
+        "entry source should bind apiEffect canonical identity",
+    );
+    assert(entryParamSource.target === "arg0", "entry source endpoint should lower to arg0");
 
     console.log("PASS test_rule_asset_lowering");
 }

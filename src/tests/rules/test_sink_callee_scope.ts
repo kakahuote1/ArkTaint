@@ -3,7 +3,18 @@ import { SceneConfig } from "../../../arkanalyzer/out/src/Config";
 import { PagNode } from "../../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
 import { TaintPropagationEngine } from "../../core/orchestration/TaintPropagationEngine";
 import { SinkRule } from "../../core/rules/RuleSchema";
+import { loadRuleSet, type LoadedRuleSet } from "../../core/rules/RuleLoader";
 import * as path from "path";
+import { exactRuleRuntimeFromFixtures, exactSinkRule, type ExactRuleRuntime } from "./ExactRuleTestUtils";
+
+const OFFICIAL_WEBVIEW_RUN_JAVASCRIPT =
+    "api:official:openharmony:module=%40ohos.web.webview:file=api%2F%40ohos.web.webview.d.ts:export=namespace%3Awebview.WebviewController:decl=class%3Awebview.WebviewController:member=method%3Ainstance%3ArunJavaScript:invoke=call:params=0%3Astring:ret=Promise%3Cstring%3E";
+const OFFICIAL_FILE_FS_WRITE_SYNC = [
+    "api:official:openharmony:module=%40ohos.file.fs:file=api%2F%40ohos.file.fs.d.ets:export=default%3AfileIo:decl=namespace%3AfileIo:member=function%3AwriteSync:invoke=call:params=0%3Anumber%2C1%3AArrayBuffer%20%7C%20string%2C2%3A%3F%3AWriteOptions:ret=number",
+    "api:official:openharmony:module=%40ohos.file.fs:file=api%2F%40ohos.file.fs.d.ts:export=default%3AfileIo:decl=function%3AwriteSync:member=function%3AwriteSync:invoke=call:params=0%3Anumber%2C1%3AArrayBuffer%20%7C%20string%2C2%3A%3F%3AWriteOptions:ret=number",
+];
+const OFFICIAL_APPACCOUNT_SET_CREDENTIAL =
+    "api:official:openharmony:module=%40ohos.account.appAccount:file=api%2F%40ohos.account.appAccount.d.ts:export=namespace%3AappAccount.AppAccountManager:decl=interface%3AappAccount.AppAccountManager:member=method%3Ainstance%3AsetCredential:invoke=call:params=0%3Astring%2C1%3Astring%2C2%3Astring:ret=Promise%3Cvoid%3E";
 
 function assert(condition: unknown, message: string): asserts condition {
     if (!condition) throw new Error(message);
@@ -13,6 +24,15 @@ function flowSinkInMethod(scene: Scene, sinkStmt: any, methodName: string): bool
     const method = scene.getMethods().find(m => m.getName() === methodName);
     const cfg = method?.getCfg();
     return !!cfg && cfg.getStmts().includes(sinkStmt);
+}
+
+function findMethod(scene: Scene, methodName: string, signatureHint: string): any {
+    const method = scene.getMethods().find(m =>
+        m.getName?.() === methodName
+        && m.getSignature?.().toString?.().includes(signatureHint)
+    );
+    assert(method, `method not found: ${methodName} (${signatureHint})`);
+    return method;
 }
 
 function findSeedNodes(engine: TaintPropagationEngine, scene: Scene, methodName: string, localName: string): PagNode[] {
@@ -29,11 +49,16 @@ function findSeedNodes(engine: TaintPropagationEngine, scene: Scene, methodName:
     return [];
 }
 
-async function detectCase(scene: Scene, methodName: string, sinkRules: SinkRule[]): Promise<boolean> {
+async function detectCase(
+    scene: Scene,
+    methodName: string,
+    sinkRules: SinkRule[],
+    exactRuntime: ExactRuleRuntime,
+): Promise<boolean> {
     const entryMethod = scene.getMethods().find(m => m.getName() === methodName);
     assert(entryMethod, `entry method not found: ${methodName}`);
 
-    const engine = new TaintPropagationEngine(scene, 1);
+    const engine = new TaintPropagationEngine(scene, 1, exactRuntime);
     engine.verbose = false;
     await engine.buildPAG({
         entryModel: "explicit",
@@ -47,6 +72,28 @@ async function detectCase(scene: Scene, methodName: string, sinkRules: SinkRule[
     return flows.length > 0;
 }
 
+function officialExactRuntime(loaded: LoadedRuleSet): ExactRuleRuntime {
+    return {
+        apiAssets: loaded.assets,
+        canonicalApiRegistry: loaded.canonicalApiRegistry,
+        assetIdentityIndex: loaded.assetIdentityIndex,
+    };
+}
+
+function officialSinkRules(loaded: LoadedRuleSet, canonicalApiIds: readonly string[]): SinkRule[] {
+    const allowed = new Set(canonicalApiIds);
+    const rules = (loaded.ruleSet.sinks || []).filter(rule =>
+        rule.match.kind === "canonical_api_id_equals"
+        && rule.apiEffect?.canonicalApiId
+        && allowed.has(rule.apiEffect.canonicalApiId)
+    );
+    assert(rules.length > 0, `official sink rules not found for: ${canonicalApiIds.join(", ")}`);
+    for (const rule of rules) {
+        assert(rule.match.value === rule.apiEffect?.canonicalApiId, `${rule.id}: match must equal apiEffect canonicalApiId`);
+    }
+    return rules;
+}
+
 async function main(): Promise<void> {
     const sourceDir = path.resolve("tests/demo/sink_callee_scope");
     const sceneConfig = new SceneConfig();
@@ -54,108 +101,27 @@ async function main(): Promise<void> {
     const scene = new Scene();
     scene.buildSceneFromProjectDir(sceneConfig);
     scene.inferTypes();
+    const officialRules = loadRuleSet({ ruleCatalogPath: path.resolve("src/models") });
+    const officialRuntime = officialExactRuntime(officialRules);
 
-    const sinkRules: SinkRule[] = [
-        {
-            id: "sink.test.http_request_scope.arg0",
-            match: {
-                kind: "method_name_equals",
-                value: "request",
-                invokeKind: "instance",
-                argCount: 1,
-            },
-            scope: {
-                className: { mode: "contains", value: "HttpRequestHost" },
-            },
-            target: { endpoint: "arg0" },
-        },
-    ];
+    const httpSink = exactSinkRule({
+        id: "sink.test.http_request_scope.arg0",
+        method: findMethod(scene, "request", "HttpRequestHost"),
+        target: "arg0",
+    });
+    const sinkRules: SinkRule[] = [httpSink.rule];
+    const httpRuntime = exactRuleRuntimeFromFixtures([httpSink]);
 
-    const httpDetected = await detectCase(scene, "http_request_scope_001_T", sinkRules);
-    const lockDetected = await detectCase(scene, "async_lock_request_scope_002_F", sinkRules);
+    const httpDetected = await detectCase(scene, "http_request_scope_001_T", sinkRules, httpRuntime);
+    const lockDetected = await detectCase(scene, "async_lock_request_scope_002_F", sinkRules, httpRuntime);
 
-    const webviewRules: SinkRule[] = [
-        {
-            id: "sink.test.webview_runjs_scope.arg0",
-            match: {
-                kind: "method_name_equals",
-                value: "runJavaScript",
-                invokeKind: "instance",
-                argCount: 1,
-            },
-            scope: {
-                className: { mode: "regex", value: "^(WebController|WebviewController|AtomicServiceWebController)$" },
-            },
-            target: { endpoint: "arg0" },
-        },
-    ];
-    const fileioRules: SinkRule[] = [
-        {
-            id: "sink.test.fileio_write_sync_scope.arg1",
-            match: {
-                kind: "method_name_equals",
-                value: "writeSync",
-                invokeKind: "instance",
-                argCount: 2,
-            },
-            scope: {
-                className: { mode: "regex", value: "(fs|fileio|FileIo)" },
-            },
-            target: { endpoint: "arg1" },
-        },
-    ];
-    const appAccountRules: SinkRule[] = [
-        {
-            id: "sink.test.appaccount_create_account.arg0",
-            match: {
-                kind: "method_name_equals",
-                value: "createAccount",
-                invokeKind: "instance",
-                argCount: 1,
-            },
-            scope: {
-                className: { mode: "regex", value: "(^|[^A-Za-z0-9_$])(AppAccountManager|appAccount|AppAccount)([^A-Za-z0-9_$]|$)" },
-            },
-            target: { endpoint: "arg0" },
-        },
-        {
-            id: "sink.test.appaccount_set_credential.arg2",
-            match: {
-                kind: "method_name_equals",
-                value: "setCredential",
-                invokeKind: "instance",
-                argCount: 3,
-            },
-            scope: {
-                className: { mode: "regex", value: "(^|[^A-Za-z0-9_$])(AppAccountManager|appAccount|AppAccount)([^A-Za-z0-9_$]|$)" },
-            },
-            target: { endpoint: "arg2" },
-        },
-    ];
-    const webviewDetected = await detectCase(scene, "webview_controller_sdk_field_scope_003_T", webviewRules);
-    const fileioDetected = await detectCase(scene, "fileio_write_sync_sdk_import_004_T", fileioRules);
-    const appAccountDetected = await detectCase(scene, "appaccount_manager_sdk_scope_005_T", appAccountRules);
-    const projectAccountDetected = await detectCase(scene, "project_account_manager_scope_006_F", appAccountRules);
-    const callerAndCalleeRules: SinkRule[] = [
-        {
-            id: "sink.test.http_request_with_caller_and_callee_scope.arg0",
-            match: {
-                kind: "method_name_equals",
-                value: "request",
-                invokeKind: "instance",
-                argCount: 1,
-            },
-            scope: {
-                methodName: { mode: "equals", value: "caller_callee_scope_allowed_007_T" },
-            },
-            calleeScope: {
-                className: { mode: "contains", value: "HttpRequestHost" },
-            },
-            target: { endpoint: "arg0" },
-        },
-    ];
-    const callerAndCalleeAllowed = await detectCase(scene, "caller_callee_scope_allowed_007_T", callerAndCalleeRules);
-    const callerAndCalleeRejected = await detectCase(scene, "caller_callee_scope_rejected_008_F", callerAndCalleeRules);
+    const webviewRules = officialSinkRules(officialRules, [OFFICIAL_WEBVIEW_RUN_JAVASCRIPT]);
+    const fileioRules = officialSinkRules(officialRules, OFFICIAL_FILE_FS_WRITE_SYNC);
+    const appAccountRules = officialSinkRules(officialRules, [OFFICIAL_APPACCOUNT_SET_CREDENTIAL]);
+    const webviewDetected = await detectCase(scene, "webview_controller_sdk_field_scope_003_T", webviewRules, officialRuntime);
+    const fileioDetected = await detectCase(scene, "fileio_write_sync_sdk_import_004_T", fileioRules, officialRuntime);
+    const appAccountDetected = await detectCase(scene, "appaccount_manager_sdk_scope_005_T", appAccountRules, officialRuntime);
+    const projectAccountDetected = await detectCase(scene, "project_account_manager_scope_006_F", appAccountRules, officialRuntime);
 
     console.log("====== Sink Callee Scope Test ======");
     console.log(`http_request_detected=${httpDetected}`);
@@ -164,17 +130,13 @@ async function main(): Promise<void> {
     console.log(`fileio_write_sync_detected=${fileioDetected}`);
     console.log(`appaccount_detected=${appAccountDetected}`);
     console.log(`project_account_detected=${projectAccountDetected}`);
-    console.log(`caller_and_callee_allowed_detected=${callerAndCalleeAllowed}`);
-    console.log(`caller_and_callee_rejected_detected=${callerAndCalleeRejected}`);
 
     assert(httpDetected, "expected scoped HTTP request sink to be detected");
     assert(!lockDetected, "expected non-HTTP request method to be rejected by callee scope");
     assert(webviewDetected, "expected SDK field-typed WebviewController.runJavaScript sink to be detected");
-    assert(fileioDetected, "expected SDK import-rooted fileio.writeSync sink to be detected");
-    assert(appAccountDetected, "expected SDK appAccount manager credential sink to be detected");
+    assert(fileioDetected, "expected SDK import-rooted fileIo.writeSync sink to be detected");
+    assert(appAccountDetected, "expected SDK appAccount setCredential sink to be detected");
     assert(!projectAccountDetected, "expected project account manager methods to be rejected by appAccount scope");
-    assert(callerAndCalleeAllowed, "expected sink with matching caller scope and calleeScope to be detected");
-    assert(!callerAndCalleeRejected, "expected sink with non-matching caller scope to be rejected");
 }
 
 main().catch(err => {

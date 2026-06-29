@@ -70,8 +70,8 @@ function main(): void {
         ruleSet: {
             transfers: [],
         },
-        appliedLayerOrder: [],
-        layerStatus: [],
+        appliedRuleSources: [],
+        ruleSourceStatus: [],
     };
 
     writeNoCandidateCallsiteArtifacts(report, outputDir);

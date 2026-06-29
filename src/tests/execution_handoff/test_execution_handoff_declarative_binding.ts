@@ -5,6 +5,7 @@ import {
     ensureDir,
 } from "../helpers/ExecutionHandoffContractSupport";
 import { buildInferenceScene } from "../helpers/ExecutionHandoffInferenceSupport";
+import { detectSinksByExactMethodsForTest } from "../helpers/ExactSinkDetectionTestUtils";
 import {
     buildEngineForCase,
     collectCaseSeedNodes,
@@ -147,7 +148,7 @@ async function main(): Promise<void> {
         });
         assert(seeds.length > 0, `${spec.caseName} should expose source seeds`);
         engine.propagateWithSeeds(seeds);
-        const detected = engine.detectSinks("Sink").length > 0;
+        const detected = detectSinksByExactMethodsForTest(engine, resolveUniqueSinkMethod(scene)).length > 0;
         assert(
             detected === spec.expectedFlow,
             `${spec.caseName} expected flow=${spec.expectedFlow}, got ${detected}`,
@@ -156,6 +157,12 @@ async function main(): Promise<void> {
 
     console.log("execution_handoff_declarative_binding=PASS");
     console.log(`cases=${CASES.length}`);
+}
+
+function resolveUniqueSinkMethod(scene: any): any {
+    const methods = scene.getMethods().filter((method: any) => method.getName?.() === "Sink");
+    assert(methods.length === 1, `expected exactly one Sink method in declarative binding fixture, got ${methods.length}`);
+    return methods[0];
 }
 
 main().catch(err => {

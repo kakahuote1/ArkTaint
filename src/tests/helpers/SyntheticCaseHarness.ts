@@ -4,6 +4,7 @@ import { ArkParameterRef } from "../../../arkanalyzer/out/src/core/base/Ref";
 import { Local } from "../../../arkanalyzer/out/src/core/base/Local";
 import { ArkMethod } from "../../../arkanalyzer/out/src/core/model/ArkMethod";
 import { TaintPropagationEngine, TaintEngineOptions } from "../../core/orchestration/TaintPropagationEngine";
+import type { LoadedRuleSet } from "../../core/rules/RuleLoader";
 
 export interface ResolvedCaseMethod {
     name: string;
@@ -91,6 +92,153 @@ export function findCaseMethod(scene: Scene, entry: ResolvedCaseMethod): ArkMeth
         if (hinted) return hinted;
     }
     return candidates[0];
+}
+
+export function findUniqueMethodSignature(
+    scene: Scene,
+    methodName: string,
+    pathHint?: string,
+): string {
+    const candidates = scene.getMethods()
+        .filter(m => m.getName() === methodName)
+        .filter(m => !pathHint || m.getSignature().toString().replace(/\\/g, "/").includes(pathHint.replace(/\\/g, "/")));
+    if (candidates.length !== 1) {
+        const signatures = candidates.map(m => m.getSignature().toString()).join("; ");
+        throw new Error(`Expected exactly one ${methodName} signature${pathHint ? ` under ${pathHint}` : ""}, got ${candidates.length}: ${signatures}`);
+    }
+    return candidates[0].getSignature().toString();
+}
+
+export function findTaintMockSinkSignature(scene: Scene): string {
+    return findUniqueMethodSignature(scene, "Sink", "taint_mock.ts");
+}
+
+const HARMONY_LIFECYCLE_ENTRY_METHOD_NAMES = new Set([
+    "onCreate",
+    "onDestroy",
+    "onNewWant",
+    "onConnect",
+    "onDisconnect",
+    "onWindowStageCreate",
+    "onWindowStageDestroy",
+    "onForeground",
+    "onBackground",
+    "onAddForm",
+    "onUpdateForm",
+    "onRemoveForm",
+    "onFormEvent",
+    "onAcquireFormState",
+    "onCastToNormalForm",
+    "onRestore",
+    "onBackup",
+    "onSessionCreate",
+    "onWorkStart",
+    "onWorkStop",
+]);
+
+const HARMONY_ABILITY_BASE_CLASS_NAMES = new Set([
+    "Ability",
+    "UIAbility",
+    "UiExtensionAbility",
+    "UIExtensionAbility",
+    "FormExtensionAbility",
+    "ServiceExtensionAbility",
+    "BackupExtensionAbility",
+    "InputMethodExtensionAbility",
+    "WorkSchedulerExtensionAbility",
+    "AbilityStage",
+]);
+
+const HARMONY_PAGE_ENTRY_METHOD_NAMES = new Set([
+    "build",
+    "aboutToAppear",
+    "onPageShow",
+    "onPageHide",
+    "render",
+]);
+
+function normalizeHarmonyClassName(raw: string | undefined): string {
+    return (raw || "").replace(/^@/, "").trim();
+}
+
+function hasHarmonyDecorator(target: any, decoratorName: string): boolean {
+    return Boolean(
+        target?.hasDecorator?.(decoratorName)
+        || (decoratorName === "Component" && target?.hasComponentDecorator?.())
+        || (target?.getDecorators?.() || []).some((decorator: any) => {
+            const kind = normalizeHarmonyClassName(decorator?.getKind?.());
+            return kind === decoratorName;
+        }),
+    );
+}
+
+function isHarmonyAbilityLikeClass(cls: any): boolean {
+    const superClassName = normalizeHarmonyClassName(cls?.getSuperClassName?.());
+    if (HARMONY_ABILITY_BASE_CLASS_NAMES.has(superClassName)) {
+        return true;
+    }
+
+    let current = cls?.getSuperClass?.();
+    while (current) {
+        const currentName = normalizeHarmonyClassName(current?.getName?.());
+        const currentSuper = normalizeHarmonyClassName(current?.getSuperClassName?.());
+        if (HARMONY_ABILITY_BASE_CLASS_NAMES.has(currentName) || HARMONY_ABILITY_BASE_CLASS_NAMES.has(currentSuper)) {
+            return true;
+        }
+        current = current?.getSuperClass?.();
+    }
+    return false;
+}
+
+function isHarmonyPageLikeClass(cls: any, methods: ArkMethod[]): boolean {
+    const methodNames = new Set(methods.map(method => method.getName()));
+    return Boolean(
+        hasHarmonyDecorator(cls, "Entry")
+        || hasHarmonyDecorator(cls, "Component")
+        || methodNames.has("build")
+        || methodNames.has("aboutToAppear")
+        || methodNames.has("onPageShow")
+        || methodNames.has("onPageHide")
+    );
+}
+
+export function collectHarmonyEntrySeedMethods(scene: Scene): ArkMethod[] {
+    const bySignature = new Map<string, ArkMethod>();
+    const add = (method: ArkMethod): void => {
+        const signature = method.getSignature?.()?.toString?.();
+        if (!signature || bySignature.has(signature)) return;
+        bySignature.set(signature, method);
+    };
+
+    for (const cls of scene.getClasses()) {
+        const methods = cls.getMethods?.().filter((method: ArkMethod) => !method.isStatic?.()) || [];
+        if (isHarmonyAbilityLikeClass(cls)) {
+            for (const method of methods) {
+                if (HARMONY_LIFECYCLE_ENTRY_METHOD_NAMES.has(method.getName())) {
+                    add(method);
+                }
+            }
+        }
+        if (isHarmonyPageLikeClass(cls, methods)) {
+            for (const method of methods) {
+                if (HARMONY_PAGE_ENTRY_METHOD_NAMES.has(method.getName())) {
+                    add(method);
+                }
+            }
+        }
+    }
+
+    return [...bySignature.values()];
+}
+
+export function engineOptionsFromLoadedRuleSet(
+    loaded: Pick<LoadedRuleSet, "assets" | "assetIdentityIndex" | "canonicalApiRegistry">,
+): TaintEngineOptions {
+    return {
+        apiAssets: loaded.assets,
+        assetIdentityIndex: loaded.assetIdentityIndex,
+        canonicalApiRegistry: loaded.canonicalApiRegistry,
+    };
 }
 
 export async function buildEngineForCase(

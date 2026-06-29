@@ -22,6 +22,7 @@ import {
     resolveCaseMethod,
 } from "../helpers/SyntheticCaseHarness";
 import { registerMockSdkFiles } from "../helpers/TestSceneBuilder";
+import { detectSinksByExactMethodsForTest } from "../helpers/ExactSinkDetectionTestUtils";
 
 const SOURCE_DIR = path.resolve("tests/demo/algorithm_validation");
 /** Representative mix: straight-line T/F, nested, callback combine. */
@@ -57,8 +58,14 @@ async function runOnce(
     });
     assert(seeds.length > 0, `no taint_src seeds: ${caseName}`);
     engine.propagateWithSeeds(seeds);
-    const sinks = engine.detectSinks("Sink");
+    const sinks = detectSinksByExactMethodsForTest(engine, resolveUniqueSinkMethod(scene));
     return { detected: sinks.length > 0, sinkCount: sinks.length };
+}
+
+function resolveUniqueSinkMethod(scene: Scene): any {
+    const methods = scene.getMethods().filter(method => method.getName?.() === "Sink");
+    assert(methods.length === 1, `expected exactly one Sink method in kernel guard fixture, got ${methods.length}`);
+    return methods[0];
 }
 
 async function assertRepeatable(scene: Scene, caseFile: string): Promise<void> {

@@ -4,11 +4,7 @@ import { Scene } from "../../arkanalyzer/out/src/Scene";
 import { ArkInstanceInvokeExpr, ArkPtrInvokeExpr, ArkStaticInvokeExpr } from "../../arkanalyzer/out/src/core/base/Expr";
 import { LoadedRuleSet } from "../core/rules/RuleLoader";
 import {
-    normalizeEndpoint,
     RuleInvokeKind,
-    RuleMatch,
-    RuleScopeConstraint,
-    RuleStringConstraint,
     SinkRule,
     SourceRule,
     SourceRuleKind,
@@ -25,6 +21,7 @@ import {
     enrichNoCandidateItemsWithCallsiteSlices,
     type NormalizedCallsiteItem,
 } from "../core/model/callsite/callsiteContextSlices";
+import { assertValidCanonicalApiId } from "../core/api/identity";
 
 interface InvokeSiteStat {
     signature: string;
@@ -42,6 +39,7 @@ interface InvokeSiteStat {
 
 interface NoCandidateCallsiteStat {
     callee_signature: string;
+    canonicalApiId?: string;
     method: string;
     invokeKind: RuleInvokeKind;
     argCount: number;
@@ -155,13 +153,14 @@ export function buildRuleFeedback(
     for (const entry of noCandidateEntries) {
         const topEntries = topEntriesBySourceDir.get(entry.sourceDir) || [entry.entryName];
         for (const site of entry.transferProfile.noCandidateCallsites || []) {
-            const key = `${entry.sourceDir}|${site.calleeSignature}|${site.method}|${site.invokeKind}|${site.argCount}|${site.sourceFile}`;
+            const key = `${entry.sourceDir}|${site.canonicalApiId || ""}|${site.calleeSignature}|${site.method}|${site.invokeKind}|${site.argCount}|${site.sourceFile}`;
             const existing = noCandidateAggregate.get(key);
             if (existing) {
                 existing.count += site.count;
             } else {
                 noCandidateAggregate.set(key, {
                     callee_signature: site.calleeSignature,
+                    canonicalApiId: site.canonicalApiId,
                     method: site.method,
                     invokeKind: site.invokeKind,
                     argCount: site.argCount,
@@ -275,8 +274,8 @@ export function buildNoCandidateCallsiteClassificationArtifacts(
     loadedRules: LoadedRuleSet,
 ): NoCandidateCallsiteClassificationArtifacts {
     const baseItems = collectSemanticFlowRuleCandidateItems(report);
-    const kernelTransferRules = loadAppliedKernelTransferRules(loadedRules);
-    const items = baseItems.map(site => classifyNoCandidateCallsite(site, kernelTransferRules));
+    void loadedRules;
+    const items = baseItems.map(site => classifyNoCandidateCallsite(site));
     const categoryCount = items.reduce((acc, item) => {
         acc[item.category] = (acc[item.category] || 0) + 1;
         return acc;
@@ -301,7 +300,7 @@ export function buildNoCandidateCallsiteClassificationArtifacts(
 function collectSemanticFlowRuleCandidateItems(report: AnalyzeReport): NoCandidateCallsiteStat[] {
     const merged = new Map<string, NoCandidateCallsiteStat>();
     const add = (item: NoCandidateCallsiteStat): void => {
-        const key = `${item.callee_signature}|${item.method}|${item.invokeKind}|${item.argCount}|${item.sourceFile}`;
+        const key = `${item.canonicalApiId || ""}|${item.callee_signature}|${item.method}|${item.invokeKind}|${item.argCount}|${item.sourceFile}`;
         const existing = merged.get(key);
         if (existing) {
             existing.count = Math.max(existing.count, item.count);
@@ -310,6 +309,7 @@ function collectSemanticFlowRuleCandidateItems(report: AnalyzeReport): NoCandida
         }
         merged.set(key, {
             callee_signature: item.callee_signature,
+            canonicalApiId: item.canonicalApiId,
             method: item.method,
             invokeKind: item.invokeKind,
             argCount: item.argCount,
@@ -322,6 +322,7 @@ function collectSemanticFlowRuleCandidateItems(report: AnalyzeReport): NoCandida
     for (const item of report.summary.transferProfile.noCandidateCallsites || []) {
         add({
             callee_signature: item.calleeSignature,
+            canonicalApiId: item.canonicalApiId,
             method: item.method,
             invokeKind: item.invokeKind,
             argCount: item.argCount,
@@ -399,49 +400,9 @@ function collectInvokeSiteStatsForSourceDir(scene: Scene, sourceDir: string): Ma
     return stats;
 }
 
-function resolveSourceRuleEndpoint(rule: SourceRule): string {
-    const targetNorm = normalizeEndpoint(rule.target);
-    const endpoint = targetNorm.endpoint;
-    const path = targetNorm.path && targetNorm.path.length > 0
-        ? `.${targetNorm.path.join(".")}`
-        : "";
-    return `${endpoint}${path}`;
-}
-
-function resolveSinkRuleEndpoint(rule: SinkRule): string {
-    if (!rule.target) return "any_arg";
-    const pathNorm = normalizeEndpoint(rule.target);
-    const endpoint = pathNorm.endpoint;
-    const path = pathNorm.path && pathNorm.path.length > 0
-        ? `.${pathNorm.path.join(".")}`
-        : "";
-    return `${endpoint}${path}`;
-}
-
-function resolveTransferRuleEndpoint(rule: TransferRule): string {
-    const fromNorm = normalizeEndpoint(rule.from);
-    const toNorm = normalizeEndpoint(rule.to);
-    const fromEndpoint = fromNorm.endpoint;
-    const toEndpoint = toNorm.endpoint;
-    const fromPath = fromNorm.pathFrom && fromNorm.slotKind
-        ? `[${fromNorm.slotKind}:${fromNorm.pathFrom}]`
-        : "";
-    const toPath = toNorm.pathFrom && toNorm.slotKind
-        ? `[${toNorm.slotKind}:${toNorm.pathFrom}]`
-        : "";
-    return `${fromEndpoint}${fromPath}->${toEndpoint}${toPath}`;
-}
-
 function extractFilePathFromSignature(signature: string): string {
     const m = signature.match(/@([^:>]+):/);
     return m ? m[1].replace(/\\/g, "/") : signature;
-}
-
-function extractDeclaringClassFromMethodSignature(signature: string): string {
-    const openParen = signature.indexOf("(");
-    const methodDot = signature.lastIndexOf(".", openParen >= 0 ? openParen : signature.length);
-    if (methodDot < 0) return signature;
-    return signature.slice(0, methodDot).trim();
 }
 
 function resolveInvokeMethodName(invokeExpr: any, signature: string): string {
@@ -449,67 +410,6 @@ function resolveInvokeMethodName(invokeExpr: any, signature: string): string {
     if (fromSig) return String(fromSig);
     const m = signature.match(/\.([A-Za-z0-9_$]+)\(/);
     return m ? m[1] : "";
-}
-
-function matchStringConstraint(constraint: RuleStringConstraint | undefined, text: string): boolean {
-    if (!constraint) return true;
-    if (constraint.mode === "equals") return text === constraint.value;
-    if (constraint.mode === "contains") return text.includes(constraint.value);
-    try {
-        return new RegExp(constraint.value).test(text);
-    } catch {
-        return false;
-    }
-}
-
-function matchScopeForCallee(scope: RuleScopeConstraint | undefined, site: InvokeSiteStat): boolean {
-    if (!scope) return true;
-    if (!matchStringConstraint(scope.file, site.calleeFilePath)) return false;
-    if (!matchStringConstraint(scope.module, site.signature || site.calleeFilePath)) return false;
-    if (!matchStringConstraint(scope.className, site.calleeClassText)) return false;
-    if (!matchStringConstraint(scope.methodName, site.methodName)) return false;
-    return true;
-}
-
-function matchScopeForCaller(scope: RuleScopeConstraint | undefined, site: InvokeSiteStat): boolean {
-    if (!scope) return true;
-    if (!matchStringConstraint(scope.file, site.callerFilePath)) return false;
-    if (!matchStringConstraint(scope.module, site.callerFilePath || site.callerClassText)) return false;
-    if (!matchStringConstraint(scope.className, site.callerClassText)) return false;
-    if (!matchStringConstraint(scope.methodName, site.callerMethodName)) return false;
-    return true;
-}
-
-function matchInvokeShape(
-    invokeKind: RuleInvokeKind | undefined,
-    argCount: number | undefined,
-    typeHint: string | undefined,
-    site: InvokeSiteStat,
-): boolean {
-    if (invokeKind && invokeKind !== "any" && invokeKind !== site.invokeKind) return false;
-    if (argCount !== undefined && argCount !== site.argCount) return false;
-    if (typeHint && typeHint.trim().length > 0) {
-        const hint = typeHint.trim().toLowerCase();
-        const haystack = `${site.signature} ${site.calleeClassText}`.toLowerCase();
-        if (!haystack.includes(hint)) return false;
-    }
-    return true;
-}
-
-function matchRuleMatch(match: RuleMatch, site: InvokeSiteStat): boolean {
-    const value = match.value || "";
-    switch (match.kind) {
-        case "method_name_equals":
-            return site.methodName === value;
-        case "signature_equals":
-            return site.signature === value;
-        case "declaring_class_equals":
-            return site.calleeClassText === value;
-        case "field_name_equals":
-            return false;
-        default:
-            return false;
-    }
 }
 
 function resolveSourceRuleKind(rule: SourceRule): SourceRuleKind {
@@ -522,21 +422,21 @@ function isSourceCallLikeRule(rule: SourceRule): boolean {
 }
 
 function ruleMatchesInvokeForSourceCoverage(rule: SourceRule, site: InvokeSiteStat): boolean {
-    if (!matchInvokeShape(rule.match.invokeKind, rule.match.argCount, rule.match.typeHint, site)) return false;
-    if (!matchRuleMatch(rule.match, site)) return false;
-    return matchScopeForCaller(rule.scope, site);
+    void rule;
+    void site;
+    return false;
 }
 
 function ruleMatchesInvokeForSinkCoverage(rule: SinkRule, site: InvokeSiteStat): boolean {
-    if (!matchInvokeShape(rule.match.invokeKind, rule.match.argCount, rule.match.typeHint, site)) return false;
-    if (!matchRuleMatch(rule.match, site)) return false;
-    return matchScopeForCallee(rule.scope, site);
+    void rule;
+    void site;
+    return false;
 }
 
 function ruleMatchesInvokeForTransferCoverage(rule: TransferRule, site: InvokeSiteStat): boolean {
-    if (!matchInvokeShape(rule.match.invokeKind, rule.match.argCount, rule.match.typeHint, site)) return false;
-    if (!matchRuleMatch(rule.match, site)) return false;
-    return matchScopeForCallee(rule.scope, site);
+    void rule;
+    void site;
+    return false;
 }
 
 function renderNoCandidateCallsitesMarkdown(items: NoCandidateCallsiteStat[], report: AnalyzeReport): string {
@@ -547,12 +447,12 @@ function renderNoCandidateCallsitesMarkdown(items: NoCandidateCallsiteStat[], re
     lines.push(`- repo: ${report.repo}`);
     lines.push(`- total: ${items.length}`);
     lines.push("");
-    lines.push("| # | callee_signature | method | invokeKind | argCount | sourceFile | count | topEntries |");
-    lines.push("|---|---|---|---|---:|---|---:|---|");
+    lines.push("| # | canonicalApiId | callee_signature | method | invokeKind | argCount | sourceFile | count | topEntries |");
+    lines.push("|---|---|---|---|---|---:|---|---:|---|");
     for (let i = 0; i < items.length; i++) {
         const item = items[i];
         const topEntries = item.topEntries.join("; ");
-        lines.push(`| ${i + 1} | ${item.callee_signature} | ${item.method} | ${item.invokeKind} | ${item.argCount} | ${item.sourceFile} | ${item.count} | ${topEntries} |`);
+        lines.push(`| ${i + 1} | ${item.canonicalApiId || "-"} | ${item.callee_signature} | ${item.method} | ${item.invokeKind} | ${item.argCount} | ${item.sourceFile} | ${item.count} | ${topEntries} |`);
     }
     return `${lines.join("\n")}\n`;
 }
@@ -561,298 +461,33 @@ function resolveRuleFeedbackOutputDir(outputDir: string): string {
     return path.resolve(outputDir, "feedback", "rule_feedback");
 }
 
-function loadAppliedKernelTransferRules(loadedRules: LoadedRuleSet): TransferRule[] {
-    return (loadedRules.ruleSet.transfers || []).filter(rule => rule.enabled !== false && rule.layer === "kernel");
-}
-
-function matchNoCandidateCallsiteToTransferRule(site: NoCandidateCallsiteStat, rule: TransferRule): boolean {
-    const m = rule.match;
-    if (m.invokeKind && m.invokeKind !== "any" && m.invokeKind !== site.invokeKind) return false;
-    if (m.argCount !== undefined && m.argCount !== site.argCount) return false;
-    if (rule.scope) {
-        if (!matchStringConstraint(rule.scope.file, site.sourceFile)) return false;
-        if (!matchStringConstraint(rule.scope.module, site.callee_signature || site.sourceFile)) return false;
-        if (!matchStringConstraint(rule.scope.className, extractDeclaringClassFromMethodSignature(site.callee_signature))) return false;
-        if (!matchStringConstraint(rule.scope.methodName, site.method)) return false;
-    }
-
-    const value = rule.match.value || "";
-    switch (rule.match.kind) {
-        case "method_name_equals":
-            return site.method === value;
-        case "signature_equals":
-            return site.callee_signature === value;
-        case "declaring_class_equals":
-            return extractDeclaringClassFromMethodSignature(site.callee_signature) === value;
-        case "field_name_equals":
-            return false;
-        default:
-            return false;
-    }
-}
-
 function classifyNoCandidateCallsite(
     site: NoCandidateCallsiteStat,
-    kernelTransferRules: TransferRule[],
 ): ClassifiedNoCandidateCallsite {
-    const sigLower = site.callee_signature.toLowerCase();
-    const methodLower = site.method.toLowerCase();
-    const sourceLower = site.sourceFile.toLowerCase();
-
-    if (isNonTransferProjectHelper(site, sigLower, methodLower, sourceLower)) {
+    if (!site.canonicalApiId) {
         return {
             ...site,
-            category: "C0_NON_TRANSFER_HELPER",
-            reason: "Callsite is a project helper without argument-to-result transfer semantics and is excluded from LLM modeling.",
+            category: "C3_FRAMEWORK_GAP",
+            reason: "Callsite has no accepted canonicalApiId and is retained as an unresolved identity gap.",
             evidence: [
-                `method=${site.method}`,
+                `identityStatus=unresolved`,
+                `calleeSignature=${site.callee_signature}`,
                 `invokeKind=${site.invokeKind}`,
                 `argCount=${site.argCount}`,
                 `sourceFile=${site.sourceFile}`,
             ],
-        };
-    }
-
-    if (isArkUiAttributeNoise(site, sigLower, methodLower)) {
-        return {
-            ...site,
-            category: "C1_UI_NOISE",
-            reason: "Callsite is an ArkUI attribute/builder helper and is excluded from LLM modeling.",
-            evidence: [
-                `method=${site.method}`,
-                `signature=${site.callee_signature}`,
-                `sourceFile=${site.sourceFile}`,
-            ],
-        };
-    }
-
-    const uiNoiseMethods = new Set([
-        "observecomponentcreation2",
-        "ifelsebranchupdatefunction",
-        "foreachupdatefunction",
-        "updatestatevarsofchildbyelmtid",
-        "initialrender",
-        "rerender",
-        "finalizeconstruction",
-    ]);
-    const uiNoiseByMethod = uiNoiseMethods.has(methodLower);
-    const uiNoiseBySignature = sigLower.includes("arkui")
-        || sigLower.includes("component")
-        || sigLower.includes("builder");
-    const uiNoiseBySource = sourceLower.includes("/pages/")
-        || sourceLower.includes("/view/")
-        || sourceLower.includes(".ets");
-    const isUiNoise = uiNoiseByMethod || ((methodLower === "create" || methodLower === "pop") && uiNoiseBySignature && uiNoiseBySource);
-
-    if (isUiNoise) {
-        return {
-            ...site,
-            category: "C1_UI_NOISE",
-            reason: "Callsite matches UI construction noise and is downgraded at report layer.",
-            evidence: [
-                `method=${site.method}`,
-                `signature=${site.callee_signature}`,
-                `sourceFile=${site.sourceFile}`,
-            ],
-        };
-    }
-
-    if (site.callee_signature.includes("@%unk/%unk:")) {
-        return {
-            ...site,
-            category: "C3_FRAMEWORK_GAP",
-            reason: "Callsite hits @%unk/%unk unresolved signature and is classified as a framework gap.",
-            evidence: [
-                `callee_signature=${site.callee_signature}`,
-                `invokeKind=${site.invokeKind}`,
-                `argCount=${site.argCount}`,
-            ],
-        };
-    }
-
-    const matchedFrameworkRules = kernelTransferRules
-        .filter(rule => matchNoCandidateCallsiteToTransferRule(site, rule))
-        .slice(0, 3)
-        .map(rule => rule.id);
-    if (matchedFrameworkRules.length > 0) {
-        return {
-            ...site,
-            category: "C3_FRAMEWORK_GAP",
-            reason: "Callsite is close to existing framework transfer rules and is classified as a framework gap.",
-            evidence: matchedFrameworkRules.map(id => `matched_framework_rule=${id}`),
         };
     }
 
     return {
         ...site,
         category: "C2_API_MODELING_CANDIDATE",
-        reason: "Callsite matches neither non-transfer helper nor framework-gap traits and is retained as a neutral API modeling candidate.",
+        reason: "Callsite has an exact canonicalApiId but no applicable semantic effect, so it is retained as an API modeling candidate.",
         evidence: [
-            `method=${site.method}`,
+            `canonicalApiId=${site.canonicalApiId}`,
             `sourceFile=${site.sourceFile}`,
         ],
     };
-}
-
-function isNonTransferProjectHelper(
-    site: NoCandidateCallsiteStat,
-    sigLower: string,
-    methodLower: string,
-    sourceLower: string,
-): boolean {
-    if (isBuiltinHelperSurface(site, sigLower, sourceLower)) {
-        return true;
-    }
-    if (isInternalNavigationControlSurface(site, sigLower, methodLower, sourceLower)) {
-        return true;
-    }
-    if (isPageActionOrValidationHelper(site, sigLower, methodLower, sourceLower)) {
-        return true;
-    }
-    if (methodLower === "constructor" || methodLower.includes("instinit")) {
-        return true;
-    }
-    if (methodLower.startsWith("%") && !isProjectApiWrapperSurface(site, sigLower) && !isProjectModelMapperSurface(site, sigLower)) {
-        return true;
-    }
-    if (isPageOrComponentGetter(site, sigLower, methodLower)) {
-        return true;
-    }
-    if (site.invokeKind !== "static" || site.argCount !== 0) {
-        return false;
-    }
-    const singletonAccessors = new Set([
-        "shared",
-        "getcontext",
-        "getinstance",
-        "sharedinstance",
-        "getsharedinstance",
-    ]);
-    if (!singletonAccessors.has(methodLower)) {
-        return false;
-    }
-    return sigLower.includes(".[static]") || sigLower.includes("[static]");
-}
-
-function isBuiltinHelperSurface(site: NoCandidateCallsiteStat, sigLower: string, sourceLower: string): boolean {
-    const source = sourceLower.replace(/\\/g, "/");
-    return source.includes("builtinclass")
-        || sigLower.includes("/builtinclass")
-        || sigLower.includes("@es2015/")
-        || sigLower.includes("@es202");
-}
-
-function isInternalNavigationControlSurface(
-    site: NoCandidateCallsiteStat,
-    sigLower: string,
-    methodLower: string,
-    sourceLower: string,
-): boolean {
-    const source = sourceLower.replace(/\\/g, "/");
-    if (!/(router|route|navigation|navigator|nav)/.test(sigLower) && !/(router|route|navigation|navigator|nav)/.test(source)) {
-        return false;
-    }
-    if (!/^(push|pushasync|replace|replaceasync|pop|back|go|forward|redirect|route|navigate|navto)$/.test(methodLower)) {
-        return false;
-    }
-    return site.argCount <= 3;
-}
-
-function isPageActionOrValidationHelper(
-    site: NoCandidateCallsiteStat,
-    sigLower: string,
-    methodLower: string,
-    sourceLower: string,
-): boolean {
-    const source = sourceLower.replace(/\\/g, "/");
-    if (!/\/(pages?|components?|views?)\//.test(source) && !/\/(pages?|components?|views?)\//.test(sigLower)) {
-        return false;
-    }
-    if (isProjectApiWrapperSurface(site, sigLower) || isProjectModelMapperSurface(site, sigLower)) {
-        return false;
-    }
-    if (site.argCount > 4 && !/builder$/.test(methodLower)) {
-        return false;
-    }
-    return /^(check|is|has|validate|get|back|scroll|header|footer|tab|render|build|layout|item|login|register|update|change|pick|select|open|close|confirm|cancel|save|set)[a-z0-9_$]*/.test(methodLower)
-        || /(layout|builder|component|cell)$/.test(methodLower);
-}
-
-function isProjectApiWrapperSurface(site: NoCandidateCallsiteStat, sigLower: string): boolean {
-    if (site.argCount <= 0) {
-        return false;
-    }
-    const sourceLower = site.sourceFile.toLowerCase().replace(/\\/g, "/");
-    const apiLikePath = /(^|\/)(api|apis|service|services|network|net|request|requests|client|clients|repository|repositories)(\/|$)/;
-    if (apiLikePath.test(sourceLower) || apiLikePath.test(sigLower)) {
-        return true;
-    }
-    return /\b(api|http|request|client|service|repository)\b/.test(sourceLower);
-}
-
-function isProjectModelMapperSurface(site: NoCandidateCallsiteStat, sigLower: string): boolean {
-    if (site.argCount <= 0) {
-        return false;
-    }
-    const sourceLower = site.sourceFile.toLowerCase().replace(/\\/g, "/");
-    if (!/(^|\/)(model|models|entity|entities|dto|dtos)(\/|$)/.test(sourceLower)
-        && !/(^|\/)(model|models|entity|entities|dto|dtos)(\/|$)/.test(sigLower)) {
-        return false;
-    }
-    return /\b(partial<|irecord|iuser|dto|json|model)\b/.test(sigLower)
-        || /^%am\d+/i.test(site.method);
-}
-
-function isPageOrComponentGetter(
-    site: NoCandidateCallsiteStat,
-    sigLower: string,
-    methodLower: string,
-): boolean {
-    const uiHelperMethods = new Set([
-        "collecticon",
-        "getpage",
-        "getrightitems",
-        "routesaction",
-        "shareaction",
-        "tabbaritem",
-    ]);
-    if (uiHelperMethods.has(methodLower) && site.argCount <= 1) {
-        return true;
-    }
-    if (site.argCount !== 0) {
-        return false;
-    }
-    if (!/\/(pages|page|components|component|view)\//.test(sigLower)) {
-        return false;
-    }
-    if (/^(get|is|has)[a-z0-9_$]*/.test(methodLower)) {
-        return true;
-    }
-    return false;
-}
-
-function isArkUiAttributeNoise(
-    site: NoCandidateCallsiteStat,
-    sigLower: string,
-    methodLower: string,
-): boolean {
-    if (!sigLower.includes("arkui-builtin") && !sigLower.includes("commonattribute")) {
-        return false;
-    }
-    const uiAttributeMethods = new Set([
-        "title",
-        "height",
-        "width",
-        "fontcolor",
-        "fontsize",
-        "backgroundcolor",
-        "margin",
-        "padding",
-        "align",
-        "layoutweight",
-        "visibility",
-    ]);
-    return uiAttributeMethods.has(methodLower) || site.sourceFile.toLowerCase().includes("arkui-builtin");
 }
 
 function renderNoCandidateCallsitesClassifiedMarkdown(
@@ -868,44 +503,20 @@ function renderNoCandidateCallsitesClassifiedMarkdown(
     lines.push(`- total: ${items.length}`);
     lines.push(`- categoryCount: ${JSON.stringify(categoryCount)}`);
     lines.push("");
-    lines.push("| # | category | callee_signature | method | invokeKind | argCount | sourceFile | count | reason | evidence |");
-    lines.push("|---|---|---|---|---|---:|---|---:|---|---|");
+    lines.push("| # | category | canonicalApiId | callee_signature | method | invokeKind | argCount | sourceFile | count | reason | evidence |");
+    lines.push("|---|---|---|---|---|---|---:|---|---:|---|---|");
     for (let i = 0; i < items.length; i++) {
         const item = items[i];
         const evidence = item.evidence.join("; ");
-        lines.push(`| ${i + 1} | ${item.category} | ${item.callee_signature} | ${item.method} | ${item.invokeKind} | ${item.argCount} | ${item.sourceFile} | ${item.count} | ${item.reason} | ${evidence} |`);
+        lines.push(`| ${i + 1} | ${item.category} | ${item.canonicalApiId || "-"} | ${item.callee_signature} | ${item.method} | ${item.invokeKind} | ${item.argCount} | ${item.sourceFile} | ${item.count} | ${item.reason} | ${evidence} |`);
     }
     return `${lines.join("\n")}\n`;
 }
 
 function buildApiModelingCandidatePool(items: ClassifiedNoCandidateCallsite[]): ClassifiedNoCandidateCallsite[] {
     return items
-        .filter(item => item.category === "C2_API_MODELING_CANDIDATE" || isUnresolvedModelableSurfaceCandidate(item))
-        .sort((a, b) => b.count - a.count || a.callee_signature.localeCompare(b.callee_signature));
-}
-
-function isUnresolvedModelableSurfaceCandidate(item: ClassifiedNoCandidateCallsite): boolean {
-    if (item.category !== "C3_FRAMEWORK_GAP") {
-        return false;
-    }
-    const sig = item.callee_signature.toLowerCase();
-    if (!sig.includes("@%unk/%unk:")) {
-        return false;
-    }
-    if (!/[a-z][a-z0-9_$]*\.[a-z_][a-z0-9_$]*\./i.test(item.callee_signature)) {
-        return false;
-    }
-    const method = item.method.toLowerCase();
-    const lowValueMethods = new Set([
-        "next",
-        "foreach",
-        "indexof",
-        "includes",
-        "symbol.iterator",
-        "gettime",
-        "create",
-    ]);
-    return !lowValueMethods.has(method);
+        .filter(item => item.category === "C2_API_MODELING_CANDIDATE" && !!item.canonicalApiId)
+        .sort((a, b) => b.count - a.count || String(a.canonicalApiId || "").localeCompare(String(b.canonicalApiId || "")));
 }
 
 function buildRecalledApiModelingCandidates(report: AnalyzeReport): ClassifiedNoCandidateCallsite[] {
@@ -915,7 +526,9 @@ function buildRecalledApiModelingCandidates(report: AnalyzeReport): ClassifiedNo
     const apiSurfaceCandidates = discoverApiSurfaceModelingCandidates(report.repo, report.sourceDirs || [], {
         maxCandidates: Number.MAX_SAFE_INTEGER,
     });
-    return [...callbackCandidates, ...apiSurfaceCandidates].map(candidate => toRecalledClassifiedCandidate(candidate));
+    return [...callbackCandidates, ...apiSurfaceCandidates]
+        .filter(hasExactCandidateIdentity)
+        .map(candidate => toRecalledClassifiedCandidate(candidate));
 }
 
 function toRecalledClassifiedCandidate(candidate: NormalizedCallsiteItem): ClassifiedNoCandidateCallsite {
@@ -942,9 +555,10 @@ function toRecalledClassifiedCandidate(candidate: NormalizedCallsiteItem): Class
         count: candidate.count || 1,
         topEntries: candidate.topEntries || [],
         category: "C2_API_MODELING_CANDIDATE",
-        reason: "API/callback surface recalled before taint seeds exist; retained as a neutral LLM modeling candidate.",
+        reason: "API/callback surface has an exact canonicalApiId and is retained as an LLM modeling candidate.",
         evidence: [
             `origin=${origin}`,
+            `canonicalApiId=${candidate.canonicalApiId}`,
             ...(semanticFocus ? [`semanticFocus=${semanticFocus}`] : []),
             ...(callbackProperties.length > 0 ? [`callbacks=${callbackProperties.join(",")}`] : []),
             ...(importSource ? [`importSource=${importSource}`] : []),
@@ -960,10 +574,13 @@ function mergeApiModelingCandidatePools(
 ): ClassifiedNoCandidateCallsite[] {
     const merged = new Map<string, ClassifiedNoCandidateCallsite>();
     const add = (item: ClassifiedNoCandidateCallsite): void => {
+        if (!item.canonicalApiId) {
+            return;
+        }
         const semanticFocus = typeof (item as any).semanticFocus === "string"
             ? String((item as any).semanticFocus).trim()
             : "";
-        const key = `${item.callee_signature}|${item.method}|${item.invokeKind}|${item.argCount}|${item.sourceFile}|${semanticFocus}`;
+        const key = `${item.canonicalApiId}|${semanticFocus}`;
         const existing = merged.get(key);
         if (existing) {
             existing.count = Math.max(existing.count, item.count);
@@ -976,7 +593,7 @@ function mergeApiModelingCandidatePools(
     primary.forEach(add);
     recalled.forEach(add);
     return [...merged.values()]
-        .sort((a, b) => b.count - a.count || a.callee_signature.localeCompare(b.callee_signature))
+        .sort((a, b) => b.count - a.count || String(a.canonicalApiId || "").localeCompare(String(b.canonicalApiId || "")))
         .slice(0, 200);
 }
 
@@ -1008,14 +625,27 @@ function renderApiModelingCandidatesMarkdown(
     lines.push(`- generatedAt: ${report.generatedAt}`);
     lines.push(`- repo: ${report.repo}`);
     lines.push(`- total: ${items.length}`);
-    lines.push(`- policy: include_neutral_api_modeling_surfaces_and_selected_external_sdk_gaps`);
+    lines.push(`- policy: exact_canonical_api_id_only`);
     lines.push("");
-    lines.push("| # | callee_signature | method | invokeKind | argCount | sourceFile | count | reason | evidence |");
-    lines.push("|---|---|---|---|---:|---|---:|---|---|");
+    lines.push("| # | canonicalApiId | callee_signature | method | invokeKind | argCount | sourceFile | count | reason | evidence |");
+    lines.push("|---|---|---|---|---|---:|---|---:|---|---|");
     for (let i = 0; i < items.length; i++) {
         const item = items[i];
         const evidence = item.evidence.join("; ");
-        lines.push(`| ${i + 1} | ${item.callee_signature} | ${item.method} | ${item.invokeKind} | ${item.argCount} | ${item.sourceFile} | ${item.count} | ${item.reason} | ${evidence} |`);
+        lines.push(`| ${i + 1} | ${item.canonicalApiId || "-"} | ${item.callee_signature} | ${item.method} | ${item.invokeKind} | ${item.argCount} | ${item.sourceFile} | ${item.count} | ${item.reason} | ${evidence} |`);
     }
     return `${lines.join("\n")}\n`;
+}
+
+function hasExactCandidateIdentity(candidate: NormalizedCallsiteItem): boolean {
+    const canonicalApiId = String((candidate as any).canonicalApiId || "").trim();
+    if (!canonicalApiId) {
+        return false;
+    }
+    try {
+        assertValidCanonicalApiId(canonicalApiId);
+        return true;
+    } catch {
+        return false;
+    }
 }

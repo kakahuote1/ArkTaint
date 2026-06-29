@@ -76,6 +76,11 @@ const VALID_HANDOFF_EFFECT_KINDS = new Set([
     "kill",
 ]);
 
+const VALID_KEYED_STORAGE_UPDATE_STRENGTHS = new Set([
+    "strong",
+    "weak",
+]);
+
 const VALID_CONTAINER_FAMILIES = new Set([
     "array",
     "map",
@@ -272,39 +277,109 @@ function validateFieldPathSpec(value: unknown, path: string, collector: Validati
 }
 
 function validateInvokeSelector(value: Record<string, unknown>, path: string, collector: ValidationCollector): void {
-    if (value.modulePath !== undefined) validateString(value.modulePath, `${path}.modulePath`, collector);
-    if (value.methodName !== undefined) validateString(value.methodName, `${path}.methodName`, collector);
-    if (value.declaringClassName !== undefined) validateString(value.declaringClassName, `${path}.declaringClassName`, collector);
-    if (value.declaringClassIncludes !== undefined) validateString(value.declaringClassIncludes, `${path}.declaringClassIncludes`, collector);
-    if (value.signature !== undefined) validateString(value.signature, `${path}.signature`, collector);
-    if (value.signatureIncludes !== undefined) validateString(value.signatureIncludes, `${path}.signatureIncludes`, collector);
-    if (value.argCount !== undefined) validateInteger(value.argCount, `${path}.argCount`, collector);
-    if (value.minArgs !== undefined) validateInteger(value.minArgs, `${path}.minArgs`, collector);
-    if (value.instanceOnly !== undefined) validateBoolean(value.instanceOnly, `${path}.instanceOnly`, collector);
-    if (value.staticOnly !== undefined) validateBoolean(value.staticOnly, `${path}.staticOnly`, collector);
+    validateStringEnum(value.surfaceKind, new Set(["invoke"]), `${path}.surfaceKind`, collector);
+    validateString(value.canonicalApiId, `${path}.canonicalApiId`, collector);
+    rejectLegacyCallSelectorFields(value, path, collector);
+}
+
+function validateConstructSelector(value: Record<string, unknown>, path: string, collector: ValidationCollector): void {
+    validateStringEnum(value.surfaceKind, new Set(["construct"]), `${path}.surfaceKind`, collector);
+    validateString(value.canonicalApiId, `${path}.canonicalApiId`, collector);
+    rejectLegacyCallSelectorFields(value, path, collector);
+}
+
+function validateCallSurfaceSelector(value: Record<string, unknown>, path: string, collector: ValidationCollector): void {
+    if (value.surfaceKind === "construct") {
+        validateConstructSelector(value, path, collector);
+        return;
+    }
+    validateInvokeSelector(value, path, collector);
+}
+
+function rejectLegacyCallSelectorFields(
+    value: Record<string, unknown>,
+    path: string,
+    collector: ValidationCollector,
+): void {
+    for (const fieldName of [
+        "canonicalApiIds",
+        "modulePath",
+        "methodName",
+        "declaringClassName",
+        "baseLocalName",
+        "baseLocalNames",
+        "signature",
+        "argCount",
+        "instanceOnly",
+        "staticOnly",
+        "className",
+        "declaringClassIncludes",
+        "signatureIncludes",
+        "minArgs",
+    ]) {
+        rejectUnsupportedSelectorField(value, fieldName, path, collector);
+    }
 }
 
 function validateMethodSelector(value: Record<string, unknown>, path: string, collector: ValidationCollector): void {
-    if (value.methodSignature !== undefined) validateString(value.methodSignature, `${path}.methodSignature`, collector);
-    if (value.methodName !== undefined) validateString(value.methodName, `${path}.methodName`, collector);
-    if (value.declaringClassName !== undefined) validateString(value.declaringClassName, `${path}.declaringClassName`, collector);
-    if (value.declaringClassIncludes !== undefined) validateString(value.declaringClassIncludes, `${path}.declaringClassIncludes`, collector);
+    validateString(value.methodSignature, `${path}.methodSignature`, collector);
+    rejectUnsupportedSelectorField(value, "methodName", path, collector);
+    rejectUnsupportedSelectorField(value, "declaringClassName", path, collector);
+    rejectUnsupportedSelectorField(value, "declaringClassIncludes", path, collector);
 }
 
 function validateDecoratedFieldSelector(value: Record<string, unknown>, path: string, collector: ValidationCollector): void {
     if (value.className !== undefined) validateString(value.className, `${path}.className`, collector);
-    if (value.classNameIncludes !== undefined) validateString(value.classNameIncludes, `${path}.classNameIncludes`, collector);
+    rejectUnsupportedSelectorField(value, "classNameIncludes", path, collector);
     if (value.fieldName !== undefined) validateString(value.fieldName, `${path}.fieldName`, collector);
     if (value.fieldSignature !== undefined) validateString(value.fieldSignature, `${path}.fieldSignature`, collector);
-    if (value.decoratorKind !== undefined) validateString(value.decoratorKind, `${path}.decoratorKind`, collector);
-    if (value.decoratorKinds !== undefined) validateStringArray(value.decoratorKinds, `${path}.decoratorKinds`, collector);
-    if (value.decoratorParam !== undefined) validateString(value.decoratorParam, `${path}.decoratorParam`, collector);
-    if (value.decoratorParams !== undefined) validateStringArray(value.decoratorParams, `${path}.decoratorParams`, collector);
+    validateDecoratorCanonicalSelector(value, path, collector);
+    rejectUnsupportedSelectorField(value, "decoratorKind", path, collector);
+    rejectUnsupportedSelectorField(value, "decoratorKinds", path, collector);
+    rejectUnsupportedSelectorField(value, "decoratorParam", path, collector);
+    rejectUnsupportedSelectorField(value, "decoratorParams", path, collector);
+}
+
+function validateDecoratorCanonicalSelector(
+    value: Record<string, unknown>,
+    path: string,
+    collector: ValidationCollector,
+): void {
+    let hasSelector = false;
+    if (value.decoratorCanonicalApiId !== undefined) {
+        hasSelector = validateString(value.decoratorCanonicalApiId, `${path}.decoratorCanonicalApiId`, collector) || hasSelector;
+    }
+    if (value.decoratorCanonicalApiIds !== undefined) {
+        if (validateStringArray(value.decoratorCanonicalApiIds, `${path}.decoratorCanonicalApiIds`, collector)
+            && (value.decoratorCanonicalApiIds as string[]).length > 0) {
+            hasSelector = true;
+        } else if (Array.isArray(value.decoratorCanonicalApiIds) && value.decoratorCanonicalApiIds.length === 0) {
+            collector.add(`${path}.decoratorCanonicalApiIds`, "must contain at least one accepted decorator canonicalApiId", value.decoratorCanonicalApiIds);
+        }
+    }
+    if (!hasSelector) {
+        collector.add(path, "must include decoratorCanonicalApiId or decoratorCanonicalApiIds from accepted decorator occurrences");
+    }
+}
+
+function rejectUnsupportedSelectorField(
+    value: Record<string, unknown>,
+    fieldName: string,
+    path: string,
+    collector: ValidationCollector,
+): void {
+    if (value[fieldName] === undefined) return;
+    collector.add(
+        `${path}.${fieldName}`,
+        "is not supported in formal module assets; use exact API identity fields",
+        value[fieldName],
+    );
 }
 
 function validateSurfaceRef(value: unknown, path: string, collector: ValidationCollector): boolean {
     if (typeof value === "string") {
-        return validateString(value, path, collector);
+        collector.add(path, "must reference an exact surface object, not a legacy string selector", value);
+        return false;
     }
     if (!isRecord(value)) {
         collector.add(path, "must be an object", value);
@@ -356,6 +431,7 @@ function validateEndpoint(value: unknown, path: string, collector: ValidationCol
     switch (value.slot) {
         case "arg":
             validateInteger(value.index, `${path}.index`, collector);
+            if (value.rest !== undefined) validateBoolean(value.rest, `${path}.rest`, collector);
             if (!isInvokeSurfaceLike(value.surface)) {
                 collector.add(`${path}.surface.kind`, "must be \"invoke\" when slot is \"arg\"", isRecord(value.surface) ? value.surface.kind : value.surface);
             }
@@ -369,6 +445,7 @@ function validateEndpoint(value: unknown, path: string, collector: ValidationCol
         case "callback_param":
             if (value.callbackArgIndex !== undefined) validateInteger(value.callbackArgIndex, `${path}.callbackArgIndex`, collector);
             if (value.paramIndex !== undefined) validateInteger(value.paramIndex, `${path}.paramIndex`, collector);
+            if (value.rest !== undefined) validateBoolean(value.rest, `${path}.rest`, collector);
             if (!isInvokeSurfaceLike(value.surface)) {
                 collector.add(`${path}.surface.kind`, "must be \"invoke\" when slot is \"callback_param\"", isRecord(value.surface) ? value.surface.kind : value.surface);
             }
@@ -442,7 +519,7 @@ function validateHandoffEffectSpec(value: unknown, path: string, collector: Vali
     if (!isRecord(value.surface)) {
         collector.add(`${path}.surface`, "must be an object", value.surface);
     } else {
-        validateInvokeSelector(value.surface, `${path}.surface`, collector);
+        validateCallSurfaceSelector(value.surface, `${path}.surface`, collector);
     }
     validateHandoffHandleLike(value.handle, `${path}.handle`, collector);
     if (value.value !== undefined) validateAssetEndpointLike(value.value, `${path}.value`, collector);
@@ -475,7 +552,7 @@ function validateAddress(value: unknown, path: string, collector: ValidationColl
                 "decorator_param",
                 "decorator_param_or_field_name",
             ]), `${path}.source`, collector);
-            if (value.decoratorKind !== undefined) validateString(value.decoratorKind, `${path}.decoratorKind`, collector);
+            rejectUnsupportedSelectorField(value, "decoratorKind", path, collector);
             return true;
         default:
             collector.add(`${path}.kind`, "must be one of: \"literal\", \"endpoint\", \"decorated_field_meta\"", value.kind);
@@ -644,33 +721,26 @@ function validateSemantic(value: unknown, path: string, collector: ValidationCol
                     value.capabilities.forEach((capability, index) => validateStringEnum(capability, VALID_CONTAINER_CAPABILITIES, `${path}.capabilities[${index}]`, collector));
                 }
             }
+            validateStringArray(value.mutationCanonicalApiIds, `${path}.mutationCanonicalApiIds`, collector);
+            validateStringArray(value.accessCanonicalApiIds, `${path}.accessCanonicalApiIds`, collector);
             return true;
         case "ability_handoff":
-            validateStringArray(value.startMethods, `${path}.startMethods`, collector);
-            validateStringArray(value.targetMethods, `${path}.targetMethods`, collector);
+            validateStringArray(value.startCanonicalApiIds, `${path}.startCanonicalApiIds`, collector);
+            validateStringArray(value.targetCanonicalApiIds, `${path}.targetCanonicalApiIds`, collector);
             return true;
         case "keyed_storage":
-            validateStringArray(value.storageClasses, `${path}.storageClasses`, collector);
-            if (!Array.isArray(value.writeMethods)) {
-                collector.add(`${path}.writeMethods`, "must be an array", value.writeMethods);
-            } else {
-                value.writeMethods.forEach((writeMethod, index) => {
-                    if (!isRecord(writeMethod)) {
-                        collector.add(`${path}.writeMethods[${index}]`, "must be an object", writeMethod);
-                        return;
-                    }
-                    validateString(writeMethod.methodName, `${path}.writeMethods[${index}].methodName`, collector);
-                    validateInteger(writeMethod.valueIndex, `${path}.writeMethods[${index}].valueIndex`, collector);
-                });
+            validateKeyedStorageWriteApis(value.writeApis, `${path}.writeApis`, collector);
+            if (value.writeResultApis !== undefined) {
+                validateKeyedStorageWriteApis(value.writeResultApis, `${path}.writeResultApis`, collector);
             }
-            validateStringArray(value.readMethods, `${path}.readMethods`, collector);
-            if (value.killMethods !== undefined) validateStringArray(value.killMethods, `${path}.killMethods`, collector);
-            if (value.propDecorators !== undefined) validateStringArray(value.propDecorators, `${path}.propDecorators`, collector);
-            if (value.linkDecorators !== undefined) validateStringArray(value.linkDecorators, `${path}.linkDecorators`, collector);
+            validateStringArray(value.readCanonicalApiIds, `${path}.readCanonicalApiIds`, collector);
+            if (value.killCanonicalApiIds !== undefined) validateStringArray(value.killCanonicalApiIds, `${path}.killCanonicalApiIds`, collector);
+            if (value.propDecoratorCanonicalApiIds !== undefined) validateStringArray(value.propDecoratorCanonicalApiIds, `${path}.propDecoratorCanonicalApiIds`, collector);
+            if (value.linkDecoratorCanonicalApiIds !== undefined) validateStringArray(value.linkDecoratorCanonicalApiIds, `${path}.linkDecoratorCanonicalApiIds`, collector);
             return true;
         case "event_emitter":
-            if (value.onMethods !== undefined) validateStringArray(value.onMethods, `${path}.onMethods`, collector);
-            if (value.emitMethods !== undefined) validateStringArray(value.emitMethods, `${path}.emitMethods`, collector);
+            validateStringArray(value.onCanonicalApiIds, `${path}.onCanonicalApiIds`, collector);
+            validateStringArray(value.emitCanonicalApiIds, `${path}.emitCanonicalApiIds`, collector);
             if (value.channelArgIndexes !== undefined) {
                 if (!Array.isArray(value.channelArgIndexes)) {
                     collector.add(`${path}.channelArgIndexes`, "must be an array", value.channelArgIndexes);
@@ -684,34 +754,93 @@ function validateSemantic(value: unknown, path: string, collector: ValidationCol
             if (value.maxCandidates !== undefined) validateInteger(value.maxCandidates, `${path}.maxCandidates`, collector);
             return true;
         case "route_bridge":
-            if (!Array.isArray(value.pushMethods)) {
-                collector.add(`${path}.pushMethods`, "must be an array", value.pushMethods);
+            if (!Array.isArray(value.pushApis)) {
+                collector.add(`${path}.pushApis`, "must be an array", value.pushApis);
             } else {
-                value.pushMethods.forEach((pushMethod, index) => {
-                    if (!isRecord(pushMethod)) {
-                        collector.add(`${path}.pushMethods[${index}]`, "must be an object", pushMethod);
+                value.pushApis.forEach((pushApi, index) => {
+                    if (!isRecord(pushApi)) {
+                        collector.add(`${path}.pushApis[${index}]`, "must be an object", pushApi);
                         return;
                     }
-                    validateString(pushMethod.methodName, `${path}.pushMethods[${index}].methodName`, collector);
-                    if (pushMethod.routeField !== undefined) validateString(pushMethod.routeField, `${path}.pushMethods[${index}].routeField`, collector);
+                    validateStringArray(pushApi.canonicalApiIds, `${path}.pushApis[${index}].canonicalApiIds`, collector);
+                    if (pushApi.routeField !== undefined) validateString(pushApi.routeField, `${path}.pushApis[${index}].routeField`, collector);
+                    if (pushApi.routeArgIndex !== undefined) validateInteger(pushApi.routeArgIndex, `${path}.pushApis[${index}].routeArgIndex`, collector);
+                    if (pushApi.payloadArgIndex !== undefined) validateInteger(pushApi.payloadArgIndex, `${path}.pushApis[${index}].payloadArgIndex`, collector);
+                    if (pushApi.payloadField !== undefined) validateString(pushApi.payloadField, `${path}.pushApis[${index}].payloadField`, collector);
                 });
             }
-            validateStringArray(value.getMethods, `${path}.getMethods`, collector);
-            if (value.routerClassNames !== undefined) validateStringArray(value.routerClassNames, `${path}.routerClassNames`, collector);
-            if (value.navDestinationClassNames !== undefined) validateStringArray(value.navDestinationClassNames, `${path}.navDestinationClassNames`, collector);
-            if (value.navDestinationRegisterMethods !== undefined) validateStringArray(value.navDestinationRegisterMethods, `${path}.navDestinationRegisterMethods`, collector);
-            if (value.frameworkSignatureHints !== undefined) validateStringArray(value.frameworkSignatureHints, `${path}.frameworkSignatureHints`, collector);
+            validateStringArray(value.getCanonicalApiIds, `${path}.getCanonicalApiIds`, collector);
+            if (value.navDestinationRegisterApis !== undefined) {
+                if (!Array.isArray(value.navDestinationRegisterApis)) {
+                    collector.add(`${path}.navDestinationRegisterApis`, "must be an array", value.navDestinationRegisterApis);
+                } else {
+                    value.navDestinationRegisterApis.forEach((api, index) => {
+                        if (!isRecord(api)) {
+                            collector.add(`${path}.navDestinationRegisterApis[${index}]`, "must be an object", api);
+                            return;
+                        }
+                        validateStringArray(api.canonicalApiIds, `${path}.navDestinationRegisterApis[${index}].canonicalApiIds`, collector);
+                        validateInteger(api.callbackArgIndex, `${path}.navDestinationRegisterApis[${index}].callbackArgIndex`, collector);
+                        if (api.routeParamIndex !== undefined) validateInteger(api.routeParamIndex, `${path}.navDestinationRegisterApis[${index}].routeParamIndex`, collector);
+                        validateInteger(api.payloadParamIndex, `${path}.navDestinationRegisterApis[${index}].payloadParamIndex`, collector);
+                    });
+                }
+            }
+            if (value.navDestinationTriggerApis !== undefined) {
+                if (!Array.isArray(value.navDestinationTriggerApis)) {
+                    collector.add(`${path}.navDestinationTriggerApis`, "must be an array", value.navDestinationTriggerApis);
+                } else {
+                    value.navDestinationTriggerApis.forEach((api, index) => {
+                        if (!isRecord(api)) {
+                            collector.add(`${path}.navDestinationTriggerApis[${index}]`, "must be an object", api);
+                            return;
+                        }
+                        validateStringArray(api.canonicalApiIds, `${path}.navDestinationTriggerApis[${index}].canonicalApiIds`, collector);
+                        if (api.routeField !== undefined) validateString(api.routeField, `${path}.navDestinationTriggerApis[${index}].routeField`, collector);
+                        if (api.routeArgIndex !== undefined) validateInteger(api.routeArgIndex, `${path}.navDestinationTriggerApis[${index}].routeArgIndex`, collector);
+                        if (api.payloadArgIndex !== undefined) validateInteger(api.payloadArgIndex, `${path}.navDestinationTriggerApis[${index}].payloadArgIndex`, collector);
+                        if (api.payloadField !== undefined) validateString(api.payloadField, `${path}.navDestinationTriggerApis[${index}].payloadField`, collector);
+                    });
+                }
+            }
             if (value.payloadUnwrapPrefixes !== undefined) validateStringArray(value.payloadUnwrapPrefixes, `${path}.payloadUnwrapPrefixes`, collector);
             return true;
         case "state_binding":
-            validateStringArray(value.stateDecorators, `${path}.stateDecorators`, collector);
-            validateStringArray(value.propDecorators, `${path}.propDecorators`, collector);
-            validateStringArray(value.linkDecorators, `${path}.linkDecorators`, collector);
-            if (value.provideDecorators !== undefined) validateStringArray(value.provideDecorators, `${path}.provideDecorators`, collector);
-            if (value.consumeDecorators !== undefined) validateStringArray(value.consumeDecorators, `${path}.consumeDecorators`, collector);
-            if (value.eventDecorators !== undefined) validateStringArray(value.eventDecorators, `${path}.eventDecorators`, collector);
+            validateStringArray(value.stateDecoratorCanonicalApiIds, `${path}.stateDecoratorCanonicalApiIds`, collector);
+            validateStringArray(value.propDecoratorCanonicalApiIds, `${path}.propDecoratorCanonicalApiIds`, collector);
+            validateStringArray(value.linkDecoratorCanonicalApiIds, `${path}.linkDecoratorCanonicalApiIds`, collector);
+            if (value.provideDecoratorCanonicalApiIds !== undefined) validateStringArray(value.provideDecoratorCanonicalApiIds, `${path}.provideDecoratorCanonicalApiIds`, collector);
+            if (value.consumeDecoratorCanonicalApiIds !== undefined) validateStringArray(value.consumeDecoratorCanonicalApiIds, `${path}.consumeDecoratorCanonicalApiIds`, collector);
+            if (value.eventDecoratorCanonicalApiIds !== undefined) validateStringArray(value.eventDecoratorCanonicalApiIds, `${path}.eventDecoratorCanonicalApiIds`, collector);
             return true;
     }
+}
+
+function validateKeyedStorageWriteApis(
+    value: unknown,
+    path: string,
+    collector: ValidationCollector,
+): void {
+    if (!Array.isArray(value)) {
+        collector.add(path, "must be an array", value);
+        return;
+    }
+    value.forEach((writeApi, index) => {
+        if (!isRecord(writeApi)) {
+            collector.add(`${path}[${index}]`, "must be an object", writeApi);
+            return;
+        }
+        validateStringArray(writeApi.canonicalApiIds, `${path}[${index}].canonicalApiIds`, collector);
+        validateInteger(writeApi.valueIndex, `${path}[${index}].valueIndex`, collector);
+        if (writeApi.updateStrength !== undefined) {
+            validateStringEnum(
+                writeApi.updateStrength,
+                VALID_KEYED_STORAGE_UPDATE_STRENGTHS,
+                `${path}[${index}].updateStrength`,
+                collector,
+            );
+        }
+    });
 }
 
 export function validateInternalModuleLoweringIROrThrow(spec: unknown): asserts spec is InternalModuleLoweringIR {

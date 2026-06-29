@@ -58,7 +58,7 @@ async function main(): Promise<void> {
         ruleCatalogPath: path.resolve("src/models"),
         projectRulePath: path.resolve("tests/rules/harmony_lifecycle_sink_only.rules.json"),
         allowMissingProject: false,
-        autoDiscoverLayers: false,
+        autoDiscoverRuleSources: false,
     });
     const sourceRules: SourceRule[] = loaded.ruleSet.sources || [];
     const sinkRules: SinkRule[] = loaded.ruleSet.sinks || [];

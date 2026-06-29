@@ -3,7 +3,7 @@ import { CallGraph } from "../../../../arkanalyzer/out/src/callgraph/model/CallG
 import { Pag, PagInstanceFieldNode, PagNode } from "../../../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
 import { ArkAssignStmt, ArkInvokeStmt } from "../../../../arkanalyzer/out/src/core/base/Stmt";
 import { ArkArrayRef, ArkInstanceFieldRef } from "../../../../arkanalyzer/out/src/core/base/Ref";
-import { ArkInstanceInvokeExpr, ArkNewArrayExpr, ArkNewExpr, ArkPtrInvokeExpr } from "../../../../arkanalyzer/out/src/core/base/Expr";
+import { ArkInstanceInvokeExpr, ArkNewArrayExpr, ArkNewExpr } from "../../../../arkanalyzer/out/src/core/base/Expr";
 import { Local } from "../../../../arkanalyzer/out/src/core/base/Local";
 import { Constant } from "../../../../arkanalyzer/out/src/core/base/Constant";
 import { TaintTracker } from "../model/TaintTracker";
@@ -17,33 +17,37 @@ import {
 import {
     normalizeEndpoint,
     RuleEndpoint,
-    RuleInvokeKind,
-    RuleScopeConstraint,
-    RuleStringConstraint,
+    RuleEndpointTaintScope,
     SanitizerRule,
+    SinkRule,
     TransferRule
 } from "../../rules/RuleSchema";
-import { filterBestTierRulesByFamily } from "../../rules/RulePriority";
+import { orderRulesForSameFamilySelection } from "../../rules/RuleOrdering";
 import { resolveReceiverGetterReturnFieldPath } from "../propagation/WorklistFieldPropagation";
-import { resolveSdkImportScopeCandidates } from "../../substrate/queries/SdkProvenance";
-import { resolveConcreteReceiverOwnerName } from "../../substrate/queries/CalleeResolver";
+import { hasApiEffectIdentity } from "../../api/ApiOccurrenceIdentity";
+import type { ApiEffectRuntimeIndexLike } from "../../api/effects";
+import type { SemanticEffectSite } from "../../api/effects/SemanticEffectSite";
+import {
+    isConsumableSemanticEndpointProjection,
+    projectSemanticEffectEndpoint,
+    type SemanticEndpointProjection,
+} from "../contracts/PagNodeResolution";
 
 export interface SinkDetectOptions {
     sinkRuleId?: string;
     targetEndpoint?: RuleEndpoint;
     targetPath?: string[];
-    invokeKind?: RuleInvokeKind;
-    argCount?: number;
-    typeHint?: string;
-    callerScope?: RuleScopeConstraint;
-    calleeScope?: RuleScopeConstraint;
+    targetTaintScope?: RuleEndpointTaintScope;
     fieldToVarIndex?: Map<string, Set<number>>;
     allowedMethodSignatures?: Set<string>;
     orderedMethodSignatures?: string[];
+    classBySignature?: Map<string, any>;
     /** PAG node ids that receive capture / synthetic / module-fan-in taint; exempts locals from strict const-reassignment kill. */
     interproceduralTaintTargetNodeIds?: Set<number>;
     sanitizerRules?: SanitizerRule[];
     transferRules?: TransferRule[];
+    apiIdentityRule?: SinkRule;
+    apiEffectRuntimeIndex?: ApiEffectRuntimeIndexLike;
     onProfile?: (profile: SinkDetectProfile) => void;
     onAudit?: (entry: SinkDetectAuditEntry) => void;
 }
@@ -51,7 +55,7 @@ export interface SinkDetectOptions {
 export interface SinkDetectAuditEntry {
     kind: "callsite" | "candidate" | "hit" | "sanitized" | "rejected";
     ruleId?: string;
-    signatureQuery: string;
+    effectIdentity: string;
     calleeSignature?: string;
     ownerMethodSignature?: string;
     ownerMethodName?: string;
@@ -70,6 +74,19 @@ interface SinkCandidate {
     value: any;
     kind: "arg" | "base" | "result";
     endpoint: string;
+    targetPath?: string[];
+    targetTaintScope?: RuleEndpointTaintScope;
+    endpointResolution: SemanticEndpointProjection;
+}
+
+interface SinkCandidateResolution {
+    candidates: SinkCandidate[];
+    diagnostics: SinkEndpointDiagnostic[];
+}
+
+interface SinkEndpointDiagnostic {
+    projection: SemanticEndpointProjection;
+    reason: string;
 }
 
 interface FieldPathDetectResult {
@@ -82,8 +99,10 @@ interface FieldPathDetectResult {
 interface IndexedInvokeSite {
     method: any;
     stmt: any;
-    invokeExpr: any;
+    invokeExpr?: any;
+    fieldRef?: ArkInstanceFieldRef;
     calleeSignature: string;
+    semanticEffectSites: readonly SemanticEffectSite[];
 }
 
 interface SinkCallsiteIndex {
@@ -92,7 +111,6 @@ interface SinkCallsiteIndex {
     stmtCount: number;
     invokeStmtCount: number;
     sites: IndexedInvokeSite[];
-    signatureMatchCache: Map<string, IndexedInvokeSite[]>;
 }
 
 const sinkCallsiteIndexCache: WeakMap<Scene, Map<string, SinkCallsiteIndex>> = new WeakMap();
@@ -103,7 +121,7 @@ export interface SinkDetectProfile {
     reachableMethodsVisited: number;
     stmtsVisited: number;
     invokeStmtsVisited: number;
-    signatureMatchedInvokeCount: number;
+    effectMatchedInvokeCount: number;
     constraintRejectedInvokeCount: number;
     sinksChecked: number;
     candidateCount: number;
@@ -113,7 +131,7 @@ export interface SinkDetectProfile {
     fieldPathHitCount: number;
     sanitizerGuardCheckCount: number;
     sanitizerGuardHitCount: number;
-    signatureMatchMs: number;
+    effectMatchMs: number;
     candidateResolveMs: number;
     taintEvalMs: number;
     sanitizerGuardMs: number;
@@ -128,7 +146,7 @@ export function createEmptySinkDetectProfile(): SinkDetectProfile {
         reachableMethodsVisited: 0,
         stmtsVisited: 0,
         invokeStmtsVisited: 0,
-        signatureMatchedInvokeCount: 0,
+        effectMatchedInvokeCount: 0,
         constraintRejectedInvokeCount: 0,
         sinksChecked: 0,
         candidateCount: 0,
@@ -138,7 +156,7 @@ export function createEmptySinkDetectProfile(): SinkDetectProfile {
         fieldPathHitCount: 0,
         sanitizerGuardCheckCount: 0,
         sanitizerGuardHitCount: 0,
-        signatureMatchMs: 0,
+        effectMatchMs: 0,
         candidateResolveMs: 0,
         taintEvalMs: 0,
         sanitizerGuardMs: 0,
@@ -154,7 +172,7 @@ export function mergeSinkDetectProfiles(base: SinkDetectProfile, extra: SinkDete
         reachableMethodsVisited: base.reachableMethodsVisited + extra.reachableMethodsVisited,
         stmtsVisited: base.stmtsVisited + extra.stmtsVisited,
         invokeStmtsVisited: base.invokeStmtsVisited + extra.invokeStmtsVisited,
-        signatureMatchedInvokeCount: base.signatureMatchedInvokeCount + extra.signatureMatchedInvokeCount,
+        effectMatchedInvokeCount: base.effectMatchedInvokeCount + extra.effectMatchedInvokeCount,
         constraintRejectedInvokeCount: base.constraintRejectedInvokeCount + extra.constraintRejectedInvokeCount,
         sinksChecked: base.sinksChecked + extra.sinksChecked,
         candidateCount: base.candidateCount + extra.candidateCount,
@@ -164,7 +182,7 @@ export function mergeSinkDetectProfiles(base: SinkDetectProfile, extra: SinkDete
         fieldPathHitCount: base.fieldPathHitCount + extra.fieldPathHitCount,
         sanitizerGuardCheckCount: base.sanitizerGuardCheckCount + extra.sanitizerGuardCheckCount,
         sanitizerGuardHitCount: base.sanitizerGuardHitCount + extra.sanitizerGuardHitCount,
-        signatureMatchMs: base.signatureMatchMs + extra.signatureMatchMs,
+        effectMatchMs: base.effectMatchMs + extra.effectMatchMs,
         candidateResolveMs: base.candidateResolveMs + extra.candidateResolveMs,
         taintEvalMs: base.taintEvalMs + extra.taintEvalMs,
         sanitizerGuardMs: base.sanitizerGuardMs + extra.sanitizerGuardMs,
@@ -173,12 +191,12 @@ export function mergeSinkDetectProfiles(base: SinkDetectProfile, extra: SinkDete
     };
 }
 
-export function detectSinks(
+export function detectSinkEffects(
     scene: Scene,
     cg: CallGraph,
     pag: Pag,
     tracker: TaintTracker,
-    sinkSignature: string,
+    effectIdentity: string,
     log: (msg: string) => void,
     options: SinkDetectOptions = {}
 ): TaintFlow[] {
@@ -191,28 +209,31 @@ export function detectSinks(
         options.onProfile?.(profile);
         return flows;
     }
-    const fieldToVarIndex = options.targetPath && options.targetPath.length > 0
+    let fieldToVarIndex = options.targetPath && options.targetPath.length > 0
         ? (options.fieldToVarIndex || buildFieldToVarIndexFromPag(pag))
         : undefined;
     let fieldProjectionIndex: Map<string, Set<number>> | undefined;
 
-    log(`\n=== Detecting sinks for: "${sinkSignature}" ===`);
+    log(`\n=== Detecting sink effects for: "${effectIdentity}" ===`);
     let sinksChecked = 0;
-    const emitAudit = (entry: Omit<SinkDetectAuditEntry, "ruleId" | "signatureQuery">): void => {
+    const emitAudit = (entry: Omit<SinkDetectAuditEntry, "ruleId" | "effectIdentity">): void => {
         options.onAudit?.({
             ...entry,
             ruleId: options.sinkRuleId,
-            signatureQuery: sinkSignature,
+            effectIdentity,
         });
     };
 
-    const index = getOrBuildSinkCallsiteIndex(scene, options.allowedMethodSignatures);
-    profile.methodsVisited += index.methodCount;
-    profile.reachableMethodsVisited += index.reachableMethodCount;
-    profile.stmtsVisited += index.stmtCount;
-    profile.invokeStmtsVisited += index.invokeStmtCount;
-    const matchedSites = getOrBuildSignatureMatchedSites(index, sinkSignature);
-    profile.signatureMatchedInvokeCount += matchedSites.length;
+    const apiIdentityRule = options.apiIdentityRule && hasApiEffectIdentity(options.apiIdentityRule)
+        ? options.apiIdentityRule
+        : undefined;
+    if (!apiIdentityRule) {
+        profile.totalMs = elapsedMsSince(detectStart);
+        options.onProfile?.(profile);
+        return flows;
+    }
+    const matchedSites = resolveApiEffectSinkSites(options);
+    profile.effectMatchedInvokeCount += matchedSites.length;
 
     for (const site of matchedSites) {
         const method = site.method;
@@ -222,12 +243,12 @@ export function detectSinks(
         log(`Checking method "${method.getName()}" for sinks...`);
 
         const constraintT0 = process.hrtime.bigint();
-        if (!matchesInvokeConstraints(scene, invokeExpr, calleeSignature, options, method)) {
-            profile.signatureMatchMs += elapsedMsSince(constraintT0);
+        if (!matchesInvokeConstraints(scene, stmt, invokeExpr, calleeSignature, options, method)) {
+            profile.effectMatchMs += elapsedMsSince(constraintT0);
             profile.constraintRejectedInvokeCount++;
             continue;
         }
-        profile.signatureMatchMs += elapsedMsSince(constraintT0);
+        profile.effectMatchMs += elapsedMsSince(constraintT0);
 
         sinksChecked++;
         profile.sinksChecked++;
@@ -242,8 +263,23 @@ export function detectSinks(
         });
 
         const resolveT0 = process.hrtime.bigint();
-        const candidates = resolveSinkCandidates(stmt, invokeExpr, options.targetEndpoint);
+        const candidateResolution = resolveSinkCandidates(site, pag);
+        const candidates = candidateResolution.candidates;
         profile.candidateResolveMs += elapsedMsSince(resolveT0);
+        for (const diagnostic of candidateResolution.diagnostics) {
+            const projection = diagnostic.projection;
+            emitAudit({
+                kind: "candidate",
+                calleeSignature,
+                ownerMethodSignature: method.getSignature?.()?.toString?.() || "",
+                ownerMethodName: method.getName?.() || "",
+                sinkText: stmt.toString?.() || "",
+                endpoint: projection.endpointPath,
+                candidateKind: sinkCandidateKindFromProjection(projection),
+                candidateNodeIds: projection.nodeIds,
+                reason: diagnostic.reason,
+            });
+        }
         if (candidates.length === 0) {
             emitAudit({
                 kind: "rejected",
@@ -251,7 +287,7 @@ export function detectSinks(
                 ownerMethodSignature: method.getSignature?.()?.toString?.() || "",
                 ownerMethodName: method.getName?.() || "",
                 sinkText: stmt.toString?.() || "",
-                reason: "sink_endpoint_unresolved",
+                reason: candidateResolution.diagnostics[0]?.reason || "sink_endpoint_unresolved",
             });
             continue;
         }
@@ -259,10 +295,15 @@ export function detectSinks(
         let sinkDetected = false;
         for (const candidate of candidates) {
             const candidateFlowStart = flows.length;
-            if (options.targetPath && options.targetPath.length > 0 && fieldToVarIndex) {
+            const candidateTargetPath = candidate.targetPath || options.targetPath;
+            const candidateTaintScope = candidate.targetTaintScope || options.targetTaintScope;
+            if (candidateTargetPath && candidateTargetPath.length > 0) {
+                if (!fieldToVarIndex) {
+                    fieldToVarIndex = options.fieldToVarIndex || buildFieldToVarIndexFromPag(pag);
+                }
                 profile.fieldPathCheckCount++;
                 const fieldPathT0 = process.hrtime.bigint();
-                const fieldPathResults = detectFieldPathSources(candidate.value, options.targetPath, stmt, pag, tracker, fieldToVarIndex);
+                const fieldPathResults = detectFieldPathSources(candidate.value, candidateTargetPath, stmt, pag, tracker, fieldToVarIndex);
                 profile.taintEvalMs += elapsedMsSince(fieldPathT0);
                 if (fieldPathResults.length > 0) {
                     profile.sanitizerGuardCheckCount++;
@@ -271,8 +312,11 @@ export function detectSinks(
                         method,
                         stmt,
                         candidate,
+                        pag,
                         options.sanitizerRules || [],
-                        log
+                        log,
+                        scene,
+                        options.apiEffectRuntimeIndex
                     );
                     profile.sanitizerGuardMs += elapsedMsSince(sanitizerT0);
                     if (sanitizerResult.sanitized) {
@@ -291,7 +335,7 @@ export function detectSinks(
                     }
                     profile.fieldPathHitCount += fieldPathResults.length;
                     for (const fieldPathResult of fieldPathResults) {
-                        log(`    *** TAINT FLOW DETECTED! Source: ${fieldPathResult.source} (field path: ${options.targetPath.join(".")}) ***`);
+                        log(`    *** TAINT FLOW DETECTED! Source: ${fieldPathResult.source} (field path: ${candidateTargetPath.join(".")}) ***`);
                         emitAudit({
                             kind: "hit",
                             calleeSignature,
@@ -328,6 +372,59 @@ export function detectSinks(
                 continue;
             }
 
+            if (candidateTaintScope === "contained-values") {
+                profile.fieldPathCheckCount++;
+                const containedT0 = process.hrtime.bigint();
+                const containedResults = detectContainedValueSources(
+                    candidate.value,
+                    stmt,
+                    pag,
+                    tracker,
+                    options.classBySignature,
+                );
+                profile.taintEvalMs += elapsedMsSince(containedT0);
+                if (containedResults.length > 0) {
+                    profile.sanitizerGuardCheckCount++;
+                    const sanitizerT0 = process.hrtime.bigint();
+                    const sanitizerResult = isSinkCandidateSanitizedByRules(
+                        method,
+                        stmt,
+                        candidate,
+                        pag,
+                        options.sanitizerRules || [],
+                        log,
+                        scene,
+                        options.apiEffectRuntimeIndex
+                    );
+                    profile.sanitizerGuardMs += elapsedMsSince(sanitizerT0);
+                    if (sanitizerResult.sanitized) {
+                        profile.sanitizerGuardHitCount++;
+                        emitAudit({
+                            kind: "sanitized",
+                            calleeSignature,
+                            ownerMethodSignature: method.getSignature?.()?.toString?.() || "",
+                            ownerMethodName: method.getName?.() || "",
+                            sinkText: stmt.toString?.() || "",
+                            endpoint: candidate.endpoint,
+                            candidateKind: candidate.kind,
+                            reason: "sink_candidate_sanitized",
+                        });
+                        continue;
+                    }
+                    profile.fieldPathHitCount += containedResults.length;
+                    for (const containedResult of containedResults) {
+                        log(`    *** TAINT FLOW DETECTED! Source: ${containedResult.source} (contained value field: ${containedResult.fieldPath?.join(".")}) ***`);
+                        flows.push(new TaintFlow(containedResult.source, stmt, {
+                            sinkEndpoint: candidate.endpoint,
+                            sinkNodeId: containedResult.nodeId,
+                            sinkFieldPath: containedResult.fieldPath,
+                        }));
+                    }
+                    sinkDetected = true;
+                    break;
+                }
+            }
+
             let preciseCandidate = detectPreciseCandidateSource(
                 scene,
                 method,
@@ -338,6 +435,7 @@ export function detectSinks(
                 options.orderedMethodSignatures,
                 options.interproceduralTaintTargetNodeIds,
                 options.transferRules,
+                options.apiEffectRuntimeIndex,
                 fieldProjectionIndex,
             );
             fieldProjectionIndex = preciseCandidate.fieldProjectionIndex;
@@ -348,8 +446,11 @@ export function detectSinks(
                     method,
                     stmt,
                     candidate,
+                    pag,
                     options.sanitizerRules || [],
-                    log
+                    log,
+                    scene,
+                    options.apiEffectRuntimeIndex
                 );
                 profile.sanitizerGuardMs += elapsedMsSince(sanitizerT0);
                 if (sanitizerResult.sanitized) {
@@ -410,11 +511,12 @@ export function detectSinks(
                     sinkText: stmt.toString?.() || "",
                     endpoint: candidate.endpoint,
                     candidateKind: candidate.kind,
-                    reason: "candidate_has_no_pag_nodes",
+                    candidateNodeIds: candidate.endpointResolution.nodeIds,
+                    reason: candidate.endpointResolution.diagnosticKind || candidate.endpointResolution.reason,
                 });
                 if (candidate.value instanceof Local) {
                     const declStmt = candidate.value.getDeclaringStmt?.();
-                    if (declStmt instanceof ArkAssignStmt && declStmt.getLeftOp() === candidate.value) {
+                    if (declStmt instanceof ArkAssignStmt && sameValueLike(declStmt.getLeftOp(), candidate.value)) {
                         const rightOp = declStmt.getRightOp();
                         if (rightOp instanceof ArkInstanceFieldRef) {
                             const fieldName = rightOp.getFieldSignature().getFieldName();
@@ -438,8 +540,11 @@ export function detectSinks(
                                     method,
                                     stmt,
                                     candidate,
+                                    pag,
                                     options.sanitizerRules || [],
-                                    log
+                                    log,
+                                    scene,
+                                    options.apiEffectRuntimeIndex
                                 );
                                 profile.sanitizerGuardMs += elapsedMsSince(sanitizerT0);
                                 if (sanitizerResult.sanitized) {
@@ -472,8 +577,11 @@ export function detectSinks(
                                     method,
                                     stmt,
                                     candidate,
+                                    pag,
                                     options.sanitizerRules || [],
-                                    log
+                                    log,
+                                    scene,
+                                    options.apiEffectRuntimeIndex
                                 );
                                 profile.sanitizerGuardMs += elapsedMsSince(sanitizerT0);
                                 if (sanitizerResult.sanitized) {
@@ -514,8 +622,11 @@ export function detectSinks(
                             method,
                             stmt,
                             candidate,
+                            pag,
                             options.sanitizerRules || [],
-                            log
+                            log,
+                            scene,
+                            options.apiEffectRuntimeIndex
                         );
                         profile.sanitizerGuardMs += elapsedMsSince(sanitizerT0);
                         if (sanitizerResult.sanitized) {
@@ -537,7 +648,7 @@ export function detectSinks(
 
             if (candidate.value instanceof Local) {
                 const declStmt = candidate.value.getDeclaringStmt?.();
-                if (declStmt instanceof ArkAssignStmt && declStmt.getLeftOp() === candidate.value) {
+                if (declStmt instanceof ArkAssignStmt && sameValueLike(declStmt.getLeftOp(), candidate.value)) {
                     const rightOp = declStmt.getRightOp();
                     if (rightOp instanceof ArkInstanceFieldRef) {
                         const fieldName = rightOp.getFieldSignature().getFieldName();
@@ -555,8 +666,11 @@ export function detectSinks(
                                 method,
                                 stmt,
                                 candidate,
+                                pag,
                                 options.sanitizerRules || [],
-                                log
+                                log,
+                                scene,
+                                options.apiEffectRuntimeIndex
                             );
                             profile.sanitizerGuardMs += elapsedMsSince(sanitizerT0);
                             if (sanitizerResult.sanitized) {
@@ -589,8 +703,11 @@ export function detectSinks(
                                 method,
                                 stmt,
                                 candidate,
+                                pag,
                                 options.sanitizerRules || [],
-                                log
+                                log,
+                                scene,
+                                options.apiEffectRuntimeIndex
                             );
                             profile.sanitizerGuardMs += elapsedMsSince(sanitizerT0);
                             if (sanitizerResult.sanitized) {
@@ -636,8 +753,11 @@ export function detectSinks(
                         method,
                         stmt,
                         candidate,
+                        pag,
                         options.sanitizerRules || [],
-                        log
+                        log,
+                        scene,
+                        options.apiEffectRuntimeIndex
                     );
                     profile.sanitizerGuardMs += elapsedMsSince(sanitizerT0);
                     if (sanitizerResult.sanitized) {
@@ -667,8 +787,11 @@ export function detectSinks(
                     method,
                     stmt,
                     candidate,
+                    pag,
                     options.sanitizerRules || [],
-                    log
+                    log,
+                    scene,
+                    options.apiEffectRuntimeIndex
                 );
                 profile.sanitizerGuardMs += elapsedMsSince(sanitizerT0);
                 if (sanitizerResult.sanitized) {
@@ -709,8 +832,11 @@ export function detectSinks(
                                 method,
                                 stmt,
                                 candidate,
+                                pag,
                                 options.sanitizerRules || [],
-                                log
+                                log,
+                                scene,
+                                options.apiEffectRuntimeIndex
                             );
                             profile.sanitizerGuardMs += elapsedMsSince(sanitizerT0);
                             if (sanitizerResult.sanitized) {
@@ -745,8 +871,11 @@ export function detectSinks(
                             method,
                             stmt,
                             candidate,
+                            pag,
                             options.sanitizerRules || [],
-                            log
+                            log,
+                            scene,
+                            options.apiEffectRuntimeIndex
                         );
                         profile.sanitizerGuardMs += elapsedMsSince(sanitizerT0);
                         if (sanitizerResult.sanitized) {
@@ -768,14 +897,15 @@ export function detectSinks(
                 }
             }
             if (!sinkDetected && candidate.value instanceof ArkInstanceFieldRef) {
-                const fieldName = candidate.value.getFieldSignature().getFieldName();
+                const fieldAccess = decomposeInstanceFieldAccess(candidate.value);
+                const fieldName = fieldAccess.fieldPath[fieldAccess.fieldPath.length - 1] || "";
                 if (!fieldProjectionIndex) {
                     fieldProjectionIndex = buildFieldToVarIndexFromPag(pag);
                 }
                 const fieldPathT0 = process.hrtime.bigint();
                 const fieldPathResult = detectFieldPathSource(
-                    candidate.value,
-                    [fieldName],
+                    fieldAccess.rootBase,
+                    fieldAccess.fieldPath,
                     stmt,
                     pag,
                     tracker,
@@ -789,8 +919,11 @@ export function detectSinks(
                         method,
                         stmt,
                         candidate,
+                        pag,
                         options.sanitizerRules || [],
-                        log
+                        log,
+                        scene,
+                        options.apiEffectRuntimeIndex
                     );
                     profile.sanitizerGuardMs += elapsedMsSince(sanitizerT0);
                     if (sanitizerResult.sanitized) {
@@ -815,8 +948,11 @@ export function detectSinks(
                         method,
                         stmt,
                         candidate,
+                        pag,
                         options.sanitizerRules || [],
-                        log
+                        log,
+                        scene,
+                        options.apiEffectRuntimeIndex
                     );
                     profile.sanitizerGuardMs += elapsedMsSince(sanitizerT0);
                     if (sanitizerResult.sanitized) {
@@ -866,7 +1002,7 @@ export function detectSinks(
     }
 
     profile.totalMs = elapsedMsSince(detectStart);
-    const profiledDetailMs = profile.signatureMatchMs
+    const profiledDetailMs = profile.effectMatchMs
         + profile.candidateResolveMs
         + profile.taintEvalMs
         + profile.sanitizerGuardMs;
@@ -1006,6 +1142,7 @@ function detectInlineInvokeTransferCandidateSource(
     pag: Pag,
     tracker: TaintTracker,
     transferRules: TransferRule[],
+    apiEffectRuntimeIndex?: ApiEffectRuntimeIndexLike,
     fieldProjectionIndex?: Map<string, Set<number>>,
 ): PreciseCandidateDetectResult {
     if (!transferRules || transferRules.length === 0) {
@@ -1018,10 +1155,9 @@ function detectInlineInvokeTransferCandidateSource(
     const viable: Array<{ rule: TransferRule; result: FieldPathDetectResult }> = [];
     for (const rule of transferRules) {
         if (rule.enabled === false) continue;
-        if (!isRuntimeEligibleTierCTransferRule(rule)) continue;
         const to = normalizeEndpoint(rule.to);
         if (to.endpoint !== "result" || to.path || to.pathFrom) continue;
-        if (!matchesTransferRuleInvoke(rule, invokeExpr, method, scene)) continue;
+        if (!matchesTransferRuleInvoke(rule, sinkStmt, invokeExpr, method, scene, apiEffectRuntimeIndex)) continue;
 
         const from = normalizeEndpoint(rule.from);
         const endpointValue = resolveInvokeEndpointValue(sinkStmt, invokeExpr, from.endpoint);
@@ -1052,7 +1188,7 @@ function detectInlineInvokeTransferCandidateSource(
 
     if (viable.length > 0) {
         const bestByMatch = filterBestTransferMatchSpecificity(viable);
-        const bestRules = new Set(filterBestTierRulesByFamily(bestByMatch.map(item => item.rule)));
+        const bestRules = new Set(orderRulesForSameFamilySelection(bestByMatch.map(item => item.rule)));
         const selected = bestByMatch.find(item => bestRules.has(item.rule)) || bestByMatch[0];
         return {
             result: {
@@ -1077,23 +1213,8 @@ function filterBestTransferMatchSpecificity<T extends { rule: TransferRule }>(ca
 }
 
 function transferMatchSpecificity(rule: TransferRule): number {
-    if (isExactTransferMatchKind(rule.match.kind)) return 3;
-    if (hasConstrainedTransferSignals(rule)) return 2;
+    void rule;
     return 1;
-}
-
-function isExactTransferMatchKind(kind: string): boolean {
-    return kind === "signature_equals" || kind === "declaring_class_equals";
-}
-
-function hasConstrainedTransferSignals(rule: TransferRule): boolean {
-    const m = rule.match;
-    if (m.invokeKind && m.invokeKind !== "any") return true;
-    if (m.argCount !== undefined) return true;
-    if (m.typeHint && m.typeHint.trim().length > 0) return true;
-    const scope = rule.scope;
-    if (scope && (scope.file || scope.module || scope.className || scope.methodName)) return true;
-    return false;
 }
 
 function hasTaintedInlineInvokeOperand(
@@ -1180,84 +1301,24 @@ function resolveRuntimePathKey(value: any): string | undefined {
 
 function matchesTransferRuleInvoke(
     rule: TransferRule,
+    stmt: any,
     invokeExpr: ArkInstanceInvokeExpr,
     sourceMethod?: any,
     scene?: Scene,
+    apiEffectRuntimeIndex?: ApiEffectRuntimeIndexLike,
 ): boolean {
-    if (!isRuntimeEligibleTierCTransferRule(rule)) return false;
-    const calleeSignature = invokeExpr.getMethodSignature?.()?.toString?.() || "";
-    if (!matchesTransferRuleShape(rule, invokeExpr, calleeSignature, sourceMethod)) return false;
-    if (!matchesTransferRuleMatch(rule, invokeExpr, calleeSignature)) return false;
-    return matchesInvokeCalleeScope(rule.scope, invokeExpr, calleeSignature, sourceMethod, scene);
-}
-
-function isRuntimeEligibleTierCTransferRule(rule: TransferRule): boolean {
-    if (rule.tier !== "C") return true;
-    if (rule.match.kind !== "method_name_equals") return true;
-    const family = typeof rule.family === "string" ? rule.family.trim() : "";
-    if (!family) return false;
-    if (!rule.match.invokeKind || rule.match.invokeKind === "any") return false;
-    if (rule.match.argCount === undefined) return false;
-    const scope = rule.scope;
-    return !!(scope && (scope.file || scope.module || scope.className || scope.methodName));
-}
-
-function matchesTransferRuleShape(
-    rule: TransferRule,
-    invokeExpr: ArkInstanceInvokeExpr,
-    calleeSignature: string,
-    sourceMethod?: any,
-): boolean {
-    const m = rule.match;
-    if (m.invokeKind && m.invokeKind !== "any") {
-        const actualKind: RuleInvokeKind = invokeExpr instanceof ArkInstanceInvokeExpr ? "instance" : "static";
-        if (actualKind !== m.invokeKind) return false;
+    if (hasApiEffectIdentity(rule)) {
+        void invokeExpr;
+        void sourceMethod;
+        void scene;
+        return !!apiEffectRuntimeIndex?.hasRuleSiteAtStmt(rule, stmt, "transfer");
     }
-    if (m.argCount !== undefined) {
-        const args = invokeExpr.getArgs ? invokeExpr.getArgs() : [];
-        if (args.length !== m.argCount) return false;
-    }
-    if (m.typeHint && m.typeHint.trim().length > 0) {
-        const hint = m.typeHint.trim().toLowerCase();
-        const declaringClass = invokeExpr.getMethodSignature?.().getDeclaringClassSignature?.()?.toString?.() || "";
-        const baseText = invokeExpr.getBase()?.toString?.() || "";
-        const scopeCandidates = resolveSdkImportScopeCandidates(sourceMethod, invokeExpr);
-        const haystack = [
-            calleeSignature,
-            declaringClass,
-            baseText,
-            ...scopeCandidates.classTexts,
-            ...scopeCandidates.moduleTexts,
-            ...scopeCandidates.fileTexts,
-        ].join(" ").toLowerCase();
-        if (!haystack.includes(hint)) return false;
-    }
-    return true;
-}
-
-function matchesTransferRuleMatch(
-    rule: TransferRule,
-    invokeExpr: ArkInstanceInvokeExpr,
-    calleeSignature: string,
-): boolean {
-    const matchValue = rule.match.value || "";
-    const methodName = invokeExpr.getMethodSignature?.().getMethodSubSignature?.().getMethodName?.()
-        || extractMethodNameFromSignature(calleeSignature);
-    switch (rule.match.kind) {
-        case "signature_equals":
-            return exactTextMatch(calleeSignature, matchValue);
-        case "declaring_class_equals": {
-            const classSignature = invokeExpr.getMethodSignature?.().getDeclaringClassSignature?.()?.toString?.() || "";
-            const className = invokeExpr.getMethodSignature?.().getDeclaringClassSignature?.()?.getClassName?.() || "";
-            return exactDeclaringClassMatch(classSignature, className, matchValue);
-        }
-        case "method_name_equals":
-            return methodName === matchValue;
-        case "field_name_equals":
-            return false;
-        default:
-            return false;
-    }
+    void stmt;
+    void invokeExpr;
+    void sourceMethod;
+    void scene;
+    void apiEffectRuntimeIndex;
+    return false;
 }
 
 function hasInterproceduralTaintTargetNode(
@@ -1290,15 +1351,17 @@ function detectPreciseCandidateSource(
     orderedMethodSignatures?: string[],
     interproceduralTaintTargetNodeIds?: Set<number>,
     transferRules?: TransferRule[],
+    apiEffectRuntimeIndex?: ApiEffectRuntimeIndexLike,
     fieldProjectionIndex?: Map<string, Set<number>>,
 ): PreciseCandidateDetectResult {
     const value = candidate.value;
     if (value instanceof ArkInstanceFieldRef) {
+        const fieldAccess = decomposeInstanceFieldAccess(value);
         return detectReceiverFieldCandidateSource(
             method,
             sinkStmt,
-            value.getBase(),
-            [value.getFieldSignature?.().getFieldName?.() || value.getFieldName?.()].filter((name): name is string => !!name),
+            fieldAccess.rootBase,
+            fieldAccess.fieldPath,
             scene,
             pag,
             tracker,
@@ -1332,6 +1395,7 @@ function detectPreciseCandidateSource(
             pag,
             tracker,
             transferRules || [],
+            apiEffectRuntimeIndex,
             fieldProjectionIndex,
         );
         if (transferResult.result || transferResult.fieldProjectionIndex) {
@@ -1399,6 +1463,7 @@ function detectPreciseCandidateSource(
                 pag,
                 tracker,
                 transferRules || [],
+                apiEffectRuntimeIndex,
                 fieldProjectionIndex,
             );
             if (transferResult.result || transferResult.fieldProjectionIndex) {
@@ -1795,6 +1860,21 @@ function detectReceiverFieldCandidateSource(
     };
 }
 
+function decomposeInstanceFieldAccess(value: ArkInstanceFieldRef): { rootBase: any; fieldPath: string[] } {
+    const reversedPath: string[] = [];
+    let current: any = value;
+    while (current instanceof ArkInstanceFieldRef) {
+        const fieldName = current.getFieldSignature?.().getFieldName?.() || current.getFieldName?.();
+        if (!fieldName) break;
+        reversedPath.push(String(fieldName));
+        current = current.getBase?.();
+    }
+    return {
+        rootBase: current,
+        fieldPath: reversedPath.reverse(),
+    };
+}
+
 interface OrderedFieldStore {
     kind: "constant" | "nonconstant";
     methodName?: string;
@@ -2034,6 +2114,41 @@ function findLastThisFieldStoreInMethod(method: any, fieldName: string): Ordered
     return undefined;
 }
 
+function detectContainedValueSources(
+    value: any,
+    anchorStmt: any,
+    pag: Pag,
+    tracker: TaintTracker,
+    classBySignature?: Map<string, any>,
+): FieldPathDetectResult[] {
+    if (!value) return [];
+    const out = new Map<string, FieldPathDetectResult>();
+    const add = (result: FieldPathDetectResult): void => {
+        const key = `${result.source}|${result.nodeId ?? ""}|${(result.fieldPath || []).join(".")}`;
+        if (!out.has(key)) {
+            out.set(key, result);
+        }
+    };
+    const carrierNodeIds = collectCarrierNodeIdsForValueAtStmt(
+        pag,
+        value,
+        anchorStmt,
+        classBySignature,
+    );
+    for (const carrierNodeId of carrierNodeIds) {
+        for (const fieldSource of detectCarrierFieldSources(
+            carrierNodeId,
+            anchorStmt,
+            pag,
+            tracker,
+            classBySignature,
+        )) {
+            add(fieldSource);
+        }
+    }
+    return [...out.values()];
+}
+
 function detectAnyCarrierFieldSource(
     carrierNodeId: number,
     anchorStmt: any,
@@ -2048,10 +2163,11 @@ function detectCarrierFieldSources(
     anchorStmt: any,
     pag: Pag,
     tracker: TaintTracker,
+    classBySignature?: Map<string, any>,
 ): FieldPathDetectResult[] {
     const out: FieldPathDetectResult[] = [];
     for (const fieldSource of tracker.getFieldSourcesAnyContext(carrierNodeId)) {
-        if (!isCarrierFieldPathLiveAtStmt(pag, tracker, carrierNodeId, fieldSource.fieldPath, anchorStmt)) {
+        if (!isCarrierFieldPathLiveAtStmt(pag, tracker, carrierNodeId, fieldSource.fieldPath, anchorStmt, classBySignature)) {
             continue;
         }
         out.push({
@@ -2134,6 +2250,7 @@ function getOrBuildSinkCallsiteIndex(scene: Scene, allowedMethodSignatures?: Set
                 stmt,
                 invokeExpr,
                 calleeSignature,
+                semanticEffectSites: [],
             });
         }
     }
@@ -2144,24 +2261,9 @@ function getOrBuildSinkCallsiteIndex(scene: Scene, allowedMethodSignatures?: Set
         stmtCount,
         invokeStmtCount,
         sites,
-        signatureMatchCache: new Map<string, IndexedInvokeSite[]>(),
     };
     byKey.set(key, built);
     return built;
-}
-
-function getOrBuildSignatureMatchedSites(
-    index: SinkCallsiteIndex,
-    sinkSignature: string
-): IndexedInvokeSite[] {
-    const cacheKey = sinkSignature;
-    const cached = index.signatureMatchCache.get(cacheKey);
-    if (cached) {
-        return cached;
-    }
-    const matched = index.sites.filter(site => site.calleeSignature === sinkSignature);
-    index.signatureMatchCache.set(cacheKey, matched);
-    return matched;
 }
 
 function buildAllowedMethodSignatureKey(allowedMethodSignatures?: Set<string>): string {
@@ -2169,114 +2271,148 @@ function buildAllowedMethodSignatureKey(allowedMethodSignatures?: Set<string>): 
     return [...allowedMethodSignatures].sort().join("||");
 }
 
+function resolveApiEffectSinkSites(options: SinkDetectOptions): IndexedInvokeSite[] {
+    const rule = options.apiIdentityRule;
+    if (!rule || !hasApiEffectIdentity(rule)) return [];
+    const sites = options.apiEffectRuntimeIndex?.getSitesForRule(rule, "sink") || [];
+    const out: IndexedInvokeSite[] = [];
+    for (const site of sites) {
+        if (!site.effect.acceptedForPropagation) continue;
+        const methodSignature = site.method.getSignature?.()?.toString?.() || "";
+        if (options.allowedMethodSignatures && !options.allowedMethodSignatures.has(methodSignature)) continue;
+        const semanticEffectSites = site.semanticEffectSites.filter(semanticSite => semanticSite.capability === "sink");
+        if (semanticEffectSites.length === 0) continue;
+        out.push({
+            method: site.method,
+            stmt: site.stmt,
+            invokeExpr: site.invokeExpr,
+            fieldRef: site.fieldRef,
+            calleeSignature: site.calleeSignature,
+            semanticEffectSites,
+        });
+    }
+    return out;
+}
+
 function resolveSinkCandidates(
-    stmt: any,
-    invokeExpr: any,
-    targetEndpoint?: RuleEndpoint
-): SinkCandidate[] {
-    if (!targetEndpoint) {
-        const args = invokeExpr.getArgs ? invokeExpr.getArgs() : [];
-        return args.map((arg: any, idx: number) => ({
-            value: arg,
-            kind: "arg" as const,
-            endpoint: `arg${idx}`,
-        }));
-    }
-
-    if (targetEndpoint === "base") {
-        if (invokeExpr instanceof ArkInstanceInvokeExpr) {
-            return [{
-                value: invokeExpr.getBase(),
-                kind: "base",
-                endpoint: "base",
-            }];
+    site: IndexedInvokeSite,
+    pag: Pag,
+): SinkCandidateResolution {
+    const candidates: SinkCandidate[] = [];
+    const diagnostics: SinkEndpointDiagnostic[] = [];
+    for (const semanticSite of site.semanticEffectSites) {
+        const projection = projectSemanticEffectEndpoint({
+            pag,
+            semanticSite,
+            stmt: site.stmt,
+            invokeExpr: site.invokeExpr,
+            fieldRef: site.fieldRef,
+            // Sink endpoints are gated by accepted canonical identity and the
+            // declarative endpoint binding. If PAG did not prebuild a node for
+            // that exact runtime argument/value, materialize only this exact
+            // endpoint so sink detection can consume the same semantic site.
+            allowNodeCreation: true,
+            exactMaterializationEvidence: {
+                kind: "semantic_effect_endpoint_ir",
+                reason: `accepted sink endpoint ${semanticSite.effectSiteId}`,
+                endpointBindingRef: semanticSite.endpointBindingRef,
+            },
+            consumer: "sink",
+        });
+        if (!isExactEndpointProjection(projection)) {
+            diagnostics.push({
+                projection,
+                reason: endpointProjectionRejectReason(projection, "sink_endpoint_projection_not_exact"),
+            });
+            continue;
         }
-        return [];
-    }
-
-    if (targetEndpoint === "result") {
-        if (stmt instanceof ArkAssignStmt) {
-            return [{
-                value: stmt.getLeftOp(),
-                kind: "result",
-                endpoint: "result",
-            }];
+        if (projection.values.length === 0) {
+            diagnostics.push({
+                projection,
+                reason: "sink_endpoint_resolved_without_usable_value",
+            });
+            continue;
         }
-        return [];
+        for (const value of projection.values) {
+            candidates.push({
+                value,
+                kind: sinkCandidateKindFromProjection(projection),
+                endpoint: projection.endpointPath,
+                targetPath: projection.fieldPath,
+                targetTaintScope: projection.endpointSpec.taintScope,
+                endpointResolution: projection,
+            });
+        }
     }
+    return { candidates, diagnostics };
+}
 
-    const m = /^arg(\d+)$/.exec(targetEndpoint);
-    if (!m) return [];
-    const argIndex = Number(m[1]);
-    const args = invokeExpr.getArgs ? invokeExpr.getArgs() : [];
-    if (!Number.isFinite(argIndex) || argIndex < 0 || argIndex >= args.length) return [];
+function isExactEndpointProjection(projection: SemanticEndpointProjection): boolean {
+    return isConsumableSemanticEndpointProjection(projection);
+}
 
-    return [{
-        value: args[argIndex],
-        kind: "arg",
-        endpoint: `arg${argIndex}`,
-    }];
+function endpointProjectionRejectReason(
+    projection: SemanticEndpointProjection,
+    defaultReason: string,
+): string {
+    if (projection.diagnosticKind) return projection.diagnosticKind;
+    if (projection.status !== "resolved") return projection.reason || projection.status;
+    if (projection.materializedExact !== true) return "endpoint_projection_not_exact";
+    if (projection.nodeIds.length === 0) return "endpoint_projection_missing_pag_nodes";
+    if (projection.carrierNodeIds.length === 0) return "endpoint_projection_missing_carrier_nodes";
+    return projection.reason || defaultReason;
+}
+
+function sinkCandidateKindFromProjection(projection: SemanticEndpointProjection): SinkCandidate["kind"] {
+    switch (projection.endpointBaseKind) {
+        case "receiver":
+            return "base";
+        case "return":
+        case "promiseResult":
+        case "promiseRejected":
+        case "constructorResult":
+        case "callbackReturn":
+            return "result";
+        default:
+            return "arg";
+    }
 }
 
 function matchesInvokeConstraints(
     scene: Scene,
+    stmt: any,
     invokeExpr: any,
     calleeSignature: string,
     options: SinkDetectOptions,
     sourceMethod?: any,
 ): boolean {
-    if (options.callerScope && !matchesScope(sourceMethod, options.callerScope)) {
-        return false;
+    if (
+        options.apiIdentityRule
+        && hasApiEffectIdentity(options.apiIdentityRule)
+    ) {
+        void invokeExpr;
+        void calleeSignature;
+        void sourceMethod;
+        void scene;
+        return !!options.apiEffectRuntimeIndex?.hasRuleSiteAtStmt(options.apiIdentityRule, stmt, "sink");
     }
-
-    if (options.invokeKind && options.invokeKind !== "any") {
-        const actualKind: RuleInvokeKind = invokeExpr instanceof ArkInstanceInvokeExpr ? "instance" : "static";
-        if (actualKind !== options.invokeKind) {
-            return false;
-        }
-    }
-
-    if (options.argCount !== undefined) {
-        const args = invokeExpr.getArgs ? invokeExpr.getArgs() : [];
-        if (args.length !== options.argCount) {
-            return false;
-        }
-    }
-
-    if (options.typeHint && options.typeHint.trim().length > 0) {
-        const hint = options.typeHint.trim().toLowerCase();
-        const declaringClass = invokeExpr.getMethodSignature?.().getDeclaringClassSignature?.()?.toString?.() || "";
-        const baseText = invokeExpr instanceof ArkInstanceInvokeExpr ? (invokeExpr.getBase()?.toString?.() || "") : "";
-        const ptrText = invokeExpr instanceof ArkPtrInvokeExpr ? (invokeExpr.toString?.() || "") : "";
-        const scopeCandidates = resolveSdkImportScopeCandidates(sourceMethod, invokeExpr, scene);
-        const haystack = [
-            calleeSignature,
-            declaringClass,
-            baseText,
-            ptrText,
-            ...scopeCandidates.classTexts,
-            ...scopeCandidates.moduleTexts,
-            ...scopeCandidates.fileTexts,
-        ].join(" ").toLowerCase();
-        if (!haystack.includes(hint)) {
-            return false;
-        }
-    }
-
-    if (options.calleeScope && !matchesInvokeCalleeScope(options.calleeScope, invokeExpr, calleeSignature, sourceMethod, scene)) {
-        return false;
-    }
-
-    return true;
+    void stmt;
+    void invokeExpr;
+    void calleeSignature;
+    void sourceMethod;
+    void scene;
+    return false;
 }
 
 function isSinkCandidateSanitizedByRules(
     method: any,
     sinkStmt: any,
     candidate: SinkCandidate,
+    pag: Pag,
     sanitizerRules: SanitizerRule[],
     log: (msg: string) => void,
     scene?: Scene,
+    apiEffectRuntimeIndex?: ApiEffectRuntimeIndexLike,
 ): { sanitized: boolean; ruleId?: string } {
     if (!sanitizerRules || sanitizerRules.length === 0) {
         return { sanitized: false };
@@ -2298,31 +2434,69 @@ function isSinkCandidateSanitizedByRules(
         const calleeSignature = invokeExpr.getMethodSignature()?.toString?.() || "";
         if (!calleeSignature) continue;
 
-        const matchedRules = filterBestTierRulesByFamily(sanitizerRules.filter(rule => {
-            if (!matchesScope(method, rule.scope)) return false;
-            if (!matchesSanitizerRule(rule, stmt, invokeExpr, calleeSignature)) return false;
-            if (!matchesInvokeCalleeScope(rule.calleeScope, invokeExpr, calleeSignature, method, scene)) return false;
-            return true;
+        const matchedRules = orderRulesForSameFamilySelection(sanitizerRules.filter(rule => {
+            if (!hasApiEffectIdentity(rule)) return false;
+            void invokeExpr;
+            void calleeSignature;
+            void scene;
+            return !!apiEffectRuntimeIndex?.hasRuleSiteAtStmt(rule, stmt, "sanitizer");
         }));
         for (const rule of matchedRules) {
-            const targetNorm = rule.target ? normalizeEndpoint(rule.target) : undefined;
-            const targetEndpoint = targetNorm ? targetNorm.endpoint : "result";
-            if (targetNorm?.pathFrom) continue;
-            const targetValue = resolveInvokeEndpointValue(stmt, invokeExpr, targetEndpoint);
-            if (!targetValue) continue;
-            if (!sameValueLike(candidateValue, targetValue)) continue;
-            if (
-                targetValue instanceof Local
-                && hasLocalReassignmentBetween(stmts, targetValue.getName(), i, sinkIndex)
-            ) {
-                continue;
+            const projectedTargets = resolveExactSanitizerEndpointValues(
+                rule,
+                stmt,
+                invokeExpr,
+                pag,
+                apiEffectRuntimeIndex,
+            );
+            for (const target of projectedTargets) {
+                if (!sameValueLike(candidateValue, target.value)) continue;
+                if (
+                    target.value instanceof Local
+                    && hasLocalReassignmentBetween(stmts, target.value.getName(), i, sinkIndex)
+                ) {
+                    continue;
+                }
+                log(`    [Sanitizer-Guard] skip sink by '${rule.id}' on endpoint '${target.projection.endpointPath}'.`);
+                return { sanitized: true, ruleId: rule.id };
             }
-            log(`    [Sanitizer-Guard] skip sink by '${rule.id}' on endpoint '${targetEndpoint}'.`);
-            return { sanitized: true, ruleId: rule.id };
         }
     }
 
     return { sanitized: false };
+}
+
+function resolveExactSanitizerEndpointValues(
+    rule: SanitizerRule,
+    stmt: any,
+    invokeExpr: any,
+    pag: Pag,
+    apiEffectRuntimeIndex?: ApiEffectRuntimeIndexLike,
+): Array<{ value: any; projection: SemanticEndpointProjection }> {
+    if (!hasApiEffectIdentity(rule)) return [];
+    const sites = apiEffectRuntimeIndex?.getSitesForRule(rule, "sanitizer") || [];
+    const out: Array<{ value: any; projection: SemanticEndpointProjection }> = [];
+    for (const site of sites) {
+        if (site.stmt !== stmt) continue;
+        if (!site.effect.acceptedForPropagation) continue;
+        for (const semanticSite of site.semanticEffectSites) {
+            if (semanticSite.capability !== "sanitizer") continue;
+            const projection = projectSemanticEffectEndpoint({
+                pag,
+                semanticSite,
+                stmt,
+                invokeExpr,
+                allowNodeCreation: false,
+                consumer: "sanitizer",
+            });
+            if (!isExactEndpointProjection(projection)) continue;
+            for (const value of projection.values) {
+                if (value === undefined || value === null) continue;
+                out.push({ value, projection });
+            }
+        }
+    }
+    return out;
 }
 
 function hasLocalReassignmentBetween(
@@ -2393,184 +2567,9 @@ function sameValueLike(a: any, b: any): boolean {
     return typeof aText === "string" && aText.length > 0 && aText === bText;
 }
 
-function matchesSanitizerRule(
-    rule: SanitizerRule,
-    stmt: any,
-    invokeExpr: any,
-    calleeSignature: string
-): boolean {
-    const m = rule.match;
-    if (m.invokeKind && m.invokeKind !== "any") {
-        const actualKind: RuleInvokeKind = invokeExpr instanceof ArkInstanceInvokeExpr ? "instance" : "static";
-        if (actualKind !== m.invokeKind) return false;
-    }
-    if (m.argCount !== undefined) {
-        const args = invokeExpr.getArgs ? invokeExpr.getArgs() : [];
-        if (args.length !== m.argCount) return false;
-    }
-    if (m.typeHint && m.typeHint.trim().length > 0) {
-        const hint = m.typeHint.trim().toLowerCase();
-        const declaringClass = invokeExpr.getMethodSignature?.().getDeclaringClassSignature?.()?.toString?.() || "";
-        const baseText = invokeExpr instanceof ArkInstanceInvokeExpr ? (invokeExpr.getBase()?.toString?.() || "") : "";
-        const ptrText = invokeExpr instanceof ArkPtrInvokeExpr ? (invokeExpr.toString?.() || "") : "";
-        const haystack = `${calleeSignature} ${declaringClass} ${baseText} ${ptrText}`.toLowerCase();
-        if (!haystack.includes(hint)) return false;
-    }
-
-    const matchValue = m.value || "";
-    const methodName = invokeExpr.getMethodSignature?.().getMethodSubSignature?.().getMethodName?.()
-        || extractMethodNameFromSignature(calleeSignature);
-    switch (m.kind) {
-        case "signature_equals":
-            return exactTextMatch(calleeSignature, matchValue);
-        case "declaring_class_equals": {
-            const classSignature = invokeExpr.getMethodSignature?.().getDeclaringClassSignature?.()?.toString?.() || "";
-            const className = invokeExpr.getMethodSignature?.().getDeclaringClassSignature?.()?.getClassName?.() || "";
-            return exactDeclaringClassMatch(classSignature, className, matchValue);
-        }
-        case "method_name_equals":
-            return methodName === matchValue;
-        case "field_name_equals":
-            return false;
-        default:
-            return false;
-    }
-}
-
 function extractMethodNameFromSignature(signature: string): string {
     const m = signature.match(/\.([A-Za-z0-9_$]+)\(/);
     return m ? m[1] : "";
-}
-
-function normalizeExactMatchText(value: string): string {
-    return value.trim();
-}
-
-function exactTextMatch(actual: string, expected: string): boolean {
-    return normalizeExactMatchText(actual) === normalizeExactMatchText(expected);
-}
-
-function exactDeclaringClassMatch(classSignature: string, className: string, expected: string): boolean {
-    const normalizedExpected = normalizeExactMatchText(expected);
-    if (!normalizedExpected) return false;
-    return normalizeExactMatchText(classSignature) === normalizedExpected
-        || normalizeExactMatchText(className) === normalizedExpected;
-}
-
-function matchesScope(method: any, scope?: RuleScopeConstraint): boolean {
-    if (!scope) return true;
-    const sig = method.getSignature().toString();
-    const filePath = extractFilePathFromSignature(sig);
-    const classText = method.getDeclaringArkClass?.()?.getName?.() || sig;
-    const moduleText = filePath || sig;
-
-    if (!matchStringConstraint(scope.file, filePath)) return false;
-    if (!matchStringConstraint(scope.module, moduleText)) return false;
-    if (!matchStringConstraint(scope.className, classText)) return false;
-    if (!matchesMethodNameOrDecoratorScope(method, scope)) return false;
-    return true;
-}
-
-function matchesMethodNameOrDecoratorScope(method: any, scope: RuleScopeConstraint): boolean {
-    const hasMethodNameScope = !!scope.methodName;
-    const hasDecoratorScope = Array.isArray(scope.methodDecorators) && scope.methodDecorators.length > 0;
-    const methodNameMatches = hasMethodNameScope
-        ? matchStringConstraint(scope.methodName, method.getName?.() || "")
-        : true;
-    if (methodNameMatches && !hasDecoratorScope) return true;
-    if (methodNameMatches && hasMethodNameScope) return true;
-    if (!hasDecoratorScope) return methodNameMatches;
-    return methodHasAnyMatchingDecorator(method, scope.methodDecorators || []);
-}
-
-function methodHasAnyMatchingDecorator(method: any, constraints: RuleStringConstraint[]): boolean {
-    const decoratorKinds = (method.getDecorators?.() || [])
-        .map((decorator: any) => normalizeDecoratorKind(decorator?.getKind?.()))
-        .filter((kind: string | undefined): kind is string => !!kind);
-    if (decoratorKinds.length === 0) return false;
-    for (const constraint of constraints) {
-        if (decoratorKinds.some(kind => matchStringConstraint(constraint, kind))) {
-            return true;
-        }
-    }
-    return false;
-}
-
-function normalizeDecoratorKind(raw: string | undefined): string | undefined {
-    if (!raw) return undefined;
-    const normalized = raw.replace(/^@/, "").trim();
-    if (!normalized) return undefined;
-    return normalized.endsWith("()")
-        ? normalized.slice(0, normalized.length - 2)
-        : normalized;
-}
-
-function matchesInvokeCalleeScope(
-    scope: RuleScopeConstraint | undefined,
-    invokeExpr: any,
-    calleeSignature: string,
-    sourceMethod?: any,
-    scene?: Scene,
-): boolean {
-    if (!scope) return true;
-    const methodSig = invokeExpr.getMethodSignature?.();
-    const classSig = methodSig?.getDeclaringClassSignature?.();
-    const className = classSig?.getClassName?.() || "";
-    const classText = classSig?.toString?.() || "";
-    const fileText = classSig?.getDeclaringFileSignature?.()?.toString?.()
-        || extractFilePathFromSignature(calleeSignature);
-    const moduleText = calleeSignature || fileText;
-    const calleeName = methodSig?.getMethodSubSignature?.()?.getMethodName?.()
-        || extractMethodNameFromSignature(calleeSignature);
-
-    if (scope.methodDecorators && scope.methodDecorators.length > 0) return false;
-    if (!matchStringConstraint(scope.methodName, calleeName)) return false;
-
-    const scopeCandidates = resolveSdkImportScopeCandidates(sourceMethod, invokeExpr, scene);
-    const receiverOwnerName = scene && invokeExpr instanceof ArkInstanceInvokeExpr
-        ? resolveConcreteReceiverOwnerName(scene, invokeExpr)
-        : undefined;
-    const baseText = invokeExpr instanceof ArkInstanceInvokeExpr
-        ? (invokeExpr.getBase?.()?.toString?.() || "")
-        : "";
-    if (!matchConstraintAgainstCandidates(scope.file, [fileText, ...scopeCandidates.fileTexts])) return false;
-    if (!matchConstraintAgainstCandidates(scope.module, [moduleText, ...scopeCandidates.moduleTexts])) return false;
-    if (!matchConstraintAgainstCandidates(scope.className, [classText, className, receiverOwnerName || "", baseText, ...scopeCandidates.classTexts])) return false;
-    return true;
-}
-
-function extractFilePathFromSignature(signature: string): string {
-    const m = signature.match(/@([^:>]+):/);
-    return m ? m[1].replace(/\\/g, "/") : signature;
-}
-
-function matchStringConstraint(constraint: RuleStringConstraint | undefined, text: string): boolean {
-    if (!constraint) return true;
-    const value = constraint.value || "";
-    if (constraint.mode === "equals") return text === value;
-    if (constraint.mode === "contains") return text.includes(value);
-    try {
-        return new RegExp(value).test(text);
-    } catch {
-        return false;
-    }
-}
-
-function matchConstraintAgainstCandidates(
-    constraint: RuleStringConstraint | undefined,
-    candidates: string[],
-): boolean {
-    if (!constraint) return true;
-    const seen = new Set<string>();
-    for (const candidate of candidates) {
-        const text = String(candidate || "").trim();
-        if (!text || seen.has(text)) continue;
-        seen.add(text);
-        if (matchStringConstraint(constraint, text)) {
-            return true;
-        }
-    }
-    return false;
 }
 
 function buildFieldToVarIndexFromPag(pag: Pag): Map<string, Set<number>> {

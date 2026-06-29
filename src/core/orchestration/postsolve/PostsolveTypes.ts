@@ -71,8 +71,26 @@ export interface PostsolveJudgement {
     evidenceKinds: string[];
 }
 
+export type PostsolveCountabilityStatus =
+    | "confirmed"
+    | "near_hit_unresolved"
+    | "truncated"
+    | "cycle_blocked"
+    | "out_of_scope"
+    | "refuted";
+
+export interface PostsolveCountability {
+    status: PostsolveCountabilityStatus;
+    reason: string;
+}
+
 export interface PostsolveSkeleton {
     sinkFactId: string;
+    materialization?: {
+        status?: ProvenancePathStatus;
+        incompleteReasons: ProvenancePathIncompleteReason[];
+        pathCount: number;
+    };
     nodes: Array<{
         factId: string;
         stmtText?: string;
@@ -91,6 +109,8 @@ export interface PostsolveReport {
     skeleton?: PostsolveSkeleton;
     evidence: PostsolveEvidence[];
     judgement: PostsolveJudgement;
+    countability: PostsolveCountability;
+    countabilityStatus?: PostsolveCountabilityStatus;
     temporalFingerprint?: {
         sinkFactId: string;
         pathCount: number;
@@ -109,11 +129,14 @@ export interface PostsolveSeedResult {
         truncated?: boolean;
         evidence: PostsolveEvidence[];
         judgement: PostsolveJudgement;
+        countability: PostsolveCountability;
     }>;
     evidenceSummary: {
         evidenceKinds: string[];
         primaryReason?: string;
     };
+    countability: PostsolveCountability;
+    countabilityStatus?: PostsolveCountabilityStatus;
     report: PostsolveReport;
 }
 
@@ -133,12 +156,15 @@ export interface PostsolveFlowResult {
         truncated?: boolean;
         evidence: PostsolveEvidence[];
         judgement: PostsolveJudgement;
+        countability: PostsolveCountability;
     }>;
     evidenceSummary: {
         evidenceKinds: string[];
         primaryReason?: string;
     };
     judgement: PostsolveJudgement;
+    countability: PostsolveCountability;
+    countabilityStatus?: PostsolveCountabilityStatus;
     report: PostsolveReport;
 }
 

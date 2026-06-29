@@ -1,7 +1,7 @@
-import { Consumer, Provider, taint } from "./taint_mock";
+import { Consume, Provide, taint } from "./taint_mock";
 
 class DescendantV2Consumer015 {
-    @Consumer("token")
+    @Consume("token")
     token: string = "";
 
     build(): void {
@@ -10,7 +10,7 @@ class DescendantV2Consumer015 {
 }
 
 class AncestorV2Provider015 {
-    @Provider("token")
+    @Provide("token")
     token: string = "";
 
     build(): void {

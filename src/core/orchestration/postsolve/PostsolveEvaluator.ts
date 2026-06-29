@@ -7,10 +7,16 @@ import { evaluatePathGuardPath } from "./PathGuardRefinement";
 import { evaluateStorageFlagSourcePath } from "./StorageFlagSourceRefinement";
 import { evaluateCurrentnessCertificatePath } from "./CurrentnessCertificateRefinement";
 import { materializeTaintFlowPaths } from "../../provenance/ProvenancePathRecorder";
-import { MaterializedTaintFlow, ProvenancePathStatus } from "../../provenance/ProvenancePathTypes";
+import {
+    MaterializedTaintFlow,
+    ProvenancePath,
+    ProvenancePathIncompleteReason,
+    ProvenancePathStatus,
+} from "../../provenance/ProvenancePathTypes";
 import { buildPostsolveSkeleton } from "./PostsolveSkeleton";
 import {
     PostsolveContext,
+    PostsolveCountability,
     PostsolveEvidence,
     PostsolveFlowResult,
     PostsolveJudgement,
@@ -31,6 +37,7 @@ export function evaluatePostsolveFlow(
     const skeleton = buildPostsolveSkeleton(witness, context);
     const pathResults = (witness?.paths || []).map(path => {
         const evidence = [
+            ...evaluateCompleteTaintPathEvidence(flow, path),
             ...evaluateCurrentnessCertificatePath(flow, path, context),
             ...evaluateTypeNarrowingGuardPath(flow, path, context),
             ...evaluateSanitizerPath(flow, path, context),
@@ -43,6 +50,7 @@ export function evaluatePostsolveFlow(
             decidePostsolveJudgement(evidence),
             path.truncated || isMaterializationIncomplete(path.status),
         );
+        const countability = derivePathCountability(path, judgement);
         return {
             factIds: [...path.factIds],
             status: path.status,
@@ -50,10 +58,12 @@ export function evaluatePostsolveFlow(
             truncated: path.truncated,
             evidence,
             judgement,
+            countability,
         };
     });
 
     const judgement = aggregateFlowJudgement(pathResults, witness);
+    const countability = deriveFlowCountability(pathResults, witness, judgement);
     const evidenceSummary = buildEvidenceSummary(pathResults, judgement);
     const report: PostsolveReport = {
         sinkFactId: flow.sinkFactId || "",
@@ -61,6 +71,8 @@ export function evaluatePostsolveFlow(
         skeleton,
         evidence: flattenPathEvidence(pathResults),
         judgement,
+        countability,
+        countabilityStatus: countability.status,
         temporalFingerprint: witness
             ? {
                 sinkFactId: witness.sinkFactId,
@@ -74,6 +86,8 @@ export function evaluatePostsolveFlow(
         witness,
         skeleton,
         judgement,
+        countability,
+        countabilityStatus: countability.status,
         pathResults,
         evidenceSummary,
         report,
@@ -100,11 +114,52 @@ export function materializePostsolveFlowResult(
             truncated: path.truncated,
             evidence: [...path.evidence],
             judgement: path.judgement,
+            countability: path.countability,
         })),
         evidenceSummary: seedResult.evidenceSummary,
         judgement: seedResult.judgement,
+        countability: seedResult.countability,
+        countabilityStatus: seedResult.countability.status,
         report: seedResult.report,
     };
+}
+
+function evaluateCompleteTaintPathEvidence(
+    flow: TaintFlow,
+    path: ProvenancePath,
+): PostsolveEvidence[] {
+    const status = path.status || path.materializationStatus;
+    const complete = status === "complete" || status === "bounded-complete";
+    if (!complete || path.truncated || (path.incompleteReasons || []).length > 0 || path.factIds.length < 2) {
+        return [];
+    }
+    return [{
+        kind: "complete_taint_path",
+        polarity: "positive",
+        strength: "strong",
+        stability: "stable",
+        scope: "path",
+        subject: {
+            pathId: path.id,
+            sinkFactId: flow.sinkFactId,
+            sinkNodeId: flow.sinkNodeId,
+            sinkArgEndpoint: flow.sinkEndpoint,
+        },
+        preconditions: {
+            pathComplete: true,
+            endpointResolved: flow.sinkEndpoint ? true : undefined,
+        },
+        sourceEvidenceIds: [...(path.currentnessEvidenceIds || [])],
+        target: {
+            sinkFactId: flow.sinkFactId || "",
+            sinkNodeId: flow.sinkNodeId,
+        },
+        meta: {
+            reason: "complete_source_to_sink_witness",
+            factCount: path.factIds.length,
+            edgeCount: path.edges.length,
+        },
+    }];
 }
 
 function constrainPathJudgementForMaterialization(
@@ -122,6 +177,98 @@ function constrainPathJudgementForMaterialization(
 
 function isMaterializationIncomplete(status?: ProvenancePathStatus): boolean {
     return !!status && status !== "complete" && status !== "bounded-complete";
+}
+
+export function derivePathCountability(
+    path: Pick<ProvenancePath, "status" | "incompleteReasons" | "truncated">,
+    judgement: PostsolveJudgement,
+): PostsolveCountability {
+    const reasons = normalizeIncompleteReasons(path.incompleteReasons || []);
+    if (isTruncatedPath(path, reasons)) {
+        return {
+            status: "truncated",
+            reason: firstReason(reasons, ["max_paths", "max_depth", "truncated_materialization"]) || "truncated_materialization",
+        };
+    }
+    if (reasons.includes("cycle_skipped") || isMaterializationIncomplete(path.status)) {
+        return {
+            status: "cycle_blocked",
+            reason: reasons.includes("cycle_skipped") ? "cycle_skipped" : String(path.status || "incomplete"),
+        };
+    }
+    if (judgement.kind === "Confirmed") {
+        return {
+            status: "confirmed",
+            reason: judgement.primaryReason || "path_confirmed",
+        };
+    }
+    if (judgement.kind === "Refuted-Strong" || judgement.kind === "Refuted-Weak") {
+        return {
+            status: "refuted",
+            reason: judgement.primaryReason || "path_refuted",
+        };
+    }
+    return {
+        status: "near_hit_unresolved",
+        reason: judgement.primaryReason || "no_decisive_postsolve_evidence",
+    };
+}
+
+export function deriveFlowCountability(
+    pathResults: Array<{
+        countability?: PostsolveCountability;
+        judgement: PostsolveJudgement;
+        truncated?: boolean;
+        status?: ProvenancePathStatus;
+        incompleteReasons?: ProvenancePathIncompleteReason[];
+    }>,
+    materialized: MaterializedTaintFlow | undefined,
+    judgement: PostsolveJudgement,
+): PostsolveCountability {
+    const materializedReasons = normalizeIncompleteReasons(materialized?.incompleteReasons || []);
+    const allReasons = normalizeIncompleteReasons([
+        ...materializedReasons,
+        ...pathResults.flatMap(path => path.incompleteReasons || []),
+    ]);
+    if (judgement.kind === "Confirmed"
+        && pathResults.some(path => path.countability?.status === "confirmed")) {
+        return {
+            status: "confirmed",
+            reason: judgement.primaryReason || "path_confirmed",
+        };
+    }
+    if (isTruncatedMaterialization(materialized, materializedReasons)
+        || pathResults.some(path => path.countability?.status === "truncated")
+        || allReasons.some(reason => reason === "max_paths" || reason === "max_depth" || reason === "truncated_materialization")) {
+        return {
+            status: "truncated",
+            reason: firstReason(allReasons, ["max_paths", "max_depth", "truncated_materialization"]) || "truncated_materialization",
+        };
+    }
+    if (allReasons.includes("cycle_skipped")
+        || pathResults.some(path => path.countability?.status === "cycle_blocked")
+        || isMaterializationIncomplete(materialized?.status)) {
+        return {
+            status: "cycle_blocked",
+            reason: allReasons.includes("cycle_skipped") ? "cycle_skipped" : String(materialized?.status || "incomplete"),
+        };
+    }
+    if (pathResults.length === 0) {
+        return {
+            status: "out_of_scope",
+            reason: "no_materialized_paths",
+        };
+    }
+    if (judgement.kind === "Refuted-Strong" || judgement.kind === "Refuted-Weak") {
+        return {
+            status: "refuted",
+            reason: judgement.primaryReason || "flow_refuted",
+        };
+    }
+    return {
+        status: "near_hit_unresolved",
+        reason: judgement.primaryReason || "no_decisive_postsolve_evidence",
+    };
 }
 
 export function decidePostsolveJudgement(evidence: PostsolveEvidence[]): PostsolveJudgement {
@@ -192,6 +339,35 @@ function evidenceCoversPathSubject(evidence: PostsolveEvidence): boolean {
 function evidencePreconditionsSatisfied(evidence: PostsolveEvidence): boolean {
     const preconditions = evidence.preconditions || {};
     return Object.values(preconditions).every(value => value !== false);
+}
+
+function isTruncatedPath(
+    path: Pick<ProvenancePath, "status" | "incompleteReasons" | "truncated">,
+    reasons: ProvenancePathIncompleteReason[],
+): boolean {
+    return !!path.truncated
+        || path.status === "truncated"
+        || reasons.some(reason => reason === "max_paths" || reason === "max_depth" || reason === "truncated_materialization");
+}
+
+function isTruncatedMaterialization(
+    materialized: MaterializedTaintFlow | undefined,
+    reasons: ProvenancePathIncompleteReason[],
+): boolean {
+    return materialized?.status === "truncated"
+        || materialized?.materializationStatus === "truncated"
+        || reasons.some(reason => reason === "max_paths" || reason === "max_depth" || reason === "truncated_materialization");
+}
+
+function normalizeIncompleteReasons(reasons: readonly ProvenancePathIncompleteReason[]): ProvenancePathIncompleteReason[] {
+    return [...new Set(reasons)].sort();
+}
+
+function firstReason(
+    reasons: readonly ProvenancePathIncompleteReason[],
+    priority: ProvenancePathIncompleteReason[],
+): ProvenancePathIncompleteReason | undefined {
+    return priority.find(reason => reasons.includes(reason));
 }
 
 export function aggregateFlowJudgement(

@@ -1,9 +1,10 @@
 import * as fs from "fs";
 import * as path from "path";
 import {
-    bootstrapAssetSurfaceRegistry,
+    bootstrapAssetIdentityIndex,
     type AssetDocumentBase,
 } from "../../core/assets/schema";
+import { createCanonicalApiRegistry } from "../../core/api/identity";
 import { lowerModuleAssetToInternalModuleLoweringIR } from "../../core/kernel/contracts/ModuleAssetLowering";
 import { loadModules } from "../../core/orchestration/modules/ModuleLoader";
 import { publishSemanticFlowProjectAssets } from "../../core/semanticflow/SemanticFlowProjectAssets";
@@ -14,7 +15,9 @@ import {
     expectThrows,
     makeHandoffAsset,
     makeRuleAsset,
+    normalizeExactTestAsset,
 } from "./SemanticFlowV2TestHelpers";
+import { bindExactAssetIdentities, exactProjectInvokeSurface } from "../helpers/AssetIdentityTestUtils";
 
 function schemaValid(asset: AssetDocumentBase): AssetDocumentBase {
     return {
@@ -53,7 +56,10 @@ function main(): void {
     });
     assert(evalModule.semantics.length === 1, "schema-valid module should lower under semanticflow evaluation mode");
 
-    const registry = bootstrapAssetSurfaceRegistry([schemaValidRule, schemaValidModule], { failOnInvalid: false });
+    const registry = bootstrapAssetIdentityIndex([schemaValidRule, schemaValidModule], {
+        failOnInvalid: false,
+        canonicalApiRegistry: createCanonicalApiRegistry([]),
+    });
     assert(registry.trustedAssetIds.length === 0, "schema-valid semanticflow assets must not enter known-covered registry");
     assert(registry.skippedAssets.length === 2, "schema-valid semanticflow assets should be skipped by trusted registry");
 
@@ -71,18 +77,18 @@ function main(): void {
     const trustedOnlyRules = loadRuleSet({
         kernelRulePath: "tests/rules/minimal.rules.json",
         projectRulePath: rulePath,
-        autoDiscoverLayers: false,
+        autoDiscoverRuleSources: false,
     });
     assert(trustedOnlyRules.ruleSet.sinks.length === 0, "project schema-valid rule must stay inert without evaluation root");
 
     const overlayRules = loadRuleSet({
         kernelRulePath: "tests/rules/minimal.rules.json",
         projectRulePath: rulePath,
-        autoDiscoverLayers: false,
+        autoDiscoverRuleSources: false,
         semanticflowEvaluationModelRoots: [modelRoot],
     });
     assert(overlayRules.ruleSet.sinks.length === 1, "project schema-valid rule should load only from evaluation root");
-    const overlayProjectLayer = overlayRules.layerStatus.find(status => status.path === rulePath);
+    const overlayProjectLayer = overlayRules.ruleSourceStatus.find(status => status.path === rulePath);
     assert(overlayProjectLayer?.applied === true, "semanticflow evaluation project rule layer should be marked applied");
     assert(overlayProjectLayer.sinkRuleCount === 1, "semanticflow evaluation project rule layer should expose lowered sink count");
     assert(overlayProjectLayer.sourceRuleCount === 0, "semanticflow evaluation project rule layer should expose lowered source count");
@@ -146,7 +152,7 @@ function main(): void {
     const outsideRules = loadRuleSet({
         kernelRulePath: "tests/rules/minimal.rules.json",
         projectRulePath: outsideRulePath,
-        autoDiscoverLayers: false,
+        autoDiscoverRuleSources: false,
         semanticflowEvaluationModelRoots: [modelRoot],
     });
     assert(outsideRules.ruleSet.sinks.length === 0, "evaluation mode must be restricted to declared model roots");
@@ -215,16 +221,22 @@ function main(): void {
 
     const pairedFamilyRoot = path.join(root, "paired_family_normalization_model_root");
     const pairedFamilyAsset = makeHandoffAsset("asset.semanticflow.paired.family");
-    pairedFamilyAsset.surfaces.push({
-        ...(pairedFamilyAsset.surfaces[0] as any),
+    pairedFamilyAsset.surfaces.push(exactProjectInvokeSurface({
         surfaceId: "asset.semanticflow.paired.family.load.surface",
+        modulePath: "project/TokenCache",
+        ownerName: "TokenCache",
         methodName: "load",
-        argCount: 1,
-    });
+        invokeKind: "static",
+        parameterTypes: ["string"],
+        returnType: "void",
+        confidence: "likely",
+        provenanceSource: "llm-proposal",
+    }));
     pairedFamilyAsset.bindings.push({
         ...(pairedFamilyAsset.bindings[0] as any),
         bindingId: "asset.semanticflow.paired.family.load.binding",
         surfaceId: "asset.semanticflow.paired.family.load.surface",
+        canonicalApiId: undefined,
         endpoint: { base: { kind: "return" } },
         effectTemplateRefs: ["asset.semanticflow.paired.family.load.get"],
     });
@@ -235,11 +247,13 @@ function main(): void {
             cellKind: "keyed-semantic-slot",
             family: "project.TokenCache",
             key: [{ kind: "fromLiteralArg", index: 0 }],
-            precision: "infer",
+            precision: "exact",
         },
         target: { base: { kind: "return" } },
         confidence: "likely",
     } as any);
+    bindExactAssetIdentities(pairedFamilyAsset);
+    normalizeExactTestAsset(pairedFamilyAsset);
     publishSemanticFlowProjectAssets({
         projectId: "semanticflow",
         modelRoot: pairedFamilyRoot,
@@ -268,16 +282,22 @@ function main(): void {
             key: [{ kind: "const", value: "first" }],
         },
     } as any;
-    divergentFamilyAsset.surfaces.push({
-        ...(divergentFamilyAsset.surfaces[0] as any),
+    divergentFamilyAsset.surfaces.push(exactProjectInvokeSurface({
         surfaceId: "asset.semanticflow.divergent.family.load.surface",
+        modulePath: "project/TokenCache",
+        ownerName: "TokenCache",
         methodName: "loadSecond",
-        argCount: 0,
-    });
+        invokeKind: "static",
+        parameterTypes: [],
+        returnType: "void",
+        confidence: "likely",
+        provenanceSource: "llm-proposal",
+    }));
     divergentFamilyAsset.bindings.push({
         ...(divergentFamilyAsset.bindings[0] as any),
         bindingId: "asset.semanticflow.divergent.family.load.binding",
         surfaceId: "asset.semanticflow.divergent.family.load.surface",
+        canonicalApiId: undefined,
         endpoint: { base: { kind: "return" } },
         effectTemplateRefs: ["asset.semanticflow.divergent.family.load.get"],
     });
@@ -288,11 +308,13 @@ function main(): void {
             cellKind: "keyed-semantic-slot",
             family: "project.second_store",
             key: [{ kind: "const", value: "second" }],
-            precision: "infer",
+            precision: "exact",
         },
         target: { base: { kind: "return" } },
         confidence: "likely",
     } as any);
+    bindExactAssetIdentities(divergentFamilyAsset);
+    normalizeExactTestAsset(divergentFamilyAsset);
     publishSemanticFlowProjectAssets({
         projectId: "semanticflow",
         modelRoot: divergentFamilyRoot,
@@ -308,18 +330,42 @@ function main(): void {
 
     const divergentRoot = path.join(root, "divergent_surface_model_root");
     const divergentRequest = makeRuleAsset("asset.semanticflow.duplicate.request");
-    divergentRequest.surfaces[0].surfaceId = "surface.Duplicate.shared";
-    (divergentRequest.surfaces[0] as any).argCount = 3;
+    divergentRequest.surfaces[0] = exactProjectInvokeSurface({
+        surfaceId: "surface.Duplicate.shared",
+        modulePath: "project/Logger",
+        ownerName: "Logger",
+        methodName: "info",
+        invokeKind: "static",
+        parameterTypes: ["string", "string", "string"],
+        returnType: "void",
+        confidence: "likely",
+        provenanceSource: "llm-proposal",
+    });
     divergentRequest.bindings[0].surfaceId = "surface.Duplicate.shared";
+    (divergentRequest.bindings[0] as any).canonicalApiId = undefined;
+    bindExactAssetIdentities(divergentRequest);
+    normalizeExactTestAsset(divergentRequest);
     const divergentResponse = makeRuleAsset("asset.semanticflow.duplicate.response", {
         role: "source",
         effectKind: "rule.source",
         bindingId: "binding.Duplicate.promiseResult.source",
         effectId: "template.Duplicate.promiseResult.source",
     });
-    divergentResponse.surfaces[0].surfaceId = "surface.Duplicate.shared";
-    (divergentResponse.surfaces[0] as any).argCount = 2;
+    divergentResponse.surfaces[0] = exactProjectInvokeSurface({
+        surfaceId: "surface.Duplicate.shared",
+        modulePath: "project/Logger",
+        ownerName: "Logger",
+        methodName: "info",
+        invokeKind: "static",
+        parameterTypes: ["string", "string"],
+        returnType: "void",
+        confidence: "likely",
+        provenanceSource: "llm-proposal",
+    });
     divergentResponse.bindings[0].surfaceId = "surface.Duplicate.shared";
+    (divergentResponse.bindings[0] as any).canonicalApiId = undefined;
+    bindExactAssetIdentities(divergentResponse);
+    normalizeExactTestAsset(divergentResponse);
     publishSemanticFlowProjectAssets({
         projectId: "semanticflow",
         modelRoot: divergentRoot,
@@ -332,8 +378,10 @@ function main(): void {
         new Set(divergentRuleAsset.surfaces.map(surface => surface.surfaceId)).size === 2,
         "divergent generated surfaces must be disambiguated with distinct surface ids",
     );
-    const requestSurface = divergentRuleAsset.surfaces.find(surface => (surface as any).argCount === 3);
-    const responseSurface = divergentRuleAsset.surfaces.find(surface => (surface as any).argCount === 2);
+    const requestSurface = divergentRuleAsset.surfaces.find(surface =>
+        surface.evidence?.arkanalyzer?.methodKey?.parameterTypes.length === 3);
+    const responseSurface = divergentRuleAsset.surfaces.find(surface =>
+        surface.evidence?.arkanalyzer?.methodKey?.parameterTypes.length === 2);
     assert(!!requestSurface && !!responseSurface, "disambiguated surfaces must retain their analyzer-backed shapes");
     assert(
         divergentRuleAsset.bindings.some(binding => binding.role === "sink" && binding.surfaceId === requestSurface.surfaceId),

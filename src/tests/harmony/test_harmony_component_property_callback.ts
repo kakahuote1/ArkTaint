@@ -3,6 +3,7 @@ import { SceneConfig } from "../../../arkanalyzer/out/src/Config";
 import { resolveKnownOptionCallbackRegistrationsFromStmt } from "../../core/substrate/semantics/KnownOptionCallbackRegistration";
 import { TaintPropagationEngine } from "../../core/orchestration/TaintPropagationEngine";
 import { SinkRule, SourceRule } from "../../core/rules/RuleSchema";
+import { projectApiEffectAssetFromMethod } from "../helpers/ApiEffectTestAssets";
 import * as path from "path";
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -20,6 +21,12 @@ function findMethodSignatureForStmt(scene: Scene, stmt: any): string {
         }
     }
     return "";
+}
+
+function findMethod(scene: Scene, methodName: string) {
+    const method = scene.getMethods().find(item => item.getName?.() === methodName);
+    assert(!!method, `method not found: ${methodName}`);
+    return method;
 }
 
 async function main(): Promise<void> {
@@ -47,26 +54,43 @@ async function main(): Promise<void> {
     assert(matches.some(signature => signature.includes("HostPage") && signature.includes("%AM")),
         `expected constructor-lowered component property callback to resolve HostPage callback, got ${matches.join(", ")}`);
 
+    const sourceEffect = projectApiEffectAssetFromMethod({
+        id: "source.fixture.textinput.onchange",
+        role: "source",
+        method: findMethod(scene, "onChange"),
+        endpoint: { base: { kind: "arg", index: 0 } },
+        sourceKind: "callback_param",
+    });
+    const sinkEffect = projectApiEffectAssetFromMethod({
+        id: "sink.fixture.host.sink",
+        role: "sink",
+        method: findMethod(scene, "sink"),
+        endpoint: { base: { kind: "arg", index: 0 } },
+        sinkKind: "test",
+    });
     const sourceRules: SourceRule[] = [
         {
             id: "source.fixture.textinput.onchange",
             enabled: true,
-            match: { kind: "method_name_equals", value: "onChange" },
+            match: { kind: "canonical_api_id_equals", value: sourceEffect.canonicalApiDescriptor.canonicalApiId },
+            apiEffect: sourceEffect.apiEffect,
             sourceKind: "callback_param",
             target: { endpoint: "arg0" },
-            callbackArgIndexes: [0],
         },
     ];
     const sinkRules: SinkRule[] = [
         {
             id: "sink.fixture.host.sink",
             enabled: true,
-            match: { kind: "method_name_equals", value: "sink" },
+            match: { kind: "canonical_api_id_equals", value: sinkEffect.canonicalApiDescriptor.canonicalApiId },
+            apiEffect: sinkEffect.apiEffect,
             target: { endpoint: "arg0" },
         },
     ];
 
-    const engine = new TaintPropagationEngine(scene, 1);
+    const engine = new TaintPropagationEngine(scene, 1, {
+        apiAssets: [sourceEffect.asset, sinkEffect.asset],
+    });
     engine.verbose = false;
     await engine.buildPAG({ entryModel: "arkMain" });
     const seedInfo = engine.propagateWithSourceRules(sourceRules);

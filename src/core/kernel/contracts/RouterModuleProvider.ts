@@ -1,7 +1,7 @@
 import type { Scene } from "../../../../arkanalyzer/out/src/Scene";
 import type { Pag } from "../../../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
 import type { FrameworkModuleProvider } from "./FrameworkModuleProvider";
-import type { ModuleAnalysisApi, ModuleSetupCallbackApi } from "./ModuleContract";
+import type { ModuleAnalysisApi, ModuleScanApi, ModuleSetupCallbackApi } from "./ModuleContract";
 
 export interface RouterValueFieldTarget {
     fieldName: string;
@@ -32,6 +32,7 @@ export interface BuildRouterSemanticModelArgs {
     scene: Scene;
     pag: Pag;
     allowedMethodSignatures?: Set<string>;
+    scan: ModuleScanApi;
     analysis: ModuleAnalysisApi;
     callbacks: ModuleSetupCallbackApi;
     log?: (msg: string) => void;

@@ -2,14 +2,20 @@ import * as fs from "fs";
 import * as path from "path";
 import { ChildProcess, spawn } from "child_process";
 import { discoverArkTsSourceDirs } from "../cli/sourceDiscovery";
+import { parseArgs as parseAnalyzeCliArgs, type CliOptions, type FlowMode } from "../cli/analyzeCliOptions";
+import { prepareAnalyzeRuntime, runAnalyze, type AnalyzeRuntime } from "../cli/analyzeRunner";
 
 type SourceDirMode = "project" | "split" | "auto";
+type BatchExecutionMode = "subprocess" | "in-process";
 
 interface Options {
     projectRoot: string;
     outputDir: string;
     projects: string[];
+    projectsFile: string;
     maxProjects: number;
+    executionHandoff: "enabled" | "disabled";
+    currentness: "enabled" | "disabled";
     projectTimeoutSeconds: number;
     heartbeatSeconds: number;
     autoModel: boolean;
@@ -32,6 +38,7 @@ interface Options {
     entryModel: string;
     maxEntries: number;
     worklistBudgetMs: number;
+    worklistMaxVisited: number;
     noIncremental: boolean;
     skipExisting: boolean;
     resumeRecorded: boolean;
@@ -40,6 +47,8 @@ interface Options {
     sourceDirTimeoutSeconds: number;
     maxSplitSourceDirs: number;
     projectRetries: number;
+    executionMode: BatchExecutionMode;
+    flowMode: FlowMode;
 }
 
 interface ProjectRecord {
@@ -69,6 +78,11 @@ interface ProjectRecord {
     failedSourceDirs?: number;
 }
 
+interface BatchRuntimeContext {
+    analyzeRuntime?: AnalyzeRuntime;
+    analyzeRuntimeLoadMs?: number;
+}
+
 const DEFAULT_OUTPUT_DIR = path.resolve(
     "tmp",
     "test_runs",
@@ -81,7 +95,10 @@ function parseArgs(argv: string[]): Options {
         projectRoot: path.resolve("..", "project"),
         outputDir: DEFAULT_OUTPUT_DIR,
         projects: [],
+        projectsFile: "",
         maxProjects: 0,
+        executionHandoff: "enabled",
+        currentness: "enabled",
         projectTimeoutSeconds: 480,
         heartbeatSeconds: 30,
         autoModel: false,
@@ -103,6 +120,7 @@ function parseArgs(argv: string[]): Options {
         entryModel: "arkMain",
         maxEntries: 9999,
         worklistBudgetMs: 45000,
+        worklistMaxVisited: 0,
         noIncremental: true,
         skipExisting: false,
         resumeRecorded: true,
@@ -111,6 +129,8 @@ function parseArgs(argv: string[]): Options {
         sourceDirTimeoutSeconds: 120,
         maxSplitSourceDirs: 0,
         projectRetries: 1,
+        executionMode: "subprocess",
+        flowMode: "postsolve",
     };
 
     for (let i = 0; i < argv.length; i++) {
@@ -132,8 +152,19 @@ function parseArgs(argv: string[]): Options {
             case "--projects":
                 opts.projects = next().split(",").map(item => item.trim()).filter(Boolean);
                 break;
+            case "--projectsFile":
+            case "--projects-file":
+                opts.projectsFile = path.resolve(next());
+                break;
             case "--maxProjects":
                 opts.maxProjects = parsePositiveInt(next(), arg);
+                break;
+            case "--executionHandoff":
+            case "--execution-handoff":
+                opts.executionHandoff = parseEnabledDisabled(next(), arg);
+                break;
+            case "--currentness":
+                opts.currentness = parseEnabledDisabled(next(), arg);
                 break;
             case "--projectTimeoutSeconds":
                 opts.projectTimeoutSeconds = parsePositiveInt(next(), arg);
@@ -211,6 +242,10 @@ function parseArgs(argv: string[]): Options {
             case "--worklist-budget-ms":
                 opts.worklistBudgetMs = parseNonNegativeInt(next(), arg);
                 break;
+            case "--worklistMaxVisited":
+            case "--worklist-max-visited":
+                opts.worklistMaxVisited = parseNonNegativeInt(next(), arg);
+                break;
             case "--incremental":
                 opts.noIncremental = false;
                 break;
@@ -238,6 +273,20 @@ function parseArgs(argv: string[]): Options {
             case "--projectRetries":
                 opts.projectRetries = parseNonNegativeInt(next(), arg);
                 break;
+            case "--executionMode":
+            case "--execution-mode":
+                opts.executionMode = next() as BatchExecutionMode;
+                if (opts.executionMode !== "subprocess" && opts.executionMode !== "in-process") {
+                    throw new Error(`--executionMode must be subprocess or in-process, got ${opts.executionMode}`);
+                }
+                break;
+            case "--flowMode":
+            case "--flow-mode":
+                opts.flowMode = next() as FlowMode;
+                if (opts.flowMode !== "postsolve" && opts.flowMode !== "candidate" && opts.flowMode !== "raw") {
+                    throw new Error(`--flowMode must be postsolve, candidate, or raw, got ${opts.flowMode}`);
+                }
+                break;
             case "--help":
             case "-h":
                 printHelp();
@@ -248,6 +297,12 @@ function parseArgs(argv: string[]): Options {
         }
     }
 
+    if (opts.executionMode === "in-process" && opts.autoModel) {
+        throw new Error("--executionMode in-process does not support --autoModel; use subprocess for LLM runs");
+    }
+    if (opts.flowMode === "candidate" && opts.autoModel) {
+        throw new Error("--flowMode candidate is no-LLM and cannot be combined with --autoModel");
+    }
     return opts;
 }
 
@@ -267,6 +322,11 @@ function parseNonNegativeInt(value: string, name: string): number {
     return parsed;
 }
 
+function parseEnabledDisabled(value: string, name: string): "enabled" | "disabled" {
+    if (value === "enabled" || value === "disabled") return value;
+    throw new Error(`${name} must be enabled or disabled, got ${value}`);
+}
+
 function printHelp(): void {
     console.log([
         "Usage: node out/tools/real_project_batch_analyze.js [options]",
@@ -275,7 +335,11 @@ function printHelp(): void {
         "  --projectRoot <path>              Root directory containing real projects",
         "  --outputDir <path>                Output directory for batch records",
         "  --projects <a,b,c>                Project names to run",
+        "  --projectsFile <path>             UTF-8 newline-delimited project names to run",
         "  --maxProjects <n>                 Limit projects after filtering",
+        "  --executionHandoff <enabled|disabled>",
+        "                                    Enable or disable UDE/deferred execution handoff",
+        "  --currentness <enabled|disabled>  Enable or disable OCLFS currentness filtering",
         "  --projectTimeoutSeconds <n>       Hard timeout per project",
         "  --heartbeatSeconds <n>            Progress heartbeat interval",
         "  --autoModel                       Run SemanticFlow before final analyze",
@@ -297,6 +361,7 @@ function printHelp(): void {
         "  --entryModel <arkMain|explicit>   Entry model for final analyze",
         "  --maxEntries <n>                  Analyze max entries",
         "  --worklistBudgetMs <n>            Per-entry propagation budget in ms; 0 disables",
+        "  --worklistMaxVisited <n>          Per-entry visited-fact cap; 0 disables",
         "  --incremental                     Keep incremental mode enabled",
         "  --skipExisting                    Skip project if summary already exists",
         "  --rerunRecorded                  Re-run projects already present in batch_runs.jsonl",
@@ -305,6 +370,9 @@ function printHelp(): void {
         "  --sourceDirTimeoutSeconds <n>      Hard timeout per source-dir shard",
         "  --maxSplitSourceDirs <n>           Limit shards for probing; 0 means all",
         "  --projectRetries <n>               Retry no-diagnostic project crashes; default 1",
+        "  --flowMode <postsolve|candidate|raw> Analyze flow mode passed to the engine",
+        "  --executionMode <subprocess|in-process>",
+        "                                    subprocess keeps hard kill isolation; in-process reuses loaded runtime for no-LLM batches",
     ].join("\n"));
 }
 
@@ -318,14 +386,31 @@ async function main(): Promise<void> {
         fs.writeFileSync(csvPath, csvHeader(), "utf-8");
     }
     const recordedProjects = readRecordedProjects(jsonlPath);
+    const projects = listProjects(opts);
+    const runtimeContext: BatchRuntimeContext = {};
+    if (opts.executionMode === "in-process" && projects.length > 0) {
+        const firstRepo = path.join(opts.projectRoot, projects[0]);
+        const firstSourceDirs = discoverArkTsSourceDirs(firstRepo);
+        if (firstSourceDirs.length > 0) {
+            const runtimeStarted = Date.now();
+            const runtimeOptions = buildAnalyzeCliOptions(firstRepo, path.join(opts.outputDir, ".runtime_probe"), opts, firstSourceDirs);
+            runtimeContext.analyzeRuntime = prepareAnalyzeRuntime(runtimeOptions);
+            runtimeContext.analyzeRuntimeLoadMs = Date.now() - runtimeStarted;
+            console.log(`batch_runtime_preloaded executionMode=in-process elapsed_ms=${runtimeContext.analyzeRuntimeLoadMs} rule_load_ms=${Math.round(runtimeContext.analyzeRuntime.ruleLoadMs)}`);
+        }
+    }
     fs.writeFileSync(manifestPath, JSON.stringify({
         generatedAt: new Date().toISOString(),
         options: opts,
         recordedProjectCount: recordedProjects.size,
+        runtime: {
+            executionMode: opts.executionMode,
+            preloaded: !!runtimeContext.analyzeRuntime,
+            preloadElapsedMs: runtimeContext.analyzeRuntimeLoadMs ?? null,
+        },
     }, null, 2), "utf-8");
 
-    const projects = listProjects(opts);
-    console.log(`batch_start projects=${projects.length} outputDir=${opts.outputDir} timeout_s=${opts.projectTimeoutSeconds} autoModel=${opts.autoModel} resumeRecorded=${opts.resumeRecorded}`);
+    console.log(`batch_start projects=${projects.length} outputDir=${opts.outputDir} timeout_s=${opts.projectTimeoutSeconds} autoModel=${opts.autoModel} resumeRecorded=${opts.resumeRecorded} executionMode=${opts.executionMode} flowMode=${opts.flowMode}`);
 
     for (let i = 0; i < projects.length; i++) {
         const project = projects[i];
@@ -335,7 +420,7 @@ async function main(): Promise<void> {
             continue;
         }
         console.log(`[${i + 1}/${projects.length}] project=${project} start`);
-        const record = await runProject(project, opts);
+        const record = await runProject(project, opts, runtimeContext);
         appendRecord(jsonlPath, csvPath, record);
         recordedProjects.set(project, record);
         console.log(`[${i + 1}/${projects.length}] project=${project} status=${record.status} elapsed_ms=${record.elapsedMs} flows=${record.totalFlows ?? ""} source_dirs=${record.sourceDirs.length}`);
@@ -347,8 +432,12 @@ function listProjects(opts: Options): string[] {
     if (!fs.existsSync(opts.projectRoot)) {
         throw new Error(`projectRoot does not exist: ${opts.projectRoot}`);
     }
-    const requested = opts.projects.length > 0
-        ? opts.projects
+    const projectsFromFile = opts.projectsFile
+        ? readProjectsFile(opts.projectsFile)
+        : [];
+    const explicitProjects = projectsFromFile.length > 0 ? projectsFromFile : opts.projects;
+    const requested = explicitProjects.length > 0
+        ? explicitProjects
         : fs.readdirSync(opts.projectRoot, { withFileTypes: true })
             .filter(entry => entry.isDirectory())
             .map(entry => entry.name)
@@ -357,11 +446,27 @@ function listProjects(opts: Options): string[] {
         const repo = path.join(opts.projectRoot, name);
         return fs.existsSync(repo) && fs.statSync(repo).isDirectory();
     });
-    if (opts.projects.length > 0) {
+    if (explicitProjects.length > 0) {
         return opts.maxProjects > 0 ? existing.slice(0, opts.maxProjects) : existing;
     }
     const withSources = existing.filter(name => discoverArkTsSourceDirs(path.join(opts.projectRoot, name)).length > 0);
     return opts.maxProjects > 0 ? withSources.slice(0, opts.maxProjects) : withSources;
+}
+
+function readProjectsFile(file: string): string[] {
+    if (!fs.existsSync(file)) {
+        throw new Error(`projectsFile does not exist: ${file}`);
+    }
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const line of fs.readFileSync(file, "utf-8").split(/\r?\n/)) {
+        const value = line.trim();
+        if (!value || value.startsWith("#")) continue;
+        if (seen.has(value)) continue;
+        seen.add(value);
+        out.push(value);
+    }
+    return out;
 }
 
 function readRecordedProjects(jsonlPath: string): Map<string, ProjectRecord> {
@@ -385,13 +490,13 @@ function readRecordedProjects(jsonlPath: string): Map<string, ProjectRecord> {
     return records;
 }
 
-async function runProject(project: string, opts: Options): Promise<ProjectRecord> {
+async function runProject(project: string, opts: Options, context: BatchRuntimeContext): Promise<ProjectRecord> {
     let lastRecord: ProjectRecord | undefined;
     for (let attempt = 0; attempt <= opts.projectRetries; attempt++) {
         if (attempt > 0) {
             console.log(`project_retry project=${project} attempt=${attempt + 1}/${opts.projectRetries + 1} previous_status=${lastRecord?.status} previous_exit=${lastRecord?.exitCode ?? ""}`);
         }
-        const record = await runProjectOnce(project, opts);
+        const record = await runProjectOnce(project, opts, context);
         lastRecord = record;
         if (!isRetryableProjectFailure(record)) {
             return record;
@@ -400,7 +505,7 @@ async function runProject(project: string, opts: Options): Promise<ProjectRecord
     return lastRecord!;
 }
 
-async function runProjectOnce(project: string, opts: Options): Promise<ProjectRecord> {
+async function runProjectOnce(project: string, opts: Options, context: BatchRuntimeContext): Promise<ProjectRecord> {
     const repo = path.join(opts.projectRoot, project);
     const sourceDirs = discoverArkTsSourceDirs(repo);
     const projectOut = path.join(opts.outputDir, "runs", safeName(project));
@@ -455,29 +560,27 @@ async function runProjectOnce(project: string, opts: Options): Promise<ProjectRe
 
     if (shouldSplitSourceDirs(sourceDirs, opts)) {
         console.log(`project_split_mode project=${project} source_dirs=${sourceDirs.length} threshold=${opts.splitSourceDirThreshold} shard_timeout_s=${opts.sourceDirTimeoutSeconds}`);
-        return runProjectBySourceDir(project, repo, sourceDirs, projectOut, opts);
+        return runProjectBySourceDir(project, repo, sourceDirs, projectOut, opts, context);
     }
 
-    const args = buildAnalyzeArgs(repo, projectOut, opts);
-    const started = Date.now();
-    const child = spawn(process.execPath, args, {
-        cwd: process.cwd(),
-        stdio: ["ignore", "pipe", "pipe"],
-        windowsHide: true,
-    });
-    const stdout = fs.createWriteStream(stdoutLog, { flags: "w" });
-    const stderr = fs.createWriteStream(stderrLog, { flags: "w" });
-    child.stdout.pipe(stdout);
-    child.stderr.pipe(stderr);
+    if (opts.executionMode === "in-process") {
+        return runProjectInProcess(project, repo, sourceDirs, projectOut, stdoutLog, stderrLog, opts, context);
+    }
 
-    const result = await waitForChild(child, opts.projectTimeoutSeconds * 1000, {
-        heartbeatMs: opts.heartbeatSeconds * 1000,
-        label: project,
-        stdoutLog,
-        stderrLog,
-    });
-    stdout.end();
-    stderr.end();
+    const started = Date.now();
+    const result = await runAnalyzeSubprocess(
+        repo,
+        projectOut,
+        opts,
+        undefined,
+        opts.projectTimeoutSeconds * 1000,
+        {
+            heartbeatMs: opts.heartbeatSeconds * 1000,
+            label: project,
+            stdoutLog,
+            stderrLog,
+        },
+    );
     const elapsedMs = Date.now() - started;
     const summaryFields = readSummaryFields(summaryJson, sourceRunsJson, projectOut);
     const status = resolveProjectStatus(result.timedOut, result.exitCode, opts, summaryFields);
@@ -516,12 +619,177 @@ function shouldSplitSourceDirs(sourceDirs: string[], opts: Options): boolean {
     return sourceDirs.length > opts.splitSourceDirThreshold;
 }
 
+type AnalyzeExecutionResult = { exitCode: number | null; timedOut: boolean; error: string };
+
+async function runProjectInProcess(
+    project: string,
+    repo: string,
+    sourceDirs: string[],
+    projectOut: string,
+    stdoutLog: string,
+    stderrLog: string,
+    opts: Options,
+    context: BatchRuntimeContext,
+): Promise<ProjectRecord> {
+    const started = Date.now();
+    const summaryJson = path.join(projectOut, "summary", "summary.json");
+    const sourceRunsJson = path.join(projectOut, "source_runs.json");
+    const result = await runAnalyzeInProcess(
+        repo,
+        projectOut,
+        opts,
+        context,
+        undefined,
+        {
+            heartbeatMs: opts.heartbeatSeconds * 1000,
+            label: project,
+            stdoutLog,
+            stderrLog,
+        },
+    );
+    const elapsedMs = Date.now() - started;
+    const summaryFields = readSummaryFields(summaryJson, sourceRunsJson, projectOut);
+    const status = resolveProjectStatus(result.timedOut, result.exitCode, opts, summaryFields);
+    return {
+        project,
+        repo,
+        sourceDirs,
+        status,
+        exitCode: result.exitCode,
+        elapsedMs,
+        timeoutSeconds: opts.projectTimeoutSeconds,
+        outputDir: projectOut,
+        summaryJson,
+        sourceRunsJson,
+        ...summaryFields,
+        error: result.error,
+        executionMode: "in-process",
+    };
+}
+
+function buildAnalyzeCliOptions(repo: string, outputDir: string, opts: Options, sourceDirs?: string[]): CliOptions {
+    return parseAnalyzeCliArgs(buildAnalyzeArgs(repo, outputDir, opts, sourceDirs).slice(1));
+}
+
+async function runAnalyzeSubprocess(
+    repo: string,
+    outputDir: string,
+    opts: Options,
+    sourceDirs: string[] | undefined,
+    timeoutMs: number,
+    heartbeat: {
+        heartbeatMs: number;
+        label: string;
+        stdoutLog: string;
+        stderrLog: string;
+    },
+): Promise<AnalyzeExecutionResult> {
+    const args = buildAnalyzeArgs(repo, outputDir, opts, sourceDirs);
+    const child = spawn(process.execPath, args, {
+        cwd: process.cwd(),
+        stdio: ["ignore", "pipe", "pipe"],
+        windowsHide: true,
+    });
+    const stdout = fs.createWriteStream(heartbeat.stdoutLog, { flags: "w" });
+    const stderr = fs.createWriteStream(heartbeat.stderrLog, { flags: "w" });
+    child.stdout.pipe(stdout);
+    child.stderr.pipe(stderr);
+    const result = await waitForChild(child, timeoutMs, heartbeat);
+    stdout.end();
+    stderr.end();
+    return result;
+}
+
+async function runAnalyzeInProcess(
+    repo: string,
+    outputDir: string,
+    opts: Options,
+    context: BatchRuntimeContext,
+    sourceDirs: string[] | undefined,
+    heartbeat: {
+        heartbeatMs: number;
+        label: string;
+        stdoutLog: string;
+        stderrLog: string;
+    },
+): Promise<AnalyzeExecutionResult> {
+    const analyzeOptions = buildAnalyzeCliOptions(repo, outputDir, opts, sourceDirs);
+    analyzeOptions.showLoadWarnings = false;
+    if (!context.analyzeRuntime) {
+        const preloadStarted = Date.now();
+        context.analyzeRuntime = prepareAnalyzeRuntime(analyzeOptions);
+        context.analyzeRuntimeLoadMs = Date.now() - preloadStarted;
+        console.log(`batch_runtime_preloaded executionMode=in-process elapsed_ms=${context.analyzeRuntimeLoadMs} rule_load_ms=${Math.round(context.analyzeRuntime.ruleLoadMs)}`);
+    }
+
+    fs.writeFileSync(heartbeat.stdoutLog, "", "utf-8");
+    fs.writeFileSync(heartbeat.stderrLog, "", "utf-8");
+    const originalLog = console.log;
+    const originalWarn = console.warn;
+    const originalError = console.error;
+    const started = Date.now();
+    let lastProgressLine = "in-process analyze starting";
+    const appendStdout = (line: string): void => {
+        lastProgressLine = line;
+        fs.appendFileSync(heartbeat.stdoutLog, `${line}\n`, "utf-8");
+    };
+    const appendStderr = (line: string): void => {
+        lastProgressLine = line;
+        fs.appendFileSync(heartbeat.stderrLog, `${line}\n`, "utf-8");
+    };
+    appendStdout(`[batch-in-process] project=${heartbeat.label} start repo=${repo} outputDir=${outputDir}`);
+    const heartbeatTimer = setInterval(() => {
+        const elapsedSeconds = Math.round((Date.now() - started) / 1000);
+        const memory = process.memoryUsage();
+        const rssMiB = Math.round(memory.rss / 1024 / 1024);
+        const heapMiB = Math.round(memory.heapUsed / 1024 / 1024);
+        originalLog(`[heartbeat] project=${heartbeat.label} elapsed_s=${elapsedSeconds} rss_mib=${rssMiB} heap_mib=${heapMiB} last=${lastProgressLine}`);
+    }, heartbeat.heartbeatMs);
+
+    console.log = (...args: unknown[]) => {
+        appendStdout(formatConsoleArgs(args));
+    };
+    console.warn = (...args: unknown[]) => {
+        appendStderr(formatConsoleArgs(args));
+    };
+    console.error = (...args: unknown[]) => {
+        appendStderr(formatConsoleArgs(args));
+    };
+
+    try {
+        await runAnalyze(analyzeOptions, context.analyzeRuntime);
+        appendStdout(`[batch-in-process] project=${heartbeat.label} done elapsed_ms=${Date.now() - started}`);
+        return { exitCode: 0, timedOut: false, error: "" };
+    } catch (error: any) {
+        const message = error?.stack || error?.message || String(error);
+        appendStderr(message);
+        return { exitCode: 1, timedOut: false, error: error?.message || String(error) };
+    } finally {
+        clearInterval(heartbeatTimer);
+        console.log = originalLog;
+        console.warn = originalWarn;
+        console.error = originalError;
+    }
+}
+
+function formatConsoleArgs(args: unknown[]): string {
+    return args.map(arg => {
+        if (typeof arg === "string") return arg;
+        try {
+            return JSON.stringify(arg);
+        } catch {
+            return String(arg);
+        }
+    }).join(" ");
+}
+
 async function runProjectBySourceDir(
     project: string,
     repo: string,
     sourceDirs: string[],
     projectOut: string,
     opts: Options,
+    context: BatchRuntimeContext,
 ): Promise<ProjectRecord> {
     const started = Date.now();
     const summaryJson = path.join(projectOut, "summary", "summary.json");
@@ -564,25 +832,34 @@ async function runProjectBySourceDir(
         fs.mkdirSync(shardOut, { recursive: true });
         const shardStarted = Date.now();
         console.log(`[split ${index + 1}/${selectedSourceDirs.length}] project=${project} source_dir=${sourceDir} start`);
-        const args = buildAnalyzeArgs(repo, shardOut, opts, [sourceDir]);
-        const child = spawn(process.execPath, args, {
-            cwd: process.cwd(),
-            stdio: ["ignore", "pipe", "pipe"],
-            windowsHide: true,
-        });
-        const stdout = fs.createWriteStream(stdoutLog, { flags: "w" });
-        const stderr = fs.createWriteStream(stderrLog, { flags: "w" });
-        child.stdout.pipe(stdout);
-        child.stderr.pipe(stderr);
         const shardTimeoutMs = Math.min(sourceDirTimeoutMs, remainingProjectMs);
-        const result = await waitForChild(child, shardTimeoutMs, {
-            heartbeatMs: opts.heartbeatSeconds * 1000,
-            label: `${project}:${sourceDir}`,
-            stdoutLog,
-            stderrLog,
-        });
-        stdout.end();
-        stderr.end();
+        const result = opts.executionMode === "in-process"
+            ? await runAnalyzeInProcess(
+                repo,
+                shardOut,
+                opts,
+                context,
+                [sourceDir],
+                {
+                    heartbeatMs: opts.heartbeatSeconds * 1000,
+                    label: `${project}:${sourceDir}`,
+                    stdoutLog,
+                    stderrLog,
+                },
+            )
+            : await runAnalyzeSubprocess(
+                repo,
+                shardOut,
+                opts,
+                [sourceDir],
+                shardTimeoutMs,
+                {
+                    heartbeatMs: opts.heartbeatSeconds * 1000,
+                    label: `${project}:${sourceDir}`,
+                    stdoutLog,
+                    stderrLog,
+                },
+            );
         const shardSummaryJson = path.join(shardOut, "summary", "summary.json");
         const shardSourceRunsJson = path.join(shardOut, "source_runs.json");
         const fields = readSummaryFields(shardSummaryJson, shardSourceRunsJson, shardOut);
@@ -704,7 +981,11 @@ function buildAnalyzeArgs(repo: string, outputDir: string, opts: Options, source
         "--repo", repo,
         "--maxEntries", String(opts.maxEntries),
         "--worklistBudgetMs", String(opts.worklistBudgetMs),
+        "--worklistMaxVisited", String(opts.worklistMaxVisited),
+        "--executionHandoff", opts.executionHandoff,
+        "--currentness", opts.currentness,
         "--reportMode", opts.reportMode,
+        "--flowMode", opts.flowMode,
         "--entryModel", opts.entryModel,
         "--outputDir", outputDir,
     ];

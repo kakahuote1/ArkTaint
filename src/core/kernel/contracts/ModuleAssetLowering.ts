@@ -1,6 +1,8 @@
 ﻿import type {
     AnalysisAssetLoadMode,
     AssetDocumentBase,
+    AssetEndpoint,
+    AssetSurface,
     CoreCapabilityTemplate,
     ConstructSurface,
     HandoffGetTemplate,
@@ -92,19 +94,19 @@ function lowerModuleSemantics(asset: AssetDocumentBase): Array<ModuleSemantic & 
     const templates = asset.effectTemplates || [];
     const coreSemantics = templates
         .filter((template): template is CoreCapabilityTemplate => template.kind === "core.capability")
-        .map(template => lowerCoreCapabilityTemplate(asset.id, template));
+        .map(template => lowerCoreCapabilityTemplate(asset, template));
     const moduleEventEmitterSemantics = templates
         .filter((template): template is ModuleEventEmitterTemplate => template.kind === "module.eventEmitter")
-        .map(template => moduleEventEmitterSemantic(template));
+        .map(template => moduleEventEmitterSemantic(template, asset));
     const handoffEffectSemantics = lowerHandoffTemplatesToEffectSemantics(asset);
     return [...coreSemantics, ...moduleEventEmitterSemantics, ...handoffEffectSemantics];
 }
 
-function lowerModuleEffectTemplate(assetId: string, template: SemanticEffectTemplate): ModuleSemantic & { id: string } {
+function lowerModuleEffectTemplate(asset: AssetDocumentBase, template: SemanticEffectTemplate): ModuleSemantic & { id: string } {
     if (template.kind !== "core.capability") {
-        throw new Error(`module asset ${assetId} contains non-core module template ${template.kind}`);
+        throw new Error(`module asset ${asset.id} contains non-core module template ${template.kind}`);
     }
-    return lowerCoreCapabilityTemplate(assetId, template);
+    return lowerCoreCapabilityTemplate(asset, template);
 }
 
 function lowerHandoffTemplatesToEffectSemantics(asset: AssetDocumentBase): Array<(ModuleHandoffEffectSemantic | ModuleKeyedStorageSemantic) & { id: string }> {
@@ -119,6 +121,7 @@ function lowerHandoffTemplatesToEffectSemantics(asset: AssetDocumentBase): Array
         for (const ref of binding.effectTemplateRefs || []) {
             const template = templates.get(ref);
             if (!template) continue;
+            assertExactHandoffTemplate(asset, template, binding.bindingId);
             if (template.kind === "handoff.put") {
                 effects.push({
                     id: template.id,
@@ -167,6 +170,24 @@ function lowerHandoffTemplatesToEffectSemantics(asset: AssetDocumentBase): Array
     }];
 }
 
+function assertExactHandoffTemplate(asset: AssetDocumentBase, template: SemanticEffectTemplate, bindingId: string): void {
+    if (template.kind !== "handoff.put" && template.kind !== "handoff.get" && template.kind !== "handoff.kill") {
+        return;
+    }
+    const precision = (template as HandoffPutTemplate | HandoffGetTemplate | HandoffKillTemplate).handle?.precision;
+    if (precision !== "exact") {
+        throw new Error(
+            `module asset ${asset.id} binding ${bindingId} template ${template.id} uses non-exact handoff precision ${String(precision)}`,
+        );
+    }
+    if ((template.kind === "handoff.put" || template.kind === "handoff.kill")
+        && (template as any).updateStrength === "infer") {
+        throw new Error(
+            `module asset ${asset.id} binding ${bindingId} template ${template.id} uses infer handoff updateStrength`,
+        );
+    }
+}
+
 function tryLowerHandoffEffectsToKeyedStorage(
     assetId: string,
     effects: ModuleHandoffEffectSemantic["effects"],
@@ -174,16 +195,16 @@ function tryLowerHandoffEffectsToKeyedStorage(
     if (effects.length === 0) {
         return undefined;
     }
-    const storageClasses = new Set<string>();
-    const writeMethods: ModuleKeyedStorageSemantic["writeMethods"] = [];
-    const readMethods = new Set<string>();
-    const killMethods = new Set<string>();
+    const writeApis: ModuleKeyedStorageSemantic["writeApis"] = [];
+    const readCanonicalApiIds = new Set<string>();
+    const killCanonicalApiIds = new Set<string>();
     let expectedHandleKey: string | undefined;
 
     for (const effect of effects) {
-        const methodName = effect.surface.surfaceKind === "construct" ? undefined : effect.surface.methodName;
-        const storageClass = effect.surface.surfaceKind === "construct" ? undefined : effect.surface.declaringClassName;
-        if (!methodName || !storageClass) {
+        const canonicalApiId = effect.surface.surfaceKind === "construct"
+            ? effect.surface.canonicalApiId
+            : effect.surface.canonicalApiId;
+        if (!canonicalApiId) {
             return undefined;
         }
         const handleKey = canonicalKeyedStorageHandleTemplate(effect.handle);
@@ -195,34 +216,36 @@ function tryLowerHandoffEffectsToKeyedStorage(
         } else if (expectedHandleKey !== handleKey) {
             return undefined;
         }
-        storageClasses.add(storageClass);
         if (effect.effectKind === "put") {
             const valueIndex = endpointArgIndex(effect.value);
             if (valueIndex === undefined) {
                 return undefined;
             }
-            writeMethods.push({ methodName, valueIndex });
+            writeApis.push({
+                canonicalApiIds: [canonicalApiId],
+                valueIndex,
+                ...(effect.updateStrength ? { updateStrength: effect.updateStrength } : {}),
+            });
             continue;
         }
         if (effect.effectKind === "get") {
-            readMethods.add(methodName);
+            readCanonicalApiIds.add(canonicalApiId);
             continue;
         }
         if (effect.effectKind === "kill") {
-            killMethods.add(methodName);
+            killCanonicalApiIds.add(canonicalApiId);
         }
     }
 
-    if (storageClasses.size === 0 || writeMethods.length === 0 || readMethods.size === 0) {
+    if (writeApis.length === 0 || readCanonicalApiIds.size === 0) {
         return undefined;
     }
     return {
         id: `${assetId}.keyed_storage`,
         kind: "keyed_storage",
-        storageClasses: [...storageClasses].sort(),
-        writeMethods: dedupeWriteMethods(writeMethods),
-        readMethods: [...readMethods].sort(),
-        ...(killMethods.size > 0 ? { killMethods: [...killMethods].sort() } : {}),
+        writeApis: dedupeWriteApis(writeApis),
+        readCanonicalApiIds: [...readCanonicalApiIds].sort(),
+        ...(killCanonicalApiIds.size > 0 ? { killCanonicalApiIds: [...killCanonicalApiIds].sort() } : {}),
     };
 }
 
@@ -251,16 +274,22 @@ function endpointArgIndex(endpoint: unknown): number | undefined {
     return base?.kind === "arg" && Number.isInteger(base.index) ? base.index : undefined;
 }
 
-function dedupeWriteMethods(
-    methods: ModuleKeyedStorageSemantic["writeMethods"],
-): ModuleKeyedStorageSemantic["writeMethods"] {
-    const byKey = new Map<string, ModuleKeyedStorageSemantic["writeMethods"][number]>();
-    for (const method of methods) {
-        byKey.set(`${method.methodName}#${method.valueIndex}`, method);
+function dedupeWriteApis(
+    apis: ModuleKeyedStorageSemantic["writeApis"],
+): ModuleKeyedStorageSemantic["writeApis"] {
+    const byKey = new Map<string, ModuleKeyedStorageSemantic["writeApis"][number]>();
+    for (const api of apis) {
+        const canonicalApiIds = [...new Set(api.canonicalApiIds)].sort();
+        byKey.set(`${canonicalApiIds.join(",")}#${api.valueIndex}#${api.updateStrength || ""}`, {
+            canonicalApiIds,
+            valueIndex: api.valueIndex,
+            ...(api.updateStrength ? { updateStrength: api.updateStrength } : {}),
+        });
     }
     return [...byKey.values()].sort((left, right) =>
-        left.methodName.localeCompare(right.methodName)
-        || left.valueIndex - right.valueIndex,
+        left.canonicalApiIds.join(",").localeCompare(right.canonicalApiIds.join(","))
+        || left.valueIndex - right.valueIndex
+        || String(left.updateStrength || "").localeCompare(String(right.updateStrength || "")),
     );
 }
 
@@ -279,53 +308,45 @@ function surfaceToModuleSelector(surface: HandoffSurface) {
 }
 
 function invokeSurfaceToModuleSelector(surface: InvokeSurface) {
-    const selectorModulePath = surface.invokeKind === "namespace"
-        ? undefined
-        : surface.modulePath;
-    const selectorOwnerName = surface.invokeKind === "namespace" || surface.invokeKind === "free-function"
-        ? undefined
-        : surface.ownerName;
     return {
         surfaceKind: "invoke" as const,
-        ...(surface.signatureId ? { signature: surface.signatureId } : {}),
-        ...(selectorModulePath ? { modulePath: selectorModulePath } : {}),
-        methodName: surface.methodName || surface.functionName,
-        declaringClassName: selectorOwnerName,
-        ...(surface.invokeKind === "namespace" && surface.ownerName ? { baseLocalName: surface.ownerName } : {}),
-        argCount: surface.argCount,
-        ...(surface.invokeKind === "instance" ? { instanceOnly: true } : {}),
-        ...(surface.invokeKind === "static" ? { staticOnly: true } : {}),
+        canonicalApiId: requireCanonicalSurfaceId(surface),
     };
 }
 
 function constructSurfaceToModuleSelector(surface: ConstructSurface) {
     return {
         surfaceKind: "construct" as const,
-        ...(surface.signatureId ? { signature: surface.signatureId } : {}),
-        ...(surface.modulePath ? { modulePath: surface.modulePath } : {}),
-        className: surface.className,
-        argCount: surface.argCount,
+        canonicalApiId: requireCanonicalSurfaceId(surface),
     };
 }
 
-function lowerCoreCapabilityTemplate(assetId: string, template: CoreCapabilityTemplate): ModuleSemantic & { id: string } {
+function requireCanonicalSurfaceId(surface: InvokeSurface | ConstructSurface): string {
+    const canonicalApiId = String(surface.canonicalApiId || "").trim();
+    if (!canonicalApiId) {
+        throw new Error(`module surface ${surface.surfaceId} must declare canonicalApiId`);
+    }
+    return canonicalApiId;
+}
+
+function lowerCoreCapabilityTemplate(asset: AssetDocumentBase, template: CoreCapabilityTemplate): ModuleSemantic & { id: string } {
     switch (template.capability) {
         case "module.container":
             return moduleContainerSemantic(template);
         case "module.ability-handoff":
             return moduleAbilityHandoffSemantic(template);
         case "module.keyed-storage":
-            return moduleKeyedStorageSemantic(template);
+            return moduleKeyedStorageSemantic(template, asset);
         case "module.event-emitter":
-            return moduleEventEmitterSemantic(template);
+            return moduleEventEmitterSemantic(template, asset);
         case "module.route-bridge":
-            return moduleRouteBridgeSemantic(template);
+            return moduleRouteBridgeSemantic(asset, template);
         case "module.state-binding":
             return moduleStateBindingSemantic(template);
         case "module.bridge":
-            return moduleBridgeSemantic(template);
+            return moduleBridgeSemantic(asset, template);
         default:
-            throw new Error(`module asset ${assetId} declares unsupported core capability ${template.capability}`);
+            throw new Error(`module asset ${asset.id} declares unsupported core capability ${template.capability}`);
     }
 }
 
@@ -337,6 +358,8 @@ function moduleContainerSemantic(template: CoreCapabilityTemplate): ModuleContai
         kind: "container",
         ...(families ? { families } : {}),
         ...(capabilities ? { capabilities } : {}),
+        mutationCanonicalApiIds: stringArray(template.payload.mutationCanonicalApiIds),
+        accessCanonicalApiIds: stringArray(template.payload.accessCanonicalApiIds),
     };
 }
 
@@ -344,31 +367,45 @@ function moduleAbilityHandoffSemantic(template: CoreCapabilityTemplate): ModuleA
     return {
         id: template.id,
         kind: "ability_handoff",
-        startMethods: stringArray(template.payload.startMethods),
-        targetMethods: stringArray(template.payload.targetMethods),
+        startCanonicalApiIds: stringArray(template.payload.startCanonicalApiIds),
+        targetCanonicalApiIds: stringArray(template.payload.targetCanonicalApiIds),
     };
 }
 
-function moduleKeyedStorageSemantic(template: CoreCapabilityTemplate): ModuleKeyedStorageSemantic & { id: string } {
+function moduleKeyedStorageSemantic(template: CoreCapabilityTemplate, asset: AssetDocumentBase): ModuleKeyedStorageSemantic & { id: string } {
     return {
         id: template.id,
         kind: "keyed_storage",
-        storageClasses: stringArray(template.payload.storageClasses),
-        writeMethods: objectArray(template.payload.writeMethods) as ModuleKeyedStorageSemantic["writeMethods"],
-        readMethods: stringArray(template.payload.readMethods),
-        killMethods: optionalStringArray(template.payload.killMethods),
-        propDecorators: optionalStringArray(template.payload.propDecorators),
-        linkDecorators: optionalStringArray(template.payload.linkDecorators),
+        writeApis: keyedStorageWriteApis(template.payload.writeApis),
+        writeResultApis: keyedStorageWriteApis(template.payload.writeResultApis),
+        readCanonicalApiIds: stringArray(template.payload.readCanonicalApiIds),
+        killCanonicalApiIds: optionalStringArray(template.payload.killCanonicalApiIds),
+        propDecoratorCanonicalApiIds: optionalStringArray(template.payload.propDecoratorCanonicalApiIds),
+        linkDecoratorCanonicalApiIds: optionalStringArray(template.payload.linkDecoratorCanonicalApiIds),
     };
 }
 
-function moduleEventEmitterSemantic(template: CoreCapabilityTemplate | ModuleEventEmitterTemplate): ModuleEventEmitterSemantic & { id: string } {
+function keyedStorageWriteApis(value: unknown): ModuleKeyedStorageSemantic["writeApis"] {
+    return objectArray(value).map(api => ({
+        canonicalApiIds: stringArray((api as any).canonicalApiIds),
+        valueIndex: Number((api as any).valueIndex),
+        ...(keyedStorageUpdateStrength((api as any).updateStrength)
+            ? { updateStrength: keyedStorageUpdateStrength((api as any).updateStrength) }
+            : {}),
+    }));
+}
+
+function keyedStorageUpdateStrength(value: unknown): "strong" | "weak" | undefined {
+    return value === "strong" || value === "weak" ? value : undefined;
+}
+
+function moduleEventEmitterSemantic(template: CoreCapabilityTemplate | ModuleEventEmitterTemplate, asset: AssetDocumentBase): ModuleEventEmitterSemantic & { id: string } {
     const payload = template.kind === "core.capability" ? template.payload : template;
     return {
         id: template.id,
         kind: "event_emitter",
-        onMethods: optionalStringArray(payload.onMethods),
-        emitMethods: optionalStringArray(payload.emitMethods),
+        onCanonicalApiIds: stringArray(payload.onCanonicalApiIds),
+        emitCanonicalApiIds: stringArray(payload.emitCanonicalApiIds),
         channelArgIndexes: optionalNumberArray(payload.channelArgIndexes),
         payloadArgIndex: optionalNumber(payload.payloadArgIndex),
         callbackArgIndex: optionalNumber(payload.callbackArgIndex),
@@ -377,16 +414,37 @@ function moduleEventEmitterSemantic(template: CoreCapabilityTemplate | ModuleEve
     };
 }
 
-function moduleRouteBridgeSemantic(template: CoreCapabilityTemplate): ModuleRouteBridgeSemantic & { id: string } {
+function moduleRouteBridgeSemantic(asset: AssetDocumentBase, template: CoreCapabilityTemplate): ModuleRouteBridgeSemantic & { id: string } {
+    const pushApis = objectArray(template.payload.pushApis) as ModuleRouteBridgeSemantic["pushApis"];
     return {
         id: template.id,
         kind: "route_bridge",
-        pushMethods: objectArray(template.payload.pushMethods) as ModuleRouteBridgeSemantic["pushMethods"],
-        getMethods: stringArray(template.payload.getMethods),
-        routerClassNames: optionalStringArray(template.payload.routerClassNames),
-        navDestinationClassNames: optionalStringArray(template.payload.navDestinationClassNames),
-        navDestinationRegisterMethods: optionalStringArray(template.payload.navDestinationRegisterMethods),
-        frameworkSignatureHints: optionalStringArray(template.payload.frameworkSignatureHints),
+        pushApis: pushApis.map(api => ({
+            canonicalApiIds: stringArray((api as any).canonicalApiIds),
+            ...((api as any).routeField ? { routeField: String((api as any).routeField) } : {}),
+            ...((api as any).routeArgIndex !== undefined ? { routeArgIndex: Number((api as any).routeArgIndex) } : {}),
+            ...((api as any).payloadArgIndex !== undefined ? { payloadArgIndex: Number((api as any).payloadArgIndex) } : {}),
+            ...((api as any).payloadField ? { payloadField: String((api as any).payloadField) } : {}),
+        })),
+        getCanonicalApiIds: stringArray(template.payload.getCanonicalApiIds),
+        getApis: objectArray(template.payload.getApis).map(api => ({
+            canonicalApiIds: stringArray((api as any).canonicalApiIds),
+            ...((api as any).routeArgIndex !== undefined ? { routeArgIndex: Number((api as any).routeArgIndex) } : {}),
+            ...((api as any).routeField ? { routeField: String((api as any).routeField) } : {}),
+        })),
+        navDestinationRegisterApis: objectArray(template.payload.navDestinationRegisterApis).map(api => ({
+            canonicalApiIds: stringArray((api as any).canonicalApiIds),
+            callbackArgIndex: Number((api as any).callbackArgIndex),
+            ...((api as any).routeParamIndex !== undefined ? { routeParamIndex: Number((api as any).routeParamIndex) } : {}),
+            payloadParamIndex: Number((api as any).payloadParamIndex),
+        })),
+        navDestinationTriggerApis: objectArray(template.payload.navDestinationTriggerApis).map(api => ({
+            canonicalApiIds: stringArray((api as any).canonicalApiIds),
+            ...((api as any).routeField ? { routeField: String((api as any).routeField) } : {}),
+            ...((api as any).routeArgIndex !== undefined ? { routeArgIndex: Number((api as any).routeArgIndex) } : {}),
+            ...((api as any).payloadArgIndex !== undefined ? { payloadArgIndex: Number((api as any).payloadArgIndex) } : {}),
+            ...((api as any).payloadField ? { payloadField: String((api as any).payloadField) } : {}),
+        })),
         payloadUnwrapPrefixes: optionalStringArray(template.payload.payloadUnwrapPrefixes),
     };
 }
@@ -395,25 +453,153 @@ function moduleStateBindingSemantic(template: CoreCapabilityTemplate): ModuleSta
     return {
         id: template.id,
         kind: "state_binding",
-        stateDecorators: stringArray(template.payload.stateDecorators),
-        propDecorators: stringArray(template.payload.propDecorators),
-        linkDecorators: stringArray(template.payload.linkDecorators),
-        provideDecorators: optionalStringArray(template.payload.provideDecorators),
-        consumeDecorators: optionalStringArray(template.payload.consumeDecorators),
-        eventDecorators: optionalStringArray(template.payload.eventDecorators),
+        stateDecoratorCanonicalApiIds: stringArray(template.payload.stateDecoratorCanonicalApiIds),
+        propDecoratorCanonicalApiIds: stringArray(template.payload.propDecoratorCanonicalApiIds),
+        linkDecoratorCanonicalApiIds: stringArray(template.payload.linkDecoratorCanonicalApiIds),
+        provideDecoratorCanonicalApiIds: optionalStringArray(template.payload.provideDecoratorCanonicalApiIds),
+        consumeDecoratorCanonicalApiIds: optionalStringArray(template.payload.consumeDecoratorCanonicalApiIds),
+        eventDecoratorCanonicalApiIds: optionalStringArray(template.payload.eventDecoratorCanonicalApiIds),
     };
 }
 
-function moduleBridgeSemantic(template: CoreCapabilityTemplate): ModuleBridgeSemantic & { id: string } {
+function moduleBridgeSemantic(asset: AssetDocumentBase, template: CoreCapabilityTemplate): ModuleBridgeSemantic & { id: string } {
     const bridge = template.payload.bridge;
     if (!bridge || typeof bridge !== "object" || Array.isArray(bridge)) {
         throw new Error(`module bridge capability ${template.id} requires payload.bridge`);
     }
+    const normalizedBridge = normalizeModuleBridgePayload(asset, bridge as Record<string, unknown>, template.id);
+    const sourceGuard = resolveBridgeSourceGuardEndpoint(asset, template, normalizedBridge);
     return {
         id: template.id,
         kind: "bridge",
-        ...(bridge as Omit<ModuleBridgeSemantic, "id" | "kind">),
+        ...(normalizedBridge as Omit<ModuleBridgeSemantic, "id" | "kind">),
+        ...(sourceGuard ? { sourceGuard } : {}),
     };
+}
+
+function normalizeModuleBridgePayload(
+    asset: AssetDocumentBase,
+    bridge: Record<string, unknown>,
+    templateId: string,
+): Record<string, unknown> {
+    return {
+        ...bridge,
+        from: normalizeModuleEndpointSurfaceRef(asset, bridge.from, `${templateId}.bridge.from`),
+        to: normalizeModuleEndpointSurfaceRef(asset, bridge.to, `${templateId}.bridge.to`),
+        dispatch: normalizeDispatchSurfaceRefs(asset, bridge.dispatch, `${templateId}.bridge.dispatch`),
+    };
+}
+
+function normalizeDispatchSurfaceRefs(asset: AssetDocumentBase, dispatch: unknown, path: string): unknown {
+    if (!dispatch || typeof dispatch !== "object" || Array.isArray(dispatch)) return dispatch;
+    const out: Record<string, unknown> = { ...(dispatch as Record<string, unknown>) };
+    if (out.via !== undefined) {
+        out.via = normalizeModuleEndpointSurfaceRef(asset, out.via, `${path}.via`);
+    }
+    return out;
+}
+
+function normalizeModuleEndpointSurfaceRef(asset: AssetDocumentBase, endpoint: unknown, path: string): unknown {
+    if (!endpoint || typeof endpoint !== "object" || Array.isArray(endpoint)) return endpoint;
+    const out: Record<string, unknown> = { ...(endpoint as Record<string, unknown>) };
+    out.surface = normalizeModuleSurfaceRef(asset, out.surface, `${path}.surface`);
+    return out;
+}
+
+function normalizeModuleSurfaceRef(asset: AssetDocumentBase, raw: unknown, path: string): unknown {
+    if (typeof raw === "string") return raw;
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+        throw new Error(`${path} must reference a module asset surface by surfaceId/canonicalApiId`);
+    }
+    const value = raw as Record<string, unknown>;
+    if (value.selector !== undefined) {
+        throw new Error(`${path} must not use selector; reference canonical module surface identity`);
+    }
+    const surface = resolvePayloadSurface(asset, value, path);
+    if (surface.kind !== "invoke") {
+        throw new Error(`${path} references unsupported module bridge surface kind ${surface.kind}`);
+    }
+    return {
+        kind: "invoke",
+        selector: invokeSurfaceToModuleSelector(surface),
+    };
+}
+
+function resolveBridgeSourceGuardEndpoint(
+    asset: AssetDocumentBase,
+    template: CoreCapabilityTemplate,
+    normalizedBridge: Record<string, unknown>,
+): ModuleBridgeSemantic["sourceGuard"] | undefined {
+    const from = normalizedBridge.from as ModuleBridgeSemantic["from"] | undefined;
+    const surfaceRef = from?.surface;
+    if (!surfaceRef || surfaceRef.kind !== "invoke") return undefined;
+    const canonicalApiId = surfaceRef.selector.canonicalApiId;
+    const bindings = (asset.bindings || []).filter(binding =>
+        binding.canonicalApiId === canonicalApiId
+        && (binding.effectTemplateRefs || []).includes(template.id)
+        && binding.endpoint,
+    );
+    if (bindings.length === 0) return undefined;
+    if (bindings.length !== 1) {
+        throw new Error(`module bridge capability ${template.id} source guard must resolve exactly one binding endpoint for ${canonicalApiId}, got ${bindings.length}`);
+    }
+    return bindingEndpointToModuleEndpoint(surfaceRef, bindings[0].endpoint!, `${template.id}.binding.endpoint`);
+}
+
+function bindingEndpointToModuleEndpoint(
+    surface: ModuleBridgeSemantic["from"]["surface"],
+    endpoint: AssetEndpoint,
+    path: string,
+): ModuleBridgeSemantic["sourceGuard"] {
+    const base = endpoint.base;
+    if (base.kind === "arg") {
+        return {
+            surface,
+            slot: "arg",
+            index: base.index,
+            ...(endpoint.accessPath && endpoint.accessPath.length > 0 ? { fieldPath: endpoint.accessPath } : {}),
+        };
+    }
+    if (base.kind === "rest") {
+        return {
+            surface,
+            slot: "arg",
+            index: base.startIndex,
+            rest: true,
+            ...(endpoint.accessPath && endpoint.accessPath.length > 0 ? { fieldPath: endpoint.accessPath } : {}),
+        };
+    }
+    if (base.kind === "receiver") {
+        return {
+            surface,
+            slot: "base",
+            ...(endpoint.accessPath && endpoint.accessPath.length > 0 ? { fieldPath: endpoint.accessPath } : {}),
+        };
+    }
+    if (base.kind === "return" || base.kind === "constructorResult") {
+        return {
+            surface,
+            slot: "result",
+            ...(endpoint.accessPath && endpoint.accessPath.length > 0 ? { fieldPath: endpoint.accessPath } : {}),
+        };
+    }
+    throw new Error(`${path} uses unsupported module bridge source endpoint base ${base.kind}`);
+}
+
+function resolvePayloadSurface(asset: AssetDocumentBase, value: Record<string, unknown>, path: string): AssetSurface {
+    const surfaceId = typeof value.surfaceId === "string" ? value.surfaceId : undefined;
+    const canonicalApiId = typeof value.canonicalApiId === "string" ? value.canonicalApiId : undefined;
+    if (!surfaceId && !canonicalApiId) {
+        throw new Error(`${path} must include surfaceId or canonicalApiId`);
+    }
+    const matches = (asset.surfaces || []).filter(surface =>
+        (!surfaceId || surface.surfaceId === surfaceId)
+        && (!canonicalApiId || surface.canonicalApiId === canonicalApiId)
+    );
+    if (matches.length !== 1) {
+        throw new Error(`${path} must resolve exactly one asset surface, got ${matches.length}`);
+    }
+    return matches[0];
 }
 
 function descriptionFromAsset(asset: AssetDocumentBase): string {

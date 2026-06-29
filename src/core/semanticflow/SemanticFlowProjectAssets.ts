@@ -3,6 +3,7 @@ import * as path from "path";
 import { createHash } from "crypto";
 import type { AssetDocumentBase, AssetPlane } from "../assets/schema";
 import { assertProjectAssetsArePromotedForModelRoot } from "../assets/schema";
+import { parseCanonicalApiId } from "../api/identity";
 
 export interface PublishSemanticFlowProjectAssetsOptions {
     projectId: string;
@@ -370,10 +371,10 @@ function primaryHandoffHandleForNormalization(template: NonNullable<AssetDocumen
 
 function surfaceOwnerKeyForHandoffNormalization(surface: AssetDocumentBase["surfaces"][number] | undefined): string | undefined {
     if (!surface || (surface as any).kind !== "invoke") return undefined;
-    const modulePath = String((surface as any).modulePath || "");
-    const owner = String((surface as any).ownerName || (surface as any).functionName || "");
-    if (!modulePath || !owner) return undefined;
-    return `${modulePath}::${owner}`;
+    const canonicalApiId = String((surface as any).canonicalApiId || "").trim();
+    const parts = parseCanonicalApiId(canonicalApiId);
+    if (!parts) return undefined;
+    return `${parts.module}::${parts.decl}`;
 }
 
 function writeJsonDocument(targetPath: string, document: unknown): string {

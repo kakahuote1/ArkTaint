@@ -1,0 +1,15 @@
+{
+  "id": "No3_base_oclfs",
+  "label": "Base plus OCLFS",
+  "description": "No.1 plus OCLFS/currentness filtering; UDE disabled.",
+  "executionHandoff": "disabled",
+  "currentness": "enabled",
+  "autoModel": false,
+  "profile": "default",
+  "reportMode": "full",
+  "entryModel": "arkMain",
+  "maxEntries": 9999,
+  "worklistBudgetMs": 45000,
+  "projectTimeoutSeconds": 480,
+  "sourceDirMode": "auto"
+}

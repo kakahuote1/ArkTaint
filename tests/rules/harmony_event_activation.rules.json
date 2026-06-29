@@ -4,108 +4,283 @@
   "status": "official",
   "surfaces": [
     {
-      "surfaceId": "surface.source.harmony.callback.onChange.arg0",
+      "surfaceId": "surface.source.harmony.callback.onChange.arg0.for.harmony_event_activation_taint_mock_ts_UIInput_onChange_harmony_event_activation_taint_mock_ts_UIInput_AM0_string",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "onChange",
-      "invokeKind": "instance",
-      "argCount": 1,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "harmony_event_activation/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=harmony_event_activation%2Ftaint_mock.ts:file=harmony_event_activation%2Ftaint_mock.ts:export=namespace%3AUIInput:decl=class%3AUIInput:member=method%3Ainstance%3AonChange:invoke=call:params=0%3A%40harmony_event_activation%2Ftaint_mock.ts%3A%20UIInput.%25AM0(string):ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_event_activation/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "UIInput",
+            "methodName": "onChange",
+            "parameterTypes": [
+              "@harmony_event_activation/taint_mock.ts: UIInput.%AM0(string)"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.callback.onChange.arg0.for.harmony_event_activation_taint_mock_ts_Tabs_onChange_harmony_event_activation_taint_mock_ts_Tabs_AM0_number",
+      "kind": "invoke",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_event_activation/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=harmony_event_activation%2Ftaint_mock.ts:file=harmony_event_activation%2Ftaint_mock.ts:export=namespace%3ATabs:decl=class%3ATabs:member=method%3Ainstance%3AonChange:invoke=call:params=0%3A%40harmony_event_activation%2Ftaint_mock.ts%3A%20Tabs.%25AM0(number):ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_event_activation/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "Tabs",
+            "methodName": "onChange",
+            "parameterTypes": [
+              "@harmony_event_activation/taint_mock.ts: Tabs.%AM0(number)"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.callback.onChange.arg0.for.harmony_event_activation_taint_mock_ts_Search_onChange_harmony_event_activation_taint_mock_ts_Search_AM0_string",
+      "kind": "invoke",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_event_activation/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=harmony_event_activation%2Ftaint_mock.ts:file=harmony_event_activation%2Ftaint_mock.ts:export=namespace%3ASearch:decl=class%3ASearch:member=method%3Ainstance%3AonChange:invoke=call:params=0%3A%40harmony_event_activation%2Ftaint_mock.ts%3A%20Search.%25AM0(string):ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_event_activation/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "Search",
+            "methodName": "onChange",
+            "parameterTypes": [
+              "@harmony_event_activation/taint_mock.ts: Search.%AM0(string)"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
       }
     },
     {
       "surfaceId": "surface.source.harmony.callback.onInput.arg0",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "onInput",
-      "invokeKind": "instance",
-      "argCount": 1,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "harmony_event_activation/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=harmony_event_activation%2Ftaint_mock.ts:file=harmony_event_activation%2Ftaint_mock.ts:export=namespace%3AUIInput:decl=class%3AUIInput:member=method%3Ainstance%3AonInput:invoke=call:params=0%3A%40harmony_event_activation%2Ftaint_mock.ts%3A%20UIInput.%25AM1(string):ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_event_activation/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "UIInput",
+            "methodName": "onInput",
+            "parameterTypes": [
+              "@harmony_event_activation/taint_mock.ts: UIInput.%AM1(string)"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
       }
     },
     {
-      "surfaceId": "surface.source.harmony.callback.input.onSubmit.arg1.text",
+      "surfaceId": "surface.source.harmony.callback.input.onSubmit.arg1.text.for.harmony_event_activation_taint_mock_ts_UIInput_onSubmit_harmony_event_activation_taint_mock_ts_UIInput_AM2_string_harmon",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "UIInput",
-      "methodName": "onSubmit",
-      "invokeKind": "instance",
-      "argCount": 1,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "harmony_event_activation/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=harmony_event_activation%2Ftaint_mock.ts:file=harmony_event_activation%2Ftaint_mock.ts:export=namespace%3AUIInput:decl=class%3AUIInput:member=method%3Ainstance%3AonSubmit:invoke=call:params=0%3A%40harmony_event_activation%2Ftaint_mock.ts%3A%20UIInput.%25AM2(string%2C%20%40harmony_event_activation%2Ftaint_mock.ts%3A%20SubmitEventLike):ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_event_activation/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "UIInput",
+            "methodName": "onSubmit",
+            "parameterTypes": [
+              "@harmony_event_activation/taint_mock.ts: UIInput.%AM2(string, @harmony_event_activation/taint_mock.ts: SubmitEventLike)"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
       }
     },
     {
-      "surfaceId": "surface.source.harmony.callback.search.onSubmit.arg0",
+      "surfaceId": "surface.source.harmony.callback.input.onSubmit.arg1.text.for.harmony_event_activation_taint_mock_ts_Search_onSubmit_harmony_event_activation_taint_mock_ts_Search_AM1_string",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "Search",
-      "methodName": "onSubmit",
-      "invokeKind": "instance",
-      "argCount": 1,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "harmony_event_activation/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=harmony_event_activation%2Ftaint_mock.ts:file=harmony_event_activation%2Ftaint_mock.ts:export=namespace%3ASearch:decl=class%3ASearch:member=method%3Ainstance%3AonSubmit:invoke=call:params=0%3A%40harmony_event_activation%2Ftaint_mock.ts%3A%20Search.%25AM1(string):ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_event_activation/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "Search",
+            "methodName": "onSubmit",
+            "parameterTypes": [
+              "@harmony_event_activation/taint_mock.ts: Search.%AM1(string)"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.callback.search.onSubmit.arg0.for.harmony_event_activation_taint_mock_ts_UIInput_onSubmit_harmony_event_activation_taint_mock_ts_UIInput_AM2_string_harmon",
+      "kind": "invoke",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_event_activation/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=harmony_event_activation%2Ftaint_mock.ts:file=harmony_event_activation%2Ftaint_mock.ts:export=namespace%3AUIInput:decl=class%3AUIInput:member=method%3Ainstance%3AonSubmit:invoke=call:params=0%3A%40harmony_event_activation%2Ftaint_mock.ts%3A%20UIInput.%25AM2(string%2C%20%40harmony_event_activation%2Ftaint_mock.ts%3A%20SubmitEventLike):ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_event_activation/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "UIInput",
+            "methodName": "onSubmit",
+            "parameterTypes": [
+              "@harmony_event_activation/taint_mock.ts: UIInput.%AM2(string, @harmony_event_activation/taint_mock.ts: SubmitEventLike)"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.callback.search.onSubmit.arg0.for.harmony_event_activation_taint_mock_ts_Search_onSubmit_harmony_event_activation_taint_mock_ts_Search_AM1_string",
+      "kind": "invoke",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_event_activation/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=harmony_event_activation%2Ftaint_mock.ts:file=harmony_event_activation%2Ftaint_mock.ts:export=namespace%3ASearch:decl=class%3ASearch:member=method%3Ainstance%3AonSubmit:invoke=call:params=0%3A%40harmony_event_activation%2Ftaint_mock.ts%3A%20Search.%25AM1(string):ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_event_activation/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "Search",
+            "methodName": "onSubmit",
+            "parameterTypes": [
+              "@harmony_event_activation/taint_mock.ts: Search.%AM1(string)"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
       }
     },
     {
       "surfaceId": "surface.source.harmony.callback.onChange2.arg1",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "onChange2",
-      "invokeKind": "instance",
-      "argCount": 1,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "harmony_event_activation/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=harmony_event_activation%2Ftaint_mock.ts:file=harmony_event_activation%2Ftaint_mock.ts:export=namespace%3AUIInput:decl=class%3AUIInput:member=method%3Ainstance%3AonChange2:invoke=call:params=0%3A%40harmony_event_activation%2Ftaint_mock.ts%3A%20UIInput.%25AM4(string%2C%20string):ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_event_activation/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "UIInput",
+            "methodName": "onChange2",
+            "parameterTypes": [
+              "@harmony_event_activation/taint_mock.ts: UIInput.%AM4(string, string)"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
       }
     },
     {
       "surfaceId": "surface.sink.harmony.callback.mock_sink",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "Sink",
-      "invokeKind": "static",
-      "argCount": 1,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "harmony_event_activation/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=harmony_event_activation%2Ftaint_mock.ts:file=harmony_event_activation%2Ftaint_mock.ts:export=namespace%3Ataint.%25dflt:decl=namespace%3Ataint.%25dflt:member=function%3ASink:invoke=call:params=0%3Aany:ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_event_activation/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "taint.%dflt",
+            "methodName": "Sink",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "void",
+            "staticFlag": true
+          }
+        }
       }
     }
   ],
   "bindings": [
     {
-      "bindingId": "binding.source.harmony.callback.onChange.arg0.0",
-      "surfaceId": "surface.source.harmony.callback.onChange.arg0",
+      "bindingId": "binding.source.harmony.callback.onChange.arg0.0.for.harmony_event_activation_taint_mock_ts_UIInput_onChange_harmony_event_activation_taint_mock_ts_UIInput_AM0_string",
+      "surfaceId": "surface.source.harmony.callback.onChange.arg0.for.harmony_event_activation_taint_mock_ts_UIInput_onChange_harmony_event_activation_taint_mock_ts_UIInput_AM0_string",
       "assetId": "asset.rule.test.harmony_event_activation",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "onChange",
-        "typeHint": "Input",
-        "scope": {
-          "methodName": {
-            "mode": "regex",
-            "value": "^(build|.*\\$build)$"
-          },
-          "methodDecorators": [
-            {
-              "mode": "equals",
-              "value": "Builder"
-            }
-          ]
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -113,12 +288,55 @@
         }
       },
       "effectTemplateRefs": [
-        "template.source.harmony.callback.onChange.arg0"
+        "template.source.harmony.callback.onChange.arg0.for.harmony_event_activation_taint_mock_ts_UIInput_onChange_harmony_event_activation_taint_mock_ts_UIInput_AM0_string"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely",
-      "metadata": {}
+      "completeness": "complete",
+      "confidence": "certain",
+      "metadata": {},
+      "canonicalApiId": "api:project:local:module=harmony_event_activation%2Ftaint_mock.ts:file=harmony_event_activation%2Ftaint_mock.ts:export=namespace%3AUIInput:decl=class%3AUIInput:member=method%3Ainstance%3AonChange:invoke=call:params=0%3A%40harmony_event_activation%2Ftaint_mock.ts%3A%20UIInput.%25AM0(string):ret=void"
+    },
+    {
+      "bindingId": "binding.source.harmony.callback.onChange.arg0.0.for.harmony_event_activation_taint_mock_ts_Tabs_onChange_harmony_event_activation_taint_mock_ts_Tabs_AM0_number",
+      "surfaceId": "surface.source.harmony.callback.onChange.arg0.for.harmony_event_activation_taint_mock_ts_Tabs_onChange_harmony_event_activation_taint_mock_ts_Tabs_AM0_number",
+      "assetId": "asset.rule.test.harmony_event_activation",
+      "plane": "rule",
+      "role": "source",
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.callback.onChange.arg0.for.harmony_event_activation_taint_mock_ts_Tabs_onChange_harmony_event_activation_taint_mock_ts_Tabs_AM0_number"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "complete",
+      "confidence": "certain",
+      "metadata": {},
+      "canonicalApiId": "api:project:local:module=harmony_event_activation%2Ftaint_mock.ts:file=harmony_event_activation%2Ftaint_mock.ts:export=namespace%3ATabs:decl=class%3ATabs:member=method%3Ainstance%3AonChange:invoke=call:params=0%3A%40harmony_event_activation%2Ftaint_mock.ts%3A%20Tabs.%25AM0(number):ret=void"
+    },
+    {
+      "bindingId": "binding.source.harmony.callback.onChange.arg0.0.for.harmony_event_activation_taint_mock_ts_Search_onChange_harmony_event_activation_taint_mock_ts_Search_AM0_string",
+      "surfaceId": "surface.source.harmony.callback.onChange.arg0.for.harmony_event_activation_taint_mock_ts_Search_onChange_harmony_event_activation_taint_mock_ts_Search_AM0_string",
+      "assetId": "asset.rule.test.harmony_event_activation",
+      "plane": "rule",
+      "role": "source",
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.callback.onChange.arg0.for.harmony_event_activation_taint_mock_ts_Search_onChange_harmony_event_activation_taint_mock_ts_Search_AM0_string"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "complete",
+      "confidence": "certain",
+      "metadata": {},
+      "canonicalApiId": "api:project:local:module=harmony_event_activation%2Ftaint_mock.ts:file=harmony_event_activation%2Ftaint_mock.ts:export=namespace%3ASearch:decl=class%3ASearch:member=method%3Ainstance%3AonChange:invoke=call:params=0%3A%40harmony_event_activation%2Ftaint_mock.ts%3A%20Search.%25AM0(string):ret=void"
     },
     {
       "bindingId": "binding.source.harmony.callback.onInput.arg0.0",
@@ -126,23 +344,6 @@
       "assetId": "asset.rule.test.harmony_event_activation",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "onInput",
-        "typeHint": "Input",
-        "scope": {
-          "methodName": {
-            "mode": "regex",
-            "value": "^(build|.*\\$build)$"
-          },
-          "methodDecorators": [
-            {
-              "mode": "equals",
-              "value": "Builder"
-            }
-          ]
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -153,33 +354,17 @@
         "template.source.harmony.callback.onInput.arg0"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely",
-      "metadata": {}
+      "completeness": "complete",
+      "confidence": "certain",
+      "metadata": {},
+      "canonicalApiId": "api:project:local:module=harmony_event_activation%2Ftaint_mock.ts:file=harmony_event_activation%2Ftaint_mock.ts:export=namespace%3AUIInput:decl=class%3AUIInput:member=method%3Ainstance%3AonInput:invoke=call:params=0%3A%40harmony_event_activation%2Ftaint_mock.ts%3A%20UIInput.%25AM1(string):ret=void"
     },
     {
-      "bindingId": "binding.source.harmony.callback.input.onSubmit.arg1.text.0",
-      "surfaceId": "surface.source.harmony.callback.input.onSubmit.arg1.text",
+      "bindingId": "binding.source.harmony.callback.input.onSubmit.arg1.text.0.for.harmony_event_activation_taint_mock_ts_UIInput_onSubmit_harmony_event_activation_taint_mock_ts_UIInput_AM2_string_harmon",
+      "surfaceId": "surface.source.harmony.callback.input.onSubmit.arg1.text.for.harmony_event_activation_taint_mock_ts_UIInput_onSubmit_harmony_event_activation_taint_mock_ts_UIInput_AM2_string_harmon",
       "assetId": "asset.rule.test.harmony_event_activation",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "onSubmit",
-        "typeHint": "UIInput",
-        "scope": {
-          "methodName": {
-            "mode": "regex",
-            "value": "^(build|.*\\$build)$"
-          },
-          "methodDecorators": [
-            {
-              "mode": "equals",
-              "value": "Builder"
-            }
-          ]
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -190,35 +375,42 @@
         ]
       },
       "effectTemplateRefs": [
-        "template.source.harmony.callback.input.onSubmit.arg1.text"
+        "template.source.harmony.callback.input.onSubmit.arg1.text.for.harmony_event_activation_taint_mock_ts_UIInput_onSubmit_harmony_event_activation_taint_mock_ts_UIInput_AM2_string_harmon"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_event_activation%2Ftaint_mock.ts:file=harmony_event_activation%2Ftaint_mock.ts:export=namespace%3AUIInput:decl=class%3AUIInput:member=method%3Ainstance%3AonSubmit:invoke=call:params=0%3A%40harmony_event_activation%2Ftaint_mock.ts%3A%20UIInput.%25AM2(string%2C%20%40harmony_event_activation%2Ftaint_mock.ts%3A%20SubmitEventLike):ret=void"
     },
     {
-      "bindingId": "binding.source.harmony.callback.search.onSubmit.arg0.0",
-      "surfaceId": "surface.source.harmony.callback.search.onSubmit.arg0",
+      "bindingId": "binding.source.harmony.callback.input.onSubmit.arg1.text.0.for.harmony_event_activation_taint_mock_ts_Search_onSubmit_harmony_event_activation_taint_mock_ts_Search_AM1_string",
+      "surfaceId": "surface.source.harmony.callback.input.onSubmit.arg1.text.for.harmony_event_activation_taint_mock_ts_Search_onSubmit_harmony_event_activation_taint_mock_ts_Search_AM1_string",
       "assetId": "asset.rule.test.harmony_event_activation",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "onSubmit",
-        "typeHint": "Search",
-        "scope": {
-          "methodName": {
-            "mode": "regex",
-            "value": "^(build|.*\\$build)$"
-          },
-          "methodDecorators": [
-            {
-              "mode": "equals",
-              "value": "Builder"
-            }
-          ]
-        }
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        },
+        "accessPath": [
+          "text"
+        ]
       },
+      "effectTemplateRefs": [
+        "template.source.harmony.callback.input.onSubmit.arg1.text.for.harmony_event_activation_taint_mock_ts_Search_onSubmit_harmony_event_activation_taint_mock_ts_Search_AM1_string"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_event_activation%2Ftaint_mock.ts:file=harmony_event_activation%2Ftaint_mock.ts:export=namespace%3ASearch:decl=class%3ASearch:member=method%3Ainstance%3AonSubmit:invoke=call:params=0%3A%40harmony_event_activation%2Ftaint_mock.ts%3A%20Search.%25AM1(string):ret=void"
+    },
+    {
+      "bindingId": "binding.source.harmony.callback.search.onSubmit.arg0.0.for.harmony_event_activation_taint_mock_ts_UIInput_onSubmit_harmony_event_activation_taint_mock_ts_UIInput_AM2_string_harmon",
+      "surfaceId": "surface.source.harmony.callback.search.onSubmit.arg0.for.harmony_event_activation_taint_mock_ts_UIInput_onSubmit_harmony_event_activation_taint_mock_ts_UIInput_AM2_string_harmon",
+      "assetId": "asset.rule.test.harmony_event_activation",
+      "plane": "rule",
+      "role": "source",
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -226,11 +418,32 @@
         }
       },
       "effectTemplateRefs": [
-        "template.source.harmony.callback.search.onSubmit.arg0"
+        "template.source.harmony.callback.search.onSubmit.arg0.for.harmony_event_activation_taint_mock_ts_UIInput_onSubmit_harmony_event_activation_taint_mock_ts_UIInput_AM2_string_harmon"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_event_activation%2Ftaint_mock.ts:file=harmony_event_activation%2Ftaint_mock.ts:export=namespace%3AUIInput:decl=class%3AUIInput:member=method%3Ainstance%3AonSubmit:invoke=call:params=0%3A%40harmony_event_activation%2Ftaint_mock.ts%3A%20UIInput.%25AM2(string%2C%20%40harmony_event_activation%2Ftaint_mock.ts%3A%20SubmitEventLike):ret=void"
+    },
+    {
+      "bindingId": "binding.source.harmony.callback.search.onSubmit.arg0.0.for.harmony_event_activation_taint_mock_ts_Search_onSubmit_harmony_event_activation_taint_mock_ts_Search_AM1_string",
+      "surfaceId": "surface.source.harmony.callback.search.onSubmit.arg0.for.harmony_event_activation_taint_mock_ts_Search_onSubmit_harmony_event_activation_taint_mock_ts_Search_AM1_string",
+      "assetId": "asset.rule.test.harmony_event_activation",
+      "plane": "rule",
+      "role": "source",
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.callback.search.onSubmit.arg0.for.harmony_event_activation_taint_mock_ts_Search_onSubmit_harmony_event_activation_taint_mock_ts_Search_AM1_string"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_event_activation%2Ftaint_mock.ts:file=harmony_event_activation%2Ftaint_mock.ts:export=namespace%3ASearch:decl=class%3ASearch:member=method%3Ainstance%3AonSubmit:invoke=call:params=0%3A%40harmony_event_activation%2Ftaint_mock.ts%3A%20Search.%25AM1(string):ret=void"
     },
     {
       "bindingId": "binding.source.harmony.callback.onChange2.arg1.0",
@@ -238,23 +451,6 @@
       "assetId": "asset.rule.test.harmony_event_activation",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "onChange2",
-        "typeHint": "Input",
-        "scope": {
-          "methodName": {
-            "mode": "regex",
-            "value": "^(build|.*\\$build)$"
-          },
-          "methodDecorators": [
-            {
-              "mode": "equals",
-              "value": "Builder"
-            }
-          ]
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -265,9 +461,10 @@
         "template.source.harmony.callback.onChange2.arg1"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely",
-      "metadata": {}
+      "completeness": "complete",
+      "confidence": "certain",
+      "metadata": {},
+      "canonicalApiId": "api:project:local:module=harmony_event_activation%2Ftaint_mock.ts:file=harmony_event_activation%2Ftaint_mock.ts:export=namespace%3AUIInput:decl=class%3AUIInput:member=method%3Ainstance%3AonChange2:invoke=call:params=0%3A%40harmony_event_activation%2Ftaint_mock.ts%3A%20UIInput.%25AM4(string%2C%20string):ret=void"
     },
     {
       "bindingId": "binding.sink.harmony.callback.mock_sink.0",
@@ -275,10 +472,6 @@
       "assetId": "asset.rule.test.harmony_event_activation",
       "plane": "rule",
       "role": "sink",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "Sink"
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -289,14 +482,39 @@
         "template.sink.harmony.callback.mock_sink"
       ],
       "semanticsFamily": "sink",
-      "completeness": "partial",
-      "confidence": "likely",
-      "metadata": {}
+      "completeness": "complete",
+      "confidence": "certain",
+      "metadata": {},
+      "canonicalApiId": "api:project:local:module=harmony_event_activation%2Ftaint_mock.ts:file=harmony_event_activation%2Ftaint_mock.ts:export=namespace%3Ataint.%25dflt:decl=namespace%3Ataint.%25dflt:member=function%3ASink:invoke=call:params=0%3Aany:ret=void"
     }
   ],
   "effectTemplates": [
     {
-      "id": "template.source.harmony.callback.onChange.arg0",
+      "id": "template.source.harmony.callback.onChange.arg0.for.harmony_event_activation_taint_mock_ts_UIInput_onChange_harmony_event_activation_taint_mock_ts_UIInput_AM0_string",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "callback_param"
+    },
+    {
+      "id": "template.source.harmony.callback.onChange.arg0.for.harmony_event_activation_taint_mock_ts_Tabs_onChange_harmony_event_activation_taint_mock_ts_Tabs_AM0_number",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "callback_param"
+    },
+    {
+      "id": "template.source.harmony.callback.onChange.arg0.for.harmony_event_activation_taint_mock_ts_Search_onChange_harmony_event_activation_taint_mock_ts_Search_AM0_string",
       "confidence": "certain",
       "kind": "rule.source",
       "value": {
@@ -320,7 +538,7 @@
       "sourceKind": "callback_param"
     },
     {
-      "id": "template.source.harmony.callback.input.onSubmit.arg1.text",
+      "id": "template.source.harmony.callback.input.onSubmit.arg1.text.for.harmony_event_activation_taint_mock_ts_UIInput_onSubmit_harmony_event_activation_taint_mock_ts_UIInput_AM2_string_harmon",
       "confidence": "certain",
       "kind": "rule.source",
       "value": {
@@ -335,7 +553,34 @@
       "sourceKind": "callback_param"
     },
     {
-      "id": "template.source.harmony.callback.search.onSubmit.arg0",
+      "id": "template.source.harmony.callback.input.onSubmit.arg1.text.for.harmony_event_activation_taint_mock_ts_Search_onSubmit_harmony_event_activation_taint_mock_ts_Search_AM1_string",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        },
+        "accessPath": [
+          "text"
+        ]
+      },
+      "sourceKind": "callback_param"
+    },
+    {
+      "id": "template.source.harmony.callback.search.onSubmit.arg0.for.harmony_event_activation_taint_mock_ts_UIInput_onSubmit_harmony_event_activation_taint_mock_ts_UIInput_AM2_string_harmon",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "callback_param"
+    },
+    {
+      "id": "template.source.harmony.callback.search.onSubmit.arg0.for.harmony_event_activation_taint_mock_ts_Search_onSubmit_harmony_event_activation_taint_mock_ts_Search_AM1_string",
       "confidence": "certain",
       "kind": "rule.source",
       "value": {

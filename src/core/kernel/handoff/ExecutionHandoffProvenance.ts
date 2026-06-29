@@ -1,6 +1,7 @@
 import { Scene } from "../../../../arkanalyzer/out/src/Scene";
 import { CallGraph } from "../../../../arkanalyzer/out/src/callgraph/model/CallGraph";
 import { Local } from "../../../../arkanalyzer/out/src/core/base/Local";
+import { ArkAwaitExpr, ArkPtrInvokeExpr } from "../../../../arkanalyzer/out/src/core/base/Expr";
 import { ArkAssignStmt } from "../../../../arkanalyzer/out/src/core/base/Stmt";
 import { ArkInstanceFieldRef, ClosureFieldRef } from "../../../../arkanalyzer/out/src/core/base/Ref";
 import {
@@ -9,14 +10,13 @@ import {
     resolveMethodsFromAnonymousObjectCarrierByField,
     resolveMethodsFromCallable,
 } from "../../substrate/queries/CalleeResolver";
-import { recoverDeferredCompletionSemantics } from "../model/DeferredCompletionSemantics";
+import {
+    detectDeferredCompletionKind,
+    recoverDeferredCompletionSemantics,
+} from "../model/DeferredCompletionSemantics";
 import type { ModuleExplicitDeferredBindingRecord } from "../model/DeferredBindingDeclaration";
 import {
-    isKnownFrameworkCallbackMethodName,
-    isKnownSchedulerMethodName,
-    resolveKnownChannelCallbackRegistration,
     resolveKnownFrameworkCallbackRegistration,
-    resolveKnownSchedulerCallbackRegistration,
 } from "../../substrate/semantics/ApprovedImperativeDeferredBindingSemantics";
 import {
     resolveCallbackMethodsFromValueWithReturns,
@@ -58,6 +58,7 @@ interface IncomingCallSite {
 
 interface ExecutionHandoffProvenanceContext {
     incomingCallsiteIndexByCalleeSig?: Map<string, IncomingCallSite[]>;
+    incomingRelayCallSiteFallbackByCalleeSig: Map<string, IncomingCallSite[]>;
     callbackMethodsWithReturnsByValue: Map<any, any[]>;
     callableMethodsByValue: Map<any, any[]>;
     anonymousCarrierMethodsByBaseAndField: Map<any, Map<string, any[]>>;
@@ -67,6 +68,7 @@ interface ExecutionHandoffCandidate {
     unit: any;
     sourceMethods: any[];
     carrierKinds: Set<HandoffCarrierKind>;
+    registrationReachabilityDepth: number | null;
 }
 
 interface RelayOrigin {
@@ -88,13 +90,24 @@ export function buildExecutionHandoffActivationPaths(
 ): ExecutionHandoffActivationPathRecord[] {
     const context: ExecutionHandoffProvenanceContext = {
         incomingCallsiteIndexByCalleeSig: buildIncomingCallsiteIndex(scene, cg, budget),
+        incomingRelayCallSiteFallbackByCalleeSig: new Map<string, IncomingCallSite[]>(),
         callbackMethodsWithReturnsByValue: new Map<any, any[]>(),
         callableMethodsByValue: new Map<any, any[]>(),
         anonymousCarrierMethodsByBaseAndField: new Map<any, Map<string, any[]>>(),
     };
     const records = new Map<string, ExecutionHandoffActivationPathRecord>();
 
-    for (const caller of scene.getMethods()) {
+    const methods = scene.getMethods();
+    reportExecutionHandoffProgress(budget, `activation_paths scan start methods=${methods.length}`, true);
+    let methodIndex = 0;
+    for (const caller of methods) {
+        methodIndex++;
+        if (methodIndex === 1 || methodIndex % 100 === 0 || methodIndex === methods.length) {
+            reportExecutionHandoffProgress(
+                budget,
+                `activation_paths methods=${methodIndex}/${methods.length} records=${records.size}`,
+            );
+        }
         assertExecutionHandoffBudget(budget, "activation_paths.methods");
         const cfg = caller.getCfg?.();
         if (!cfg) continue;
@@ -110,6 +123,7 @@ export function buildExecutionHandoffActivationPaths(
             }
         }
     }
+    reportExecutionHandoffProgress(budget, `activation_paths method scan done records=${records.size}`, true);
     for (const binding of collectDeclarativeDeferredBindings(scene)) {
         assertExecutionHandoffBudget(budget, "activation_paths.declarative_bindings");
         const record = buildDeclarativeExecutionHandoffActivationPathRecord(binding);
@@ -126,6 +140,20 @@ export function buildExecutionHandoffActivationPaths(
     return [...records.values()].sort((a, b) => a.id.localeCompare(b.id));
 }
 
+function reportExecutionHandoffProgress(
+    budget: ExecutionHandoffBuildBudget | undefined,
+    msg: string,
+    force: boolean = false,
+): void {
+    const progress = budget?.progress;
+    if (!progress) return;
+    const now = Date.now();
+    const interval = budget.progressIntervalMs || 5000;
+    if (!force && budget.lastProgressAtMs !== undefined && now - budget.lastProgressAtMs < interval) return;
+    budget.lastProgressAtMs = now;
+    progress(`[ExecutionHandoff] ${msg} elapsed_ms=${now - budget.startedAtMs}`);
+}
+
 function buildExecutionHandoffActivationPathRecord(
     scene: Scene,
     caller: any,
@@ -137,7 +165,7 @@ function buildExecutionHandoffActivationPathRecord(
     if (!invokeExpr) return undefined;
 
     const unit = candidate.unit;
-    const features = collectExecutionHandoffFeatures(scene, caller, stmt, unit, context);
+    const features = collectExecutionHandoffFeatures(scene, caller, stmt, unit, candidate, context);
     const recovered = deriveRecoveredSemantics(features);
     const activationLabel = recovered.activationLabel;
     const carrierKind = deriveCarrierKind(features, candidate.carrierKinds);
@@ -250,6 +278,7 @@ function collectExecutionHandoffFeatures(
     caller: any,
     stmt: any,
     unit: any,
+    candidate: ExecutionHandoffCandidate,
     context: ExecutionHandoffProvenanceContext,
 ): ExecutionHandoffFeatures {
     const invokeExpr = stmt?.getInvokeExpr?.();
@@ -272,6 +301,9 @@ function collectExecutionHandoffFeatures(
             }
         }
     }
+    if (registrationReachabilityDepth === null && candidate.registrationReachabilityDepth !== null) {
+        registrationReachabilityDepth = candidate.registrationReachabilityDepth;
+    }
     return {
         invokeText: stmt.toString?.() || "",
         invokeName: invokeMethodName(stmt),
@@ -280,8 +312,8 @@ function collectExecutionHandoffFeatures(
         bindingKind: "imperative",
         localRegistration,
         registrationReachabilityDepth,
-        usesPtrInvoke: String(stmt.toString?.() || "").includes("ptrinvoke "),
-        hasAwaitResume: methodStmtTexts(caller).some(text => text.includes("await ")),
+        usesPtrInvoke: stmt?.getInvokeExpr?.() instanceof ArkPtrInvokeExpr,
+        hasAwaitResume: methodHasAwaitResume(caller),
         payloadPorts: countPayloadPorts(unit),
         capturePorts: countCapturePorts(unit),
     };
@@ -346,7 +378,12 @@ function collectFutureUnitCandidates(
     if (!invokeExpr) return [];
 
     const out = new Map<string, ExecutionHandoffCandidate>();
-    const addMethod = (method: any, sourceMethod: any, carrierKind: HandoffCarrierKind): void => {
+    const addMethod = (
+        method: any,
+        sourceMethod: any,
+        carrierKind: HandoffCarrierKind,
+        registrationReachabilityDepth: number | null = null,
+    ): void => {
         const signature = methodSignature(method);
         if (!signature || !method?.getCfg?.() || !isValidDeferredUnitSignature(signature)) return;
         if (!out.has(signature)) {
@@ -354,6 +391,7 @@ function collectFutureUnitCandidates(
                 unit: method,
                 sourceMethods: [],
                 carrierKinds: new Set<HandoffCarrierKind>(),
+                registrationReachabilityDepth: null,
             });
         }
         const candidate = out.get(signature)!;
@@ -361,50 +399,61 @@ function collectFutureUnitCandidates(
             candidate.sourceMethods.push(sourceMethod);
         }
         candidate.carrierKinds.add(carrierKind);
+        if (registrationReachabilityDepth !== null) {
+            candidate.registrationReachabilityDepth = candidate.registrationReachabilityDepth === null
+                ? registrationReachabilityDepth
+                : Math.min(candidate.registrationReachabilityDepth, registrationReachabilityDepth);
+        }
     };
     let hasPotentialDeferredCarrier = false;
     const addMethodsFromValue = (value: any, phase: string): void => {
         if (!value) return;
-        if (!isPotentialDeferredUnitCarrierValue(value)) return;
-        hasPotentialDeferredCarrier = true;
         assertExecutionHandoffBudget(budget, `${phase}.returns`);
         for (const method of resolveCallbackMethodsFromValueWithReturnsCached(scene, value, context)) {
+            hasPotentialDeferredCarrier = true;
             addMethod(method, caller, "returned");
         }
         assertExecutionHandoffBudget(budget, `${phase}.anonymous_carrier`);
         for (const { baseValue, fieldName } of collectAnonymousCarrierFieldLookups(value)) {
             if (!fieldName || !baseValue) continue;
             for (const method of resolveMethodsFromAnonymousCarrierByFieldCached(scene, baseValue, fieldName, context)) {
+                hasPotentialDeferredCarrier = true;
                 addMethod(method, caller, "field");
             }
         }
         assertExecutionHandoffBudget(budget, `${phase}.callable`);
         for (const method of resolveMethodsFromCallableCached(scene, value, context)) {
+            hasPotentialDeferredCarrier = true;
             addMethod(method, caller, "direct");
         }
     };
 
     const explicitArgs = invokeExpr.getArgs ? invokeExpr.getArgs() : [];
-    for (const arg of explicitArgs) {
-        addMethodsFromValue(arg, "activation_paths.candidates.explicit_args");
+    const approvedRegistrationMatch = resolveApprovedImperativeRegistrationMatch(scene, caller, invokeExpr, explicitArgs);
+    const hasApprovedRegistrationInvoke = !!approvedRegistrationMatch;
+    const isPtrInvoke = invokeExpr instanceof ArkPtrInvokeExpr;
+    const isDeferredCompletionInvoke = !!detectDeferredCompletionKind(invokeExpr);
+    const shouldResolveDeferredCarriers = hasApprovedRegistrationInvoke || isPtrInvoke || isDeferredCompletionInvoke;
+    if (shouldResolveDeferredCarriers) {
+        for (const arg of explicitArgs) {
+            addMethodsFromValue(arg, "activation_paths.candidates.explicit_args");
+        }
+
+        const base = invokeExpr.getBase?.();
+        if (base && (isCallableValue(base) || isPtrInvoke)) {
+            addMethodsFromValue(base, "activation_paths.candidates.base");
+        }
     }
 
-    const base = invokeExpr.getBase?.();
-    if (base && (isCallableValue(base) || String(stmt.toString?.() || "").includes("ptrinvoke "))) {
-        addMethodsFromValue(base, "activation_paths.candidates.base");
+    if (!hasPotentialDeferredCarrier && !hasApprovedRegistrationInvoke && !isPtrInvoke && !isDeferredCompletionInvoke) {
+        if (!explicitArgs.some(arg => isDirectDeferredCallbackArgument(arg))) {
+            return [...out.values()];
+        }
     }
-
-    const methodName = invokeMethodName(stmt) || "";
-    const isKnownRegistrationInvoke = isKnownFrameworkCallbackMethodName(methodName)
-        || isKnownSchedulerMethodName(methodName);
-    const isPtrInvoke = String(stmt.toString?.() || "").includes("ptrinvoke ");
-    if (!hasPotentialDeferredCarrier && !isKnownRegistrationInvoke && !isPtrInvoke) {
-        return [...out.values()];
-    }
-    const hasDirectDeferredCallbackArg = explicitArgs.some(isDirectDeferredCallbackArgument);
-    const shouldRunRegistrationExpansion = isKnownRegistrationInvoke
+    const shouldRunRegistrationExpansion = hasApprovedRegistrationInvoke
         || isPtrInvoke
-        || hasDirectDeferredCallbackArg;
+        || isDeferredCompletionInvoke
+        || explicitArgs.some(arg => isDirectDeferredCallbackArgument(arg));
     if (!shouldRunRegistrationExpansion) {
         assertExecutionHandoffBudget(
             budget,
@@ -430,12 +479,17 @@ function collectFutureUnitCandidates(
             registration.callbackMethod,
             registration.sourceMethod || caller,
             methodSignature(registration.registrationMethod) !== methodSignature(caller) ? "relay" : "direct",
+            methodSignature(registration.registrationMethod) !== methodSignature(caller) ? 1 : 0,
         );
     }
     assertExecutionHandoffBudget(
         budget,
         `activation_paths.candidates.registration_done(count=${registrations.length},site=${formatCandidateSite(caller, stmt)})`,
     );
+
+    if (!shouldResolveDeferredCarriers) {
+        return [...out.values()];
+    }
 
     assertExecutionHandoffBudget(
         budget,
@@ -459,8 +513,7 @@ function collectFutureUnitCandidates(
     }
 
     assertExecutionHandoffBudget(budget, "activation_paths.candidates.approved_registration");
-    const registrationMatch = resolveApprovedImperativeRegistrationMatch(scene, caller, invokeExpr, explicitArgs);
-    const callbackArgIndexes = registrationMatch?.callbackArgIndexes || [];
+    const callbackArgIndexes = approvedRegistrationMatch?.callbackArgIndexes || [];
     for (const callbackArgIndex of callbackArgIndexes) {
         assertExecutionHandoffBudget(budget, "activation_paths.candidates.relay_origins");
         const callbackValue = explicitArgs[callbackArgIndex];
@@ -473,55 +526,34 @@ function collectFutureUnitCandidates(
     return [...out.values()];
 }
 
-function isPotentialDeferredUnitCarrierValue(value: any): boolean {
+function isPotentialDeferredUnitCarrierValue(value: any, seen: Set<any> = new Set<any>()): boolean {
     if (!value) return false;
+    if (seen.has(value)) return false;
+    seen.add(value);
     if (isCallableValue(value)) return true;
     if (value instanceof ArkInstanceFieldRef || value instanceof ClosureFieldRef) return true;
-
-    const typeText = String(value.getType?.()?.toString?.() || "").toLowerCase();
-    if (/(function|callback|lambda|closure|=>)/.test(typeText)) return true;
-
-    const text = String(value.toString?.() || "").toLowerCase();
-    if (/(callback|cb|handler|listener|success|fail|complete|resolve|reject|continuation)/.test(text)) {
-        return true;
-    }
 
     if (value instanceof Local) {
         const declaringStmt = value.getDeclaringStmt?.();
         const right = (declaringStmt as any)?.getRightOp?.();
-        if (right instanceof ArkInstanceFieldRef || right instanceof ClosureFieldRef) return true;
-        if (right && isCallableValue(right)) return true;
-        const rightText = String(right?.toString?.() || "").toLowerCase();
-        if (/(callback|cb|handler|listener|success|fail|complete|resolve|reject|continuation|=>)/.test(rightText)) {
-            return true;
-        }
+        if (!right || right === value) return false;
+        return isPotentialDeferredUnitCarrierValue(right, seen);
     }
 
     return false;
 }
 
-function isDirectDeferredCallbackArgument(value: any): boolean {
+function isDirectDeferredCallbackArgument(value: any, seen: Set<any> = new Set<any>()): boolean {
     if (!value) return false;
+    if (seen.has(value)) return false;
+    seen.add(value);
     if (isCallableValue(value)) return true;
-
-    const typeText = String(value.getType?.()?.toString?.() || "").toLowerCase();
-    if (/(function|callback|lambda|closure|=>)/.test(typeText)) return true;
-
-    const text = String(value.toString?.() || "").toLowerCase();
-    if (/(callback|cb|handler|listener|success|fail|complete|resolve|reject|continuation)/.test(text)) {
-        return true;
-    }
 
     if (value instanceof Local) {
         const declaringStmt = value.getDeclaringStmt?.();
         const right = (declaringStmt as any)?.getRightOp?.();
-        if (right && isCallableValue(right)) return true;
-        const rightType = String(right?.getType?.()?.toString?.() || "").toLowerCase();
-        if (/(function|callback|lambda|closure|=>)/.test(rightType)) return true;
-        const rightText = String(right?.toString?.() || "").toLowerCase();
-        if (/(callback|cb|handler|listener|success|fail|complete|resolve|reject|continuation|=>)/.test(rightText)) {
-            return true;
-        }
+        if (!right || right === value) return false;
+        return isDirectDeferredCallbackArgument(right, seen);
     }
 
     return false;
@@ -672,12 +704,7 @@ function resolveApprovedImperativeRegistrationMatch(
     invokeExpr: any,
     explicitArgs: any[],
 ): { callbackArgIndexes: number[]; reason?: string } | null {
-    const isDeferredCompletion = !!recoverDeferredCompletionSemantics({
-        invokeName: invokeExpr?.getMethodSignature?.()?.getMethodSubSignature?.()?.getMethodName?.() || null,
-        matchingArgIndexes: [],
-        payloadPorts: 0,
-        hasResumeAnchor: false,
-    });
+    const isDeferredCompletion = !!detectDeferredCompletionKind(invokeExpr);
     if (isDeferredCompletion) {
         return null;
     }
@@ -689,9 +716,7 @@ function resolveApprovedImperativeRegistrationMatch(
         explicitArgs,
     };
 
-    return resolveKnownSchedulerCallbackRegistration(matcherArgs)
-        || resolveKnownChannelCallbackRegistration(matcherArgs)
-        || resolveKnownFrameworkCallbackRegistration(matcherArgs);
+    return resolveKnownFrameworkCallbackRegistration(matcherArgs);
 }
 
 function resolveParameterIndexForActualArg(method: any, value: any): number | null {
@@ -768,6 +793,10 @@ function collectIncomingRelayCallSites(
     if (indexed.length > 0) {
         return indexed;
     }
+    const fallbackCached = context.incomingRelayCallSiteFallbackByCalleeSig.get(calleeSignature);
+    if (fallbackCached) {
+        return fallbackCached;
+    }
 
     const scanned: IncomingCallSite[] = [];
     const seen = new Set<string>();
@@ -787,6 +816,7 @@ function collectIncomingRelayCallSites(
             });
         }
     }
+    context.incomingRelayCallSiteFallbackByCalleeSig.set(calleeSignature, scanned);
     return scanned;
 }
 
@@ -861,10 +891,17 @@ function isValidDeferredUnitSignature(signature: string): boolean {
     return !signature.includes(".constructor(") && !signature.includes(".%instInit(");
 }
 
-function methodStmtTexts(method: any): string[] {
+function methodHasAwaitResume(method: any): boolean {
     const cfg = method?.getCfg?.();
-    if (!cfg) return [];
-    return cfg.getStmts().map((stmt: any) => stmt.toString());
+    if (!cfg) return false;
+    for (const stmt of cfg.getStmts()) {
+        for (const expr of stmt?.getExprs?.() || []) {
+            if (expr instanceof ArkAwaitExpr) {
+                return true;
+            }
+        }
+    }
+    return false;
 }
 
 function collectAnonymousCarrierFieldLookups(

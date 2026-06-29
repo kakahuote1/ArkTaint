@@ -1,11 +1,8 @@
 import * as fs from "fs";
 import * as path from "path";
-import { ARK_MAIN_FRAMEWORK_CALLBACK_METHOD_NAMES } from "../entry/arkmain/catalog/ArkMainFrameworkCatalog";
 import {
-    resolveAbilityLifecycleContract,
-    resolveExtensionLifecycleContract,
-    resolveStageLifecycleContract,
-} from "../entry/arkmain/facts/ArkMainLifecycleContracts";
+    hasArkMainOfficialDeclarationForOwnerKindAndMethod,
+} from "../entry/arkmain/catalog/ArkMainOfficialDeclarationCatalog";
 import type { NormalizedCallsiteItem } from "../model/callsite/callsiteContextSlices";
 
 export interface ApiModelingCandidateScannerOptions {
@@ -19,7 +16,7 @@ interface ImportBinding {
 
 interface CandidateAccumulator {
     item: NormalizedCallsiteItem;
-    tier: ApiModelingCandidateTier;
+    kind: ApiModelingCandidateKind;
     reasons: string[];
     originalIndex: number;
 }
@@ -64,7 +61,7 @@ interface DirectBoundaryCallsite {
     resolvedFile?: string;
 }
 
-type ApiModelingCandidateTier =
+type ApiModelingCandidateKind =
     | "direct-boundary"
     | "project-wrapper"
     | "declared-owner-wrapper"
@@ -73,11 +70,11 @@ type ApiModelingCandidateTier =
 
 interface ProjectApiWrapperClassification {
     eligible: boolean;
-    tier: ApiModelingCandidateTier;
+    kind: ApiModelingCandidateKind;
     reasons: string[];
 }
 
-const API_MODELING_TIER_ORDER: ApiModelingCandidateTier[] = [
+const API_MODELING_KIND_ORDER: ApiModelingCandidateKind[] = [
     "direct-boundary",
     "declared-owner-wrapper",
     "project-wrapper",
@@ -85,34 +82,10 @@ const API_MODELING_TIER_ORDER: ApiModelingCandidateTier[] = [
     "callback-payload",
 ];
 
-function apiModelingTierIndex(tier: ApiModelingCandidateTier): number {
-    const index = API_MODELING_TIER_ORDER.indexOf(tier);
-    return index >= 0 ? index : API_MODELING_TIER_ORDER.length;
+function apiModelingKindIndex(kind: ApiModelingCandidateKind): number {
+    const index = API_MODELING_KIND_ORDER.indexOf(kind);
+    return index >= 0 ? index : API_MODELING_KIND_ORDER.length;
 }
-
-const OFFICIAL_ARKUI_COMPONENTS = new Set([
-    "Button",
-    "Checkbox",
-    "Column",
-    "ForEach",
-    "Grid",
-    "Image",
-    "List",
-    "ListItem",
-    "Navigation",
-    "Row",
-    "Scroll",
-    "Search",
-    "Select",
-    "Slider",
-    "Stepper",
-    "Swiper",
-    "Tabs",
-    "Text",
-    "TextArea",
-    "TextInput",
-    "Toggle",
-]);
 
 const SKIP_DIRS = new Set([
     ".git",
@@ -150,7 +123,6 @@ export function discoverApiCallbackModelingCandidates(
         if (!text) continue;
         const imports = collectImportBindings(repoRoot, absFile, text);
         for (const call of collectOptionCallbackCalls(text)) {
-            if (OFFICIAL_ARKUI_COMPONENTS.has(call.callee)) continue;
             const callbackProperties = call.callbackProperties.filter(isModelingRelevantCallback);
             if (callbackProperties.length === 0) continue;
             const binding = imports.get(call.callee);
@@ -178,13 +150,13 @@ export function discoverApiCallbackModelingCandidates(
                 ? readExportedSymbolSnippet(repoRoot, binding.resolvedFile, call.callee)
                 : undefined;
             byKey.set(key, {
-                tier: "callback-payload",
+                kind: "callback-payload",
                 reasons: buildCallbackCandidateReasons(call.callee, callbackProperties, binding),
                 originalIndex: byKey.size,
                 item: {
                     callee_signature: binding?.resolvedFile
                         ? buildResolvedCallbackSurfaceSignature(binding.resolvedFile, call.callee)
-                        : `@%unk/%unk: .${call.callee}()`,
+                        : "",
                     method: call.callee,
                     invokeKind: "static",
                     argCount: 1,
@@ -194,7 +166,7 @@ export function discoverApiCallbackModelingCandidates(
                         ...(binding?.resolvedFile ? [
                             `resolvedCallbackOwnerFile=${binding.resolvedFile}`,
                             "callbackOwnerResolved=true",
-                        ] : []),
+                        ] : ["identityStatus=unresolved"]),
                     ],
                     candidateOrigin: "recall_callback_surface",
                     callbackProperties,
@@ -231,13 +203,13 @@ export function discoverApiCallbackModelingCandidates(
                 continue;
             }
             byKey.set(key, {
-                tier: "callback-payload",
+                kind: "callback-payload",
                 reasons: buildMethodCallbackCandidateReasons(call),
                 originalIndex: byKey.size,
                 item: {
                     callee_signature: receiverMethodEvidence
                         ? buildProjectApiWrapperSignature(sourceFile, receiverMethodEvidence, receiverMethodEvidence.owner || receiverRoot)
-                        : `@%unk/%unk: .${call.method}(${Array.from({ length: call.argCount }, () => "Unknown").join(", ")})`,
+                        : "",
                     method: call.method,
                     invokeKind: receiverMethodEvidence?.isStatic ? "static" : "instance",
                     argCount: call.argCount,
@@ -252,6 +224,7 @@ export function discoverApiCallbackModelingCandidates(
                         ...(receiverBinding?.source ? [`importSource=${receiverBinding.source}`] : []),
                         ...(receiverBinding?.resolvedFile ? [`resolvedReceiverFile=${receiverBinding.resolvedFile}`] : []),
                         ...(receiverMethodEvidence?.owner ? [`resolvedReceiverOwner=${receiverMethodEvidence.owner}`] : []),
+                        ...(!receiverMethodEvidence ? ["identityStatus=unresolved"] : []),
                     ],
                     candidateOrigin: "recall_method_callback_surface",
                     callbackArgIndexes: call.callbackArgIndexes,
@@ -326,7 +299,9 @@ function buildCallbackCandidateReasons(
 }
 
 function buildResolvedCallbackSurfaceSignature(sourceFile: string, callee: string): string {
-    return `@${normalizeSlashes(sourceFile)}: ${callee}(Unknown)`;
+    void sourceFile;
+    void callee;
+    return "";
 }
 
 export function discoverApiSurfaceModelingCandidates(
@@ -346,7 +321,7 @@ export function discoverApiSurfaceModelingCandidates(
         for (const call of collectDirectBoundaryCallsites(repoRoot, relFile, text)) {
             const invokeLine = lineNumberAt(text, call.start);
             out.push({
-                tier: "direct-boundary",
+                kind: "direct-boundary",
                 reasons: buildDirectBoundaryCallsiteReasons(relFile, call),
                 originalIndex: out.length,
                 item: {
@@ -358,7 +333,7 @@ export function discoverApiSurfaceModelingCandidates(
                     count: 1,
                     topEntries: [
                         "origin=recall_direct_boundary_surface",
-                        "candidateTier=direct-boundary",
+                        "candidateKind=direct-boundary",
                         "candidateBoundary=direct_project_or_third_party_callsite_evidence",
                         `receiver=${call.receiver}`,
                         `declaredOwner=${call.declaredOwner}`,
@@ -401,7 +376,7 @@ export function discoverApiSurfaceModelingCandidates(
                 count: 1,
                 topEntries: [
                     `origin=recall_api_surface`,
-                    `candidateTier=${classification.tier}`,
+                    `candidateKind=${classification.kind}`,
                     ...classification.reasons.map(reason => `candidateReason=${reason}`),
                     ...candidateBoundaryHints(relFile, method),
                 ],
@@ -419,14 +394,14 @@ export function discoverApiSurfaceModelingCandidates(
                 }],
             } as NormalizedCallsiteItem;
             out.push({
-                tier: classification.tier,
+                kind: classification.kind,
                 reasons: classification.reasons,
                 originalIndex: out.length,
                 item: baseItem,
             });
             for (const declaredOwnerCandidate of buildDeclaredOwnerSurfaceCandidates(baseItem, method, declaredOwnerHintsByMethod.get(method.method) || [])) {
                 out.push({
-                    tier: "declared-owner-wrapper",
+                    kind: "declared-owner-wrapper",
                     reasons: [...classification.reasons, "analyzer-backed-declared-owner"],
                     originalIndex: out.length,
                     item: declaredOwnerCandidate,
@@ -434,7 +409,7 @@ export function discoverApiSurfaceModelingCandidates(
             }
             if (shouldCreateReturnedValueSurfaceCandidate(method)) {
                 out.push({
-                    tier: "returned-value-wrapper",
+                    kind: "returned-value-wrapper",
                     reasons: [...classification.reasons, "returned-value-surface"],
                     originalIndex: out.length,
                     item: {
@@ -717,11 +692,9 @@ function buildDirectBoundaryCallsiteReasons(relFile: string, call: DirectBoundar
 }
 
 function buildDirectBoundaryCallsiteSignature(relFile: string, call: DirectBoundaryCallsite): string {
-    const params = Array.from({ length: Math.max(0, call.argCount) }, () => "Unknown").join(", ");
-    const modulePath = call.resolvedFile
-        ? normalizeSlashes(call.resolvedFile)
-        : normalizeSlashes(call.importSource || relFile);
-    return `@${modulePath}: ${call.declaredOwner}.${call.method}(${params})`;
+    void relFile;
+    void call;
+    return "";
 }
 
 function collectTypedReceivers(text: string): Map<string, string> {
@@ -855,7 +828,7 @@ function selectApiSurfaceCandidateAccumulators(
 }
 
 function compareApiModelingCandidateAccumulators(left: CandidateAccumulator, right: CandidateAccumulator): number {
-    return apiModelingTierIndex(left.tier) - apiModelingTierIndex(right.tier)
+    return apiModelingKindIndex(left.kind) - apiModelingKindIndex(right.kind)
         || apiModelingDeclaredOwnerOrder(left.item) - apiModelingDeclaredOwnerOrder(right.item)
         || apiModelingReturnedValueOrder(left.item) - apiModelingReturnedValueOrder(right.item)
         || String(left.item.callee_signature).localeCompare(String(right.item.callee_signature))
@@ -1173,7 +1146,7 @@ function classifyProjectApiWrapperMethod(relFile: string, candidate: MethodCandi
     const methodLower = candidate.method.toLowerCase();
     const bodyLower = candidate.code.toLowerCase();
     if (!hasExecutableMethodBody(candidate)) {
-        return { eligible: false, tier: "project-wrapper", reasons: ["empty-or-declaration-only-method"] };
+        return { eligible: false, kind: "project-wrapper", reasons: ["empty-or-declaration-only-method"] };
     }
     const hasBridgeSignal = hasBridgeModelingSignal(candidate.code)
         || (hasBridgePathSignal(pathLower) && hasBridgeReceiverMethodSignal(methodLower, bodyLower));
@@ -1186,7 +1159,7 @@ function classifyProjectApiWrapperMethod(relFile: string, candidate: MethodCandi
         reasons.push("official-entry-shape");
     }
     if (isFrameworkContextHelperCandidate(pathLower, methodLower, bodyLower, candidate.owner)) {
-        return { eligible: false, tier: "project-wrapper", reasons: ["framework-context-helper"] };
+        return { eligible: false, kind: "project-wrapper", reasons: ["framework-context-helper"] };
     }
     const isModelMapper = isProjectModelMapperMethod(pathLower, methodLower, bodyLower, candidate);
     if (/(^|\/)(api|apis|service|services|network|net|request|requests|client|clients|repository|repositories|configure)(\/|$)/.test(pathLower)) reasons.push("wrapper-container-path");
@@ -1210,17 +1183,17 @@ function classifyProjectApiWrapperMethod(relFile: string, candidate: MethodCandi
     if (eventBusWrapper) reasons.push("project-event-bus-effect");
     if (/^(check|is|has|validate|format|parseurl|back|scroll|build|render)/.test(methodLower)) reasons.push("guard-or-ui-helper-name");
     if (/(\/context\.ets|\/stage\.ets|\/device\.ets)/.test(pathLower) || /(context|stage|window|avoidarea|safearea|windowsize)/.test(methodLower)) {
-        return { eligible: false, tier: "project-wrapper", reasons: ["context-or-window-setup-helper"] };
+        return { eligible: false, kind: "project-wrapper", reasons: ["context-or-window-setup-helper"] };
     }
     if (loggingConfig && !loggingPayload) {
-        return { eligible: false, tier: "project-wrapper", reasons };
+        return { eligible: false, kind: "project-wrapper", reasons };
     }
     if (reasons.includes("guard-or-ui-helper-name")
         && !DATA_ENDPOINT_TOKEN_RE.test(bodyLower)
         && !hasCallForwardingSignal(candidate)
         && !delegatedReturnedValue
         && !hasBridgeSignal) {
-        return { eligible: false, tier: "project-wrapper", reasons };
+        return { eligible: false, kind: "project-wrapper", reasons };
     }
     const eligible = hasStructuralEffectSignal
         || eventBusWrapper
@@ -1230,12 +1203,12 @@ function classifyProjectApiWrapperMethod(relFile: string, candidate: MethodCandi
         || reasons.includes("state-or-logging-container-path")
         || reasons.includes("sensitive-payload-name");
     if (!eligible) {
-        return { eligible: false, tier: "project-wrapper", reasons: [...reasons, "insufficient-structural-evidence"] };
+        return { eligible: false, kind: "project-wrapper", reasons: [...reasons, "insufficient-structural-evidence"] };
     }
-    const tier: ApiModelingCandidateTier = delegatedReturnedValue && !hasBridgeSignal && candidate.returnType && candidate.returnType !== "void"
+    const kind: ApiModelingCandidateKind = delegatedReturnedValue && !hasBridgeSignal && candidate.returnType && candidate.returnType !== "void"
         ? "returned-value-wrapper"
         : "project-wrapper";
-    return { eligible: true, tier, reasons };
+    return { eligible: true, kind, reasons };
 }
 
 function isLoggingPayloadSurface(pathLower: string, methodLower: string, candidate: MethodCandidate): boolean {
@@ -1297,9 +1270,6 @@ function candidateBoundaryHints(relFile: string, candidate: MethodCandidate): st
     const methodLower = candidate.method.toLowerCase();
     const bodyLower = candidate.code.toLowerCase();
     const hints: string[] = [];
-    if (isOfficialArkMainEntryCandidate(pathLower, candidate.method, candidate.owner)) {
-        hints.push("candidateBoundary=official_arkmain_entry_evidence");
-    }
     if (isFrameworkContextHelperCandidate(pathLower, methodLower, bodyLower, candidate.owner)) {
         hints.push("candidateBoundary=framework_context_helper_evidence");
     }
@@ -1388,24 +1358,24 @@ function isFrameworkLifecycleCandidate(pathLower: string, methodName: string, ow
     }
     const ownerKind = classifyFrameworkEntryOwner(pathLower, owner);
     if (ownerKind === "stage") {
-        return !!resolveStageLifecycleContract(methodName);
+        return hasArkMainOfficialDeclarationForOwnerKindAndMethod("stage_owner", methodName);
     }
     if (ownerKind === "extension") {
-        return !!resolveExtensionLifecycleContract(methodName);
+        return hasArkMainOfficialDeclarationForOwnerKindAndMethod("extension_owner", methodName);
     }
     if (ownerKind === "ability") {
-        return !!resolveAbilityLifecycleContract(methodName);
+        return hasArkMainOfficialDeclarationForOwnerKindAndMethod("ability_owner", methodName);
     }
-    return !!resolveAbilityLifecycleContract(methodName)
-        || !!resolveStageLifecycleContract(methodName)
-        || !!resolveExtensionLifecycleContract(methodName);
+    return hasArkMainOfficialDeclarationForOwnerKindAndMethod("ability_owner", methodName)
+        || hasArkMainOfficialDeclarationForOwnerKindAndMethod("stage_owner", methodName)
+        || hasArkMainOfficialDeclarationForOwnerKindAndMethod("extension_owner", methodName);
 }
 
 function isFrameworkCallbackCandidate(pathLower: string, methodName: string, owner?: string): boolean {
-    if (!isFrameworkEntryOwnerOrPath(pathLower, owner)) {
-        return false;
-    }
-    return ARK_MAIN_FRAMEWORK_CALLBACK_METHOD_NAMES.has(methodName);
+    void pathLower;
+    void methodName;
+    void owner;
+    return false;
 }
 
 function isFrameworkContextHelperCandidate(pathLower: string, methodLower: string, bodyLower: string, owner?: string): boolean {
@@ -1569,12 +1539,10 @@ function escapeRegExp(value: string): string {
 }
 
 function buildProjectApiWrapperSignature(relFile: string, candidate: MethodCandidate, ownerOverride?: string): string {
-    const args = Array.from({ length: Math.max(0, candidate.argCount) }, () => "Unknown").join(", ");
-    const resolvedOwner = ownerOverride || candidate.owner;
-    const owner = resolvedOwner
-        ? `${resolvedOwner}${candidate.isStatic ? ".[static]" : "."}${candidate.method}`
-        : candidate.method;
-    return `@${normalizeSlashes(relFile)}: ${owner}(${args})`;
+    void relFile;
+    void candidate;
+    void ownerOverride;
+    return "";
 }
 
 function lineTextAt(text: string, lineNumber: number): string {

@@ -9,6 +9,8 @@ const DEFAULT_MANIFEST = "tests/manifests/official_semantics_precision_gate.json
 const MODELING_MANIFEST = "tests/manifests/benchmarks/harmony_modeling_benchmark.json";
 const MODELING_EXPECTATIONS = "tests/manifests/benchmarks/harmony_modeling_expectations.json";
 const HARMONY_BENCH_MANIFEST = "tests/benchmark/HarmonyBench/manifest.json";
+const GENERATOR_DRY_RUN_OUT = "tmp/official_semantics_precision_gate/generated";
+const GENERATED_SUMMARY = "internal_docs/security_asset_iteration/official_api_semantic_asset_generation_summary.json";
 
 const args = process.argv.slice(2);
 
@@ -77,6 +79,217 @@ function runScript(scriptName) {
     fail(`script failed: ${scriptName} status=${result.status} elapsed=${elapsed}s`);
   }
   console.log(`[official-semantics-precision] pass ${scriptName} elapsed=${elapsed}s`);
+}
+
+function normalizeText(value) {
+  return String(value || "").replace(/\s+/g, " ").trim();
+}
+
+function splitTopLevel(value, separator) {
+  const parts = [];
+  let current = "";
+  let depth = 0;
+  for (const ch of String(value || "")) {
+    if (ch === "<" || ch === "(" || ch === "{" || ch === "[") depth++;
+    if (ch === ">" || ch === ")" || ch === "}" || ch === "]") depth = Math.max(0, depth - 1);
+    if (ch === separator && depth === 0) {
+      parts.push(current.trim());
+      current = "";
+      continue;
+    }
+    current += ch;
+  }
+  if (current.trim().length > 0) parts.push(current.trim());
+  return parts;
+}
+
+function isVoidTypeText(value) {
+  return normalizeText(value).toLowerCase() === "void";
+}
+
+function callbackResultArgIndexForType(typeText) {
+  const text = normalizeText(typeText);
+  const optionalMatch = /^Optional\s*<([\s\S]+)>$/.exec(text);
+  if (optionalMatch) return callbackResultArgIndexForType(optionalMatch[1]);
+  const asyncMatch = /^AsyncCallback\s*<([\s\S]+)>$/.exec(text);
+  if (asyncMatch) return isVoidTypeText(asyncMatch[1]) ? undefined : 1;
+  const callbackMatch = /^Callback\s*<([\s\S]+)>$/.exec(text);
+  if (callbackMatch) return isVoidTypeText(callbackMatch[1]) ? undefined : 0;
+  const functionMatch = /^(?:\(([\s\S]*)\)|([^=()]+))\s*=>\s*([\s\S]+)$/.exec(text);
+  if (!functionMatch || !isVoidTypeText(functionMatch[3])) return undefined;
+  const paramsText = normalizeText(functionMatch[1] || functionMatch[2] || "");
+  if (!paramsText || paramsText === "void") return undefined;
+  const params = splitTopLevel(paramsText, ",")
+    .map((entry, index) => {
+      const colon = entry.indexOf(":");
+      const name = colon >= 0 ? entry.slice(0, colon).replace(/[?]/g, "").trim() : "";
+      const type = colon >= 0 ? entry.slice(colon + 1).trim() : entry.trim();
+      return { index, name, type };
+    })
+    .filter(param => !isVoidTypeText(param.type));
+  if (params.length === 1) return params[0].index;
+  const nonError = params.filter(param => !/^(err|error|exception|businessError)$/i.test(param.name));
+  return nonError.length === 1 ? nonError[0].index : undefined;
+}
+
+function decodePart(value) {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+function parseCanonicalSignature(canonicalApiId) {
+  const match = /:params=([^:]+):ret=([^:]+)/.exec(String(canonicalApiId || ""));
+  if (!match) return undefined;
+  const paramsText = decodePart(match[1]);
+  const returnType = decodePart(match[2]);
+  const parameters = paramsText === "none"
+    ? []
+    : splitTopLevel(paramsText, ",").map((entry) => {
+        const firstColon = entry.indexOf(":");
+        const index = Number(entry.slice(0, firstColon));
+        let type = entry.slice(firstColon + 1);
+        type = type.replace(/^\?rest:/, "").replace(/^\?:/, "").replace(/^rest:/, "");
+        return { index, type };
+      });
+  return { returnType, parameters };
+}
+
+function endpointBases(value, out = []) {
+  if (!value || typeof value !== "object") return out;
+  if (value.base && typeof value.base === "object" && typeof value.base.kind === "string") out.push(value.base);
+  if (Array.isArray(value)) {
+    for (const item of value) endpointBases(item, out);
+    return out;
+  }
+  for (const child of Object.values(value)) endpointBases(child, out);
+  return out;
+}
+
+function endpointScanTargetsForBinding(binding, templateById) {
+  const targets = [];
+  if (binding.endpoint) targets.push({ label: "binding.endpoint", value: binding.endpoint });
+  for (const ref of binding.effectTemplateRefs || []) {
+    const template = templateById.get(ref);
+    if (!template) continue;
+    targets.push({ label: `template:${ref}`, value: template });
+  }
+  return targets;
+}
+
+function validateEndpointBase(signature, base, context, failures) {
+  if (base.kind === "return" && isVoidTypeText(signature.returnType)) {
+    failures.push(`${context}: return endpoint is not projectable for ret=void`);
+  }
+  if (base.kind === "promiseResult") {
+    const match = /^Promise\s*<([\s\S]+)>$/.exec(normalizeText(signature.returnType));
+    if (!match || isVoidTypeText(match[1])) {
+      failures.push(`${context}: promiseResult endpoint is not projectable for ret=${signature.returnType}`);
+    }
+  }
+  if (base.kind === "arg") {
+    if (!Number.isInteger(base.index) || base.index < 0 || base.index >= signature.parameters.length) {
+      failures.push(`${context}: arg endpoint index ${base.index} is outside canonical parameter range ${signature.parameters.length}`);
+    }
+  }
+  if (base.kind === "callbackArg" && base.callback?.kind === "arg") {
+    const callbackIndex = base.callback.index;
+    const param = signature.parameters[callbackIndex];
+    if (!param) {
+      failures.push(`${context}: callbackArg callback index ${callbackIndex} is outside canonical parameter range ${signature.parameters.length}`);
+      return;
+    }
+    const expected = callbackResultArgIndexForType(param.type);
+    if (expected === undefined) {
+      failures.push(`${context}: callbackArg is not projectable for callback parameter type ${param.type}`);
+      return;
+    }
+    if (base.argIndex !== expected) {
+      failures.push(`${context}: callbackArg argIndex ${base.argIndex} does not match declaration result arg ${expected}`);
+    }
+  }
+}
+
+function parseGeneratedModuleTs(file) {
+  const text = fs.readFileSync(abs(file), "utf8");
+  const chunks = [];
+  const chunkPattern = /^\s*"((?:\\.|[^"\\])*)",?\s*$/gm;
+  let match;
+  while ((match = chunkPattern.exec(text)) !== null) chunks.push(JSON.parse(`"${match[1]}"`));
+  return JSON.parse(chunks.join(""));
+}
+
+function readGeneratedAssetDocuments(outputRoot) {
+  const files = [
+    "src/models/kernel/rules/sources/official_declarations.rules.json",
+    "src/models/kernel/rules/sinks/official_declarations.rules.json",
+    "src/models/kernel/rules/transfers/official_declarations.rules.json",
+    "src/models/kernel/rules/sanitizers/official_declarations.rules.json",
+    "src/models/kernel/arkmain/harmony/official_declarations.catalog.json",
+  ];
+  const docs = [];
+  for (const file of files) {
+    const generatedFile = path.join(outputRoot, file).replace(/\\/g, "/");
+    if (exists(generatedFile)) docs.push({ file: generatedFile, docs: [readJson(generatedFile)] });
+  }
+  const moduleFile = path.join(outputRoot, "src/models/kernel/modules/harmony/official_declaration_semantic_slots.ts").replace(/\\/g, "/");
+  if (exists(moduleFile)) docs.push({ file: moduleFile, docs: parseGeneratedModuleTs(moduleFile) });
+  return docs;
+}
+
+function validateGeneratedEndpointProjectability(outputRoot) {
+  const failures = [];
+  let bindingCount = 0;
+  for (const artifact of readGeneratedAssetDocuments(outputRoot)) {
+    for (const doc of artifact.docs || []) {
+      const surfaces = new Map((doc.surfaces || []).map(surface => [surface.surfaceId, surface]));
+      const templates = new Map((doc.effectTemplates || []).map(template => [template.id, template]));
+      for (const binding of doc.bindings || []) {
+        bindingCount++;
+        const surface = surfaces.get(binding.surfaceId) || {};
+        const canonicalApiId = binding.canonicalApiId || surface.canonicalApiId;
+        const signature = parseCanonicalSignature(canonicalApiId);
+        if (!signature) {
+          failures.push(`${artifact.file}:${binding.bindingId}: canonicalApiId lacks exact params/ret`);
+          continue;
+        }
+        for (const target of endpointScanTargetsForBinding(binding, templates)) {
+          for (const base of endpointBases(target.value)) {
+            validateEndpointBase(signature, base, `${artifact.file}:${binding.bindingId}:${target.label}:${base.kind}`, failures);
+          }
+        }
+      }
+    }
+  }
+  return { bindingCount, failures };
+}
+
+function validateGeneratorDryRun() {
+  fs.rmSync(abs(GENERATOR_DRY_RUN_OUT), { recursive: true, force: true });
+  const result = spawnSync(process.execPath, ["tools/generate_official_api_semantic_assets.js"], {
+    cwd: ROOT,
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      ARKTAINT_OFFICIAL_ASSET_OUTPUT_ROOT: GENERATOR_DRY_RUN_OUT,
+    },
+  });
+  if (result.error) fail(`generator dry-run launch failed: ${result.error.message}`);
+  if (result.status !== 0) {
+    fail(`generator dry-run failed: status=${result.status} stderr=${normalizeText(result.stderr)}`);
+  }
+  const summaryPath = path.join(GENERATOR_DRY_RUN_OUT, GENERATED_SUMMARY).replace(/\\/g, "/");
+  assert(exists(summaryPath), `generator dry-run summary missing: ${summaryPath}`);
+  const summary = readJson(summaryPath);
+  const scan = validateGeneratedEndpointProjectability(GENERATOR_DRY_RUN_OUT);
+  assert(scan.failures.length === 0, `generator produced non-projectable endpoints: ${scan.failures.slice(0, 20).join("; ")}`);
+  return {
+    outputRoot: GENERATOR_DRY_RUN_OUT,
+    bindingCount: scan.bindingCount,
+    manualReviewCount: Number(summary.manualReviewCount || summary.stats?.manualReview || 0),
+  };
 }
 
 function countSuiteExpectations(expectations, suiteId) {
@@ -256,6 +469,7 @@ function main() {
   const scripts = readPackageScripts();
   const requiredScripts = validateStaticScripts(contract, scripts);
   const declaration = validateDeclarationCoverage(contract.declarationCoverage || {});
+  const generatorDryRun = validateGeneratorDryRun();
   validateLegacyDisposition(contract);
 
   for (const gate of contract.behavioralGates || []) {
@@ -273,6 +487,7 @@ function main() {
 
   console.log(`official_semantics_precision declaration_rows=${declaration.semanticLedgerRows}`);
   console.log(`required_scripts=${requiredScripts.length}`);
+  console.log(`generator_dry_run=${generatorDryRun.outputRoot} bindings=${generatorDryRun.bindingCount} manualReview=${generatorDryRun.manualReviewCount}`);
   console.log(`behavior_reports=${behaviorReports.map(item => `${item.status}:${item.report}`).join(",")}`);
   if (notRun.length > 0) {
     console.log(`behavior_reports_not_run=${notRun.join(",")}`);

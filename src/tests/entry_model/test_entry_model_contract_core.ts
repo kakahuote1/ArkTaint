@@ -34,40 +34,36 @@ async function main(): Promise<void> {
     const entryPlan = buildArkMainPlan(entryScene);
 
     assert(entryPlan.contracts.length > 0, "ArkMain contracts should not be empty.");
-    assert(entryPlan.sourceRules.length > 0, "ArkMain source rules should not be empty.");
     assert(hasContract(entryPlan, "onCreate", "lifecycle", "root"), "Missing lifecycle/root contract for onCreate.");
     assert(hasContract(entryPlan, "onNewWant", "lifecycle", "root"), "Missing lifecycle/root contract for onNewWant.");
 
-    const sourceSchemaCount = entryPlan.contracts.reduce((sum, contract) => sum + contract.sourceSchemas.length, 0);
-    assert(sourceSchemaCount === entryPlan.sourceRules.length, `ArkMain source rules should be derived solely from contract source schemas. contracts=${sourceSchemaCount}, rules=${entryPlan.sourceRules.length}`);
-
     const lifecycleScene = buildScene(path.resolve("tests/demo/harmony_lifecycle"));
     const lifecyclePlan = buildArkMainPlan(lifecycleScene);
-    const lifecycleSourceIds = new Set(lifecyclePlan.sourceRules.map(rule => rule.id));
+    const lifecycleKinds = new Set(lifecyclePlan.facts.map(fact => fact.kind));
     assert(
-        [...lifecycleSourceIds].some(id => id.startsWith("source.arkmain.contract.lifecycle.param.")),
-        "Lifecycle contract sources should be present in plan.sourceRules.",
+        lifecycleKinds.has("ability_lifecycle") || lifecycleKinds.has("extension_lifecycle"),
+        "Lifecycle official declaration facts should be present in ArkMain plan.",
     );
     assert(
-        [...lifecycleSourceIds].some(id => id.startsWith("source.arkmain.contract.lifecycle.want.")),
-        "Want-like lifecycle contract sources should be present in plan.sourceRules.",
+        lifecycleKinds.has("want_handoff"),
+        "Want-like official declaration facts should be present in ArkMain plan.",
     );
 
     const externalScene = buildScene(path.resolve("tests/demo/sdk_unknown_callback_boundary_realworld"));
     const externalPlan = buildArkMainPlan(externalScene);
     assert(
-        !externalPlan.sourceRules.some(rule => rule.family === "arkmain_unknown_callback_hint"),
-        "Official-declaration ArkMain must not materialize unknown callback entry source rules.",
+        !externalPlan.facts.some(fact => String(fact.entryFamily || "") === "arkmain_unknown_callback_hint"),
+        "Official-declaration ArkMain must not materialize unknown callback entry facts.",
     );
 
     const engine = new TaintPropagationEngine(entryScene, 1);
     await engine.buildPAG({ entryModel: "arkMain" });
-    const runtimeRuleIds = new Set(engine.getAutoEntrySourceRules().map(rule => rule.id));
-    const planRuleIds = new Set(entryPlan.sourceRules.map(rule => rule.id));
-    assert(runtimeRuleIds.size === planRuleIds.size, `Engine should consume ArkMain plan source rules directly. runtime=${runtimeRuleIds.size}, plan=${planRuleIds.size}`);
-    for (const ruleId of planRuleIds) {
-        assert(runtimeRuleIds.has(ruleId), `Engine auto source rules drifted from ArkMain plan: missing ${ruleId}`);
-    }
+    const runtimeRules = engine.getAutoEntrySourceRules();
+    assert(runtimeRules.length > 0, "Engine should lower ArkMain contracts into auto entry source rules.");
+    assert(
+        runtimeRules.every(rule => rule.match.kind === "canonical_api_id_equals" && rule.apiEffect?.canonicalApiId === rule.match.value),
+        "Engine ArkMain auto entry source rules must bind exact canonical apiEffect identities.",
+    );
 
     console.log("PASS test_entry_model_contract_core");
 }

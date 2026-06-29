@@ -4,12 +4,17 @@ import { ArkClass } from "../../../../../arkanalyzer/out/src/core/model/ArkClass
 import { ArkMethod } from "../../../../../arkanalyzer/out/src/core/model/ArkMethod";
 import { ModifierType } from "../../../../../arkanalyzer/out/src/core/model/ArkBaseModel";
 import { CONSTRUCTOR_NAME } from "../../../../../arkanalyzer/out/src/core/common/TSConst";
-import { safeGetSuperClassName, walkArkMainSuperClasses } from "./ArkMainFactResolverUtils";
+import { walkArkMainSuperClasses } from "./ArkMainFactResolverUtils";
+import {
+    resolveArkMainOfficialLifecycleDeclarationsByClassNameAndMethod,
+    type ArkMainOfficialLifecycleDeclaration,
+} from "../catalog/ArkMainOfficialDeclarationCatalog";
 
 export interface ArkMainSdkOverrideCandidate {
     method: ArkMethod;
     baseClass?: ArkClass;
     baseMethod?: ArkMethod;
+    officialDeclarations?: ArkMainOfficialLifecycleDeclaration[];
     discoveryLayer: "sdk_override_first_layer";
     explicitOverride: boolean;
 }
@@ -57,18 +62,25 @@ export function resolveSdkOverrideCandidate(
                 };
                 return false;
             }
+            const declarations = resolveArkMainOfficialLifecycleDeclarationsByClassNameAndMethod(
+                superClass.getName?.(),
+                method.getName?.(),
+            );
+            if (declarations.length > 0) {
+                resolved = {
+                    method,
+                    baseClass: superClass,
+                    officialDeclarations: declarations,
+                    discoveryLayer: "sdk_override_first_layer",
+                    explicitOverride,
+                };
+                return false;
+            }
         }
         return true;
     });
     if (resolved) {
         return resolved;
-    }
-    if (explicitOverride && hasSdkImportedSuperclassReference(method.getDeclaringArkClass?.())) {
-        return {
-            method,
-            discoveryLayer: "sdk_override_first_layer",
-            explicitOverride,
-        };
     }
     return undefined;
 }
@@ -152,24 +164,6 @@ function getInstanceMethods(cls: ArkClass): ArkMethod[] {
     } catch {
         return [];
     }
-}
-
-function hasSdkImportedSuperclassReference(arkClass: ArkClass | null | undefined): boolean {
-    const superClassName = safeGetSuperClassName(arkClass) || "";
-    if (!arkClass || !superClassName) {
-        return false;
-    }
-    try {
-        const importInfo = arkClass.getDeclaringArkFile?.()?.getImportInfoBy?.(superClassName);
-        const importFrom = importInfo?.getFrom?.() || "";
-        return isSdkImportFrom(importFrom);
-    } catch {
-        return false;
-    }
-}
-
-function isSdkImportFrom(importFrom: string): boolean {
-    return /^@(kit|ohos|system)(\.|\/|$)/.test(importFrom || "");
 }
 
 function normalizeDecoratorKinds(decorators: any[]): string[] {

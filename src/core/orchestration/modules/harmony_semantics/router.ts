@@ -6,6 +6,8 @@ import { ArkInstanceFieldRef } from "../../../../../arkanalyzer/out/src/core/bas
 import { Local } from "../../../../../arkanalyzer/out/src/core/base/Local";
 import {
     defineModule,
+    type ModuleAnalysisApi,
+    type ModuleScannedInvoke,
     type TaintModule,
 } from "../../../kernel/contracts/ModuleApi";
 import type {
@@ -16,60 +18,67 @@ import type {
 import {
     addMapSetValue,
     collectObjectNodeIdsFromValue,
-    resolveClassKeyFromMethodSig,
     resolveHarmonyMethods,
 } from "../../../kernel/contracts/HarmonyModuleUtils";
 import { createHandoffPropagationSession } from "../../../kernel/semantic_handoff/SemanticHandoffPropagation";
 import { createExactHandoffHandle, HandoffEffect } from "../../../kernel/semantic_handoff/SemanticHandoffTypes";
+import { parseCanonicalApiId } from "../../../api/identity";
+import { isConsumableSemanticEndpointProjection } from "../../../kernel/contracts/PagNodeResolution";
 
-export interface HarmonyRoutePushMethodOption {
-    methodName: string;
+export interface HarmonyRoutePushApiOption {
+    canonicalApiIds: string[];
+    routeField?: string;
+    routeArgIndex?: number;
+    payloadArgIndex?: number;
+    payloadField?: string;
+}
+
+export interface HarmonyRouteRegisterApiOption {
+    canonicalApiIds: string[];
+    callbackArgIndex: number;
+    routeParamIndex?: number;
+    payloadParamIndex: number;
+}
+
+export interface HarmonyRouteGetApiOption {
+    canonicalApiIds: string[];
+    routeArgIndex?: number;
     routeField?: string;
 }
 
 export interface HarmonyRouteBridgeSemanticsOptions {
     id?: string;
     description?: string;
-    pushMethods?: HarmonyRoutePushMethodOption[];
-    getMethods?: string[];
-    routerClassNames?: string[];
-    navDestinationClassNames?: string[];
-    navDestinationRegisterMethods?: string[];
-    navDestinationTriggerMethods?: string[];
-    frameworkSignatureHints?: string[];
+    pushApis?: HarmonyRoutePushApiOption[];
+    getCanonicalApiIds?: string[];
+    getApis?: HarmonyRouteGetApiOption[];
+    navDestinationRegisterApis?: HarmonyRouteRegisterApiOption[];
+    navDestinationTriggerApis?: HarmonyRoutePushApiOption[];
     payloadUnwrapPrefixes?: string[];
 }
 
 const DEFAULT_ROUTER_OPTIONS: Required<HarmonyRouteBridgeSemanticsOptions> = {
     id: "harmony.router",
     description: "Built-in Harmony router/nav destination bridges.",
-    pushMethods: [
-        { methodName: "pushUrl", routeField: "url" },
-        { methodName: "replaceUrl", routeField: "url" },
-        { methodName: "pushNamedRoute", routeField: "name" },
-        { methodName: "pushPath", routeField: "name" },
-        { methodName: "pushPathByName", routeField: "name" },
-        { methodName: "replacePath", routeField: "name" },
-    ],
-    getMethods: ["getParams"],
-    routerClassNames: [],
-    navDestinationClassNames: ["NavDestination"],
-    navDestinationRegisterMethods: ["register", "setBuilder", "setDestinationBuilder"],
-    navDestinationTriggerMethods: ["trigger"],
-    frameworkSignatureHints: ["@ohos", "@ohossdk", "@kit", "kit.arkui", "ohos.router", "ohos/router"],
-    payloadUnwrapPrefixes: ["param", "params"],
+    pushApis: [],
+    getCanonicalApiIds: [],
+    getApis: [],
+    navDestinationRegisterApis: [],
+    navDestinationTriggerApis: [],
+    payloadUnwrapPrefixes: [],
 };
 
 interface BuildRouterInternalOptions {
-    pushMethodNames: Set<string>;
-    getMethodNames: Set<string>;
-    routerClassNames: Set<string>;
-    navDestinationClassNames: Set<string>;
-    navDestinationRegisterMethods: Set<string>;
-    navDestinationTriggerMethods: Set<string>;
-    frameworkSignatureHints: string[];
+    pushCanonicalApiIds: Set<string>;
+    getCanonicalApiIds: Set<string>;
+    getApiByCanonicalApiId: Map<string, HarmonyRouteGetApiOption>;
+    navDestinationRegisterCanonicalApiIds: Set<string>;
+    navDestinationTriggerCanonicalApiIds: Set<string>;
     payloadUnwrapPrefixes: string[];
-    routeFieldByPushMethod: Map<string, string>;
+    routeFieldByPushCanonicalApiId: Map<string, string>;
+    pushApiByCanonicalApiId: Map<string, HarmonyRoutePushApiOption>;
+    navDestinationRegisterApiByCanonicalApiId: Map<string, HarmonyRouteRegisterApiOption>;
+    navDestinationTriggerApiByCanonicalApiId: Map<string, HarmonyRoutePushApiOption>;
 }
 
 export function createHarmonyRouteBridgeSemanticModule(
@@ -78,45 +87,87 @@ export function createHarmonyRouteBridgeSemanticModule(
     const resolved = {
         ...DEFAULT_ROUTER_OPTIONS,
         ...options,
-        pushMethods: options.pushMethods && options.pushMethods.length > 0
-            ? options.pushMethods.map(item => ({ ...item }))
-            : DEFAULT_ROUTER_OPTIONS.pushMethods.map(item => ({ ...item })),
-        getMethods: options.getMethods && options.getMethods.length > 0
-            ? [...options.getMethods]
-            : [...DEFAULT_ROUTER_OPTIONS.getMethods],
-        routerClassNames: options.routerClassNames && options.routerClassNames.length > 0
-            ? [...options.routerClassNames]
-            : [...DEFAULT_ROUTER_OPTIONS.routerClassNames],
-        navDestinationClassNames: options.navDestinationClassNames && options.navDestinationClassNames.length > 0
-            ? [...options.navDestinationClassNames]
-            : [...DEFAULT_ROUTER_OPTIONS.navDestinationClassNames],
-        navDestinationRegisterMethods: options.navDestinationRegisterMethods && options.navDestinationRegisterMethods.length > 0
-            ? [...options.navDestinationRegisterMethods]
-            : [...DEFAULT_ROUTER_OPTIONS.navDestinationRegisterMethods],
-        navDestinationTriggerMethods: options.navDestinationTriggerMethods && options.navDestinationTriggerMethods.length > 0
-            ? [...options.navDestinationTriggerMethods]
-            : [...DEFAULT_ROUTER_OPTIONS.navDestinationTriggerMethods],
-        frameworkSignatureHints: options.frameworkSignatureHints && options.frameworkSignatureHints.length > 0
-            ? [...options.frameworkSignatureHints]
-            : [...DEFAULT_ROUTER_OPTIONS.frameworkSignatureHints],
+        pushApis: options.pushApis && options.pushApis.length > 0
+            ? options.pushApis.map(item => ({
+                canonicalApiIds: [...new Set(item.canonicalApiIds || [])].sort((left, right) => left.localeCompare(right)),
+                routeField: item.routeField,
+                routeArgIndex: item.routeArgIndex,
+                payloadArgIndex: item.payloadArgIndex,
+                payloadField: item.payloadField,
+            }))
+            : DEFAULT_ROUTER_OPTIONS.pushApis.map(item => ({
+                canonicalApiIds: [...item.canonicalApiIds],
+                routeField: item.routeField,
+                routeArgIndex: item.routeArgIndex,
+                payloadArgIndex: item.payloadArgIndex,
+                payloadField: item.payloadField,
+            })),
+        getCanonicalApiIds: options.getCanonicalApiIds && options.getCanonicalApiIds.length > 0
+            ? [...options.getCanonicalApiIds]
+            : [...DEFAULT_ROUTER_OPTIONS.getCanonicalApiIds],
+        getApis: options.getApis && options.getApis.length > 0
+            ? options.getApis.map(item => ({
+                canonicalApiIds: [...new Set(item.canonicalApiIds || [])].sort((left, right) => left.localeCompare(right)),
+                routeArgIndex: item.routeArgIndex,
+                routeField: item.routeField,
+            }))
+            : DEFAULT_ROUTER_OPTIONS.getApis.map(item => ({
+                canonicalApiIds: [...item.canonicalApiIds],
+                routeArgIndex: item.routeArgIndex,
+                routeField: item.routeField,
+            })),
+        navDestinationRegisterApis: options.navDestinationRegisterApis && options.navDestinationRegisterApis.length > 0
+            ? options.navDestinationRegisterApis.map(item => ({
+                canonicalApiIds: [...new Set(item.canonicalApiIds || [])].sort((left, right) => left.localeCompare(right)),
+                callbackArgIndex: item.callbackArgIndex,
+                routeParamIndex: item.routeParamIndex,
+                payloadParamIndex: item.payloadParamIndex,
+            }))
+            : DEFAULT_ROUTER_OPTIONS.navDestinationRegisterApis.map(item => ({
+                canonicalApiIds: [...item.canonicalApiIds],
+                callbackArgIndex: item.callbackArgIndex,
+                routeParamIndex: item.routeParamIndex,
+                payloadParamIndex: item.payloadParamIndex,
+            })),
+        navDestinationTriggerApis: options.navDestinationTriggerApis && options.navDestinationTriggerApis.length > 0
+            ? options.navDestinationTriggerApis.map(item => ({
+                canonicalApiIds: [...new Set(item.canonicalApiIds || [])].sort((left, right) => left.localeCompare(right)),
+                routeField: item.routeField,
+                routeArgIndex: item.routeArgIndex,
+                payloadArgIndex: item.payloadArgIndex,
+                payloadField: item.payloadField,
+            }))
+            : DEFAULT_ROUTER_OPTIONS.navDestinationTriggerApis.map(item => ({
+                canonicalApiIds: [...item.canonicalApiIds],
+                routeField: item.routeField,
+                routeArgIndex: item.routeArgIndex,
+                payloadArgIndex: item.payloadArgIndex,
+                payloadField: item.payloadField,
+            })),
         payloadUnwrapPrefixes: options.payloadUnwrapPrefixes && options.payloadUnwrapPrefixes.length > 0
             ? [...options.payloadUnwrapPrefixes]
             : [...DEFAULT_ROUTER_OPTIONS.payloadUnwrapPrefixes],
     };
+    const pushApiByCanonicalApiId = routeApiByCanonicalApiId(resolved.pushApis);
+    const getApiByCanonicalApiId = getRouteApiByCanonicalApiId(resolved.getApis);
+    const navDestinationRegisterApiByCanonicalApiId = registerApiByCanonicalApiId(resolved.navDestinationRegisterApis);
+    const navDestinationTriggerApiByCanonicalApiId = routeApiByCanonicalApiId(resolved.navDestinationTriggerApis);
     const internalOptions: BuildRouterInternalOptions = {
-        pushMethodNames: new Set(resolved.pushMethods.map(item => item.methodName)),
-        getMethodNames: new Set(resolved.getMethods),
-        routerClassNames: new Set(resolved.routerClassNames),
-        navDestinationClassNames: new Set(resolved.navDestinationClassNames),
-        navDestinationRegisterMethods: new Set(resolved.navDestinationRegisterMethods),
-        navDestinationTriggerMethods: new Set(resolved.navDestinationTriggerMethods),
-        frameworkSignatureHints: [...resolved.frameworkSignatureHints],
+        pushCanonicalApiIds: new Set(resolved.pushApis.flatMap(item =>
+            item.canonicalApiIds.map(value => String(value || "").trim()).filter(Boolean),
+        )),
+        getCanonicalApiIds: new Set([
+            ...resolved.getCanonicalApiIds.map(value => value.trim()).filter(Boolean),
+            ...getApiByCanonicalApiId.keys(),
+        ]),
+        getApiByCanonicalApiId,
+        navDestinationRegisterCanonicalApiIds: new Set(navDestinationRegisterApiByCanonicalApiId.keys()),
+        navDestinationTriggerCanonicalApiIds: new Set(navDestinationTriggerApiByCanonicalApiId.keys()),
         payloadUnwrapPrefixes: [...resolved.payloadUnwrapPrefixes],
-        routeFieldByPushMethod: new Map(
-            resolved.pushMethods
-                .filter(item => item.routeField)
-                .map(item => [item.methodName, item.routeField as string]),
-        ),
+        routeFieldByPushCanonicalApiId: routeFieldByPushCanonicalApiId(resolved.pushApis),
+        pushApiByCanonicalApiId,
+        navDestinationRegisterApiByCanonicalApiId,
+        navDestinationTriggerApiByCanonicalApiId,
     };
 
     return defineModule({
@@ -127,25 +178,27 @@ export function createHarmonyRouteBridgeSemanticModule(
                 scene: ctx.raw.scene,
                 pag: ctx.raw.pag,
                 allowedMethodSignatures: ctx.raw.allowedMethodSignatures,
+                scan: ctx.scan,
                 analysis: ctx.analysis,
                 callbacks: ctx.callbacks,
                 log: ctx.log,
             }, internalOptions);
-        const navCallbackMethodsByRouteKey = collectNavDestinationCallbackMethods(ctx, internalOptions, resolved);
-        const navTriggerSitesByRouteKey = collectNavDestinationTriggerSites(ctx, internalOptions, resolved);
+        const navCallbackMethodsByRouteKey = collectNavDestinationCallbackMethods(ctx, internalOptions);
+        const navTriggerSitesByRouteKey = collectNavDestinationTriggerSites(ctx, internalOptions);
         let navDeferredBindingCount = 0;
         for (const [routeKey, triggerSites] of navTriggerSitesByRouteKey.entries()) {
             const callbackMethods = navCallbackMethodsByRouteKey.get(routeKey);
             if (!callbackMethods || callbackMethods.size === 0) continue;
             for (const triggerSite of triggerSites) {
+                if (!triggerSite.deferredPayloadSource) continue;
                 for (const handlerMethod of callbackMethods.values()) {
                     ctx.deferred.declarative({
                         sourceMethod: triggerSite.sourceMethod,
                         handlerMethod,
                         anchorStmt: triggerSite.anchorStmt,
                         triggerLabel: routeKey,
-                        activationSource: { kind: "arg", index: 0 },
-                        payloadSource: { kind: "arg", index: 0 },
+                        activationSource: triggerSite.deferredActivationSource,
+                        payloadSource: triggerSite.deferredPayloadSource,
                         reason: `Harmony router nav-destination dispatch ${routeKey}`,
                     });
                     navDeferredBindingCount++;
@@ -167,7 +220,9 @@ export function createHarmonyRouteBridgeSemanticModule(
             model,
             navTriggerSitesByRouteKey,
             internalOptions,
-        ));
+        ), {
+            currentnessAnalysis: ctx.raw.currentnessAnalysis,
+        });
 
         return {
             onFact(event) {
@@ -184,14 +239,71 @@ export const harmonyRouterModule: TaintModule = harmonyRouterSemanticModule;
 type RouterModel = RouterSemanticModel;
 type BuildRouterModelArgs = BuildRouterSemanticModelArgs;
 
+interface NavDestinationTriggerSite {
+    sourceMethod: any;
+    anchorStmt: any;
+    argNodeIds: number[];
+    deferredActivationSource?: { kind: "arg"; index: number };
+    deferredPayloadSource?: { kind: "arg"; index: number };
+}
+
 const ROUTER_BRIDGE_HANDOFF_FAMILY = "harmony.router.bridge";
 const ROUTER_FIELD_HANDOFF_FAMILY = "harmony.router.field";
 const ROUTER_TRIGGER_HANDOFF_FAMILY = "harmony.router.trigger";
 const ROUTER_CELL_KIND = "navigation-param-slot";
 
+function routeFieldByPushCanonicalApiId(pushApis: HarmonyRoutePushApiOption[]): Map<string, string> {
+    const out = new Map<string, string>();
+    for (const api of pushApis) {
+        if (!api.routeField) continue;
+        for (const canonicalApiId of api.canonicalApiIds || []) {
+            const normalized = String(canonicalApiId || "").trim();
+            if (!normalized) continue;
+            out.set(normalized, api.routeField);
+        }
+    }
+    return out;
+}
+
+function routeApiByCanonicalApiId(pushApis: HarmonyRoutePushApiOption[]): Map<string, HarmonyRoutePushApiOption> {
+    const out = new Map<string, HarmonyRoutePushApiOption>();
+    for (const api of pushApis) {
+        for (const canonicalApiId of api.canonicalApiIds || []) {
+            const normalized = String(canonicalApiId || "").trim();
+            if (!normalized) continue;
+            out.set(normalized, api);
+        }
+    }
+    return out;
+}
+
+function getRouteApiByCanonicalApiId(getApis: HarmonyRouteGetApiOption[]): Map<string, HarmonyRouteGetApiOption> {
+    const out = new Map<string, HarmonyRouteGetApiOption>();
+    for (const api of getApis) {
+        for (const canonicalApiId of api.canonicalApiIds || []) {
+            const normalized = String(canonicalApiId || "").trim();
+            if (!normalized) continue;
+            out.set(normalized, api);
+        }
+    }
+    return out;
+}
+
+function registerApiByCanonicalApiId(registerApis: HarmonyRouteRegisterApiOption[]): Map<string, HarmonyRouteRegisterApiOption> {
+    const out = new Map<string, HarmonyRouteRegisterApiOption>();
+    for (const api of registerApis) {
+        for (const canonicalApiId of api.canonicalApiIds || []) {
+            const normalized = String(canonicalApiId || "").trim();
+            if (!normalized) continue;
+            out.set(normalized, api);
+        }
+    }
+    return out;
+}
+
 function buildRouterHandoffEffects(
     model: RouterModel,
-    navTriggerSitesByRouteKey: Map<string, Array<{ argNodeIds: number[] }>>,
+    navTriggerSitesByRouteKey: Map<string, NavDestinationTriggerSite[]>,
     options: BuildRouterInternalOptions,
 ): HandoffEffect[] {
     const effects: HandoffEffect[] = [];
@@ -310,7 +422,7 @@ function addRouterSourceEffects(
     model: RouterModel,
     routerKey: string,
     source: { nodeId: number; fieldHead?: string; endpointKey?: string },
-    navTriggerSitesByRouteKey: Map<string, Array<{ argNodeIds: number[] }>>,
+    navTriggerSitesByRouteKey: Map<string, NavDestinationTriggerSite[]>,
     options: BuildRouterInternalOptions,
 ): void {
     const triggerHandle = createExactHandoffHandle(ROUTER_CELL_KIND, ROUTER_TRIGGER_HANDOFF_FAMILY, routerKey);
@@ -487,31 +599,19 @@ function unwrapRouterPayloadField(fieldPath?: string[], unwrapPrefixes: string[]
     return fieldPath;
 }
 
-interface RouterClassProfile {
-    classKey: string;
-    classSigText: string;
-    className: string;
-    hasPush: boolean;
-    hasGet: boolean;
-    hasFrameworkMarker: boolean;
-}
-
 export function buildRouterModel(
     args: BuildRouterModelArgs,
     options: BuildRouterInternalOptions = {
-        pushMethodNames: new Set(DEFAULT_ROUTER_OPTIONS.pushMethods.map(item => item.methodName)),
-        getMethodNames: new Set(DEFAULT_ROUTER_OPTIONS.getMethods),
-        routerClassNames: new Set(DEFAULT_ROUTER_OPTIONS.routerClassNames),
-        navDestinationClassNames: new Set(DEFAULT_ROUTER_OPTIONS.navDestinationClassNames),
-        navDestinationRegisterMethods: new Set(DEFAULT_ROUTER_OPTIONS.navDestinationRegisterMethods),
-        navDestinationTriggerMethods: new Set(DEFAULT_ROUTER_OPTIONS.navDestinationTriggerMethods),
-        frameworkSignatureHints: [...DEFAULT_ROUTER_OPTIONS.frameworkSignatureHints],
+        pushCanonicalApiIds: new Set(),
+        getCanonicalApiIds: new Set(),
+        getApiByCanonicalApiId: new Map(),
+        navDestinationRegisterCanonicalApiIds: new Set(),
+        navDestinationTriggerCanonicalApiIds: new Set(),
         payloadUnwrapPrefixes: [...DEFAULT_ROUTER_OPTIONS.payloadUnwrapPrefixes],
-        routeFieldByPushMethod: new Map(
-            DEFAULT_ROUTER_OPTIONS.pushMethods
-                .filter(item => item.routeField)
-                .map(item => [item.methodName, item.routeField as string]),
-        ),
+        routeFieldByPushCanonicalApiId: new Map(),
+        pushApiByCanonicalApiId: new Map(),
+        navDestinationRegisterApiByCanonicalApiId: new Map(),
+        navDestinationTriggerApiByCanonicalApiId: new Map(),
     },
 ): RouterModel {
     const pushArgNodeIdsByRouterKey = new Map<string, Set<number>>();
@@ -530,151 +630,136 @@ export function buildRouterModel(
     let getCallCount = 0;
     let suspiciousCallCount = 0;
     const instInitPayloadSummaryCache = new Map<string, InstInitPayloadSummary>();
-    const routerClassProfiles = buildRouterClassProfiles(args.scene, options);
-    const suspiciousLogs = new Set<string>();
 
-    const methods = resolveHarmonyMethods(args.scene, args.allowedMethodSignatures);
-    for (const method of methods) {
-        const cfg = method.getCfg();
-        if (!cfg) continue;
-        for (const stmt of cfg.getStmts()) {
-            if (!stmt.containsInvokeExpr || !stmt.containsInvokeExpr()) continue;
-            const invokeExpr = stmt.getInvokeExpr();
-            if (!(invokeExpr instanceof ArkStaticInvokeExpr || invokeExpr instanceof ArkInstanceInvokeExpr)) {
-                continue;
+    for (const call of scanCanonicalRouterCalls(args.scan, options.pushCanonicalApiIds, args.analysis)) {
+        const method = call.stmt?.getCfg?.()?.getDeclaringMethod?.();
+        const invokeExpr = call.invokeExpr;
+        if (!method || !invokeExpr) continue;
+        if (!(invokeExpr instanceof ArkStaticInvokeExpr || invokeExpr instanceof ArkInstanceInvokeExpr)) continue;
+        const pushRouterKey = resolveCanonicalRouterKey(call);
+        if (!pushRouterKey) continue;
+        pushCallCount++;
+        incrementCounter(pushCallCountByRouterKey, pushRouterKey);
+        const payload = collectPushPayload(
+            args.scene,
+            method,
+            invokeExpr,
+            args.pag,
+            args.analysis,
+            instInitPayloadSummaryCache,
+            pushRouterKey,
+            call.call.canonicalApiId || "",
+            options,
+        );
+        const routeKeys = payload.routeLiteralKeys;
+        if (routeKeys.length > 0) {
+            let routeSet = routeKeysByRouterKey.get(pushRouterKey);
+            if (!routeSet) {
+                routeSet = new Set<string>();
+                routeKeysByRouterKey.set(pushRouterKey, routeSet);
             }
-            const invokeMethodSig = invokeExpr.getMethodSignature?.();
-            if (!invokeMethodSig) continue;
-            const invokeMethodName = invokeMethodSig.getMethodSubSignature?.()?.getMethodName?.() || "";
-            const importScopedRouterKey = resolveImportedRouterKey(method, invokeExpr);
-            const pushRouterKey = resolveRouterPushIntent(
-                invokeMethodSig,
-                invokeMethodName,
-                routerClassProfiles,
-                options,
-                suspiciousLogs,
-                args.log
-            ) || (options.pushMethodNames.has(invokeMethodName) ? importScopedRouterKey : undefined);
-            if (pushRouterKey) {
-                pushCallCount++;
-                incrementCounter(pushCallCountByRouterKey, pushRouterKey);
-                const payload = collectPushPayload(
-                    args.scene,
-                    method,
-                    invokeExpr,
-                    args.pag,
-                    args.analysis,
-                    instInitPayloadSummaryCache,
-                    pushRouterKey,
-                    invokeMethodName,
-                    options,
-                );
-                const routeKeys = payload.routeLiteralKeys;
-                if (routeKeys.length > 0) {
-                    let routeSet = routeKeysByRouterKey.get(pushRouterKey);
-                    if (!routeSet) {
-                        routeSet = new Set<string>();
-                        routeKeysByRouterKey.set(pushRouterKey, routeSet);
-                    }
-                    for (const routeKey of routeKeys) {
-                        routeSet.add(routeKey);
-                    }
-                }
-                for (const nodeId of payload.payloadNodeIds) {
-                    addMapSetValue(pushArgNodeIdsByRouterKey, pushRouterKey, nodeId);
-                    addMapSetValue(pushArgNodeIdToRouterKeys, nodeId, pushRouterKey);
-                    for (const routeKey of routeKeys) {
-                        addMapSetValue(pushArgNodeIdsByRouterKey, routeKey, nodeId);
-                        addMapSetValue(pushArgNodeIdToRouterKeys, nodeId, routeKey);
-                    }
-                    if (routeKeys.length === 0) {
-                        ungroupedPushNodeIds.add(nodeId);
-                    }
-                }
-                for (const endpoint of payload.payloadFieldEndpoints) {
-                    const endpointKey = `${endpoint.objectNodeId}#${endpoint.fieldName}`;
-                    addMapSetValue(pushFieldEndpointToRouterKeys, endpointKey, pushRouterKey);
-                    for (const routeKey of routeKeys) {
-                        addMapSetValue(pushFieldEndpointToRouterKeys, endpointKey, routeKey);
-                    }
-                    if (routeKeys.length === 0) {
-                        ungroupedPushFieldEndpoints.add(endpointKey);
-                    }
-                }
-                for (const target of payload.payloadValueFieldTargets) {
-                    const existing = pushValueFieldTargetsByNodeId.get(target.nodeId) || [];
-                    existing.push({
-                        fieldName: target.fieldName,
-                        routerKey: pushRouterKey,
-                        ungrouped: routeKeys.length === 0,
-                        passthrough: target.passthrough,
-                        sourceFieldPath: target.sourceFieldPath,
-                    });
-                    for (const routeKey of routeKeys) {
-                        existing.push({
-                            fieldName: target.fieldName,
-                            routerKey: routeKey,
-                            ungrouped: routeKeys.length === 0,
-                            passthrough: target.passthrough,
-                            sourceFieldPath: target.sourceFieldPath,
-                        });
-                    }
-                    pushValueFieldTargetsByNodeId.set(target.nodeId, dedupeRouterValueFieldTargets(existing));
-                }
-                continue;
+            for (const routeKey of routeKeys) {
+                routeSet.add(routeKey);
             }
+        }
+        for (const nodeId of payload.payloadNodeIds) {
+            addMapSetValue(pushArgNodeIdsByRouterKey, pushRouterKey, nodeId);
+            addMapSetValue(pushArgNodeIdToRouterKeys, nodeId, pushRouterKey);
+            for (const routeKey of routeKeys) {
+                addMapSetValue(pushArgNodeIdsByRouterKey, routeKey, nodeId);
+                addMapSetValue(pushArgNodeIdToRouterKeys, nodeId, routeKey);
+            }
+            if (routeKeys.length === 0) {
+                ungroupedPushNodeIds.add(nodeId);
+            }
+        }
+        for (const endpoint of payload.payloadFieldEndpoints) {
+            const endpointKey = `${endpoint.objectNodeId}#${endpoint.fieldName}`;
+            addMapSetValue(pushFieldEndpointToRouterKeys, endpointKey, pushRouterKey);
+            for (const routeKey of routeKeys) {
+                addMapSetValue(pushFieldEndpointToRouterKeys, endpointKey, routeKey);
+            }
+            if (routeKeys.length === 0) {
+                ungroupedPushFieldEndpoints.add(endpointKey);
+            }
+        }
+        for (const target of payload.payloadValueFieldTargets) {
+            const existing = pushValueFieldTargetsByNodeId.get(target.nodeId) || [];
+            existing.push({
+                fieldName: target.fieldName,
+                routerKey: pushRouterKey,
+                ungrouped: routeKeys.length === 0,
+                passthrough: target.passthrough,
+                sourceFieldPath: target.sourceFieldPath,
+            });
+            for (const routeKey of routeKeys) {
+                existing.push({
+                    fieldName: target.fieldName,
+                    routerKey: routeKey,
+                    ungrouped: routeKeys.length === 0,
+                    passthrough: target.passthrough,
+                    sourceFieldPath: target.sourceFieldPath,
+                });
+            }
+            pushValueFieldTargetsByNodeId.set(target.nodeId, dedupeRouterValueFieldTargets(existing));
+        }
+    }
 
-            const getRouterKey = resolveRouterGetIntent(
-                invokeMethodSig,
-                invokeMethodName,
-                routerClassProfiles,
-                options,
-                suspiciousLogs,
-                args.log
-            ) || (options.getMethodNames.has(invokeMethodName) ? importScopedRouterKey : undefined);
-            if (getRouterKey) {
-                getCallCount++;
-                if (!(stmt instanceof ArkAssignStmt)) continue;
-                const leftOp = stmt.getLeftOp();
-                const nodes = args.pag.getNodesByValue(leftOp);
-                if (!nodes || nodes.size === 0) continue;
-                const scopedGetKeys = inferRouteKeysForGetMethod(method, getRouterKey, options);
-                const targetRouterKeys = scopedGetKeys.length > 0 ? scopedGetKeys : [getRouterKey];
-                for (const nodeId of nodes.values()) {
-                    const node = args.pag.getNode(nodeId) as PagNode | undefined;
-                    const pointTo = node?.getPointTo?.();
-                    for (const targetRouterKey of targetRouterKeys) {
-                        addMapSetValue(getResultNodeIdsByRouterKey, targetRouterKey, nodeId);
-                        if (pointTo) {
-                            for (const objId of pointTo) {
-                                addMapSetValue(getResultObjectNodeIdsByRouterKey, targetRouterKey, objId);
-                            }
-                        }
+    for (const call of scanCanonicalRouterCalls(args.scan, options.getCanonicalApiIds, args.analysis)) {
+        const stmt = call.stmt;
+        const method = stmt?.getCfg?.()?.getDeclaringMethod?.();
+        if (!method || !(stmt instanceof ArkAssignStmt)) continue;
+        const getRouterKey = resolveCanonicalRouterKey(call);
+        if (!getRouterKey) continue;
+        getCallCount++;
+        const leftOp = stmt.getLeftOp();
+        const nodes = args.pag.getNodesByValue(leftOp);
+        if (!nodes || nodes.size === 0) continue;
+        const getApi = options.getApiByCanonicalApiId.get(call.call.canonicalApiId || "");
+        const explicitGetKeys = collectRouteKeysForGetApi(args.analysis, call.invokeExpr, getRouterKey, getApi);
+        const scopedGetKeys = explicitGetKeys.length > 0
+            ? explicitGetKeys
+            : inferRouteKeysForGetMethod(method, getRouterKey, options);
+        const targetRouterKeys = scopedGetKeys.length > 0 ? scopedGetKeys : [getRouterKey];
+        for (const nodeId of nodes.values()) {
+            const node = args.pag.getNode(nodeId) as PagNode | undefined;
+            const pointTo = node?.getPointTo?.();
+            for (const targetRouterKey of targetRouterKeys) {
+                addMapSetValue(getResultNodeIdsByRouterKey, targetRouterKey, nodeId);
+                if (pointTo) {
+                    for (const objId of pointTo) {
+                        addMapSetValue(getResultObjectNodeIdsByRouterKey, targetRouterKey, objId);
                     }
                 }
-                collectGetResultFieldReadTargets(args.pag, cfg.getStmts(), leftOp, targetRouterKeys, getFieldResultNodeIdsByRouterKey);
-                continue;
             }
+        }
+        collectGetResultFieldReadTargets(
+            args.pag,
+            method.getCfg?.()?.getStmts?.() || [],
+            leftOp,
+            targetRouterKeys,
+            getFieldResultNodeIdsByRouterKey,
+        );
+    }
 
-            const navDestinationClassName = invokeMethodSig.getDeclaringClassSignature?.()?.getClassName?.() || "";
-            if (
-                options.navDestinationClassNames.has(navDestinationClassName)
-                && options.navDestinationRegisterMethods.has(invokeMethodName)
-            ) {
-                const navRouteKeys = collectNavDestinationRouteKeys(args.analysis, method, invokeExpr);
-                if (navRouteKeys.length === 0) continue;
-                const callbackParamNodeIds = collectCallbackParamNodeIds(args.callbacks, invokeExpr);
-                if (callbackParamNodeIds.size === 0) continue;
-                for (const routeKey of navRouteKeys) {
-                    for (const nodeId of callbackParamNodeIds) {
-                        addMapSetValue(getResultNodeIdsByRouterKey, routeKey, nodeId);
-                    }
-                }
-                continue;
-            }
-
-            if (options.pushMethodNames.has(invokeMethodName) || options.getMethodNames.has(invokeMethodName)) {
-                suspiciousCallCount++;
+    for (const call of scanCanonicalRouterCalls(args.scan, options.navDestinationRegisterCanonicalApiIds, args.analysis)) {
+        const registerApi = options.navDestinationRegisterApiByCanonicalApiId.get(call.call.canonicalApiId || "");
+        if (!registerApi) continue;
+        const method = call.stmt?.getCfg?.()?.getDeclaringMethod?.();
+        const invokeExpr = call.invokeExpr;
+        if (!method || !invokeExpr) continue;
+        const navRouteKeys = collectNavDestinationRouteKeys(args.analysis, method, invokeExpr);
+        const registerRouterKey = resolveCanonicalRouterKey(call);
+        const callbackParamNodeIds = collectCallbackParamNodeIds(
+            args.callbacks,
+            invokeExpr,
+            registerApi.callbackArgIndex,
+            registerApi.payloadParamIndex,
+        );
+        if (callbackParamNodeIds.size === 0) continue;
+        for (const routeKey of navRouteKeys.length > 0 ? navRouteKeys : [registerRouterKey].filter(Boolean) as string[]) {
+            for (const nodeId of callbackParamNodeIds) {
+                addMapSetValue(getResultNodeIdsByRouterKey, routeKey, nodeId);
             }
         }
     }
@@ -697,90 +782,6 @@ export function buildRouterModel(
     };
 }
 
-function resolveRouterPushIntent(
-    methodSig: any,
-    methodName: string,
-    classProfiles: Map<string, RouterClassProfile>,
-    options: BuildRouterInternalOptions,
-    suspiciousLogs: Set<string>,
-    log?: (msg: string) => void
-): string | undefined {
-    if (!options.pushMethodNames.has(methodName)) return undefined;
-    return resolveRouterIntent(methodSig, methodName, classProfiles, options, suspiciousLogs, log);
-}
-
-function resolveRouterGetIntent(
-    methodSig: any,
-    methodName: string,
-    classProfiles: Map<string, RouterClassProfile>,
-    options: BuildRouterInternalOptions,
-    suspiciousLogs: Set<string>,
-    log?: (msg: string) => void
-): string | undefined {
-    if (!options.getMethodNames.has(methodName)) return undefined;
-    return resolveRouterIntent(methodSig, methodName, classProfiles, options, suspiciousLogs, log);
-}
-
-function resolveRouterIntent(
-    methodSig: any,
-    methodName: string,
-    classProfiles: Map<string, RouterClassProfile>,
-    options: BuildRouterInternalOptions,
-    suspiciousLogs: Set<string>,
-    log?: (msg: string) => void
-): string | undefined {
-    const classKey = resolveClassKeyFromMethodSig(methodSig);
-    const profile = classProfiles.get(classKey);
-    if (!profile) return undefined;
-    if (!isAllowedRouterClass(profile, options)) {
-        const warnKey = `${classKey}#${methodName}#scope`;
-        if (!suspiciousLogs.has(warnKey)) {
-            suspiciousLogs.add(warnKey);
-            log?.(`[Harmony-Router] skip out-of-scope router-like call: method=${methodName}, class=${profile.className || profile.classSigText}, sig=${methodSig.toString?.() || ""}`);
-        }
-        return undefined;
-    }
-
-    // Joint evidence: method semantics + (framework marker OR structural router-class evidence).
-    const hasStructuralEvidence = profile.hasPush && profile.hasGet;
-    if (profile.hasFrameworkMarker || hasStructuralEvidence) {
-        return classKey;
-    }
-
-    const sigText = methodSig.toString?.() || "";
-    const warnKey = `${classKey}#${methodName}`;
-    if (!suspiciousLogs.has(warnKey)) {
-        suspiciousLogs.add(warnKey);
-        log?.(`[Harmony-Router] skip suspicious router-like call: method=${methodName}, class=${profile.className || profile.classSigText}, sig=${sigText}`);
-    }
-    return undefined;
-}
-
-function isAllowedRouterClass(profile: RouterClassProfile, options: BuildRouterInternalOptions): boolean {
-    return options.routerClassNames.has(profile.className)
-        || options.routerClassNames.has(profile.classKey)
-        || options.routerClassNames.has(profile.classSigText);
-}
-
-function resolveImportedRouterKey(sourceMethod: any, invokeExpr: any): string | undefined {
-    const baseName = invokeExpr?.getBase?.()?.getName?.() || invokeExpr?.getBase?.()?.toString?.() || "";
-    if (!baseName) return undefined;
-    const sourceFile = sourceMethod?.getDeclaringArkClass?.()?.getDeclaringArkFile?.()
-        || sourceMethod?.getDeclaringArkFile?.();
-    const importInfo = sourceFile?.getImportInfoBy?.(baseName);
-    const importFrom = String(importInfo?.getFrom?.() || "").trim();
-    if (!isRouterImport(baseName, importFrom)) return undefined;
-    return `import:${importFrom}:${baseName}`;
-}
-
-function isRouterImport(baseName: string, importFrom: string): boolean {
-    return (
-        /@ohos\.router$/.test(importFrom)
-        || /@system\.router$/.test(importFrom)
-        || (/^@kit\.ArkUI$/.test(importFrom) && (baseName === "Router" || baseName === "router"))
-    );
-}
-
 function inferRouteKeysForGetMethod(
     method: any,
     routerKey: string,
@@ -795,9 +796,31 @@ function inferRouteKeysForGetMethod(
     keys.add(`${routerKey}::${routeField}=${route}`);
     keys.add(`${routeField}=${route}`);
     keys.add(`route=${route}`);
-    for (const pushRouteField of options.routeFieldByPushMethod.values()) {
+    for (const pushRouteField of options.routeFieldByPushCanonicalApiId.values()) {
         keys.add(`${routerKey}::${pushRouteField}=${route}`);
         keys.add(`${pushRouteField}=${route}`);
+    }
+    return [...keys];
+}
+
+function collectRouteKeysForGetApi(
+    analysis: BuildRouterModelArgs["analysis"],
+    invokeExpr: any,
+    routerKey: string,
+    getApi: HarmonyRouteGetApiOption | undefined,
+): string[] {
+    if (!getApi || !Number.isInteger(getApi.routeArgIndex)) return [];
+    const args = invokeExpr?.getArgs?.() || [];
+    const routeArgIndex = Number(getApi.routeArgIndex);
+    if (routeArgIndex < 0 || routeArgIndex >= args.length) return [];
+    const routeField = String(getApi.routeField || "name").trim() || "name";
+    const keys = new Set<string>();
+    for (const literal of analysis.stringCandidates(args[routeArgIndex])) {
+        const normalized = literal.trim();
+        if (!normalized) continue;
+        keys.add(`${routerKey}::${routeField}=${normalized}`);
+        keys.add(`${routeField}=${normalized}`);
+        keys.add(`route=${normalized}`);
     }
     return [...keys];
 }
@@ -810,50 +833,6 @@ function inferPageRouteFromFileSignature(fileText: string): string {
         .trim();
     const match = normalized.match(/(?:^|\/)(pages\/.+?)\.ets$/);
     return match ? match[1] : "";
-}
-
-function buildRouterClassProfiles(scene: Scene, options: BuildRouterInternalOptions = {
-    pushMethodNames: new Set(DEFAULT_ROUTER_OPTIONS.pushMethods.map(item => item.methodName)),
-    getMethodNames: new Set(DEFAULT_ROUTER_OPTIONS.getMethods),
-    routerClassNames: new Set(DEFAULT_ROUTER_OPTIONS.routerClassNames),
-    navDestinationClassNames: new Set(DEFAULT_ROUTER_OPTIONS.navDestinationClassNames),
-    navDestinationRegisterMethods: new Set(DEFAULT_ROUTER_OPTIONS.navDestinationRegisterMethods),
-    navDestinationTriggerMethods: new Set(DEFAULT_ROUTER_OPTIONS.navDestinationTriggerMethods),
-    frameworkSignatureHints: [...DEFAULT_ROUTER_OPTIONS.frameworkSignatureHints],
-    payloadUnwrapPrefixes: [...DEFAULT_ROUTER_OPTIONS.payloadUnwrapPrefixes],
-    routeFieldByPushMethod: new Map(
-        DEFAULT_ROUTER_OPTIONS.pushMethods
-            .filter(item => item.routeField)
-            .map(item => [item.methodName, item.routeField as string]),
-    ),
-}): Map<string, RouterClassProfile> {
-    const profiles = new Map<string, RouterClassProfile>();
-    for (const method of scene.getMethods()) {
-        if (method.getName() === "%dflt") continue;
-        const methodSig = method.getSignature?.();
-        if (!methodSig) continue;
-        const classSigText = methodSig.getDeclaringClassSignature?.()?.toString?.() || "";
-        const className = methodSig.getDeclaringClassSignature?.()?.getClassName?.() || "";
-        const classKey = resolveClassKeyFromMethodSig(methodSig);
-        const methodName = methodSig.getMethodSubSignature?.()?.getMethodName?.() || "";
-        const signatureText = methodSig.toString?.() || "";
-        const text = `${classSigText} ${className} ${signatureText}`.toLowerCase();
-        const profile = profiles.get(classKey) || {
-            classKey,
-            classSigText,
-            className,
-            hasPush: false,
-            hasGet: false,
-            hasFrameworkMarker: false,
-        };
-        if (options.pushMethodNames.has(methodName)) profile.hasPush = true;
-        if (options.getMethodNames.has(methodName)) profile.hasGet = true;
-        if (!profile.hasFrameworkMarker && options.frameworkSignatureHints.some(h => text.includes(h))) {
-            profile.hasFrameworkMarker = true;
-        }
-        profiles.set(classKey, profile);
-    }
-    return profiles;
 }
 
 function incrementCounter(map: Map<string, number>, key: string): void {
@@ -1064,6 +1043,12 @@ interface InstInitPayloadSummary {
     routeLiterals: string[];
 }
 
+interface InstInitSpecificPayloadFieldSummary {
+    payloadNodeIds: Set<number>;
+    payloadValueFieldTargets: Array<{ nodeId: number; fieldName: string; passthrough?: boolean; sourceFieldPath?: string[] }>;
+    routeLiterals: string[];
+}
+
 function collectPushPayload(
     scene: Scene,
     method: any,
@@ -1072,7 +1057,7 @@ function collectPushPayload(
     analysis: BuildRouterModelArgs["analysis"],
     instInitPayloadSummaryCache: Map<string, InstInitPayloadSummary>,
     routerKey: string,
-    invokeMethodName: string,
+    pushCanonicalApiId: string,
     options: BuildRouterInternalOptions,
 ): PushPayloadResult {
     const out = new Set<number>();
@@ -1082,7 +1067,11 @@ function collectPushPayload(
     const cfg = method.getCfg?.();
     const stmts = cfg ? cfg.getStmts() : [];
     const argsList = invokeExpr.getArgs ? invokeExpr.getArgs() : [];
-    const routeFieldName = resolveRouteFieldNameForPushMethod(invokeMethodName, options.routeFieldByPushMethod);
+    const pushApi = options.pushApiByCanonicalApiId.get(pushCanonicalApiId);
+    const routeFieldName = resolveRouteFieldNameForPushApi(pushCanonicalApiId, options);
+    const routeArgIndex = Number.isInteger(pushApi?.routeArgIndex) ? pushApi!.routeArgIndex : undefined;
+    const payloadArgIndex = Number.isInteger(pushApi?.payloadArgIndex) ? pushApi!.payloadArgIndex : undefined;
+    const payloadField = pushApi?.payloadField?.trim();
     const visitedLocals = new Set<string>();
     const payloadContainerFieldNames = new Set(["param", "params"]);
     const localFieldOrigins = collectLocalFieldOrigins(stmts);
@@ -1101,9 +1090,17 @@ function collectPushPayload(
     const addRouteLiteral = (literal: string): void => {
         const normalized = literal.trim();
         if (!normalized) return;
-        routeLiteralKeys.add(`${routerKey}::${routeFieldName}=${normalized}`);
-        routeLiteralKeys.add(`${routeFieldName}=${normalized}`);
+        if (routeFieldName) {
+            routeLiteralKeys.add(`${routerKey}::${routeFieldName}=${normalized}`);
+            routeLiteralKeys.add(`${routeFieldName}=${normalized}`);
+        }
         routeLiteralKeys.add(`route=${normalized}`);
+    };
+
+    const addRouteLiteralsFromValue = (value: any): void => {
+        for (const literal of analysis.stringCandidates(value)) {
+            addRouteLiteral(literal);
+        }
     };
 
     const addFieldEndpointFromBaseValue = (baseValue: any, fieldName: string): void => {
@@ -1158,6 +1155,88 @@ function collectPushPayload(
         }
         for (const literal of summary.routeLiterals) {
             addRouteLiteral(literal);
+        }
+    };
+
+    const collectSpecificPayloadFieldFromLocal = (local: Local, fieldName: string): void => {
+        addFieldEndpointFromBaseValue(local, fieldName);
+        for (const stmt of stmts) {
+            if (!(stmt instanceof ArkAssignStmt)) continue;
+            const left = stmt.getLeftOp();
+            if (!(left instanceof ArkInstanceFieldRef)) continue;
+            if (left.getBase() !== local) continue;
+            const currentFieldName = left.getFieldSignature?.().getFieldName?.() || "";
+            if (currentFieldName !== fieldName) continue;
+            const right = stmt.getRightOp();
+            addNodesFromValue(right);
+            addValueFieldTarget(right, fieldName, true);
+            if (routeFieldName && currentFieldName === routeFieldName) {
+                addRouteLiteralsFromValue(right);
+            }
+        }
+    };
+
+    const collectSpecificPayloadFieldFromInstInit = (local: Local, fieldName: string): void => {
+        const classType = String(local.getType?.()?.toString?.() || "").trim();
+        if (!classType) return;
+        const summary = collectInstInitSpecificPayloadFieldSummary(
+            scene,
+            pag,
+            analysis,
+            classType,
+            routeFieldName,
+            fieldName,
+            new Set<string>(),
+        );
+        for (const nodeId of summary.payloadNodeIds) {
+            out.add(nodeId);
+        }
+        for (const target of summary.payloadValueFieldTargets) {
+            payloadValueFieldTargets.set(
+                `${target.nodeId}#${target.fieldName}#${target.passthrough ? "pass" : "prefix"}#${target.sourceFieldPath?.join(".") || ""}`,
+                target,
+            );
+        }
+        for (const literal of summary.routeLiterals) {
+            addRouteLiteral(literal);
+        }
+    };
+
+    const collectRouteFieldFromLocal = (local: Local, fieldName: string): void => {
+        for (const stmt of stmts) {
+            if (!(stmt instanceof ArkAssignStmt)) continue;
+            const left = stmt.getLeftOp();
+            if (!(left instanceof ArkInstanceFieldRef)) continue;
+            if (left.getBase() !== local) continue;
+            const currentFieldName = left.getFieldSignature?.().getFieldName?.() || "";
+            if (currentFieldName !== fieldName) continue;
+            addRouteLiteralsFromValue(stmt.getRightOp());
+        }
+    };
+
+    const collectPayloadArgument = (arg: any): void => {
+        if (payloadField) {
+            if (arg instanceof Local) {
+                if (routeFieldName) {
+                    collectRouteFieldFromLocal(arg, routeFieldName);
+                }
+                collectSpecificPayloadFieldFromLocal(arg, payloadField);
+                collectSpecificPayloadFieldFromInstInit(arg, payloadField);
+                return;
+            }
+            if (arg instanceof ArkInstanceFieldRef) {
+                const fieldName = arg.getFieldSignature?.().getFieldName?.() || "";
+                if (fieldName === payloadField) {
+                    addNodesFromValue(arg);
+                    addValueFieldTarget(arg, payloadField, true);
+                }
+            }
+            return;
+        }
+
+        addNodesFromValue(arg);
+        if (arg instanceof Local) {
+            collectPayloadFromLocal(arg, 0, false);
         }
     };
 
@@ -1283,10 +1362,18 @@ function collectPushPayload(
         mergeInstInitPayloadSummary(summary);
     };
 
-    for (const arg of argsList) {
-        addNodesFromValue(arg);
-        if (!(arg instanceof Local)) continue;
-        collectPayloadFromLocal(arg, 0, false);
+    if (routeArgIndex !== undefined && routeArgIndex >= 0 && routeArgIndex < argsList.length) {
+        addRouteLiteralsFromValue(argsList[routeArgIndex]);
+    }
+
+    if (payloadArgIndex !== undefined) {
+        if (payloadArgIndex >= 0 && payloadArgIndex < argsList.length) {
+            collectPayloadArgument(argsList[payloadArgIndex]);
+        }
+    } else {
+        for (const arg of argsList) {
+            collectPayloadArgument(arg);
+        }
     }
 
     return {
@@ -1310,20 +1397,18 @@ function dedupeRouterValueFieldTargets(
 function collectNavDestinationCallbackMethods(
     ctx: Parameters<NonNullable<TaintModule["setup"]>>[0],
     options: BuildRouterInternalOptions,
-    resolved: Required<HarmonyRouteBridgeSemanticsOptions>,
 ): Map<string, Map<string, any>> {
     const out = new Map<string, Map<string, any>>();
-    const minArgs = Math.max(1, 0);
-    for (const call of ctx.scan.invokes({ minArgs })) {
-        const declaringClassName = call.call.declaringClassName || "";
-        if (!options.navDestinationClassNames.has(declaringClassName)) continue;
-        if (!options.navDestinationRegisterMethods.has(call.call.methodName)) continue;
+    for (const call of scanCanonicalRouterCalls(ctx.scan, options.navDestinationRegisterCanonicalApiIds, ctx.analysis)) {
+        const registerApi = options.navDestinationRegisterApiByCanonicalApiId.get(call.call.canonicalApiId || "");
+        if (!registerApi) continue;
+        if (call.args().length <= registerApi.callbackArgIndex) continue;
         const routeKeys = collectNavDestinationRouteKeys(ctx.analysis, call.stmt?.getCfg?.()?.getDeclaringMethod?.(), call.stmt?.getInvokeExpr?.());
-        if (routeKeys.length === 0) continue;
-        const callbackValue = call.arg(1);
+        const registerRouterKey = resolveCanonicalRouterKey(call);
+        const callbackValue = call.arg(registerApi.callbackArgIndex);
         const callbackMethods = ctx.callbacks.methods(callbackValue, { maxCandidates: 8 });
         if (callbackMethods.length === 0) continue;
-        for (const routeKey of routeKeys) {
+        for (const routeKey of routeKeys.length > 0 ? routeKeys : [registerRouterKey].filter(Boolean) as string[]) {
             let bucket = out.get(routeKey);
             if (!bucket) {
                 bucket = new Map<string, any>();
@@ -1340,25 +1425,51 @@ function collectNavDestinationCallbackMethods(
 function collectNavDestinationTriggerSites(
     ctx: Parameters<NonNullable<TaintModule["setup"]>>[0],
     options: BuildRouterInternalOptions,
-    resolved: Required<HarmonyRouteBridgeSemanticsOptions>,
-): Map<string, Array<{ sourceMethod: any; anchorStmt: any; argNodeIds: number[] }>> {
-    const out = new Map<string, Array<{ sourceMethod: any; anchorStmt: any; argNodeIds: number[] }>>();
-    for (const call of ctx.scan.invokes({ minArgs: 1 })) {
-        const declaringClassName = call.call.declaringClassName || "";
-        if (!options.navDestinationClassNames.has(declaringClassName)) continue;
-        if (!options.navDestinationTriggerMethods.has(call.call.methodName)) continue;
+): Map<string, NavDestinationTriggerSite[]> {
+    const out = new Map<string, NavDestinationTriggerSite[]>();
+    const instInitPayloadSummaryCache = new Map<string, InstInitPayloadSummary>();
+    for (const call of scanCanonicalRouterCalls(ctx.scan, options.navDestinationTriggerCanonicalApiIds, ctx.analysis)) {
+        const triggerApi = options.navDestinationTriggerApiByCanonicalApiId.get(call.call.canonicalApiId || "");
+        if (!triggerApi) continue;
         const sourceMethod = call.stmt?.getCfg?.()?.getDeclaringMethod?.();
-        if (!sourceMethod?.getCfg?.()) continue;
-        const routeKeys = collectNavDestinationRouteKeys(ctx.analysis, sourceMethod, call.stmt?.getInvokeExpr?.());
-        if (routeKeys.length === 0) continue;
-        const argNodeIds = call.argNodeIds(0);
+        const invokeExpr = call.stmt?.getInvokeExpr?.();
+        const routerKey = resolveCanonicalRouterKey(call);
+        if (!sourceMethod?.getCfg?.() || !invokeExpr || !routerKey) continue;
+        const payload = collectPushPayload(
+            ctx.raw.scene,
+            sourceMethod,
+            invokeExpr,
+            ctx.raw.pag,
+            ctx.analysis,
+            instInitPayloadSummaryCache,
+            routerKey,
+            call.call.canonicalApiId || "",
+            {
+                ...options,
+                pushApiByCanonicalApiId: new Map([[call.call.canonicalApiId || "", triggerApi]]),
+            },
+        );
+        const routeKeys = payload.routeLiteralKeys.length > 0
+            ? payload.routeLiteralKeys
+            : [routerKey];
+        const argNodeIds = [...payload.payloadNodeIds];
         if (argNodeIds.length === 0) continue;
+        const payloadArgIndex = Number.isInteger(triggerApi.payloadArgIndex) ? triggerApi.payloadArgIndex : undefined;
+        const routeArgIndex = Number.isInteger(triggerApi.routeArgIndex) ? triggerApi.routeArgIndex : undefined;
+        const deferredPayloadSource = payloadArgIndex !== undefined && !triggerApi.payloadField
+            ? { kind: "arg" as const, index: payloadArgIndex }
+            : undefined;
+        const deferredActivationSource = routeArgIndex !== undefined
+            ? { kind: "arg" as const, index: routeArgIndex }
+            : deferredPayloadSource;
         for (const routeKey of routeKeys) {
             const bucket = out.get(routeKey) || [];
             bucket.push({
                 sourceMethod,
                 anchorStmt: call.stmt,
                 argNodeIds: [...argNodeIds],
+                deferredActivationSource,
+                deferredPayloadSource,
             });
             out.set(routeKey, bucket);
         }
@@ -1366,17 +1477,78 @@ function collectNavDestinationTriggerSites(
     return out;
 }
 
-function collectCallbackParamNodeIds(callbacks: BuildRouterModelArgs["callbacks"], invokeExpr: any): Set<number> {
+function scanCanonicalRouterCalls(
+    scan: { invokes(filter?: any): any[] },
+    canonicalApiIds: Set<string>,
+    analysis: ModuleAnalysisApi,
+): ModuleScannedInvoke[] {
+    const out = [];
+    const seen = new Set<string>();
+    for (const canonicalApiId of canonicalApiIds) {
+        for (const call of scan.invokes({ canonicalApiId })) {
+            if (!hasResolvedModuleSemanticEndpoint(call, analysis)) continue;
+            const key = [
+                call.ownerMethodSignature,
+                call.call.rawOccurrenceId || call.call.occurrenceId || call.call.signature,
+                call.stmt?.getOriginPositionInfo?.()?.getLineNo?.() || 0,
+                call.stmt?.getOriginPositionInfo?.()?.getColNo?.() || 0,
+            ].join("|");
+            if (seen.has(key)) continue;
+            seen.add(key);
+            out.push(call);
+        }
+    }
+    return out;
+}
+
+function hasResolvedModuleSemanticEndpoint(
+    call: ModuleScannedInvoke,
+    analysis: ModuleAnalysisApi,
+): boolean {
+    for (const semanticSite of call.call.semanticEffectSites || []) {
+        if (semanticSite.capability !== "module") continue;
+        if (semanticSite.canonicalApiId !== call.call.canonicalApiId) continue;
+        if (semanticSite.occurrenceId !== call.call.occurrenceId) continue;
+        if (semanticSite.rawOccurrenceId !== call.call.rawOccurrenceId) continue;
+        const projection = analysis.projectEndpoint({
+            semanticSite,
+            endpointSpec: semanticSite.endpointSpec,
+            stmt: call.stmt,
+            invokeExpr: call.invokeExpr,
+            allowNodeCreation: false,
+            consumer: "module",
+        });
+        if (isConsumableSemanticEndpointProjection(projection)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function resolveCanonicalRouterKey(call: { call: { canonicalApiId?: string } }): string | undefined {
+    const parts = parseCanonicalApiId(call.call.canonicalApiId || "");
+    if (!parts) return undefined;
+    return `canonical:${parts.authority}:${parts.domain}:${parts.module}`;
+}
+
+function collectCallbackParamNodeIds(
+    callbacks: BuildRouterModelArgs["callbacks"],
+    invokeExpr: any,
+    callbackArgIndex: number,
+    callbackParamIndex: number,
+): Set<number> {
     const out = new Set<number>();
     const invokeArgs = invokeExpr.getArgs ? invokeExpr.getArgs() : [];
-    for (const arg of invokeArgs) {
-        for (const binding of callbacks.paramBindings(arg, 0, { maxCandidates: 8 })) {
-            for (const nodeId of binding.localNodeIds()) {
-                out.add(nodeId);
-            }
-            for (const nodeId of binding.localUseNodeIds()) {
-                out.add(nodeId);
-            }
+    if (callbackArgIndex < 0 || callbackArgIndex >= invokeArgs.length) {
+        return out;
+    }
+    const callbackArg = invokeArgs[callbackArgIndex];
+    for (const binding of callbacks.paramBindings(callbackArg, callbackParamIndex, { maxCandidates: 8 })) {
+        for (const nodeId of binding.localNodeIds()) {
+            out.add(nodeId);
+        }
+        for (const nodeId of binding.localUseNodeIds()) {
+            out.add(nodeId);
         }
     }
     return out;
@@ -1589,11 +1761,102 @@ function collectInstInitPayloadSummary(
     return out;
 }
 
-function resolveRouteFieldNameForPushMethod(
-    methodName: string,
-    routeFieldByPushMethod: Map<string, string>,
+function collectInstInitSpecificPayloadFieldSummary(
+    scene: Scene,
+    pag: Pag,
+    analysis: BuildRouterModelArgs["analysis"],
+    classType: string,
+    routeFieldName: string | undefined,
+    payloadFieldName: string,
+    visiting: Set<string>,
+): InstInitSpecificPayloadFieldSummary {
+    const out: InstInitSpecificPayloadFieldSummary = {
+        payloadNodeIds: new Set<number>(),
+        payloadValueFieldTargets: [],
+        routeLiterals: [],
+    };
+    const valueTargets = new Map<string, { nodeId: number; fieldName: string; passthrough?: boolean; sourceFieldPath?: string[] }>();
+    const routeLiterals = new Set<string>();
+    const normalizedPayloadFieldName = String(payloadFieldName || "").trim();
+    if (!classType || !normalizedPayloadFieldName) {
+        return out;
+    }
+    const escapedClassType = escapeForRegex(classType);
+    const instInitPattern = new RegExp(`${escapedClassType}\\.\\%instInit\\(`);
+    const visitKey = `${classType}|${routeFieldName || ""}|${normalizedPayloadFieldName}`;
+    if (visiting.has(visitKey)) {
+        return out;
+    }
+    visiting.add(visitKey);
+
+    const addPayloadValue = (
+        value: any,
+        fieldName: string,
+        passthrough = true,
+        sourceFieldPath?: string[],
+    ): void => {
+        const nodeIds = new Set<number>();
+        const nodes = pag.getNodesByValue(value);
+        if (nodes) {
+            for (const nodeId of nodes.values()) {
+                nodeIds.add(nodeId);
+            }
+        }
+        for (const objectNodeId of collectObjectNodeIdsFromValue(pag, value)) {
+            nodeIds.add(objectNodeId);
+        }
+        for (const nodeId of nodeIds) {
+            out.payloadNodeIds.add(nodeId);
+            valueTargets.set(
+                `${nodeId}#${fieldName}#${passthrough ? "pass" : "prefix"}#${sourceFieldPath?.join(".") || ""}`,
+                { nodeId, fieldName, passthrough, sourceFieldPath },
+            );
+        }
+    };
+
+    for (const method of scene.getMethods()) {
+        if (method.getName() !== "%instInit") continue;
+        const methodSig = method.getSignature?.().toString?.() || "";
+        if (!instInitPattern.test(methodSig)) continue;
+        const cfg = method.getCfg?.();
+        if (!cfg) continue;
+        for (const stmt of cfg.getStmts()) {
+            if (!(stmt instanceof ArkAssignStmt)) continue;
+            const left = stmt.getLeftOp();
+            if (!(left instanceof ArkInstanceFieldRef)) continue;
+            const base = left.getBase();
+            if (!(base instanceof Local) || base.getName() !== "this") continue;
+            const currentField = left.getFieldSignature?.().getFieldName?.() || "";
+            const right = stmt.getRightOp();
+            if (routeFieldName && currentField === routeFieldName) {
+                for (const literal of analysis.stringCandidates(right)) {
+                    routeLiterals.add(literal);
+                }
+            }
+            if (currentField !== normalizedPayloadFieldName) continue;
+            if (right instanceof ArkInstanceFieldRef) {
+                const sourceFieldName = right.getFieldSignature?.().getFieldName?.() || "";
+                if (sourceFieldName) {
+                    addPayloadValue(right.getBase?.(), currentField, false, [sourceFieldName]);
+                    continue;
+                }
+            }
+            addPayloadValue(right, currentField, true);
+        }
+    }
+
+    visiting.delete(visitKey);
+    out.payloadValueFieldTargets = [...valueTargets.values()];
+    out.routeLiterals = [...routeLiterals];
+    return out;
+}
+
+function resolveRouteFieldNameForPushApi(
+    canonicalApiId: string,
+    options: BuildRouterInternalOptions,
 ): string | undefined {
-    return routeFieldByPushMethod.get(methodName);
+    return options.pushApiByCanonicalApiId.get(canonicalApiId)?.routeField
+        || options.routeFieldByPushCanonicalApiId.get(canonicalApiId);
 }
 
 function tryParseStringLiteral(value: any): string | undefined {

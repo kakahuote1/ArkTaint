@@ -10,8 +10,13 @@
     ModuleStateBindingSemantic,
     ModuleCallSurfaceSelector,
 } from "../../kernel/contracts/InternalModuleLoweringIR";
-import type { ModuleScannedInvoke, TaintModule } from "../../kernel/contracts/ModuleContract";
+import type { ModuleAnalysisApi, ModuleScannedInvoke, TaintModule } from "../../kernel/contracts/ModuleContract";
 import type { AssetEndpoint, HandoffHandleTemplate, HandleKeyPartTemplate } from "../../assets/schema";
+import type { SemanticEffectSite } from "../../api/effects/SemanticEffectSite";
+import {
+    formatSemanticEndpointPath,
+    type SemanticEndpointProjection,
+} from "../../kernel/contracts/PagNodeResolution";
 import { createHarmonyAbilityHandoffSemanticModule } from "./harmony_semantics/ability_handoff";
 import { createHarmonyKeyedStorageSemanticModule } from "./harmony_semantics/appstorage";
 import { createHarmonyEventEmitterSemanticModule } from "./harmony_semantics/emitter";
@@ -29,6 +34,8 @@ function compileContainerSemantic(spec: InternalModuleLoweringIR, semantic: Modu
         description: `${spec.description} [${semantic.id}]`,
         families: semantic.families,
         capabilities: semantic.capabilities,
+        mutationCanonicalApiIds: semantic.mutationCanonicalApiIds,
+        accessCanonicalApiIds: semantic.accessCanonicalApiIds,
     });
 }
 
@@ -36,8 +43,8 @@ function compileAbilityHandoffSemantic(spec: InternalModuleLoweringIR, semantic:
     return createHarmonyAbilityHandoffSemanticModule({
         id: `${spec.id}::${semantic.id}`,
         description: `${spec.description} [${semantic.id}]`,
-        startMethods: semantic.startMethods,
-        targetMethods: semantic.targetMethods,
+        startCanonicalApiIds: semantic.startCanonicalApiIds,
+        targetCanonicalApiIds: semantic.targetCanonicalApiIds,
     });
 }
 
@@ -45,8 +52,8 @@ function compileEventEmitterSemantic(spec: InternalModuleLoweringIR, semantic: M
     return createHarmonyEventEmitterSemanticModule({
         id: `${spec.id}::${semantic.id}`,
         description: `${spec.description} [${semantic.id}]`,
-        onMethods: semantic.onMethods,
-        emitMethods: semantic.emitMethods,
+        onCanonicalApiIds: semantic.onCanonicalApiIds,
+        emitCanonicalApiIds: semantic.emitCanonicalApiIds,
         channelArgIndexes: semantic.channelArgIndexes,
         payloadArgIndex: semantic.payloadArgIndex,
         callbackArgIndex: semantic.callbackArgIndex,
@@ -59,12 +66,12 @@ function compileKeyedStorageSemantic(spec: InternalModuleLoweringIR, semantic: M
     return createHarmonyKeyedStorageSemanticModule({
         id: `${spec.id}::${semantic.id}`,
         description: `${spec.description} [${semantic.id}]`,
-        storageClasses: semantic.storageClasses,
-        writeMethods: semantic.writeMethods,
-        readMethods: semantic.readMethods,
-        killMethods: semantic.killMethods,
-        propDecorators: semantic.propDecorators,
-        linkDecorators: semantic.linkDecorators,
+        writeApis: semantic.writeApis,
+        writeResultApis: semantic.writeResultApis,
+        readCanonicalApiIds: semantic.readCanonicalApiIds,
+        killCanonicalApiIds: semantic.killCanonicalApiIds,
+        propDecoratorCanonicalApiIds: semantic.propDecoratorCanonicalApiIds,
+        linkDecoratorCanonicalApiIds: semantic.linkDecoratorCanonicalApiIds,
     });
 }
 
@@ -72,12 +79,11 @@ function compileRouteBridgeSemantic(spec: InternalModuleLoweringIR, semantic: Mo
     return createHarmonyRouteBridgeSemanticModule({
         id: `${spec.id}::${semantic.id}`,
         description: `${spec.description} [${semantic.id}]`,
-        pushMethods: semantic.pushMethods,
-        getMethods: semantic.getMethods,
-        routerClassNames: semantic.routerClassNames,
-        navDestinationClassNames: semantic.navDestinationClassNames,
-        navDestinationRegisterMethods: semantic.navDestinationRegisterMethods,
-        frameworkSignatureHints: semantic.frameworkSignatureHints,
+        pushApis: semantic.pushApis,
+        getCanonicalApiIds: semantic.getCanonicalApiIds,
+        getApis: semantic.getApis,
+        navDestinationRegisterApis: semantic.navDestinationRegisterApis,
+        navDestinationTriggerApis: semantic.navDestinationTriggerApis,
         payloadUnwrapPrefixes: semantic.payloadUnwrapPrefixes,
     });
 }
@@ -86,12 +92,12 @@ function compileStateBindingSemantic(spec: InternalModuleLoweringIR, semantic: M
     return createHarmonyStateBindingSemanticModule({
         id: `${spec.id}::${semantic.id}`,
         description: `${spec.description} [${semantic.id}]`,
-        stateDecorators: semantic.stateDecorators,
-        propDecorators: semantic.propDecorators,
-        linkDecorators: semantic.linkDecorators,
-        provideDecorators: semantic.provideDecorators,
-        consumeDecorators: semantic.consumeDecorators,
-        eventDecorators: semantic.eventDecorators,
+        stateDecoratorCanonicalApiIds: semantic.stateDecoratorCanonicalApiIds,
+        propDecoratorCanonicalApiIds: semantic.propDecoratorCanonicalApiIds,
+        linkDecoratorCanonicalApiIds: semantic.linkDecoratorCanonicalApiIds,
+        provideDecoratorCanonicalApiIds: semantic.provideDecoratorCanonicalApiIds,
+        consumeDecoratorCanonicalApiIds: semantic.consumeDecoratorCanonicalApiIds,
+        eventDecoratorCanonicalApiIds: semantic.eventDecoratorCanonicalApiIds,
     });
 }
 
@@ -117,10 +123,12 @@ function compileHandoffEffectSemantic(spec: InternalModuleLoweringIR, semantic: 
                         continue;
                     }
                     if (declared.effectKind === "put") {
-                        const sourceRefs = declared.value ? resolveEndpointSourceRefs(call, declared.value) : [];
+                        const sourceRefs = declared.value
+                            ? resolveEndpointSourceRefs(ctx.analysis, call, declared.value, spec.id, declared.id, declared.effectKind)
+                            : [];
                         if (sourceRefs.length === 0) {
                             unresolvedEndpoints++;
-                            unresolvedEndpointDetails.push(describeUnresolvedEndpoint(call, declared.id, declared.effectKind, declared.value));
+                            unresolvedEndpointDetails.push(describeUnresolvedEndpoint(ctx.analysis, call, spec.id, declared.id, declared.effectKind, declared.value));
                             continue;
                         }
                         for (const handle of handles) {
@@ -140,18 +148,20 @@ function compileHandoffEffectSemantic(spec: InternalModuleLoweringIR, semantic: 
                         continue;
                     }
                     if (declared.effectKind === "get") {
-                        const targetNodeIds = declared.target ? resolveEndpointTargetNodeIds(call, declared.target) : [];
-                        if (targetNodeIds.length === 0) {
+                        const targets = declared.target
+                            ? resolveEndpointTargetRefs(ctx.analysis, call, declared.target, spec.id, declared.id, declared.effectKind)
+                            : [];
+                        if (targets.length === 0) {
                             unresolvedEndpoints++;
-                            unresolvedEndpointDetails.push(describeUnresolvedEndpoint(call, declared.id, declared.effectKind, declared.target));
+                            unresolvedEndpointDetails.push(describeUnresolvedEndpoint(ctx.analysis, call, spec.id, declared.id, declared.effectKind, declared.target));
                             continue;
                         }
                         for (const handle of handles) {
-                            for (const nodeId of targetNodeIds) {
+                            for (const target of targets) {
                                 effects.push({
                                     kind: "get",
                                     handle,
-                                    target: targetEndpoint(nodeId, declared.target!),
+                                    target,
                                     reason: declared.id,
                                     originModel: moduleId,
                                     updateStrength: "strong",
@@ -190,7 +200,9 @@ function compileHandoffEffectSemantic(spec: InternalModuleLoweringIR, semantic: 
                 get_targets: summarizeHandoffGetTargets(effects),
             }, { omitEmpty: true });
 
-            const handoff = createHandoffPropagationSession(effects);
+            const handoff = createHandoffPropagationSession(effects, {
+                currentnessAnalysis: ctx.raw.currentnessAnalysis,
+            });
             return {
                 onFact(event) {
                     return handoff.emitForFact(event);
@@ -204,10 +216,17 @@ function scanHandoffSurface(
     scan: { invokes(filter?: any): ModuleScannedInvoke[]; constructs(filter?: any): ModuleScannedInvoke[] },
     surface: ModuleCallSurfaceSelector,
 ): ModuleScannedInvoke[] {
+    const canonicalApiIds = canonicalApiIdsForSurface(surface);
+    if (canonicalApiIds.length === 0) return [];
     if (surface.surfaceKind === "construct") {
-        return scan.constructs({ ...surface });
+        return scan.constructs({ canonicalApiIds });
     }
-    return scan.invokes({ ...surface });
+    return scan.invokes({ canonicalApiIds });
+}
+
+function canonicalApiIdsForSurface(surface: ModuleCallSurfaceSelector): string[] {
+    const canonicalApiId = String(surface.canonicalApiId || "").trim();
+    return canonicalApiId ? [canonicalApiId] : [];
 }
 
 function summarizeHandoffPutSources(effects: HandoffEffect[]): string {
@@ -235,7 +254,7 @@ function pushModuleHandoffPutEffect(
         endpoint: AssetEndpoint;
         reason: string;
         originModel: string;
-        updateStrength?: "strong" | "weak" | "infer";
+        updateStrength?: "strong" | "weak";
         confidence?: "certain" | "likely" | "unknown";
     },
 ): void {
@@ -276,14 +295,15 @@ function resolveHandoffHandles(
     const key = resolveHandleParts(analysis, call, template.key);
     const scope = resolveHandleParts(analysis, call, template.scope || []);
     const owner = resolveHandleParts(analysis, call, template.owner || []);
-    if (key.values.length === 0) return [];
+    const precision = resolveHandlePrecision(template, key.exact && scope.exact && owner.exact);
+    if (key.values.length === 0 || !key.exact || !scope.exact || !owner.exact || !precision) return [];
     const out: HandoffHandle[] = [];
     for (const keyValue of key.values) {
         for (const scopeValue of scope.values.length > 0 ? scope.values : [""]) {
             for (const ownerValue of owner.values.length > 0 ? owner.values : [""]) {
                 out.push(createHandoffHandle(template.cellKind, template.family, keyValue, {
                     scope: scopeValue,
-                    precision: resolveHandlePrecision(template, key.exact && scope.exact && owner.exact),
+                    precision,
                     owner: ownerValue || undefined,
                     index: template.index,
                 }));
@@ -304,7 +324,10 @@ function resolveHandleParts(
     for (const part of parts) {
         const resolved = resolveHandlePart(analysis, call, part);
         if (!resolved.exact) exact = false;
-        combinations = productAppend(combinations, resolved.values.length > 0 ? resolved.values : ["__UNKNOWN__"]);
+        if (resolved.values.length === 0) {
+            return { values: [], exact: false };
+        }
+        combinations = productAppend(combinations, resolved.values);
     }
     return {
         values: combinations.map(encodeHandleParts),
@@ -326,7 +349,7 @@ function resolveHandlePart(
     if (part.kind === "fromEndpoint" || part.kind === "fromEndpointPath") {
         return stringValuesForEndpointValue(analysis, resolveEndpointValue(call, part.endpoint));
     }
-    return { values: ["__UNKNOWN__"], exact: false };
+    return { values: [], exact: false };
 }
 
 function stringValuesForEndpointValue(
@@ -334,12 +357,11 @@ function stringValuesForEndpointValue(
     value: any,
 ): { values: string[]; exact: boolean } {
     if (value === undefined || value === null) {
-        return { values: ["__UNKNOWN__"], exact: false };
+        return { values: [], exact: false };
     }
     const values = [...new Set(analysis.stringCandidates(value).map(item => String(item || "").trim()).filter(Boolean))];
     if (values.length === 0) {
-        const raw = String(value?.toString?.() || "").trim();
-        return raw ? { values: [raw], exact: false } : { values: ["__UNKNOWN__"], exact: false };
+        return { values: [], exact: false };
     }
     return { values, exact: true };
 }
@@ -361,11 +383,10 @@ function encodeHandleParts(parts: string[]): string {
     return JSON.stringify(parts);
 }
 
-function resolveHandlePrecision(template: HandoffHandleTemplate, exact: boolean): "exact" | "partial" | "unknown" {
-    if (template.precision === "exact") return "exact";
-    if (template.precision === "partial") return "partial";
-    if (template.precision === "unknown") return "unknown";
-    return exact ? "exact" : "unknown";
+function resolveHandlePrecision(template: HandoffHandleTemplate, exact: boolean): "exact" | undefined {
+    if (!exact) return undefined;
+    if (!template.precision || template.precision === "exact") return "exact";
+    return undefined;
 }
 
 function resolveEndpointValue(call: ModuleScannedInvoke, endpoint: AssetEndpoint): any | undefined {
@@ -374,6 +395,8 @@ function resolveEndpointValue(call: ModuleScannedInvoke, endpoint: AssetEndpoint
             return call.base();
         case "arg":
             return call.arg(endpoint.base.index);
+        case "rest":
+            return call.arg(endpoint.base.startIndex);
         case "return":
         case "promiseResult":
         case "constructorResult":
@@ -383,31 +406,67 @@ function resolveEndpointValue(call: ModuleScannedInvoke, endpoint: AssetEndpoint
     }
 }
 
-function resolveEndpointNodeIds(call: ModuleScannedInvoke, endpoint: AssetEndpoint): number[] {
-    switch (endpoint.base.kind) {
-        case "receiver":
-            return call.baseNodeIds();
-        case "arg":
-            return call.argNodeIds(endpoint.base.index);
-        case "return":
-        case "constructorResult":
-            return call.resultNodeIds();
-        case "promiseResult":
-            return call.promiseResultNodeIds?.() || call.resultNodeIds();
-        case "callbackArg":
-            if (endpoint.base.callback.kind !== "arg") return [];
-            return call.callbackParamNodeIds(endpoint.base.callback.index, endpoint.base.argIndex);
-        default:
-            return [];
-    }
-}
-
 interface ResolvedEndpointSourceRef {
     nodeId: number;
     fieldPathPrefix?: string[];
 }
 
-function resolveEndpointSourceRefs(call: ModuleScannedInvoke, endpoint: AssetEndpoint): ResolvedEndpointSourceRef[] {
+interface ResolvedEndpointTargetRef {
+    nodeId: number;
+    fieldPath?: string[];
+    preserveSourceField?: boolean;
+}
+
+function projectModuleEndpoint(
+    analysis: ModuleAnalysisApi,
+    call: ModuleScannedInvoke,
+    endpoint: AssetEndpoint,
+    effectAssetId: string,
+    effectId: string,
+    effectKind: string,
+): SemanticEndpointProjection | undefined {
+    void effectKind;
+    const semanticSite = acceptedModuleSemanticEffectSite(call, endpoint, effectAssetId, effectId);
+    if (!semanticSite) return undefined;
+    return analysis.projectEndpoint({
+        semanticSite,
+        endpointSpec: endpoint,
+        stmt: call.stmt,
+        invokeExpr: call.invokeExpr,
+        allowNodeCreation: false,
+        consumer: "module",
+    });
+}
+
+function acceptedModuleSemanticEffectSite(
+    call: ModuleScannedInvoke,
+    endpoint: AssetEndpoint,
+    effectAssetId: string,
+    effectId: string,
+): SemanticEffectSite | undefined {
+    const endpointPath = formatSemanticEndpointPath(endpoint, call.invokeExpr);
+    const matches = call.call.semanticEffectSites.filter(site =>
+        site.capability === "module"
+        && site.canonicalApiId === call.call.canonicalApiId
+        && site.occurrenceId === call.call.occurrenceId
+        && site.rawOccurrenceId === call.call.rawOccurrenceId
+        && site.effectAssetId === effectAssetId
+        && site.effectTemplateId === effectId
+        && formatSemanticEndpointPath(site.endpointSpec, call.invokeExpr) === endpointPath
+    );
+    return matches.length === 1 ? matches[0] : undefined;
+}
+
+function resolveEndpointSourceRefs(
+    analysis: ModuleAnalysisApi,
+    call: ModuleScannedInvoke,
+    endpoint: AssetEndpoint,
+    effectAssetId: string,
+    effectId: string,
+    effectKind: string,
+): ResolvedEndpointSourceRef[] {
+    const projection = projectModuleEndpoint(analysis, call, endpoint, effectAssetId, effectId, effectKind);
+    if (!projection || projection.status !== "resolved") return [];
     const out = new Map<string, ResolvedEndpointSourceRef>();
     const add = (nodeId: number, fieldPathPrefix?: string[]): void => {
         const prefix = fieldPathPrefix && fieldPathPrefix.length > 0 ? [...fieldPathPrefix] : undefined;
@@ -415,55 +474,52 @@ function resolveEndpointSourceRefs(call: ModuleScannedInvoke, endpoint: AssetEnd
         if (out.has(key)) return;
         out.set(key, { nodeId, ...(prefix ? { fieldPathPrefix: prefix } : {}) });
     };
-    const endpointPrefix = endpoint.accessPath && endpoint.accessPath.length > 0
-        ? [...endpoint.accessPath]
+    const fieldPath = projection.fieldPath && projection.fieldPath.length > 0
+        ? [...projection.fieldPath]
         : undefined;
-    for (const nodeId of resolveEndpointNodeIds(call, endpoint)) {
-        add(nodeId, endpointPrefix);
+    if (fieldPath) {
+        for (const nodeId of projection.carrierNodeIds) add(nodeId, fieldPath);
+        return [...out.values()];
     }
-    switch (endpoint.base.kind) {
-        case "receiver":
-            for (const nodeId of call.baseCarrierNodeIds()) add(nodeId, endpointPrefix);
-            for (const nodeId of call.baseObjectNodeIds()) add(nodeId, endpointPrefix);
-            if (endpoint.accessPath && endpoint.accessPath.length > 0) {
-                for (const nodeId of call.calleeReceiverEndpointNodeIds?.(endpoint.accessPath) || []) {
-                    add(nodeId);
-                }
-            }
-            break;
-        case "arg":
-            for (const nodeId of call.argCarrierNodeIds(endpoint.base.index)) add(nodeId, endpointPrefix);
-            for (const nodeId of call.argObjectNodeIds(endpoint.base.index)) add(nodeId, endpointPrefix);
-            break;
-        case "return":
-        case "promiseResult":
-        case "constructorResult":
-            for (const nodeId of call.resultCarrierNodeIds()) add(nodeId, endpointPrefix);
-            break;
-    }
+    for (const nodeId of projection.nodeIds) add(nodeId);
+    for (const nodeId of projection.carrierNodeIds) add(nodeId);
     return [...out.values()];
 }
 
-function resolveEndpointTargetNodeIds(call: ModuleScannedInvoke, endpoint: AssetEndpoint): number[] {
-    const out = new Set<number>(resolveEndpointNodeIds(call, endpoint));
-    switch (endpoint.base.kind) {
-        case "receiver":
-            for (const nodeId of call.baseCarrierNodeIds()) out.add(nodeId);
-            break;
-        case "arg":
-            for (const nodeId of call.argCarrierNodeIds(endpoint.base.index)) out.add(nodeId);
-            break;
-        case "return":
-        case "promiseResult":
-        case "constructorResult":
-            for (const nodeId of call.resultCarrierNodeIds()) out.add(nodeId);
-            break;
+function resolveEndpointTargetRefs(
+    analysis: ModuleAnalysisApi,
+    call: ModuleScannedInvoke,
+    endpoint: AssetEndpoint,
+    effectAssetId: string,
+    effectId: string,
+    effectKind: string,
+): ResolvedEndpointTargetRef[] {
+    const projection = projectModuleEndpoint(analysis, call, endpoint, effectAssetId, effectId, effectKind);
+    if (!projection || projection.status !== "resolved") return [];
+    const out = new Map<string, ResolvedEndpointTargetRef>();
+    const fieldPath = projection.fieldPath && projection.fieldPath.length > 0
+        ? [...projection.fieldPath]
+        : undefined;
+    const add = (nodeId: number): void => {
+        const key = `${nodeId}#${fieldPath?.join(".") || ""}`;
+        if (out.has(key)) return;
+        out.set(key, fieldPath
+            ? { nodeId, fieldPath: [...fieldPath], preserveSourceField: false }
+            : { nodeId });
+    };
+    if (fieldPath) {
+        for (const nodeId of projection.carrierNodeIds) add(nodeId);
+    } else {
+        for (const nodeId of projection.nodeIds) add(nodeId);
+        for (const nodeId of projection.carrierNodeIds) add(nodeId);
     }
     return [...out.values()];
 }
 
 function describeUnresolvedEndpoint(
+    analysis: ModuleAnalysisApi,
     call: ModuleScannedInvoke,
+    effectAssetId: string,
     effectId: string,
     effectKind: string,
     endpoint: AssetEndpoint | undefined,
@@ -477,9 +533,18 @@ function describeUnresolvedEndpoint(
             reason: "missing-endpoint",
         };
     }
-    const accessPath = endpoint.accessPath && endpoint.accessPath.length > 0
-        ? [...endpoint.accessPath]
-        : [];
+    const projection = projectModuleEndpoint(analysis, call, endpoint, effectAssetId, effectId, effectKind);
+    if (!projection) {
+        return {
+            effectId,
+            effectKind,
+            call: call.call.signature,
+            owner: call.ownerMethodSignature,
+            stmt: String(call.stmt?.toString?.() || ""),
+            endpoint,
+            reason: "accepted-module-semantic-site-not-found",
+        };
+    }
     return {
         effectId,
         effectKind,
@@ -487,24 +552,8 @@ function describeUnresolvedEndpoint(
         owner: call.ownerMethodSignature,
         stmt: String(call.stmt?.toString?.() || ""),
         endpoint,
-        directNodeIds: resolveEndpointNodeIds(call, endpoint),
-        receiverCalleeNodeIds: endpoint.base.kind === "receiver" && accessPath.length > 0
-            ? call.calleeReceiverEndpointNodeIds?.(accessPath) || []
-            : [],
-        baseCarrierNodeIds: endpoint.base.kind === "receiver" ? call.baseCarrierNodeIds() : [],
-        baseObjectNodeIds: endpoint.base.kind === "receiver" ? call.baseObjectNodeIds() : [],
+        projection: projection.record,
     };
-}
-
-function targetEndpoint(nodeId: number, endpoint: AssetEndpoint) {
-    if (endpoint.accessPath && endpoint.accessPath.length > 0) {
-        return {
-            nodeId,
-            fieldPath: [...endpoint.accessPath],
-            preserveSourceField: false,
-        };
-    }
-    return { nodeId };
 }
 
 export function compileRuntimeSemanticModule(

@@ -2,7 +2,10 @@
 import { SceneConfig } from "../../../arkanalyzer/out/src/Config";
 import { TaintPropagationEngine } from "../../core/orchestration/TaintPropagationEngine";
 import { SinkRule, SourceRule } from "../../core/rules/RuleSchema";
+import { createAssetIdentityIndex, type AssetDocumentBase, type AssetIdentityIndex } from "../../core/assets/schema";
+import { createCanonicalApiRegistry, type CanonicalApiRegistry } from "../../core/api/identity";
 import { validateRuleSet } from "../../core/rules/RuleValidator";
+import { projectApiEffectAssetFromMethod, type TestApiEffectAsset } from "../helpers/ApiEffectTestAssets";
 import * as path from "path";
 
 interface CaseSpec {
@@ -10,8 +13,42 @@ interface CaseSpec {
     expected: boolean;
 }
 
+interface ExactRuleRuntime {
+    apiAssets: AssetDocumentBase[];
+    canonicalApiRegistry: CanonicalApiRegistry;
+    assetIdentityIndex: AssetIdentityIndex;
+}
+
 function assert(condition: unknown, message: string): asserts condition {
     if (!condition) throw new Error(message);
+}
+
+function canonicalApiIdMatch(exact: TestApiEffectAsset): { kind: "canonical_api_id_equals"; value: string } {
+    return { kind: "canonical_api_id_equals", value: exact.apiEffect.canonicalApiId };
+}
+
+function assertCanonicalExactRules(rules: Array<SourceRule | SinkRule>): void {
+    for (const rule of rules) {
+        assert(rule.match.kind === "canonical_api_id_equals", `${rule.id} must use canonical API identity`);
+        assert(
+            rule.match.value === rule.apiEffect.canonicalApiId,
+            `${rule.id} match value must equal apiEffect.canonicalApiId`
+        );
+    }
+}
+
+function buildExactRuleRuntime(effects: TestApiEffectAsset[]): ExactRuleRuntime {
+    const descriptorsById = new Map<string, TestApiEffectAsset["canonicalApiDescriptor"]>();
+    for (const effect of effects) {
+        descriptorsById.set(effect.canonicalApiDescriptor.canonicalApiId, effect.canonicalApiDescriptor);
+    }
+    const canonicalApiRegistry = createCanonicalApiRegistry([...descriptorsById.values()]);
+    const assetIdentityIndex = createAssetIdentityIndex({ canonicalApiRegistry });
+    const apiAssets = effects.map(effect => effect.asset);
+    for (const asset of apiAssets) {
+        assetIdentityIndex.addAsset(asset);
+    }
+    return { apiAssets, canonicalApiRegistry, assetIdentityIndex };
 }
 
 function flowSinkInCaseMethod(scene: Scene, sinkStmt: any, caseMethodName: string): boolean {
@@ -26,11 +63,12 @@ async function runCase(
     scene: Scene,
     caseName: string,
     sourceRules: SourceRule[],
-    sinkRules: SinkRule[]
+    sinkRules: SinkRule[],
+    runtime: ExactRuleRuntime,
 ): Promise<boolean> {
     const caseMethod = scene.getMethods().find(m => m.getName() === caseName);
     assert(caseMethod, `case method not found: ${caseName}`);
-    const engine = new TaintPropagationEngine(scene, 1);
+    const engine = new TaintPropagationEngine(scene, 1, runtime);
     engine.verbose = false;
     await engine.buildPAG({ entryModel: "explicit", syntheticEntryMethods: [caseMethod] });
     engine.propagateWithSourceRules(sourceRules);
@@ -42,24 +80,25 @@ async function runCase(
 async function collectSourceHits(
     scene: Scene,
     caseName: string,
-    sourceRules: SourceRule[]
+    sourceRules: SourceRule[],
+    runtime: ExactRuleRuntime,
 ): Promise<Record<string, number>> {
     const caseMethod = scene.getMethods().find(m => m.getName() === caseName);
     assert(caseMethod, `case method not found: ${caseName}`);
-    const engine = new TaintPropagationEngine(scene, 1);
+    const engine = new TaintPropagationEngine(scene, 1, runtime);
     engine.verbose = false;
     await engine.buildPAG({ entryModel: "explicit", syntheticEntryMethods: [caseMethod] });
     const seedInfo = engine.propagateWithSourceRules(sourceRules);
     return seedInfo.sourceRuleHits;
 }
 
-function findMethodSignature(scene: Scene, methodName: string, signatureHint: string): string {
+function findMethod(scene: Scene, methodName: string, signatureHint: string) {
     const method = scene.getMethods().find(m =>
         m.getName() === methodName
         && m.getSignature().toString().includes(signatureHint)
     );
     assert(method, `method not found: ${methodName} (${signatureHint})`);
-    return method.getSignature().toString();
+    return method;
 }
 
 async function main(): Promise<void> {
@@ -70,21 +109,46 @@ async function main(): Promise<void> {
     scene.buildSceneFromProjectDir(sceneConfig);
     scene.inferTypes();
 
-    const sourceReturnSig = findMethodSignature(scene, "SourceReturn", "taint_mock");
-    const sourceArgSig = findMethodSignature(scene, "SourceArg", "taint_mock");
+    const sourceReturnMethod = findMethod(scene, "SourceReturn", "taint_mock");
+    const sourceArgMethod = findMethod(scene, "SourceArg", "taint_mock");
+    const sinkMethod = findMethod(scene, "Sink", "taint_mock");
+    const sourceReturnEffect = projectApiEffectAssetFromMethod({
+        id: "source.return",
+        role: "source",
+        method: sourceReturnMethod,
+        endpoint: { base: { kind: "return" } },
+        sourceKind: "call_return",
+    });
+    const sourceArgEffect = projectApiEffectAssetFromMethod({
+        id: "source.arg",
+        role: "source",
+        method: sourceArgMethod,
+        endpoint: { base: { kind: "arg", index: 1 } },
+        sourceKind: "call_arg",
+    });
+    const sinkEffect = projectApiEffectAssetFromMethod({
+        id: "sink.arg0",
+        role: "sink",
+        method: sinkMethod,
+        endpoint: { base: { kind: "arg", index: 0 } },
+        sinkKind: "test",
+    });
+    const exactRuntime = buildExactRuleRuntime([sourceReturnEffect, sourceArgEffect, sinkEffect]);
 
     const sourceRules: SourceRule[] = [
         {
-            id: "source.exact.signature_equals.call_return",
+            id: "source.exact.canonical_api_id.call_return",
             sourceKind: "call_return",
             target: "result",
-            match: { kind: "signature_equals", value: sourceReturnSig },
+            match: canonicalApiIdMatch(sourceReturnEffect),
+            apiEffect: sourceReturnEffect.apiEffect,
         },
         {
-            id: "source.exact.callee_signature_equals.call_arg",
+            id: "source.exact.canonical_api_id.call_arg",
             sourceKind: "call_arg",
             target: "arg1",
-            match: { kind: "signature_equals", value: sourceArgSig, argCount: 2 },
+            match: canonicalApiIdMatch(sourceArgEffect),
+            apiEffect: sourceArgEffect.apiEffect,
         },
     ];
 
@@ -92,16 +156,18 @@ async function main(): Promise<void> {
         {
             id: "sink.exact.arg0",
             target: { endpoint: "arg0" },
-            match: { kind: "method_name_equals", value: "Sink" },
+            match: canonicalApiIdMatch(sinkEffect),
+            apiEffect: sinkEffect.apiEffect,
         },
     ];
+    assertCanonicalExactRules([...sourceRules, ...sinkRules]);
 
     const validation = validateRuleSet({
         sources: sourceRules,
         sinks: sinkRules,
         transfers: [],
     });
-    assert(validation.valid, `source exact-match rules invalid: ${validation.errors.join("; ")}`);
+    assert(validation.valid, `source canonical identity exactness rules invalid: ${validation.errors.join("; ")}`);
 
     const cases: CaseSpec[] = [
         { name: "source_call_return_001_T", expected: true },
@@ -112,8 +178,8 @@ async function main(): Promise<void> {
 
     let passCount = 0;
     for (const c of cases) {
-        const detectedWithRules = await runCase(scene, c.name, sourceRules, sinkRules);
-        const detectedWithoutRules = await runCase(scene, c.name, [], sinkRules);
+        const detectedWithRules = await runCase(scene, c.name, sourceRules, sinkRules, exactRuntime);
+        const detectedWithoutRules = await runCase(scene, c.name, [], sinkRules, exactRuntime);
         const pass = c.expected
             ? (detectedWithRules && !detectedWithoutRules)
             : !detectedWithRules;
@@ -125,21 +191,39 @@ async function main(): Promise<void> {
         );
     }
 
+    const multiAEffect = projectApiEffectAssetFromMethod({
+        id: "source.multi.a",
+        role: "source",
+        method: sourceArgMethod,
+        endpoint: { base: { kind: "arg", index: 1 } },
+        sourceKind: "call_arg",
+    });
+    const multiBEffect = projectApiEffectAssetFromMethod({
+        id: "source.multi.b",
+        role: "source",
+        method: sourceArgMethod,
+        endpoint: { base: { kind: "arg", index: 1 } },
+        sourceKind: "call_arg",
+    });
     const multiLabelRules: SourceRule[] = [
         {
             id: "source.multi_label.a",
             sourceKind: "call_arg",
             target: "arg1",
-            match: { kind: "signature_equals", value: sourceArgSig, argCount: 2 },
+            match: canonicalApiIdMatch(multiAEffect),
+            apiEffect: multiAEffect.apiEffect,
         },
         {
             id: "source.multi_label.b",
             sourceKind: "call_arg",
             target: "arg1",
-            match: { kind: "signature_equals", value: sourceArgSig, argCount: 2 },
+            match: canonicalApiIdMatch(multiBEffect),
+            apiEffect: multiBEffect.apiEffect,
         },
     ];
-    const multiLabelHits = await collectSourceHits(scene, "source_call_arg_003_T", multiLabelRules);
+    assertCanonicalExactRules(multiLabelRules);
+    const multiRuntime = buildExactRuleRuntime([multiAEffect, multiBEffect]);
+    const multiLabelHits = await collectSourceHits(scene, "source_call_arg_003_T", multiLabelRules, multiRuntime);
     assert(
         multiLabelHits["source.multi_label.a"] === 1 && multiLabelHits["source.multi_label.b"] === 1,
         `same seed location should preserve distinct source labels, hits=${JSON.stringify(multiLabelHits)}`
@@ -148,14 +232,15 @@ async function main(): Promise<void> {
     const duplicateSameSourceHits = await collectSourceHits(
         scene,
         "source_call_arg_003_T",
-        [multiLabelRules[0], multiLabelRules[0]]
+        [multiLabelRules[0], multiLabelRules[0]],
+        buildExactRuleRuntime([multiAEffect]),
     );
     assert(
         duplicateSameSourceHits["source.multi_label.a"] === 1,
         `same source label should still be deduplicated, hits=${JSON.stringify(duplicateSameSourceHits)}`
     );
 
-    console.log("====== Source Exact Match Test ======");
+    console.log("====== Source Canonical Identity Exactness Test ======");
     console.log(`total_cases=${cases.length}`);
     console.log(`pass_cases=${passCount}`);
     console.log(`fail_cases=${cases.length - passCount}`);

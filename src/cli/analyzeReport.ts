@@ -42,6 +42,10 @@ interface EntryAnalyzeResultLike {
                 kind: string;
                 primaryReason?: string;
             };
+            countability?: {
+                status: string;
+                reason: string;
+            };
         }>;
         evidenceSummary: {
             evidenceKinds: string[];
@@ -50,6 +54,10 @@ interface EntryAnalyzeResultLike {
         judgement: {
             kind: string;
             primaryReason?: string;
+        };
+        countability?: {
+            status: string;
+            reason: string;
         };
         report?: {
             witness?: {
@@ -71,7 +79,7 @@ interface EntryAnalyzeResultLike {
         sinksChecked: number;
         sanitizerGuardCheckCount: number;
         sanitizerGuardHitCount: number;
-        signatureMatchMs: number;
+        effectMatchMs: number;
         candidateResolveMs: number;
         taintEvalMs: number;
         sanitizerGuardMs: number;
@@ -90,6 +98,8 @@ interface EntryAnalyzeResultLike {
         addFailureCount: number;
         unresolvedCount: number;
         unsupportedValueKinds: Record<string, number>;
+        endpointResolutionRecordCount?: number;
+        endpointResolutionStatusCounts?: Record<string, number>;
     };
 }
 
@@ -99,10 +109,11 @@ interface AnalyzeReportLike {
     sourceDirs: string[];
     profile: string;
     reportMode: string;
+    flowMode?: string;
     k: number;
     maxEntries: number;
-    ruleLayers: string[];
-    ruleLayerStatus: Array<{
+    ruleSources: string[];
+    ruleSourceStatus: Array<{
         name: string;
         path: string;
         applied: boolean;
@@ -121,7 +132,9 @@ interface AnalyzeReportLike {
         okEntries: number;
         withSeeds: number;
         withFlows: number;
+        withPartialFlows?: number;
         totalFlows: number;
+        partialFlows?: number;
         statusCount: Record<string, number>;
         ruleHits: RuleHitCountersLike;
         ruleHitEndpoints: RuleHitCountersLike;
@@ -164,6 +177,32 @@ interface AnalyzeReportLike {
         };
         stageProfile: any;
         transferNoHitReasons: Record<string, number>;
+        semanticEffectLedgerSummary?: {
+            recordCount: number;
+            siteRecordCount: number;
+            gapRecordCount: number;
+            byRecordKind?: Record<string, number>;
+            byStatus?: Record<string, number>;
+            byReasonCode?: Record<string, number>;
+            byCapability?: Record<string, number>;
+            byGapKind?: Record<string, number>;
+            endpointStatusCounts?: Record<string, number>;
+        };
+        officialIdentityCoverage?: {
+            totalOccurrenceCount: number;
+            acceptedCount: number;
+            unresolvedCount: number;
+            ambiguousCount: number;
+            rejectedCount: number;
+            byStatus?: Record<string, number>;
+            bySyntaxKind?: Record<string, number>;
+            acceptedCanonicalApiIds: number;
+            byReasonCode?: Record<string, number>;
+            bySourceFile?: Record<string, number>;
+            byDomain?: Record<string, number>;
+            byModuleSpecifier?: Record<string, number>;
+            byResolutionKind?: Record<string, number>;
+        };
         diagnosticItems?: Array<{
             category: "Rule" | "Module" | "Plugin" | "System";
             code: string;
@@ -229,26 +268,74 @@ function countPostsolveJudgements(entries: EntryAnalyzeResultLike[]): Record<str
 
 function noHitReasonAdvice(reason: string): string {
     const map: Record<string, string> = {
-        no_transfer_rules_loaded: "Add transfer rules for the relevant from/to endpoints.",
-        no_tainted_facts: "Add source rules so entry params or key locals can produce seeds.",
-        no_invoke_site_from_tainted_fact: "Check the taint chain before the invoke site and add missing transfer rules.",
-        no_candidate_rule_for_callsite: "Broaden the match condition with method/signature/regex coverage.",
-        rule_static_match_failed: "Adjust the rule match or invokeKind/argCount constraints.",
-        from_endpoint_not_tainted_or_path_mismatch: "Verify that fromRef matches the real tainted endpoint and path.",
-        to_endpoint_unresolved_or_no_target_nodes: "Verify that toRef resolves to concrete target nodes.",
-        no_source_seed: "Add source rules such as entry_param, call_return, or seed_local_name.",
+        no_transfer_rules_loaded: "Asset/effect gap: no exact transfer effects were loaded for this run.",
+        no_tainted_facts: "Source or propagation gap: accepted source effects did not produce reachable taint facts.",
+        no_invoke_site_from_tainted_fact: "Propagation gap: taint did not reach an invoke site where an exact effect could apply.",
+        no_candidate_rule_for_callsite: "Asset/effect gap: tainted callsites exist, but no exact canonical transfer effect applies.",
+        rule_static_match_failed: "Effect constraint gap: a candidate effect was considered, but exact invoke or endpoint constraints failed.",
+        from_endpoint_not_tainted_or_path_mismatch: "Endpoint or propagation gap: the effect from endpoint did not resolve to the tainted node/path.",
+        to_endpoint_unresolved_or_no_target_nodes: "Endpoint gap: the effect matched, but the target endpoint did not resolve to PAG nodes.",
+        no_source_seed: "Source or arkMain gap: no exact source capability produced an initial seed.",
         no_entry_method: "The current sourceDir did not produce reachable arkMain entries.",
         entry_has_no_body: "The target method has no body; check whether sourceDir contains the executable ArkTS implementation.",
         no_selected_entry: "The current sourceDir produced an empty arkMain reachable scope; check module layout or narrow sourceDir.",
         analyze_exception: "Analysis threw an exception; inspect the summary for the failing entry.",
+        source_dir_exception: "SourceDir analysis failed before closure could be evaluated; inspect diagnostics for the build or scene error.",
+        propagation_budget_exceeded: "Result gap: propagation stopped at the configured worklist budget before a complete answer was produced.",
     };
-    return map[reason] || "Add or adjust source/sink/transfer rules based on the reported reason.";
+    if (reason.startsWith("propagation_budget_exceeded:")) {
+        return "Result gap: propagation stopped at the configured worklist budget; inspect the specific budget reason.";
+    }
+    return map[reason] || "Inspect the closure ledger for the exact layer that stopped: identity, asset/effect, endpoint, propagation, or result.";
 }
 
 function resolveProjectRulePath(report: AnalyzeReportLike): string {
-    const appliedProject = report.ruleLayerStatus.find(s => s.name === "project" && s.applied);
+    const appliedProject = report.ruleSourceStatus.find(s => s.name === "project" && s.applied);
     if (appliedProject) return appliedProject.path;
     return "a reviewed project asset package for this analyzed project";
+}
+
+function renderOfficialClosureGuidance(report: AnalyzeReportLike): string[] {
+    const coverage = report.summary.officialIdentityCoverage;
+    const lines: string[] = [];
+    lines.push("### Official Closure Gaps");
+    if (!coverage) {
+        lines.push("- No official occurrence coverage was recorded; inspect occurrence recovery before reasoning about API effects.");
+        return lines;
+    }
+
+    const identityGapCount = coverage.unresolvedCount + coverage.ambiguousCount + coverage.rejectedCount;
+    lines.push(`- identity: accepted=${coverage.acceptedCount}, unresolved=${coverage.unresolvedCount}, ambiguous=${coverage.ambiguousCount}, rejected=${coverage.rejectedCount}`);
+    if (coverage.acceptedCount > 0) {
+        lines.push(`- effect input: ${coverage.acceptedCount} accepted official occurrences can feed exact source/sink/transfer/module assets.`);
+    }
+    const semantic = report.summary.semanticEffectLedgerSummary;
+    if (semantic) {
+        lines.push(`- semantic effects: sites=${semantic.siteRecordCount}, gaps=${semantic.gapRecordCount}, endpointStatuses=${JSON.stringify(semantic.endpointStatusCounts || {})}`);
+        const topEffectReasons = rankCounters(semantic.byReasonCode || {}, 5);
+        if (topEffectReasons.length > 0) {
+            lines.push(`- effect reasons: ${topEffectReasons.map(item => `${item.key}(${item.count})`).join(", ")}`);
+        }
+    }
+    if (identityGapCount > 0) {
+        lines.push("- identity gaps must be fixed by stronger import, receiver, declaration, ArkUI, decorator, or shape evidence. They must not emit semantics while unresolved or ambiguous.");
+        const topReasons = rankCounters(coverage.byReasonCode || {}, 5);
+        if (topReasons.length > 0) {
+            lines.push(`- identity reasons: ${topReasons.map(item => `${item.key}(${item.count})`).join(", ")}`);
+        }
+    } else if (coverage.totalOccurrenceCount > 0) {
+        lines.push("- identity gate is clean for recorded official occurrences. If flows are still absent, inspect asset/effect coverage, endpoint projection, and ordinary propagation.");
+    }
+
+    const topDomains = rankCounters(coverage.byDomain || {}, 5);
+    if (topDomains.length > 0) {
+        lines.push(`- domains: ${topDomains.map(item => `${item.key}(${item.count})`).join(", ")}`);
+    }
+    const topModules = rankCounters(coverage.byModuleSpecifier || {}, 5);
+    if (topModules.length > 0) {
+        lines.push(`- modules: ${topModules.map(item => `${item.key}(${item.count})`).join(", ")}`);
+    }
+    return lines;
 }
 
 function renderGuidance(report: AnalyzeReportLike): string[] {
@@ -261,9 +348,11 @@ function renderGuidance(report: AnalyzeReportLike): string[] {
 
     lines.push("## Next Steps");
     lines.push("");
+    lines.push(...renderOfficialClosureGuidance(report));
+    lines.push("");
     lines.push("### Hit Rules (Top)");
     if (topSourceHits.length === 0 && topSinkHits.length === 0 && topTransferHits.length === 0) {
-        lines.push("- No rule hits yet; start by adding a minimal source/sink rule set.");
+        lines.push("- No effect hits yet; inspect whether exact assets loaded and accepted occurrences reached the effect layer.");
     } else {
         if (topSourceHits.length > 0) {
             lines.push(`- source hits: ${topSourceHits.map(x => `${x.key}(${x.count})`).join(", ")}`);
@@ -301,10 +390,10 @@ function renderGuidance(report: AnalyzeReportLike): string[] {
         lines.push("- No obvious rule gaps.");
     } else {
         for (const e of sourceGaps) {
-            lines.push(`- [source] ${e.entryName} @ ${e.entryPathHint || "N/A"}: add entry_param or call_return source rules in ${projectRulePath}.`);
+            lines.push(`- [source] ${e.entryName} @ ${e.entryPathHint || "N/A"}: inspect arkMain reachability and exact source capability lowering in ${projectRulePath}.`);
         }
         for (const e of transferGaps) {
-            lines.push(`- [transfer] ${e.entryName} @ ${e.entryPathHint || "N/A"}: seeds exist but no flow; add from(arg/base)->to(result/base/arg) transfers in ${projectRulePath}.`);
+            lines.push(`- [transfer] ${e.entryName} @ ${e.entryPathHint || "N/A"}: seeds exist but no flow; inspect exact transfer effects, endpoint projection, and ordinary propagation in ${projectRulePath}.`);
         }
     }
     return lines;
@@ -316,9 +405,11 @@ export function renderMarkdownReport(report: AnalyzeReportLike): string {
     const transferRuleHits = countTotalHits(report.summary.ruleHits.transfer);
     const diagnostics = report.summary.diagnostics;
     const pagAudit = report.summary.pagNodeResolutionAudit || {};
+    const semanticEffectSummary = report.summary.semanticEffectLedgerSummary;
     const topNoHitSummary = rankCounters(report.summary.transferNoHitReasons || {}, 5)
         .map(item => `${item.key}(${item.count})`)
         .join(", ");
+    const endpointStatusSummary = JSON.stringify(pagAudit.endpointResolutionStatusCounts || {});
     const lines: string[] = [];
     lines.push("# ArkTaint Analyze Report");
     lines.push("");
@@ -327,14 +418,28 @@ export function renderMarkdownReport(report: AnalyzeReportLike): string {
     lines.push(`- sourceDirs: ${report.sourceDirs.join(", ")}`);
     lines.push(`- profile: ${report.profile}`);
     lines.push(`- reportMode: ${report.reportMode}`);
+    lines.push(`- flowMode: ${report.flowMode || "postsolve"}`);
+    if (report.flowMode === "candidate") {
+        lines.push("- flowModeNote: candidate mode is for no-LLM real-project batch scanning. It reports candidate source-to-sink hits and skips trace graph, path materialization, postsolve judgement, and explanation ledgers. Human review must decide true/false flows.");
+    }
+    if (report.flowMode === "raw") {
+        lines.push("- flowModeNote: raw mode keeps full core analysis semantics but skips trace graph, path materialization, postsolve judgement, and explanation ledgers. Human review must decide true/false flows.");
+    }
     lines.push(`- k: ${report.k}`);
     lines.push(`- maxEntries: ${report.maxEntries}`);
-    lines.push(`- ruleLayers: ${report.ruleLayers.join(" -> ")}`);
+    lines.push(`- ruleSources: ${report.ruleSources.join(" -> ")}`);
     lines.push(`- totalEntries: ${report.summary.totalEntries}`);
     lines.push(`- okEntries: ${report.summary.okEntries}`);
     lines.push(`- withSeeds: ${report.summary.withSeeds}`);
     lines.push(`- withFlows: ${report.summary.withFlows}`);
+    if (typeof report.summary.withPartialFlows === "number" && report.summary.withPartialFlows > 0) {
+        lines.push(`- withPartialFlows: ${report.summary.withPartialFlows}`);
+    }
     lines.push(`- totalFlows: ${report.summary.totalFlows}`);
+    if (typeof report.summary.partialFlows === "number" && report.summary.partialFlows > 0) {
+        lines.push(`- partialFlows: ${report.summary.partialFlows}`);
+        lines.push("- partialFlowsNote: budget_exceeded entries are diagnostic evidence only and are not counted in totalFlows.");
+    }
     const postsolveJudgementCounts = countPostsolveJudgements(report.entries || []);
     if (Object.keys(postsolveJudgementCounts).length > 0) {
         lines.push(`- postsolveJudgements: ${JSON.stringify(postsolveJudgementCounts)}`);
@@ -347,6 +452,10 @@ export function renderMarkdownReport(report: AnalyzeReportLike): string {
         lines.push(`- memoryProfile: peakRssMiB=${report.summary.memoryProfile.peakRssMiB}, peakHeapUsedMiB=${report.summary.memoryProfile.peakHeapUsedMiB}, rssMiB=${report.summary.memoryProfile.rssMiB}, heapUsedMiB=${report.summary.memoryProfile.heapUsedMiB}, samples=${report.summary.memoryProfile.sampleCount}`);
     }
     lines.push(`- pagNodeResolutionAudit: requests=${pagAudit.requestCount || 0}, directHits=${pagAudit.directHitCount || 0}, substitutions=${pagAudit.substitutedValueCount || 0}, addFailures=${pagAudit.addFailureCount || 0}, unresolved=${pagAudit.unresolvedCount || 0}`);
+    lines.push(`- endpointResolutionLedger: records=${pagAudit.endpointResolutionRecordCount || 0}, statuses=${endpointStatusSummary}`);
+    if (semanticEffectSummary) {
+        lines.push(`- semanticEffectLedger: sites=${semanticEffectSummary.siteRecordCount}, gaps=${semanticEffectSummary.gapRecordCount}, statuses=${JSON.stringify(semanticEffectSummary.byStatus || {})}, gapKinds=${JSON.stringify(semanticEffectSummary.byGapKind || {})}`);
+    }
     if (report.summary.arkMainSeeds) {
         const arkmain = report.summary.arkMainSeeds;
         lines.push(`- arkMainSeeds: enabled=${arkmain.enabled}, methods=${arkmain.methodCount}, facts=${arkmain.factCount}`);
@@ -359,6 +468,16 @@ export function renderMarkdownReport(report: AnalyzeReportLike): string {
     }
     if (topNoHitSummary) {
         lines.push(`- transferNoHitReasonsTop: ${topNoHitSummary}`);
+    }
+    if (report.summary.officialIdentityCoverage) {
+        const coverage = report.summary.officialIdentityCoverage;
+        lines.push(`- officialIdentityCoverage: total=${coverage.totalOccurrenceCount}, accepted=${coverage.acceptedCount}, unresolved=${coverage.unresolvedCount}, ambiguous=${coverage.ambiguousCount}, rejected=${coverage.rejectedCount}, acceptedCanonicalApiIds=${coverage.acceptedCanonicalApiIds}`);
+        const topIdentityReasons = rankCounters(coverage.byReasonCode || {}, 5)
+            .map(item => `${item.key}(${item.count})`)
+            .join(", ");
+        if (topIdentityReasons) {
+            lines.push(`- officialIdentityReasonsTop: ${topIdentityReasons}`);
+        }
     }
     if (report.summary.ruleFeedback) {
         const zeroHit = report.summary.ruleFeedback.zeroHitRules || { source: {}, sink: {}, transfer: {} };
@@ -423,9 +542,10 @@ export function renderMarkdownReport(report: AnalyzeReportLike): string {
             continue;
         }
         lines.push(`  - transferProfile: checks=${e.transferProfile.ruleCheckCount}, matches=${e.transferProfile.ruleMatchCount}, endpointMatches=${e.transferProfile.endpointMatchCount}, results=${e.transferProfile.resultCount}, dedupSkips=${e.transferProfile.dedupSkipCount}, elapsedMs=${e.transferProfile.elapsedMs}`);
-        lines.push(`  - detectProfile: calls=${e.detectProfile.detectCallCount}, sinksChecked=${e.detectProfile.sinksChecked}, sanitizerChecks=${e.detectProfile.sanitizerGuardCheckCount}, sanitizerHits=${e.detectProfile.sanitizerGuardHitCount}, signatureMs=${e.detectProfile.signatureMatchMs}, candidateMs=${e.detectProfile.candidateResolveMs}, taintMs=${e.detectProfile.taintEvalMs}, sanitizerMs=${e.detectProfile.sanitizerGuardMs}, traversalMs=${e.detectProfile.traversalMs}, totalMs=${e.detectProfile.totalMs}`);
+        lines.push(`  - detectProfile: calls=${e.detectProfile.detectCallCount}, sinksChecked=${e.detectProfile.sinksChecked}, sanitizerChecks=${e.detectProfile.sanitizerGuardCheckCount}, sanitizerHits=${e.detectProfile.sanitizerGuardHitCount}, effectMs=${e.detectProfile.effectMatchMs}, candidateMs=${e.detectProfile.candidateResolveMs}, taintMs=${e.detectProfile.taintEvalMs}, sanitizerMs=${e.detectProfile.sanitizerGuardMs}, traversalMs=${e.detectProfile.traversalMs}, totalMs=${e.detectProfile.totalMs}`);
         if (e.pagNodeResolutionAudit) {
             lines.push(`  - pagNodeResolutionAudit: requests=${e.pagNodeResolutionAudit.requestCount}, directHits=${e.pagNodeResolutionAudit.directHitCount}, substitutions=${e.pagNodeResolutionAudit.substitutedValueCount}, addFailures=${e.pagNodeResolutionAudit.addFailureCount}, unresolved=${e.pagNodeResolutionAudit.unresolvedCount}`);
+            lines.push(`  - endpointResolutionLedger: records=${e.pagNodeResolutionAudit.endpointResolutionRecordCount || 0}, statuses=${JSON.stringify(e.pagNodeResolutionAudit.endpointResolutionStatusCounts || {})}`);
         }
         if (e.transferNoHitReasons.length > 0) {
             lines.push(`  - transferNoHitReasons: ${e.transferNoHitReasons.join(",")}`);
@@ -437,14 +557,14 @@ export function renderMarkdownReport(report: AnalyzeReportLike): string {
             lines.push(`  - flowRuleChain: sourceRule=${trace.sourceRuleId || "N/A"}, sinkRule=${trace.sinkRuleId || "N/A"}, sinkEndpoint=${trace.sinkEndpoint || "N/A"}, transferRules=${trace.transferRuleIds.join(" -> ") || "N/A"}`);
         }
         for (const result of (e.postsolveResults || []).slice(0, 2)) {
-            lines.push(`  - postsolve: sinkFactId=${result.flow.sinkFactId || "N/A"}, judgement=${result.judgement.kind}, primaryReason=${result.evidenceSummary.primaryReason || "N/A"}, evidenceKinds=${result.evidenceSummary.evidenceKinds.join(",") || "N/A"}, skeletonNodes=${result.skeleton?.nodes.length || 0}, pathCount=${result.paths.length}, materialization=${result.report.witness?.status || "N/A"}`);
+            lines.push(`  - postsolve: sinkFactId=${result.flow.sinkFactId || "N/A"}, judgement=${result.judgement.kind}, primaryReason=${result.evidenceSummary.primaryReason || "N/A"}, countability=${result.countability?.status || "N/A"}, countabilityReason=${result.countability?.reason || "N/A"}, evidenceKinds=${result.evidenceSummary.evidenceKinds.join(",") || "N/A"}, skeletonNodes=${result.skeleton?.nodes.length || 0}, pathCount=${result.paths.length}, materialization=${result.report.witness?.status || "N/A"}`);
             lines.push(`    - flow: source=${result.flow.source} | sink=${result.flow.sinkText}`);
             if (result.skeleton) {
                 lines.push(`    - skeleton: nodes=${result.skeleton.nodes.length}, edges=${result.skeleton.edges.length}`);
             }
             for (const pathItem of result.paths.slice(0, 5)) {
                 const evidenceKinds = [...new Set((pathItem.evidence || []).map(item => item.kind))];
-                lines.push(`    - path: judgement=${pathItem.judgement.kind}, primaryReason=${pathItem.judgement.primaryReason || "N/A"}, evidenceKinds=${evidenceKinds.join(",") || "N/A"}, status=${pathItem.status || "complete"}, truncated=${pathItem.truncated ? "true" : "false"}`);
+                lines.push(`    - path: judgement=${pathItem.judgement.kind}, primaryReason=${pathItem.judgement.primaryReason || "N/A"}, countability=${pathItem.countability?.status || "N/A"}, countabilityReason=${pathItem.countability?.reason || "N/A"}, evidenceKinds=${evidenceKinds.join(",") || "N/A"}, status=${pathItem.status || "complete"}, truncated=${pathItem.truncated ? "true" : "false"}`);
                 lines.push(`      - factIds: ${pathItem.factIds.join(" -> ") || "N/A"}`);
             }
         }

@@ -26,8 +26,8 @@ function endpointKey(endpoint: RuleEndpointOrRef | undefined): string {
     return `${endpoint.endpoint}${suffix}${semantic}`;
 }
 
-function sinksFor(sinks: SinkRule[], methodName: string): SinkRule[] {
-    return sinks.filter(rule => rule.match.kind === "method_name_equals" && rule.match.value === methodName);
+function decodedCanonicalId(rule: SinkRule): string {
+    return decodeURIComponent(rule.match.value || "");
 }
 
 function ruleById(sinks: SinkRule[], id: string): SinkRule {
@@ -36,21 +36,32 @@ function ruleById(sinks: SinkRule[], id: string): SinkRule {
     return rule;
 }
 
+function hasProjectMethodIdentity(rule: SinkRule, methodName: string, fileTail: string, className?: string): boolean {
+    if (rule.match.kind !== "canonical_api_id_equals") return false;
+    const id = decodedCanonicalId(rule);
+    if (!id.includes(`file=${fileTail}`)) return false;
+    if (className && !id.includes(`decl=class:${className}`)) return false;
+    return id.includes(`:${methodName}:`);
+}
+
+function sinksFor(sinks: SinkRule[], methodName: string, fileTail: string, className?: string): SinkRule[] {
+    return sinks.filter(rule => hasProjectMethodIdentity(rule, methodName, fileTail, className));
+}
+
 function assertScopedProjectRule(rule: SinkRule, fileTail: string, className: string): void {
-    const scope = rule.scope;
-    assert(scope?.file?.mode === "contains", `${rule.id} must be scoped to a project file`);
-    assert(scope.file.value === fileTail, `${rule.id} file scope drifted: ${scope.file.value}`);
-    assert(scope?.className?.mode === "equals", `${rule.id} must be scoped to an exact project class`);
-    assert(scope.className.value === className, `${rule.id} class scope drifted: ${scope.className.value}`);
-    assert(rule.match.kind === "method_name_equals", `${rule.id} must not use broad method regex matching`);
+    assert(rule.match.kind === "canonical_api_id_equals", `${rule.id} must use canonical identity`);
+    assert(rule.apiEffect?.canonicalApiId === rule.match.value, `${rule.id} apiEffect canonical id mismatch`);
+    const id = decodedCanonicalId(rule);
+    assert(id.includes(`file=${fileTail}`), `${rule.id} file identity drifted: ${id}`);
+    assert(id.includes(`decl=class:${className}`), `${rule.id} class identity drifted: ${id}`);
 }
 
 function assertScopedProjectFunctionRule(rule: SinkRule, fileTail: string): void {
-    const scope = rule.scope;
-    assert(scope?.file?.mode === "contains", `${rule.id} must be scoped to a project file`);
-    assert(scope.file.value === fileTail, `${rule.id} file scope drifted: ${scope.file.value}`);
-    assert(!scope.className, `${rule.id} must not invent a class scope for a free function`);
-    assert(rule.match.kind === "method_name_equals", `${rule.id} must not use broad method regex matching`);
+    assert(rule.match.kind === "canonical_api_id_equals", `${rule.id} must use canonical identity`);
+    assert(rule.apiEffect?.canonicalApiId === rule.match.value, `${rule.id} apiEffect canonical id mismatch`);
+    const id = decodedCanonicalId(rule);
+    assert(id.includes(`file=${fileTail}`), `${rule.id} file identity drifted: ${id}`);
+    assert(!id.includes("decl=class:"), `${rule.id} must not invent a class declaration identity: ${id}`);
 }
 
 function assertReviewedProjectAsset(asset: AssetDocumentBase, projectId: string): void {
@@ -75,13 +86,13 @@ function main(): void {
     const lowered = lowerRuleAssetsToRuleSet([harmonyAsset, wanAsset, tencentAsset, cateringAsset]);
     assert(lowered.diagnostics.length === 0, `unexpected lowering diagnostics:\n${lowered.diagnostics.join("\n")}`);
 
-    const postSinks = sinksFor(lowered.ruleSet.sinks, "post")
+    const postSinks = sinksFor(lowered.ruleSet.sinks, "post", "ets/httpRequest/BaseProvider.ets", "BaseProvider")
         .filter(rule => rule.id.includes("harmony_study_external"));
-    const searchSinks = sinksFor(lowered.ruleSet.sinks, "postSearchResultList");
-    const querySinks = sinksFor(lowered.ruleSet.sinks, "query");
-    const shareSinks = sinksFor(lowered.ruleSet.sinks, "shareArticle");
-    const collectSinks = sinksFor(lowered.ruleSet.sinks, "collectUrl");
-    const orderApiSinks = sinksFor(lowered.ruleSet.sinks, "addDnOrder")
+    const searchSinks = sinksFor(lowered.ruleSet.sinks, "postSearchResultList", "ets/viewModel/SearchResultViewModel.ets", "SearchResultViewModel");
+    const querySinks = sinksFor(lowered.ruleSet.sinks, "query", "ets/net/wanAPI/WanHttpClient.ets", "WanHttpClient");
+    const shareSinks = sinksFor(lowered.ruleSet.sinks, "shareArticle", "ets/net/wanAPI/WanHttpClient.ets", "WanHttpClient");
+    const collectSinks = sinksFor(lowered.ruleSet.sinks, "collectUrl", "ets/net/wanAPI/WanHttpClient.ets", "WanHttpClient");
+    const orderApiSinks = sinksFor(lowered.ruleSet.sinks, "addDnOrder", "ets/api/Index.ets")
         .filter(rule => rule.id.includes("catering_orders_external.OrderApi"));
 
     assert(postSinks.length === 1, `expected one HarmonyStudy BaseProvider.post sink, got ${postSinks.length}`);

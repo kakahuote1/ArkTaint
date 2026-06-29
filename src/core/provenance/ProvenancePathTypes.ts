@@ -184,6 +184,8 @@ export interface MaterializedTaintFlow {
     status: ProvenancePathStatus;
     materializationStatus?: PathMaterializationStatus;
     incompleteReasons: ProvenancePathIncompleteReason[];
+    factIds?: string[];
+    edges?: ProvenanceDagEdge[];
     paths: ProvenancePath[];
     pathClasses?: PathClass[];
     gaps?: PathGap[];

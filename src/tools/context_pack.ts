@@ -400,7 +400,7 @@ export function renderContextPackMarkdown(pack: ContextPack, budget: RenderBudge
         truncation = {
             reason: "max_chars_hard_minimal",
             max_chars: maxChars,
-            dropped_sections: [...dropped, "markdown_minimal_fallback"],
+            dropped_sections: [...dropped, "markdown_minimal_compaction"],
         };
         const minimal = [
             "# Context Handoff Pack",

@@ -4,6 +4,7 @@ import { SceneConfig } from "../../../arkanalyzer/out/src/Config";
 import { TaintPropagationEngine } from "../../core/orchestration/TaintPropagationEngine";
 import * as fs from 'fs';
 import * as path from 'path';
+import { detectSinksByExactMethodsForTest, resolveUniqueMethodByExactNameForTest, resolveUniqueMethodByExactSignatureForTest } from "../helpers/ExactSinkDetectionTestUtils";
 
 // Helper to determine if a string is a valid ArkTaint signature
 function isSignature(s: string): boolean {
@@ -125,7 +126,7 @@ async function runTest() {
             localEngine.propagateWithSeeds(seeds);
 
             console.log("Detecting Flows...");
-            let flows = localEngine.detectSinks("Sink"); // Case sensitive 'sink' or 'Sink'? Mock has 'Sink'.
+            let flows = detectSinksByExactMethodsForTest(localEngine, resolveUniqueMethodByExactNameForTest(localEngine, "Sink")); // Case sensitive 'sink' or 'Sink'? Mock has 'Sink'.
 
             let detected = flows.length > 0;
             if (detected === expected) {

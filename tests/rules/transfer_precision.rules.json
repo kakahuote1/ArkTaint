@@ -4,153 +4,657 @@
   "status": "official",
   "surfaces": [
     {
-      "surfaceId": "surface.source.transfer_precision.entry_param.taint_src",
-      "kind": "access",
-      "modulePath": "@arktaint/local",
-      "ownerName": "LocalBinding",
-      "propertyName": "source.transfer_precision.entry_param.taint_src",
-      "accessKind": "read",
-      "receiverKind": "namespace",
-      "confidence": "likely",
+      "surfaceId": "surface.source.transfer_precision.entry_param.taint_src.method.transfer_arg_count_005_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=rule_precision_transfer%2Ftransfer_arg_count_005_T.ets:file=rule_precision_transfer%2Ftransfer_arg_count_005_T.ets:export=entry%3Acomponent.transfer_arg_count_005_T:decl=entry%3Acomponent.transfer_arg_count_005_T:member=lifecycle%3Atest.case.transfer_arg_count_005_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "rule_precision_transfer/transfer_arg_count_005_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_precision_transfer/transfer_arg_count_005_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "transfer_arg_count_005_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.transfer_precision.entry_param.taint_src.method.transfer_arg_count_006_F",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=rule_precision_transfer%2Ftransfer_arg_count_006_F.ets:file=rule_precision_transfer%2Ftransfer_arg_count_006_F.ets:export=entry%3Acomponent.transfer_arg_count_006_F:decl=entry%3Acomponent.transfer_arg_count_006_F:member=lifecycle%3Atest.case.transfer_arg_count_006_F:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "rule_precision_transfer/transfer_arg_count_006_F.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_precision_transfer/transfer_arg_count_006_F.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "transfer_arg_count_006_F",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.transfer_precision.entry_param.taint_src.method.transfer_compose_011_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=rule_precision_transfer%2Ftransfer_compose_011_T.ets:file=rule_precision_transfer%2Ftransfer_compose_011_T.ets:export=entry%3Acomponent.transfer_compose_011_T:decl=entry%3Acomponent.transfer_compose_011_T:member=lifecycle%3Atest.case.transfer_compose_011_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "rule_precision_transfer/transfer_compose_011_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_precision_transfer/transfer_compose_011_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "transfer_compose_011_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.transfer_precision.entry_param.taint_src.method.transfer_compose_012_F",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=rule_precision_transfer%2Ftransfer_compose_012_F.ets:file=rule_precision_transfer%2Ftransfer_compose_012_F.ets:export=entry%3Acomponent.transfer_compose_012_F:decl=entry%3Acomponent.transfer_compose_012_F:member=lifecycle%3Atest.case.transfer_compose_012_F:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "rule_precision_transfer/transfer_compose_012_F.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_precision_transfer/transfer_compose_012_F.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "transfer_compose_012_F",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.transfer_precision.entry_param.taint_src.method.transfer_field_path_001_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=rule_precision_transfer%2Ftransfer_field_path_001_T.ets:file=rule_precision_transfer%2Ftransfer_field_path_001_T.ets:export=entry%3Acomponent.transfer_field_path_001_T:decl=entry%3Acomponent.transfer_field_path_001_T:member=lifecycle%3Atest.case.transfer_field_path_001_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "rule_precision_transfer/transfer_field_path_001_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_precision_transfer/transfer_field_path_001_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "transfer_field_path_001_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.transfer_precision.entry_param.taint_src.method.transfer_field_path_002_F",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=rule_precision_transfer%2Ftransfer_field_path_002_F.ets:file=rule_precision_transfer%2Ftransfer_field_path_002_F.ets:export=entry%3Acomponent.transfer_field_path_002_F:decl=entry%3Acomponent.transfer_field_path_002_F:member=lifecycle%3Atest.case.transfer_field_path_002_F:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "rule_precision_transfer/transfer_field_path_002_F.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_precision_transfer/transfer_field_path_002_F.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "transfer_field_path_002_F",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.transfer_precision.entry_param.taint_src.method.transfer_invoke_kind_003_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=rule_precision_transfer%2Ftransfer_invoke_kind_003_T.ets:file=rule_precision_transfer%2Ftransfer_invoke_kind_003_T.ets:export=entry%3Acomponent.transfer_invoke_kind_003_T:decl=entry%3Acomponent.transfer_invoke_kind_003_T:member=lifecycle%3Atest.case.transfer_invoke_kind_003_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "rule_precision_transfer/transfer_invoke_kind_003_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_precision_transfer/transfer_invoke_kind_003_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "transfer_invoke_kind_003_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.transfer_precision.entry_param.taint_src.method.transfer_invoke_kind_004_F",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=rule_precision_transfer%2Ftransfer_invoke_kind_004_F.ets:file=rule_precision_transfer%2Ftransfer_invoke_kind_004_F.ets:export=entry%3Acomponent.transfer_invoke_kind_004_F:decl=entry%3Acomponent.transfer_invoke_kind_004_F:member=lifecycle%3Atest.case.transfer_invoke_kind_004_F:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "rule_precision_transfer/transfer_invoke_kind_004_F.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_precision_transfer/transfer_invoke_kind_004_F.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "transfer_invoke_kind_004_F",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.transfer_precision.entry_param.taint_src.method.transfer_scope_009_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=rule_precision_transfer%2Ftransfer_scope_009_T.ets:file=rule_precision_transfer%2Ftransfer_scope_009_T.ets:export=entry%3Acomponent.transfer_scope_009_T:decl=entry%3Acomponent.transfer_scope_009_T:member=lifecycle%3Atest.case.transfer_scope_009_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "rule_precision_transfer/transfer_scope_009_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_precision_transfer/transfer_scope_009_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "transfer_scope_009_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.transfer_precision.entry_param.taint_src.method.transfer_scope_010_F",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=rule_precision_transfer%2Ftransfer_scope_010_F.ets:file=rule_precision_transfer%2Ftransfer_scope_010_F.ets:export=entry%3Acomponent.transfer_scope_010_F:decl=entry%3Acomponent.transfer_scope_010_F:member=lifecycle%3Atest.case.transfer_scope_010_F:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "rule_precision_transfer/transfer_scope_010_F.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_precision_transfer/transfer_scope_010_F.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "transfer_scope_010_F",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.transfer_precision.entry_param.taint_src.method.transfer_type_hint_007_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=rule_precision_transfer%2Ftransfer_type_hint_007_T.ets:file=rule_precision_transfer%2Ftransfer_type_hint_007_T.ets:export=entry%3Acomponent.transfer_type_hint_007_T:decl=entry%3Acomponent.transfer_type_hint_007_T:member=lifecycle%3Atest.case.transfer_type_hint_007_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "rule_precision_transfer/transfer_type_hint_007_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_precision_transfer/transfer_type_hint_007_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "transfer_type_hint_007_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.transfer_precision.entry_param.taint_src.method.transfer_type_hint_008_F",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=rule_precision_transfer%2Ftransfer_type_hint_008_F.ets:file=rule_precision_transfer%2Ftransfer_type_hint_008_F.ets:export=entry%3Acomponent.transfer_type_hint_008_F:decl=entry%3Acomponent.transfer_type_hint_008_F:member=lifecycle%3Atest.case.transfer_type_hint_008_F:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "rule_precision_transfer/transfer_type_hint_008_F.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_precision_transfer/transfer_type_hint_008_F.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "transfer_type_hint_008_F",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
       }
     },
     {
       "surfaceId": "surface.sink.transfer_precision.arg0",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "Sink",
-      "invokeKind": "static",
-      "argCount": 1,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "rule_precision_transfer/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=rule_precision_transfer%2Ftaint_mock.ts:file=rule_precision_transfer%2Ftaint_mock.ts:export=namespace%3Ataint.%25dflt:decl=namespace%3Ataint.%25dflt:member=function%3ASink:invoke=call:params=0%3Aany:ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_precision_transfer/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "taint.%dflt",
+            "methodName": "Sink",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "void",
+            "staticFlag": true
+          }
+        }
       }
     },
     {
       "surfaceId": "surface.transfer.precision.map.set.arg1_to_base_slot",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "set",
-      "invokeKind": "instance",
-      "argCount": 2,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
         "source": "manual"
+      },
+      "canonicalApiId": "api:official:tsjs:module=tsjs.builtin:file=api%2Ftsjs.builtin.d.ts:export=namespace%3AMap:decl=class%3AMap:member=method%3Ainstance%3Aset:invoke=call:params=0%3Aany%2C1%3Aany:ret=Map",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "tsjs.builtin",
+            "declaringNamespacePath": [],
+            "declaringClassName": "Map",
+            "methodName": "set",
+            "parameterTypes": [
+              "any",
+              "any"
+            ],
+            "returnType": "Map",
+            "staticFlag": false
+          }
+        }
       }
     },
     {
       "surfaceId": "surface.transfer.precision.map.get.base_slot_to_result",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "get",
-      "invokeKind": "instance",
-      "argCount": 1,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
         "source": "manual"
+      },
+      "canonicalApiId": "api:official:tsjs:module=tsjs.builtin:file=api%2Ftsjs.builtin.d.ts:export=namespace%3AMap:decl=class%3AMap:member=method%3Ainstance%3Aget:invoke=call:params=0%3Aany:ret=any",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "tsjs.builtin",
+            "declaringNamespacePath": [],
+            "declaringClassName": "Map",
+            "methodName": "get",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "any",
+            "staticFlag": false
+          }
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.precision.invoke_kind.instance_arg0_to_result",
+      "surfaceId": "surface.transfer.precision.invoke_kind.instance_arg0_to_result.for.rule_precision_transfer_taint_mock_ts_taint_dflt_BridgeInvokeKind_any",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "InvokeKindHost",
-      "methodName": "BridgeInvokeKind",
-      "invokeKind": "instance",
-      "argCount": 1,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "rule_precision_transfer/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=rule_precision_transfer%2Ftaint_mock.ts:file=rule_precision_transfer%2Ftaint_mock.ts:export=namespace%3Ataint.%25dflt:decl=namespace%3Ataint.%25dflt:member=function%3ABridgeInvokeKind:invoke=call:params=0%3Aany:ret=any",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_precision_transfer/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "taint.%dflt",
+            "methodName": "BridgeInvokeKind",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "any",
+            "staticFlag": true
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.precision.invoke_kind.instance_arg0_to_result.for.rule_precision_transfer_taint_mock_ts_taint_InvokeKindHost_BridgeInvokeKind_any",
+      "kind": "invoke",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "rule_precision_transfer/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=rule_precision_transfer%2Ftaint_mock.ts:file=rule_precision_transfer%2Ftaint_mock.ts:export=namespace%3Ataint.InvokeKindHost:decl=class%3Ataint.InvokeKindHost:member=method%3Ainstance%3ABridgeInvokeKind:invoke=call:params=0%3Aany:ret=any",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_precision_transfer/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "taint.InvokeKindHost",
+            "methodName": "BridgeInvokeKind",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "any",
+            "staticFlag": false
+          }
+        }
       }
     },
     {
       "surfaceId": "surface.transfer.precision.arg_count.two_arg1_to_result",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "BridgeArgCount",
-      "invokeKind": "static",
-      "argCount": 2,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "rule_precision_transfer/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=rule_precision_transfer%2Ftaint_mock.ts:file=rule_precision_transfer%2Ftaint_mock.ts:export=namespace%3Ataint.%25dflt:decl=namespace%3Ataint.%25dflt:member=function%3ABridgeArgCount:invoke=call:params=0%3Aany%2C1%3Aany:ret=any",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_precision_transfer/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "taint.%dflt",
+            "methodName": "BridgeArgCount",
+            "parameterTypes": [
+              "any",
+              "any"
+            ],
+            "returnType": "any",
+            "staticFlag": true
+          }
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.precision.type_hint.target_arg0_to_result",
+      "surfaceId": "surface.transfer.precision.type_hint.target_arg0_to_result.for.rule_precision_transfer_taint_mock_ts_taint_TransferTypeHostTarget_BridgeTypeHint_any",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "TransferTypeHostTarget",
-      "methodName": "BridgeTypeHint",
-      "invokeKind": "instance",
-      "argCount": 1,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "rule_precision_transfer/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=rule_precision_transfer%2Ftaint_mock.ts:file=rule_precision_transfer%2Ftaint_mock.ts:export=namespace%3Ataint.TransferTypeHostTarget:decl=class%3Ataint.TransferTypeHostTarget:member=method%3Ainstance%3ABridgeTypeHint:invoke=call:params=0%3Aany:ret=any",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_precision_transfer/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "taint.TransferTypeHostTarget",
+            "methodName": "BridgeTypeHint",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "any",
+            "staticFlag": false
+          }
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.precision.scope.allowed_class_arg0_to_result",
+      "surfaceId": "surface.transfer.precision.type_hint.target_arg0_to_result.for.rule_precision_transfer_taint_mock_ts_taint_TransferTypeHostOther_BridgeTypeHint_any",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "ScopeHostAllowed",
-      "methodName": "BridgeScope",
-      "invokeKind": "instance",
-      "argCount": 1,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "rule_precision_transfer/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=rule_precision_transfer%2Ftaint_mock.ts:file=rule_precision_transfer%2Ftaint_mock.ts:export=namespace%3Ataint.TransferTypeHostOther:decl=class%3Ataint.TransferTypeHostOther:member=method%3Ainstance%3ABridgeTypeHint:invoke=call:params=0%3Aany:ret=any",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_precision_transfer/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "taint.TransferTypeHostOther",
+            "methodName": "BridgeTypeHint",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "any",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.precision.scope.allowed_class_arg0_to_result.for.rule_precision_transfer_taint_mock_ts_taint_ScopeHostAllowed_BridgeScope_any",
+      "kind": "invoke",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "rule_precision_transfer/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=rule_precision_transfer%2Ftaint_mock.ts:file=rule_precision_transfer%2Ftaint_mock.ts:export=namespace%3Ataint.ScopeHostAllowed:decl=class%3Ataint.ScopeHostAllowed:member=method%3Ainstance%3ABridgeScope:invoke=call:params=0%3Aany:ret=any",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_precision_transfer/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "taint.ScopeHostAllowed",
+            "methodName": "BridgeScope",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "any",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.precision.scope.allowed_class_arg0_to_result.for.rule_precision_transfer_taint_mock_ts_taint_ScopeHostBlocked_BridgeScope_any",
+      "kind": "invoke",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "rule_precision_transfer/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=rule_precision_transfer%2Ftaint_mock.ts:file=rule_precision_transfer%2Ftaint_mock.ts:export=namespace%3Ataint.ScopeHostBlocked:decl=class%3Ataint.ScopeHostBlocked:member=method%3Ainstance%3ABridgeScope:invoke=call:params=0%3Aany:ret=any",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_precision_transfer/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "taint.ScopeHostBlocked",
+            "methodName": "BridgeScope",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "any",
+            "staticFlag": false
+          }
+        }
       }
     },
     {
       "surfaceId": "surface.transfer.precision.compose.pipe.arg0_to_base",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "ComposeBox",
-      "methodName": "Pipe",
-      "invokeKind": "instance",
-      "argCount": 1,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "rule_precision_transfer/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=rule_precision_transfer%2Ftaint_mock.ts:file=rule_precision_transfer%2Ftaint_mock.ts:export=namespace%3Ataint.ComposeBox:decl=class%3Ataint.ComposeBox:member=method%3Ainstance%3APipe:invoke=call:params=0%3Aany:ret=any",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_precision_transfer/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "taint.ComposeBox",
+            "methodName": "Pipe",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "any",
+            "staticFlag": false
+          }
+        }
       }
     },
     {
       "surfaceId": "surface.transfer.precision.compose.pipe.base_to_result",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "ComposeBox",
-      "methodName": "Pipe",
-      "invokeKind": "instance",
-      "argCount": 1,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "rule_precision_transfer/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=rule_precision_transfer%2Ftaint_mock.ts:file=rule_precision_transfer%2Ftaint_mock.ts:export=namespace%3Ataint.ComposeBox:decl=class%3Ataint.ComposeBox:member=method%3Ainstance%3APipe:invoke=call:params=0%3Aany:ret=any",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_precision_transfer/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "taint.ComposeBox",
+            "methodName": "Pipe",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "any",
+            "staticFlag": false
+          }
+        }
       }
     }
   ],
   "bindings": [
     {
       "bindingId": "binding.source.transfer_precision.entry_param.taint_src.0.method.transfer_arg_count_005_T",
-      "surfaceId": "surface.source.transfer_precision.entry_param.taint_src",
+      "surfaceId": "surface.source.transfer_precision.entry_param.taint_src.method.transfer_arg_count_005_T",
       "assetId": "asset.rule.test.transfer_precision",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "transfer_arg_count_005_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "transfer_arg_count_005_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -161,25 +665,16 @@
         "template.source.transfer_precision.entry_param.taint_src.for.source.transfer_precision.entry_param.taint_src.0.method.transfer_arg_count_005_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=rule_precision_transfer%2Ftransfer_arg_count_005_T.ets:file=rule_precision_transfer%2Ftransfer_arg_count_005_T.ets:export=entry%3Acomponent.transfer_arg_count_005_T:decl=entry%3Acomponent.transfer_arg_count_005_T:member=lifecycle%3Atest.case.transfer_arg_count_005_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.transfer_precision.entry_param.taint_src.0.method.transfer_arg_count_006_F",
-      "surfaceId": "surface.source.transfer_precision.entry_param.taint_src",
+      "surfaceId": "surface.source.transfer_precision.entry_param.taint_src.method.transfer_arg_count_006_F",
       "assetId": "asset.rule.test.transfer_precision",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "transfer_arg_count_006_F",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "transfer_arg_count_006_F.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -190,25 +685,16 @@
         "template.source.transfer_precision.entry_param.taint_src.for.source.transfer_precision.entry_param.taint_src.0.method.transfer_arg_count_006_F"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=rule_precision_transfer%2Ftransfer_arg_count_006_F.ets:file=rule_precision_transfer%2Ftransfer_arg_count_006_F.ets:export=entry%3Acomponent.transfer_arg_count_006_F:decl=entry%3Acomponent.transfer_arg_count_006_F:member=lifecycle%3Atest.case.transfer_arg_count_006_F:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.transfer_precision.entry_param.taint_src.0.method.transfer_compose_011_T",
-      "surfaceId": "surface.source.transfer_precision.entry_param.taint_src",
+      "surfaceId": "surface.source.transfer_precision.entry_param.taint_src.method.transfer_compose_011_T",
       "assetId": "asset.rule.test.transfer_precision",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "transfer_compose_011_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "transfer_compose_011_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -219,25 +705,16 @@
         "template.source.transfer_precision.entry_param.taint_src.for.source.transfer_precision.entry_param.taint_src.0.method.transfer_compose_011_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=rule_precision_transfer%2Ftransfer_compose_011_T.ets:file=rule_precision_transfer%2Ftransfer_compose_011_T.ets:export=entry%3Acomponent.transfer_compose_011_T:decl=entry%3Acomponent.transfer_compose_011_T:member=lifecycle%3Atest.case.transfer_compose_011_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.transfer_precision.entry_param.taint_src.0.method.transfer_compose_012_F",
-      "surfaceId": "surface.source.transfer_precision.entry_param.taint_src",
+      "surfaceId": "surface.source.transfer_precision.entry_param.taint_src.method.transfer_compose_012_F",
       "assetId": "asset.rule.test.transfer_precision",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "transfer_compose_012_F",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "transfer_compose_012_F.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -248,25 +725,16 @@
         "template.source.transfer_precision.entry_param.taint_src.for.source.transfer_precision.entry_param.taint_src.0.method.transfer_compose_012_F"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=rule_precision_transfer%2Ftransfer_compose_012_F.ets:file=rule_precision_transfer%2Ftransfer_compose_012_F.ets:export=entry%3Acomponent.transfer_compose_012_F:decl=entry%3Acomponent.transfer_compose_012_F:member=lifecycle%3Atest.case.transfer_compose_012_F:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.transfer_precision.entry_param.taint_src.0.method.transfer_field_path_001_T",
-      "surfaceId": "surface.source.transfer_precision.entry_param.taint_src",
+      "surfaceId": "surface.source.transfer_precision.entry_param.taint_src.method.transfer_field_path_001_T",
       "assetId": "asset.rule.test.transfer_precision",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "transfer_field_path_001_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "transfer_field_path_001_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -277,25 +745,16 @@
         "template.source.transfer_precision.entry_param.taint_src.for.source.transfer_precision.entry_param.taint_src.0.method.transfer_field_path_001_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=rule_precision_transfer%2Ftransfer_field_path_001_T.ets:file=rule_precision_transfer%2Ftransfer_field_path_001_T.ets:export=entry%3Acomponent.transfer_field_path_001_T:decl=entry%3Acomponent.transfer_field_path_001_T:member=lifecycle%3Atest.case.transfer_field_path_001_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.transfer_precision.entry_param.taint_src.0.method.transfer_field_path_002_F",
-      "surfaceId": "surface.source.transfer_precision.entry_param.taint_src",
+      "surfaceId": "surface.source.transfer_precision.entry_param.taint_src.method.transfer_field_path_002_F",
       "assetId": "asset.rule.test.transfer_precision",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "transfer_field_path_002_F",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "transfer_field_path_002_F.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -306,25 +765,16 @@
         "template.source.transfer_precision.entry_param.taint_src.for.source.transfer_precision.entry_param.taint_src.0.method.transfer_field_path_002_F"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=rule_precision_transfer%2Ftransfer_field_path_002_F.ets:file=rule_precision_transfer%2Ftransfer_field_path_002_F.ets:export=entry%3Acomponent.transfer_field_path_002_F:decl=entry%3Acomponent.transfer_field_path_002_F:member=lifecycle%3Atest.case.transfer_field_path_002_F:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.transfer_precision.entry_param.taint_src.0.method.transfer_invoke_kind_003_T",
-      "surfaceId": "surface.source.transfer_precision.entry_param.taint_src",
+      "surfaceId": "surface.source.transfer_precision.entry_param.taint_src.method.transfer_invoke_kind_003_T",
       "assetId": "asset.rule.test.transfer_precision",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "transfer_invoke_kind_003_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "transfer_invoke_kind_003_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -335,25 +785,16 @@
         "template.source.transfer_precision.entry_param.taint_src.for.source.transfer_precision.entry_param.taint_src.0.method.transfer_invoke_kind_003_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=rule_precision_transfer%2Ftransfer_invoke_kind_003_T.ets:file=rule_precision_transfer%2Ftransfer_invoke_kind_003_T.ets:export=entry%3Acomponent.transfer_invoke_kind_003_T:decl=entry%3Acomponent.transfer_invoke_kind_003_T:member=lifecycle%3Atest.case.transfer_invoke_kind_003_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.transfer_precision.entry_param.taint_src.0.method.transfer_invoke_kind_004_F",
-      "surfaceId": "surface.source.transfer_precision.entry_param.taint_src",
+      "surfaceId": "surface.source.transfer_precision.entry_param.taint_src.method.transfer_invoke_kind_004_F",
       "assetId": "asset.rule.test.transfer_precision",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "transfer_invoke_kind_004_F",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "transfer_invoke_kind_004_F.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -364,25 +805,16 @@
         "template.source.transfer_precision.entry_param.taint_src.for.source.transfer_precision.entry_param.taint_src.0.method.transfer_invoke_kind_004_F"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=rule_precision_transfer%2Ftransfer_invoke_kind_004_F.ets:file=rule_precision_transfer%2Ftransfer_invoke_kind_004_F.ets:export=entry%3Acomponent.transfer_invoke_kind_004_F:decl=entry%3Acomponent.transfer_invoke_kind_004_F:member=lifecycle%3Atest.case.transfer_invoke_kind_004_F:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.transfer_precision.entry_param.taint_src.0.method.transfer_scope_009_T",
-      "surfaceId": "surface.source.transfer_precision.entry_param.taint_src",
+      "surfaceId": "surface.source.transfer_precision.entry_param.taint_src.method.transfer_scope_009_T",
       "assetId": "asset.rule.test.transfer_precision",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "transfer_scope_009_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "transfer_scope_009_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -393,25 +825,16 @@
         "template.source.transfer_precision.entry_param.taint_src.for.source.transfer_precision.entry_param.taint_src.0.method.transfer_scope_009_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=rule_precision_transfer%2Ftransfer_scope_009_T.ets:file=rule_precision_transfer%2Ftransfer_scope_009_T.ets:export=entry%3Acomponent.transfer_scope_009_T:decl=entry%3Acomponent.transfer_scope_009_T:member=lifecycle%3Atest.case.transfer_scope_009_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.transfer_precision.entry_param.taint_src.0.method.transfer_scope_010_F",
-      "surfaceId": "surface.source.transfer_precision.entry_param.taint_src",
+      "surfaceId": "surface.source.transfer_precision.entry_param.taint_src.method.transfer_scope_010_F",
       "assetId": "asset.rule.test.transfer_precision",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "transfer_scope_010_F",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "transfer_scope_010_F.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -422,25 +845,16 @@
         "template.source.transfer_precision.entry_param.taint_src.for.source.transfer_precision.entry_param.taint_src.0.method.transfer_scope_010_F"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=rule_precision_transfer%2Ftransfer_scope_010_F.ets:file=rule_precision_transfer%2Ftransfer_scope_010_F.ets:export=entry%3Acomponent.transfer_scope_010_F:decl=entry%3Acomponent.transfer_scope_010_F:member=lifecycle%3Atest.case.transfer_scope_010_F:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.transfer_precision.entry_param.taint_src.0.method.transfer_type_hint_007_T",
-      "surfaceId": "surface.source.transfer_precision.entry_param.taint_src",
+      "surfaceId": "surface.source.transfer_precision.entry_param.taint_src.method.transfer_type_hint_007_T",
       "assetId": "asset.rule.test.transfer_precision",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "transfer_type_hint_007_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "transfer_type_hint_007_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -451,25 +865,16 @@
         "template.source.transfer_precision.entry_param.taint_src.for.source.transfer_precision.entry_param.taint_src.0.method.transfer_type_hint_007_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=rule_precision_transfer%2Ftransfer_type_hint_007_T.ets:file=rule_precision_transfer%2Ftransfer_type_hint_007_T.ets:export=entry%3Acomponent.transfer_type_hint_007_T:decl=entry%3Acomponent.transfer_type_hint_007_T:member=lifecycle%3Atest.case.transfer_type_hint_007_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.transfer_precision.entry_param.taint_src.0.method.transfer_type_hint_008_F",
-      "surfaceId": "surface.source.transfer_precision.entry_param.taint_src",
+      "surfaceId": "surface.source.transfer_precision.entry_param.taint_src.method.transfer_type_hint_008_F",
       "assetId": "asset.rule.test.transfer_precision",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "transfer_type_hint_008_F",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "transfer_type_hint_008_F.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -480,8 +885,9 @@
         "template.source.transfer_precision.entry_param.taint_src.for.source.transfer_precision.entry_param.taint_src.0.method.transfer_type_hint_008_F"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=rule_precision_transfer%2Ftransfer_type_hint_008_F.ets:file=rule_precision_transfer%2Ftransfer_type_hint_008_F.ets:export=entry%3Acomponent.transfer_type_hint_008_F:decl=entry%3Acomponent.transfer_type_hint_008_F:member=lifecycle%3Atest.case.transfer_type_hint_008_F:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.sink.transfer_precision.arg0.0",
@@ -489,10 +895,6 @@
       "assetId": "asset.rule.test.transfer_precision",
       "plane": "rule",
       "role": "sink",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "Sink"
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -503,9 +905,10 @@
         "template.sink.transfer_precision.arg0"
       ],
       "semanticsFamily": "sink",
-      "completeness": "partial",
-      "confidence": "likely",
-      "metadata": {}
+      "completeness": "complete",
+      "confidence": "certain",
+      "metadata": {},
+      "canonicalApiId": "api:project:local:module=rule_precision_transfer%2Ftaint_mock.ts:file=rule_precision_transfer%2Ftaint_mock.ts:export=namespace%3Ataint.%25dflt:decl=namespace%3Ataint.%25dflt:member=function%3ASink:invoke=call:params=0%3Aany:ret=void"
     },
     {
       "bindingId": "binding.transfer.precision.map.set.arg1_to_base_slot.0",
@@ -513,25 +916,14 @@
       "assetId": "asset.rule.test.transfer_precision",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "set",
-        "invokeKind": "instance",
-        "argCount": 2,
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "Map"
-          }
-        }
-      },
       "effectTemplateRefs": [
         "template.transfer.precision.map.set.arg1_to_base_slot"
       ],
       "semanticsFamily": "transfer",
-      "completeness": "partial",
-      "confidence": "likely",
-      "metadata": {}
+      "completeness": "complete",
+      "confidence": "certain",
+      "metadata": {},
+      "canonicalApiId": "api:official:tsjs:module=tsjs.builtin:file=api%2Ftsjs.builtin.d.ts:export=namespace%3AMap:decl=class%3AMap:member=method%3Ainstance%3Aset:invoke=call:params=0%3Aany%2C1%3Aany:ret=Map"
     },
     {
       "bindingId": "binding.transfer.precision.map.get.base_slot_to_result.0",
@@ -539,44 +931,44 @@
       "assetId": "asset.rule.test.transfer_precision",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "get",
-        "invokeKind": "instance",
-        "argCount": 1,
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "Map"
-          }
-        }
-      },
       "effectTemplateRefs": [
         "template.transfer.precision.map.get.base_slot_to_result"
       ],
       "semanticsFamily": "transfer",
-      "completeness": "partial",
-      "confidence": "likely",
-      "metadata": {}
+      "completeness": "complete",
+      "confidence": "certain",
+      "metadata": {},
+      "canonicalApiId": "api:official:tsjs:module=tsjs.builtin:file=api%2Ftsjs.builtin.d.ts:export=namespace%3AMap:decl=class%3AMap:member=method%3Ainstance%3Aget:invoke=call:params=0%3Aany:ret=any"
     },
     {
-      "bindingId": "binding.transfer.precision.invoke_kind.instance_arg0_to_result.0",
-      "surfaceId": "surface.transfer.precision.invoke_kind.instance_arg0_to_result",
+      "bindingId": "binding.transfer.precision.invoke_kind.instance_arg0_to_result.0.for.rule_precision_transfer_taint_mock_ts_taint_dflt_BridgeInvokeKind_any",
+      "surfaceId": "surface.transfer.precision.invoke_kind.instance_arg0_to_result.for.rule_precision_transfer_taint_mock_ts_taint_dflt_BridgeInvokeKind_any",
       "assetId": "asset.rule.test.transfer_precision",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "BridgeInvokeKind",
-        "invokeKind": "instance"
-      },
       "effectTemplateRefs": [
-        "template.transfer.precision.invoke_kind.instance_arg0_to_result"
+        "template.transfer.precision.invoke_kind.instance_arg0_to_result.for.rule_precision_transfer_taint_mock_ts_taint_dflt_BridgeInvokeKind_any"
       ],
       "semanticsFamily": "transfer",
-      "completeness": "partial",
-      "confidence": "likely",
-      "metadata": {}
+      "completeness": "complete",
+      "confidence": "certain",
+      "metadata": {},
+      "canonicalApiId": "api:project:local:module=rule_precision_transfer%2Ftaint_mock.ts:file=rule_precision_transfer%2Ftaint_mock.ts:export=namespace%3Ataint.%25dflt:decl=namespace%3Ataint.%25dflt:member=function%3ABridgeInvokeKind:invoke=call:params=0%3Aany:ret=any"
+    },
+    {
+      "bindingId": "binding.transfer.precision.invoke_kind.instance_arg0_to_result.0.for.rule_precision_transfer_taint_mock_ts_taint_InvokeKindHost_BridgeInvokeKind_any",
+      "surfaceId": "surface.transfer.precision.invoke_kind.instance_arg0_to_result.for.rule_precision_transfer_taint_mock_ts_taint_InvokeKindHost_BridgeInvokeKind_any",
+      "assetId": "asset.rule.test.transfer_precision",
+      "plane": "rule",
+      "role": "transfer",
+      "effectTemplateRefs": [
+        "template.transfer.precision.invoke_kind.instance_arg0_to_result.for.rule_precision_transfer_taint_mock_ts_taint_InvokeKindHost_BridgeInvokeKind_any"
+      ],
+      "semanticsFamily": "transfer",
+      "completeness": "complete",
+      "confidence": "certain",
+      "metadata": {},
+      "canonicalApiId": "api:project:local:module=rule_precision_transfer%2Ftaint_mock.ts:file=rule_precision_transfer%2Ftaint_mock.ts:export=namespace%3Ataint.InvokeKindHost:decl=class%3Ataint.InvokeKindHost:member=method%3Ainstance%3ABridgeInvokeKind:invoke=call:params=0%3Aany:ret=any"
     },
     {
       "bindingId": "binding.transfer.precision.arg_count.two_arg1_to_result.0",
@@ -584,61 +976,70 @@
       "assetId": "asset.rule.test.transfer_precision",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "BridgeArgCount",
-        "argCount": 2
-      },
       "effectTemplateRefs": [
         "template.transfer.precision.arg_count.two_arg1_to_result"
       ],
       "semanticsFamily": "transfer",
-      "completeness": "partial",
-      "confidence": "likely",
-      "metadata": {}
+      "completeness": "complete",
+      "confidence": "certain",
+      "metadata": {},
+      "canonicalApiId": "api:project:local:module=rule_precision_transfer%2Ftaint_mock.ts:file=rule_precision_transfer%2Ftaint_mock.ts:export=namespace%3Ataint.%25dflt:decl=namespace%3Ataint.%25dflt:member=function%3ABridgeArgCount:invoke=call:params=0%3Aany%2C1%3Aany:ret=any"
     },
     {
-      "bindingId": "binding.transfer.precision.type_hint.target_arg0_to_result.0",
-      "surfaceId": "surface.transfer.precision.type_hint.target_arg0_to_result",
+      "bindingId": "binding.transfer.precision.type_hint.target_arg0_to_result.0.for.rule_precision_transfer_taint_mock_ts_taint_TransferTypeHostTarget_BridgeTypeHint_any",
+      "surfaceId": "surface.transfer.precision.type_hint.target_arg0_to_result.for.rule_precision_transfer_taint_mock_ts_taint_TransferTypeHostTarget_BridgeTypeHint_any",
       "assetId": "asset.rule.test.transfer_precision",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "BridgeTypeHint",
-        "invokeKind": "instance",
-        "typeHint": "TransferTypeHostTarget"
-      },
       "effectTemplateRefs": [
-        "template.transfer.precision.type_hint.target_arg0_to_result"
+        "template.transfer.precision.type_hint.target_arg0_to_result.for.rule_precision_transfer_taint_mock_ts_taint_TransferTypeHostTarget_BridgeTypeHint_any"
       ],
       "semanticsFamily": "transfer",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=rule_precision_transfer%2Ftaint_mock.ts:file=rule_precision_transfer%2Ftaint_mock.ts:export=namespace%3Ataint.TransferTypeHostTarget:decl=class%3Ataint.TransferTypeHostTarget:member=method%3Ainstance%3ABridgeTypeHint:invoke=call:params=0%3Aany:ret=any"
     },
     {
-      "bindingId": "binding.transfer.precision.scope.allowed_class_arg0_to_result.0",
-      "surfaceId": "surface.transfer.precision.scope.allowed_class_arg0_to_result",
+      "bindingId": "binding.transfer.precision.type_hint.target_arg0_to_result.0.for.rule_precision_transfer_taint_mock_ts_taint_TransferTypeHostOther_BridgeTypeHint_any",
+      "surfaceId": "surface.transfer.precision.type_hint.target_arg0_to_result.for.rule_precision_transfer_taint_mock_ts_taint_TransferTypeHostOther_BridgeTypeHint_any",
       "assetId": "asset.rule.test.transfer_precision",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "BridgeScope",
-        "invokeKind": "instance",
-        "scope": {
-          "className": {
-            "mode": "contains",
-            "value": "ScopeHostAllowed"
-          }
-        }
-      },
       "effectTemplateRefs": [
-        "template.transfer.precision.scope.allowed_class_arg0_to_result"
+        "template.transfer.precision.type_hint.target_arg0_to_result.for.rule_precision_transfer_taint_mock_ts_taint_TransferTypeHostOther_BridgeTypeHint_any"
       ],
       "semanticsFamily": "transfer",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=rule_precision_transfer%2Ftaint_mock.ts:file=rule_precision_transfer%2Ftaint_mock.ts:export=namespace%3Ataint.TransferTypeHostOther:decl=class%3Ataint.TransferTypeHostOther:member=method%3Ainstance%3ABridgeTypeHint:invoke=call:params=0%3Aany:ret=any"
+    },
+    {
+      "bindingId": "binding.transfer.precision.scope.allowed_class_arg0_to_result.0.for.rule_precision_transfer_taint_mock_ts_taint_ScopeHostAllowed_BridgeScope_any",
+      "surfaceId": "surface.transfer.precision.scope.allowed_class_arg0_to_result.for.rule_precision_transfer_taint_mock_ts_taint_ScopeHostAllowed_BridgeScope_any",
+      "assetId": "asset.rule.test.transfer_precision",
+      "plane": "rule",
+      "role": "transfer",
+      "effectTemplateRefs": [
+        "template.transfer.precision.scope.allowed_class_arg0_to_result.for.rule_precision_transfer_taint_mock_ts_taint_ScopeHostAllowed_BridgeScope_any"
+      ],
+      "semanticsFamily": "transfer",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=rule_precision_transfer%2Ftaint_mock.ts:file=rule_precision_transfer%2Ftaint_mock.ts:export=namespace%3Ataint.ScopeHostAllowed:decl=class%3Ataint.ScopeHostAllowed:member=method%3Ainstance%3ABridgeScope:invoke=call:params=0%3Aany:ret=any"
+    },
+    {
+      "bindingId": "binding.transfer.precision.scope.allowed_class_arg0_to_result.0.for.rule_precision_transfer_taint_mock_ts_taint_ScopeHostBlocked_BridgeScope_any",
+      "surfaceId": "surface.transfer.precision.scope.allowed_class_arg0_to_result.for.rule_precision_transfer_taint_mock_ts_taint_ScopeHostBlocked_BridgeScope_any",
+      "assetId": "asset.rule.test.transfer_precision",
+      "plane": "rule",
+      "role": "transfer",
+      "effectTemplateRefs": [
+        "template.transfer.precision.scope.allowed_class_arg0_to_result.for.rule_precision_transfer_taint_mock_ts_taint_ScopeHostBlocked_BridgeScope_any"
+      ],
+      "semanticsFamily": "transfer",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=rule_precision_transfer%2Ftaint_mock.ts:file=rule_precision_transfer%2Ftaint_mock.ts:export=namespace%3Ataint.ScopeHostBlocked:decl=class%3Ataint.ScopeHostBlocked:member=method%3Ainstance%3ABridgeScope:invoke=call:params=0%3Aany:ret=any"
     },
     {
       "bindingId": "binding.transfer.precision.compose.pipe.arg0_to_base.0",
@@ -646,18 +1047,14 @@
       "assetId": "asset.rule.test.transfer_precision",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "Pipe",
-        "invokeKind": "instance"
-      },
       "effectTemplateRefs": [
         "template.transfer.precision.compose.pipe.arg0_to_base"
       ],
       "semanticsFamily": "transfer",
-      "completeness": "partial",
-      "confidence": "likely",
-      "metadata": {}
+      "completeness": "complete",
+      "confidence": "certain",
+      "metadata": {},
+      "canonicalApiId": "api:project:local:module=rule_precision_transfer%2Ftaint_mock.ts:file=rule_precision_transfer%2Ftaint_mock.ts:export=namespace%3Ataint.ComposeBox:decl=class%3Ataint.ComposeBox:member=method%3Ainstance%3APipe:invoke=call:params=0%3Aany:ret=any"
     },
     {
       "bindingId": "binding.transfer.precision.compose.pipe.base_to_result.0",
@@ -665,185 +1062,17 @@
       "assetId": "asset.rule.test.transfer_precision",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "Pipe",
-        "invokeKind": "instance"
-      },
       "effectTemplateRefs": [
         "template.transfer.precision.compose.pipe.base_to_result"
       ],
       "semanticsFamily": "transfer",
-      "completeness": "partial",
-      "confidence": "likely",
-      "metadata": {}
+      "completeness": "complete",
+      "confidence": "certain",
+      "metadata": {},
+      "canonicalApiId": "api:project:local:module=rule_precision_transfer%2Ftaint_mock.ts:file=rule_precision_transfer%2Ftaint_mock.ts:export=namespace%3Ataint.ComposeBox:decl=class%3Ataint.ComposeBox:member=method%3Ainstance%3APipe:invoke=call:params=0%3Aany:ret=any"
     }
   ],
   "effectTemplates": [
-    {
-      "id": "template.sink.transfer_precision.arg0",
-      "confidence": "certain",
-      "kind": "rule.sink",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sinkKind": "sink"
-    },
-    {
-      "id": "template.transfer.precision.map.set.arg1_to_base_slot",
-      "confidence": "certain",
-      "kind": "rule.transfer",
-      "from": {
-        "base": {
-          "kind": "arg",
-          "index": 1
-        }
-      },
-      "to": {
-        "endpoint": {
-          "base": {
-            "kind": "receiver"
-          }
-        },
-        "pathFrom": {
-          "base": {
-            "kind": "arg",
-            "index": 0
-          }
-        },
-        "slotKind": "map"
-      },
-      "transferKind": "transfer"
-    },
-    {
-      "id": "template.transfer.precision.map.get.base_slot_to_result",
-      "confidence": "certain",
-      "kind": "rule.transfer",
-      "from": {
-        "endpoint": {
-          "base": {
-            "kind": "receiver"
-          }
-        },
-        "pathFrom": {
-          "base": {
-            "kind": "arg",
-            "index": 0
-          }
-        },
-        "slotKind": "map"
-      },
-      "to": {
-        "base": {
-          "kind": "return"
-        }
-      },
-      "transferKind": "transfer"
-    },
-    {
-      "id": "template.transfer.precision.invoke_kind.instance_arg0_to_result",
-      "confidence": "certain",
-      "kind": "rule.transfer",
-      "from": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "to": {
-        "base": {
-          "kind": "return"
-        }
-      },
-      "transferKind": "transfer"
-    },
-    {
-      "id": "template.transfer.precision.arg_count.two_arg1_to_result",
-      "confidence": "certain",
-      "kind": "rule.transfer",
-      "from": {
-        "base": {
-          "kind": "arg",
-          "index": 1
-        }
-      },
-      "to": {
-        "base": {
-          "kind": "return"
-        }
-      },
-      "transferKind": "transfer"
-    },
-    {
-      "id": "template.transfer.precision.type_hint.target_arg0_to_result",
-      "confidence": "certain",
-      "kind": "rule.transfer",
-      "from": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "to": {
-        "base": {
-          "kind": "return"
-        }
-      },
-      "transferKind": "transfer"
-    },
-    {
-      "id": "template.transfer.precision.scope.allowed_class_arg0_to_result",
-      "confidence": "certain",
-      "kind": "rule.transfer",
-      "from": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "to": {
-        "base": {
-          "kind": "return"
-        }
-      },
-      "transferKind": "transfer"
-    },
-    {
-      "id": "template.transfer.precision.compose.pipe.arg0_to_base",
-      "confidence": "certain",
-      "kind": "rule.transfer",
-      "from": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "to": {
-        "base": {
-          "kind": "receiver"
-        }
-      },
-      "transferKind": "transfer"
-    },
-    {
-      "id": "template.transfer.precision.compose.pipe.base_to_result",
-      "confidence": "certain",
-      "kind": "rule.transfer",
-      "from": {
-        "base": {
-          "kind": "receiver"
-        }
-      },
-      "to": {
-        "base": {
-          "kind": "return"
-        }
-      },
-      "transferKind": "transfer"
-    },
     {
       "id": "template.source.transfer_precision.entry_param.taint_src.for.source.transfer_precision.entry_param.taint_src.0.method.transfer_arg_count_005_T",
       "confidence": "certain",
@@ -987,6 +1216,221 @@
         }
       },
       "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.sink.transfer_precision.arg0",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "sink"
+    },
+    {
+      "id": "template.transfer.precision.map.set.arg1_to_base_slot",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "to": {
+        "endpoint": {
+          "base": {
+            "kind": "receiver"
+          }
+        },
+        "pathFrom": {
+          "base": {
+            "kind": "arg",
+            "index": 0
+          }
+        },
+        "slotKind": "map"
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.precision.map.get.base_slot_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "endpoint": {
+          "base": {
+            "kind": "receiver"
+          }
+        },
+        "pathFrom": {
+          "base": {
+            "kind": "arg",
+            "index": 0
+          }
+        },
+        "slotKind": "map"
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.precision.invoke_kind.instance_arg0_to_result.for.rule_precision_transfer_taint_mock_ts_taint_dflt_BridgeInvokeKind_any",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.precision.invoke_kind.instance_arg0_to_result.for.rule_precision_transfer_taint_mock_ts_taint_InvokeKindHost_BridgeInvokeKind_any",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.precision.arg_count.two_arg1_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.precision.type_hint.target_arg0_to_result.for.rule_precision_transfer_taint_mock_ts_taint_TransferTypeHostTarget_BridgeTypeHint_any",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.precision.type_hint.target_arg0_to_result.for.rule_precision_transfer_taint_mock_ts_taint_TransferTypeHostOther_BridgeTypeHint_any",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.precision.scope.allowed_class_arg0_to_result.for.rule_precision_transfer_taint_mock_ts_taint_ScopeHostAllowed_BridgeScope_any",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.precision.scope.allowed_class_arg0_to_result.for.rule_precision_transfer_taint_mock_ts_taint_ScopeHostBlocked_BridgeScope_any",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.precision.compose.pipe.arg0_to_base",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.precision.compose.pipe.base_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
     }
   ],
   "provenance": {

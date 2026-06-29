@@ -1,5 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
+import { assertValidCanonicalApiId, parseCanonicalApiId } from "../../core/api/identity";
 
 interface JsonAsset {
     id?: string;
@@ -17,7 +18,7 @@ interface Finding {
 }
 
 const KERNEL_RULE_ROOT = path.resolve("src/models/kernel/rules");
-const CORE_RULE_CATALOG_FILES = [
+const RETIRED_CORE_RULE_CATALOG_FILES = [
     path.resolve("src/core/rules/FrameworkApiSourceCatalog.ts"),
     path.resolve("src/core/rules/FrameworkCallbackSourceCatalog.ts"),
     path.resolve("src/core/rules/FrameworkSinkCatalog.ts"),
@@ -28,31 +29,6 @@ const bannedFileBasenames = new Set([
     "keyword.rules.json",
     "signature.rules.json",
     "demo_harmony_e2e.rules.json",
-]);
-
-const forbiddenOfficialTokens = [
-    "axios",
-    "@ohos/axios",
-    "flutter",
-    "flutter_ohos",
-    "mqtt",
-    "@ohos/mqtt",
-    "wearengine",
-    "WearEngine",
-    "GlobalContext",
-    "RuntimeSelector",
-    "@arktaint/runtime-selector",
-    "taint_mock",
-    "tests/demo",
-    "project.",
-    "wrapper.",
-];
-
-const broadSelectorKinds = new Set([
-    "signature-contains",
-    "signature-regex",
-    "method-name-regex",
-    "local-name-regex",
 ]);
 
 function walkJsonFiles(root: string): string[] {
@@ -82,67 +58,15 @@ function pushIf(condition: boolean, findings: Finding[], file: string, subject: 
     }
 }
 
-function inspectScopeConstraint(
-    findings: Finding[],
-    file: string,
-    subject: string,
-    scope: any,
-): void {
-    if (!scope || typeof scope !== "object") return;
-    for (const field of ["file", "module", "className", "methodName"]) {
-        const constraint = scope[field];
-        if (!constraint || typeof constraint !== "object") continue;
-        pushIf(
-            constraint.mode !== "equals",
-            findings,
-            file,
-            `${subject}.${field}`,
-            `kernel official scope must use equals, got ${constraint.mode}`,
-        );
-        pushIf(
-            isPseudoExactIdentity(constraint.value),
-            findings,
-            file,
-            `${subject}.${field}`,
-            `kernel official scope must not contain regex fragments or pseudo owner: ${constraint.value}`,
-        );
-    }
-}
-
 function isPseudoExactIdentity(value: unknown): boolean {
     if (typeof value !== "string") return false;
     if (value.length === 0) return true;
     if (value === ":" || value === "$" || value === "_$") return true;
     if (value.includes("A-Za-z") || value.includes("[") || value.includes("]")) return true;
-    if (value.includes("(") || value.includes(")") || value.includes("*") || value.includes("?")) return true;
     if (value.includes("\\") || value.includes("|")) return true;
     if (value.endsWith("$")) return true;
     if (value.startsWith(":.") || value.includes(":.")) return true;
     return false;
-}
-
-function inspectSelector(findings: Finding[], file: string, binding: Record<string, any>): void {
-    const selector = binding.selector || binding.__derivedSelector;
-    const subject = binding.bindingId || binding.id || "<unknown-binding>";
-    pushIf(!selector, findings, file, subject, "binding must declare an explicit selector");
-    if (!selector || typeof selector !== "object") return;
-
-    pushIf(
-        broadSelectorKinds.has(selector.kind),
-        findings,
-        file,
-        subject,
-        `broad selector kind is forbidden in official kernel assets: ${selector.kind}`,
-    );
-    inspectScopeConstraint(findings, file, subject, selector.scope);
-    inspectScopeConstraint(findings, file, `${subject}.calleeScope`, selector.calleeScope);
-    if (selector.calleeClass && selector.calleeClass.mode !== "equals") {
-        findings.push({
-            file: rel(file),
-            subject: `${subject}.calleeClass`,
-            reason: `kernel official calleeClass must use equals, got ${selector.calleeClass.mode}`,
-        });
-    }
 }
 
 function inspectAsset(file: string, asset: JsonAsset, findings: Finding[]): void {
@@ -152,30 +76,86 @@ function inspectAsset(file: string, asset: JsonAsset, findings: Finding[]): void
         findings,
         file,
         basename,
-        "kernel official assets must not use demo, keyword, or signature fallback files",
+        "kernel official assets must not use demo, keyword, or signature-only files",
     );
 
+    pushIf(asset.plane !== "rule", findings, file, asset.id || "<unknown-asset>", `kernel rule asset must use plane=rule, got ${asset.plane}`);
+    if (asset.status === "deprecated") {
+        pushIf((asset.surfaces || []).length > 0, findings, file, asset.id || "<unknown-asset>", "deprecated kernel asset must not declare surfaces");
+        pushIf((asset.bindings || []).length > 0, findings, file, asset.id || "<unknown-asset>", "deprecated kernel asset must not declare bindings");
+        pushIf((asset.effectTemplates || []).length > 0, findings, file, asset.id || "<unknown-asset>", "deprecated kernel asset must not declare effect templates");
+        inspectStructuredIdentityText(file, asset, findings);
+        return;
+    }
+    pushIf(asset.status !== "official", findings, file, asset.id || "<unknown-asset>", `kernel rule asset must use status=official, got ${asset.status}`);
+    inspectStructuredIdentityText(file, asset, findings);
     const surfacesById = new Map((asset.surfaces || []).map(surface => [surface.surfaceId, surface]));
-    inspectForbiddenTokens(file, asset, findings);
+    for (const surface of asset.surfaces || []) {
+        inspectSurfaceIdentity(file, surface, findings);
+    }
     for (const binding of asset.bindings || []) {
         const surface = binding.surfaceId ? surfacesById.get(binding.surfaceId) : undefined;
-        const derivedSelector = binding.selector || selectorFromSurface(surface);
-        inspectSelector(findings, file, { ...binding, __derivedSelector: derivedSelector });
+        inspectBindingIdentity(file, binding, surface, findings);
     }
 }
 
-function inspectForbiddenTokens(file: string, asset: JsonAsset, findings: Finding[]): void {
+function inspectSurfaceIdentity(file: string, surface: Record<string, any>, findings: Finding[]): void {
+    const subject = surface.surfaceId || "<unknown-surface>";
+    pushIf(!surface.canonicalApiId, findings, file, subject, "surface must declare canonicalApiId");
+    if (typeof surface.canonicalApiId === "string") {
+        inspectCanonicalApiId(file, subject, surface.canonicalApiId, findings);
+    }
+}
+
+function inspectBindingIdentity(
+    file: string,
+    binding: Record<string, any>,
+    surface: Record<string, any> | undefined,
+    findings: Finding[],
+): void {
+    const subject = binding.bindingId || binding.id || "<unknown-binding>";
+    pushIf(!surface, findings, file, subject, `binding references unknown surfaceId ${binding.surfaceId}`);
+    pushIf(!binding.canonicalApiId, findings, file, subject, "binding must declare canonicalApiId");
+    pushIf(!!binding.selector, findings, file, subject, "trusted kernel binding must not declare selector");
+    pushIf(!!binding.__derivedSelector, findings, file, subject, "trusted kernel binding must not declare derived selector");
+    if (surface && binding.canonicalApiId && surface.canonicalApiId) {
+        pushIf(
+            binding.canonicalApiId !== surface.canonicalApiId,
+            findings,
+            file,
+            subject,
+            "binding canonicalApiId must exactly match its surface canonicalApiId",
+        );
+    }
+    if (typeof binding.canonicalApiId === "string") {
+        inspectCanonicalApiId(file, subject, binding.canonicalApiId, findings);
+    }
+}
+
+function inspectCanonicalApiId(file: string, subject: string, canonicalApiId: string, findings: Finding[]): void {
+    try {
+        assertValidCanonicalApiId(canonicalApiId);
+        const parsed = parseCanonicalApiId(canonicalApiId);
+        pushIf(
+            parsed?.authority !== "official",
+            findings,
+            file,
+            subject,
+            `kernel official canonical identity must use authority=official, got ${parsed?.authority || "<invalid>"}`,
+        );
+    } catch (error) {
+        findings.push({
+            file: rel(file),
+            subject,
+            reason: error instanceof Error ? error.message : String(error),
+        });
+    }
+    inspectOfficialText(file, `${subject}.canonicalApiId`, canonicalApiId, findings);
+}
+
+function inspectStructuredIdentityText(file: string, asset: JsonAsset, findings: Finding[]): void {
     const inspect = (subject: string, value: unknown): void => {
         const text = String(value || "");
-        for (const token of forbiddenOfficialTokens) {
-            if (text.includes(token)) {
-                findings.push({
-                    file: rel(file),
-                    subject,
-                    reason: `kernel official identity must not contain third-party, project, test, or wrapper token: ${token}`,
-                });
-            }
-        }
         if (isPseudoExactIdentity(value)) {
             findings.push({
                 file: rel(file),
@@ -187,7 +167,7 @@ function inspectForbiddenTokens(file: string, asset: JsonAsset, findings: Findin
             findings.push({
                 file: rel(file),
                 subject,
-                reason: `kernel official identity must not contain legacy signature fallback segment: ${text}`,
+                reason: `kernel official identity must not contain legacy signature-only segment: ${text}`,
             });
         }
     };
@@ -202,61 +182,18 @@ function inspectForbiddenTokens(file: string, asset: JsonAsset, findings: Findin
     for (const binding of asset.bindings || []) {
         inspect(`${binding.bindingId}.bindingId`, binding.bindingId);
         inspect(`${binding.bindingId}.surfaceId`, binding.surfaceId);
-        inspect(`${binding.bindingId}.selector.value`, binding.selector?.value);
-        inspect(`${binding.bindingId}.selector.typeHint`, binding.selector?.typeHint);
-        inspect(`${binding.bindingId}.selector.scope.module`, binding.selector?.scope?.module?.value);
-        inspect(`${binding.bindingId}.selector.scope.className`, binding.selector?.scope?.className?.value);
-        inspect(`${binding.bindingId}.selector.calleeScope.module`, binding.selector?.calleeScope?.module?.value);
-        inspect(`${binding.bindingId}.selector.calleeScope.className`, binding.selector?.calleeScope?.className?.value);
-        inspect(`${binding.bindingId}.selector.calleeClass`, binding.selector?.calleeClass?.value);
     }
 }
 
-function selectorFromSurface(surface: any): any | undefined {
-    if (!surface || surface.kind !== "invoke") return undefined;
-    if (surface.methodName) {
-        return {
-            kind: "method-name-equals",
-            value: surface.methodName,
-            invokeKind: surface.invokeKind,
-            argCount: surface.argCount,
-            typeHint: surface.ownerName,
-            calleeScope: surface.ownerName
-                ? { className: { mode: "equals", value: surface.ownerName } }
-                : undefined,
-        };
-    }
-    if (surface.functionName) {
-        return {
-            kind: "method-name-equals",
-            value: surface.functionName,
-            invokeKind: surface.invokeKind,
-            argCount: surface.argCount,
-        };
-    }
-    return undefined;
-}
-
-function inspectCatalogText(file: string, findings: Finding[]): void {
-    const text = fs.readFileSync(file, "utf8");
-    const thirdPartyTokens = [
-        "axios",
-        "@ohos/axios",
-        "flutter",
-        "flutter_ohos",
-        "mqtt",
-        "@ohos/mqtt",
-        "wearengine",
-        "WearEngine",
-    ];
-    for (const token of thirdPartyTokens) {
-        if (text.includes(token)) {
-            findings.push({
-                file: rel(file),
-                subject: token,
-                reason: `framework catalog must not contain third-party token: ${token}`,
-            });
-        }
+function inspectOfficialText(file: string, subject: string, value: unknown, findings: Finding[]): void {
+    const text = String(value || "");
+    if (!text) return;
+    if (text.includes("%unk") || text.includes("@%unk") || text.includes("@unk")) {
+        findings.push({
+            file: rel(file),
+            subject,
+            reason: `kernel official canonical identity must not contain unknown analyzer placeholders: ${text}`,
+        });
     }
 }
 
@@ -265,8 +202,14 @@ function main(): void {
     for (const file of walkJsonFiles(KERNEL_RULE_ROOT)) {
         inspectAsset(file, readAsset(file), findings);
     }
-    for (const file of CORE_RULE_CATALOG_FILES) {
-        inspectCatalogText(file, findings);
+    for (const file of RETIRED_CORE_RULE_CATALOG_FILES) {
+        pushIf(
+            fs.existsSync(file),
+            findings,
+            file,
+            path.basename(file),
+            "retired framework catalog source file must not exist; official semantics must come from kernel assets",
+        );
     }
 
     if (findings.length > 0) {

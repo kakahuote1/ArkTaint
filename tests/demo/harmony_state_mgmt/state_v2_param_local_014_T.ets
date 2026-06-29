@@ -1,7 +1,7 @@
-import { Local, Param, taint } from "./taint_mock";
+import { Prop, State, taint } from "./taint_mock";
 
 class ChildV2Param014 {
-    @Param()
+    @Prop()
     token: string = "";
 
     build(): void {
@@ -10,7 +10,7 @@ class ChildV2Param014 {
 }
 
 class ParentV2Local014 {
-    @Local()
+    @State()
     token: string = "";
 
     build(): void {

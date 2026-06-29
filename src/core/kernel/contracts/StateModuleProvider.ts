@@ -1,7 +1,7 @@
 import type { Scene } from "../../../../arkanalyzer/out/src/Scene";
 import type { Pag } from "../../../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
 import type { FrameworkModuleProvider } from "./FrameworkModuleProvider";
-import type { ModuleSetupCallbackApi } from "./ModuleContract";
+import type { ModuleScanApi, ModuleSetupCallbackApi } from "./ModuleContract";
 
 export interface StatePropBridgeEdge {
     sourceNodeId: number;
@@ -34,6 +34,7 @@ export interface BuildStateManagementSemanticModelArgs {
     pag: Pag;
     allowedMethodSignatures?: Set<string>;
     callbacks: ModuleSetupCallbackApi;
+    scan: ModuleScanApi;
 }
 
 export interface StateModuleProvider extends FrameworkModuleProvider {

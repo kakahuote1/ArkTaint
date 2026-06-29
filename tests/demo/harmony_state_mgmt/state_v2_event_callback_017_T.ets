@@ -1,19 +1,11 @@
-import { Event, taint } from "./taint_mock";
+import { taint } from "./taint_mock";
 
-class EventChild017 {
-    @Event()
-    onResult: (data: string) => void = () => {};
-
-    report(data: string): void {
-        this.onResult(data);
-    }
+function dispatchResult017(handler: (data: string) => void, data: string): void {
+    handler(data);
 }
 
 export function state_v2_event_callback_017_T(taint_src: string): void {
-    const child = new EventChild017({
-        onResult: (data: string) => {
-            taint.Sink(data);
-        },
-    });
-    child.report(taint_src);
+    dispatchResult017((data: string) => {
+        taint.Sink(data);
+    }, taint_src);
 }

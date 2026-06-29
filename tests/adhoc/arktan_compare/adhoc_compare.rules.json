@@ -1,30 +1,91 @@
 {
-    "schemaVersion": "2.0",
-    "meta": {
-        "name": "adhoc-arktan-compare-rule-pack",
-        "description": "Temporary rules for ad-hoc ArkTaint vs Arktan comparison",
-        "updatedAt": "2026-03-03"
+  "schemaVersion": "2.0",
+  "meta": {
+    "name": "adhoc-arktan-compare-rule-pack",
+    "description": "Temporary exact-signature rules for ad-hoc ArkTaint vs Arktan comparison",
+    "updatedAt": "2026-06-22"
+  },
+  "sources": [
+    {
+      "id": "source.adhoc.context_pollution.seed.entry_param",
+      "match": {
+        "kind": "canonical_api_id_equals",
+        "value": "api:project:local:module=context_pollution%2Ftaintmain_context_pollute_seed_001_T.ets:file=context_pollution%2Ftaintmain_context_pollute_seed_001_T.ets:export=default%3Afile:decl=namespace%3Afile:member=function%3Ataintmain_context_pollute_seed_001_T:invoke=call:params=0%3Astring:ret=void"
+      },
+      "sourceKind": "entry_param",
+      "target": "arg0"
     },
-    "sources": [
-        {
-            "id": "source.adhoc.entry_param.any",
-            "match": {
-                "kind": "local_name_regex",
-                "value": ".*"
-            },
-            "sourceKind": "entry_param",
-            "target": "arg0"
-        }
-    ],
-    "sinks": [
-        {
-            "id": "sink.adhoc.method.Sink",
-            "match": {
-                "kind": "method_name_equals",
-                "value": "Sink"
-            },
-            "target": "arg0"
-        }
-    ],
-    "transfers": []
+    {
+      "id": "source.adhoc.context_pollution.sink.entry_param",
+      "match": {
+        "kind": "canonical_api_id_equals",
+        "value": "api:project:local:module=context_pollution%2Ftaintmain_context_pollute_sink_002_F.ets:file=context_pollution%2Ftaintmain_context_pollute_sink_002_F.ets:export=default%3Afile:decl=namespace%3Afile:member=function%3Ataintmain_context_pollute_sink_002_F:invoke=call:params=0%3Astring:ret=void"
+      },
+      "sourceKind": "entry_param",
+      "target": "arg0"
+    },
+    {
+      "id": "source.adhoc.context_pollution.sink_via_helper.entry_param",
+      "match": {
+        "kind": "canonical_api_id_equals",
+        "value": "api:project:local:module=context_pollution%2Ftaintmain_context_pollute_sink_via_helper_003_F.ets:file=context_pollution%2Ftaintmain_context_pollute_sink_via_helper_003_F.ets:export=default%3Afile:decl=namespace%3Afile:member=function%3Ataintmain_context_pollute_sink_via_helper_003_F:invoke=call:params=0%3Astring:ret=void"
+      },
+      "sourceKind": "entry_param",
+      "target": "arg0"
+    },
+    {
+      "id": "source.adhoc.perf_dummy.negative.entry_param",
+      "match": {
+        "kind": "canonical_api_id_equals",
+        "value": "api:project:local:module=perf_dummy_main_pressure%2Ftaintmain_perf_case_negative_002_F.ets:file=perf_dummy_main_pressure%2Ftaintmain_perf_case_negative_002_F.ets:export=default%3Afile:decl=namespace%3Afile:member=function%3Ataintmain_perf_case_negative_002_F:invoke=call:params=0%3Astring:ret=void"
+      },
+      "sourceKind": "entry_param",
+      "target": "arg0"
+    },
+    {
+      "id": "source.adhoc.perf_dummy.positive.entry_param",
+      "match": {
+        "kind": "canonical_api_id_equals",
+        "value": "api:project:local:module=perf_dummy_main_pressure%2Ftaintmain_perf_case_positive_001_T.ets:file=perf_dummy_main_pressure%2Ftaintmain_perf_case_positive_001_T.ets:export=default%3Afile:decl=namespace%3Afile:member=function%3Ataintmain_perf_case_positive_001_T:invoke=call:params=0%3Astring:ret=void"
+      },
+      "sourceKind": "entry_param",
+      "target": "arg0"
+    },
+    {
+      "id": "source.adhoc.perf_gap.positive.entry_param",
+      "match": {
+        "kind": "canonical_api_id_equals",
+        "value": "api:project:local:module=perf_gap_targeted%2Ftaintmain_perf_case_positive_001_T.ets:file=perf_gap_targeted%2Ftaintmain_perf_case_positive_001_T.ets:export=default%3Afile:decl=namespace%3Afile:member=function%3Ataintmain_perf_case_positive_001_T:invoke=call:params=0%3Astring:ret=void"
+      },
+      "sourceKind": "entry_param",
+      "target": "arg0"
+    }
+  ],
+  "sinks": [
+    {
+      "id": "sink.adhoc.context_pollution.Sink.arg0",
+      "match": {
+        "kind": "canonical_api_id_equals",
+        "value": "api:project:local:module=context_pollution%2Ftaint_mock.ts:file=context_pollution%2Ftaint_mock.ts:export=default%3Afile:decl=namespace%3Afile:member=function%3ASink:invoke=call:params=0%3Aany:ret=void"
+      },
+      "target": "arg0"
+    },
+    {
+      "id": "sink.adhoc.perf_dummy.Sink.arg0",
+      "match": {
+        "kind": "canonical_api_id_equals",
+        "value": "api:project:local:module=perf_dummy_main_pressure%2Ftaint_mock.ts:file=perf_dummy_main_pressure%2Ftaint_mock.ts:export=default%3Afile:decl=namespace%3Afile:member=function%3ASink:invoke=call:params=0%3Aany:ret=void"
+      },
+      "target": "arg0"
+    },
+    {
+      "id": "sink.adhoc.perf_gap.Sink.arg0",
+      "match": {
+        "kind": "canonical_api_id_equals",
+        "value": "api:project:local:module=perf_gap_targeted%2Ftaint_mock.ts:file=perf_gap_targeted%2Ftaint_mock.ts:export=default%3Afile:decl=namespace%3Afile:member=function%3ASink:invoke=call:params=0%3Aany:ret=void"
+      },
+      "target": "arg0"
+    }
+  ],
+  "transfers": []
 }

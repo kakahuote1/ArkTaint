@@ -120,8 +120,9 @@ async function main(): Promise<void> {
         throw new Error(`ArkMain phase order mismatch. actual=${phases.join(" -> ")}`);
     }
 
-    assertIncludes(phaseMethodNames(plan, "bootstrap"), ["onCreate", "onWindowStageCreate", "onForeground"], "bootstrap");
-    assertIncludes(phaseMethodNames(plan, "composition"), ["build", "aboutToAppear", "onPageShow"], "composition");
+    assertIncludes(phaseMethodNames(plan, "bootstrap"), ["onCreate", "onWindowStageCreate"], "bootstrap");
+    assertIncludes(phaseMethodNames(plan, "composition"), ["build", "aboutToAppear"], "composition");
+    assertIncludes(phaseMethodNames(plan, "interaction"), ["onForeground", "onPageShow"], "interaction");
     assertIncludes(phaseMethodNames(plan, "reactive_handoff"), ["onNewWant"], "reactive_handoff");
     assertIncludes(phaseMethodNames(plan, "teardown"), ["onPageHide", "onBackground", "onWindowStageDestroy", "onDestroy"], "teardown");
 
@@ -129,15 +130,13 @@ async function main(): Promise<void> {
     assertFactMetadata(plan, "ability_lifecycle", "onNewWant", {
         entryFamily: "ability_lifecycle",
         entryShape: "override_slot",
-        recognitionLayer: "owner_qualified_inheritance",
+        recognitionLayer: "sdk_override_first_layer",
     });
 
     assertNoFact(plan, "router_source");
     assertNoFact(plan, "router_trigger");
     assertNoFact(plan, "watch_source");
     assertNoFact(plan, "watch_handler");
-    assertNoFact(plan, "callback");
-    assertNoFact(plan, "scheduler_callback");
 
     const engine = new TaintPropagationEngine(scene, 1);
     engine.verbose = false;

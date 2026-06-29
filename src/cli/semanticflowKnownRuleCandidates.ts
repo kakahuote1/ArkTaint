@@ -2,14 +2,11 @@ import * as fs from "fs";
 import * as path from "path";
 import type {
     AssetDocumentBase,
-    AssetIdentity,
     AssetRole,
-    InvokeSurface,
-    InMemoryAssetSurfaceRegistry,
+    AssetBinding,
 } from "../core/assets/schema";
 import {
-    bootstrapAssetSurfaceRegistry,
-    resolveAssetIdentity,
+    isTrustedAnalysisAssetStatus,
     validateAssetDocument,
 } from "../core/assets/schema";
 import type { NormalizedCallsiteItem } from "../core/model/callsite/callsiteContextSlices";
@@ -20,6 +17,7 @@ import {
 } from "../core/orchestration/ExtensionLoaderUtils";
 import { resolveModelSelections } from "./modelSelection";
 import type { RuleLoaderOptions } from "../core/rules/RuleLoader";
+import { assertValidCanonicalApiId } from "../core/api/identity";
 
 export interface FilterKnownSemanticFlowRuleCandidatesOptions {
     modelRoots?: string[];
@@ -32,20 +30,13 @@ export interface FilterKnownSemanticFlowRuleCandidatesResult {
     skippedKnown: NormalizedCallsiteItem[];
 }
 
+type KnownCoverageIndex = Map<string, AssetBinding[]>;
+
 interface KnownAssetContext {
     modelRoots: string[];
     enabledRuleProjects: string[];
     enabledModuleProjects: string[];
     enabledArkMainProjects: string[];
-}
-
-interface ParsedInvokeSignature {
-    modulePath: string;
-    ownerName?: string;
-    functionName?: string;
-    methodName?: string;
-    parameterTypes: string[];
-    invokeKindHint?: InvokeSurface["invokeKind"];
 }
 
 const knownFilterRoles: AssetRole[] = [
@@ -67,17 +58,14 @@ export function filterKnownSemanticFlowRuleCandidates(
     }
 
     const context = resolveKnownAssetContext(options);
-    const registry = bootstrapAssetSurfaceRegistry(loadKnownAssets(context)).registry;
+    const knownAssets = loadKnownAssets(context);
+    const coverageIndex = buildKnownCoverageIndex(knownAssets);
 
     const kept: NormalizedCallsiteItem[] = [];
     const skippedKnown: NormalizedCallsiteItem[] = [];
     for (const item of candidates) {
-        if (isKnownOfficialArkMainBoundaryCandidate(item)) {
-            skippedKnown.push(item);
-            continue;
-        }
         const identity = resolveCandidateInvokeIdentity(item);
-        if (identity && isKnownCovered(registry, identity, item)) {
+        if (identity && isKnownCovered(coverageIndex, identity, item)) {
             skippedKnown.push(item);
             continue;
         }
@@ -92,7 +80,7 @@ function resolveKnownAssetContext(
     const modelRoots = resolveModelRoots(options.modelRoots);
     const resolved = resolveModelSelections({
         ruleOptions: {
-            autoDiscoverLayers: true,
+            autoDiscoverRuleSources: true,
             ruleCatalogPath: modelRoots[0],
             ruleCatalogPaths: modelRoots,
             enabledRulePacks: [],
@@ -222,96 +210,66 @@ function collectFiles(root: string): string[] {
     return out;
 }
 
-function resolveCandidateInvokeIdentity(item: NormalizedCallsiteItem): AssetIdentity | undefined {
-    const surface = resolveCandidateInvokeSurface(item);
-    if (!surface) return undefined;
-    const identity = resolveAssetIdentity(surface);
-    return identity.status === "resolved" ? identity.identity : undefined;
+function resolveCandidateInvokeIdentity(item: NormalizedCallsiteItem): string | undefined {
+    return acceptedCandidateCanonicalApiId(item);
 }
 
-function resolveCandidateInvokeSurface(item: NormalizedCallsiteItem): InvokeSurface | undefined {
-    const parsed = parseInvokeSignature(item.callee_signature);
-    if (!parsed) return undefined;
-    const methodName = parsed.methodName || parsed.functionName || "";
-    if (item.method && methodName && item.method !== methodName) {
+function acceptedCandidateCanonicalApiId(item: NormalizedCallsiteItem): string | undefined {
+    const value = String((item as any).canonicalApiId || "").trim();
+    if (!value) return undefined;
+    try {
+        assertValidCanonicalApiId(value);
+        return value;
+    } catch {
         return undefined;
     }
-    const invokeKind = parsed.invokeKindHint || candidateInvokeKind(item);
-    if (!invokeKind) return undefined;
-    const argCount = Number.isInteger(item.argCount)
-        ? item.argCount
-        : parsed.parameterTypes.length;
-    if (!Number.isInteger(argCount) || argCount < 0) {
-        return undefined;
-    }
-    if (parsed.parameterTypes.length > 0 && parsed.parameterTypes.length !== argCount) {
-        return undefined;
-    }
-    return {
-        surfaceId: `observed.${stableId(item.callee_signature)}.${String(item.sourceFile || "unknown")}`,
-        kind: "invoke",
-        modulePath: parsed.modulePath,
-        ownerName: parsed.ownerName,
-        functionName: parsed.functionName,
-        methodName: parsed.methodName,
-        invokeKind,
-        argCount,
-        confidence: "certain",
-        provenance: {
-            source: "analyzer",
-            location: { file: String(item.sourceFile || "") },
-            typeSignature: item.callee_signature,
-        },
-    };
-}
-
-function isKnownOfficialArkMainBoundaryCandidate(item: NormalizedCallsiteItem): boolean {
-    const topEntries = Array.isArray(item.topEntries) ? item.topEntries : [];
-    return topEntries.some(entry =>
-        String(entry || "").trim() === "candidateBoundary=official_arkmain_entry_evidence");
-}
-
-function candidateInvokeKind(item: NormalizedCallsiteItem): InvokeSurface["invokeKind"] | undefined {
-    if (item.invokeKind === "instance" || item.invokeKind === "static") {
-        return item.invokeKind;
-    }
-    return undefined;
 }
 
 function isKnownCovered(
-    registry: InMemoryAssetSurfaceRegistry,
-    identity: AssetIdentity,
+    coverageIndex: KnownCoverageIndex,
+    canonicalApiId: string,
     item: NormalizedCallsiteItem,
 ): boolean {
+    const bindings = coverageIndex.get(canonicalApiId) || [];
+    if (bindings.length === 0) {
+        return false;
+    }
     const focusedRole = roleFromCandidateFocus(item);
     if (focusedRole) {
-        const coverage = registry.queryCoverage({
-            identity,
-            expectedRoles: [focusedRole],
-            candidatePurpose: toCoveragePurpose(focusedRole),
-        });
-        return coverage.status === "covered-exact-role";
+        return bindings.some(binding => binding.role === focusedRole
+            && binding.confidence !== "unknown"
+            && binding.completeness !== "unknown");
     }
     return knownFilterRoles.some(role => {
-        const coverage = registry.queryCoverage({
-            identity,
-            expectedRoles: [role],
-            candidatePurpose: toCoveragePurpose(role),
-        });
-        return coverage.status === "covered-exact-role"
-            || registry.findBindings(identity, { roles: [role] }).some(binding =>
-                binding.confidence !== "unknown" && binding.completeness !== "unknown");
+        return bindings.some(binding => binding.role === role
+            && binding.confidence !== "unknown"
+            && binding.completeness !== "unknown");
     });
 }
 
-function toCoveragePurpose(role: AssetRole): "source" | "sink" | "transfer" | "handoff" | "entry" | "unknown" {
-    return role === "source"
-        || role === "sink"
-        || role === "transfer"
-        || role === "handoff"
-        || role === "entry"
-        ? role
-        : "unknown";
+function buildKnownCoverageIndex(assets: AssetDocumentBase[]): KnownCoverageIndex {
+    const index: KnownCoverageIndex = new Map();
+    for (const asset of assets) {
+        if (!isTrustedAnalysisAssetStatus(asset.status)) {
+            continue;
+        }
+        const surfaceCanonicalIds = new Map<string, string>();
+        for (const surface of asset.surfaces || []) {
+            if (surface.canonicalApiId) {
+                surfaceCanonicalIds.set(surface.surfaceId, surface.canonicalApiId);
+            }
+        }
+        for (const binding of asset.bindings || []) {
+            const canonicalApiId = binding.canonicalApiId || surfaceCanonicalIds.get(binding.surfaceId);
+            if (!canonicalApiId || canonicalApiId !== surfaceCanonicalIds.get(binding.surfaceId)) {
+                continue;
+            }
+            const current = index.get(canonicalApiId) || [];
+            current.push(binding);
+            index.set(canonicalApiId, current);
+        }
+    }
+    return index;
 }
 
 function roleFromCandidateFocus(item: NormalizedCallsiteItem): AssetRole | undefined {
@@ -324,88 +282,4 @@ function roleFromCandidateFocus(item: NormalizedCallsiteItem): AssetRole | undef
         return explicit as AssetRole;
     }
     return undefined;
-}
-
-function parseInvokeSignature(signature: unknown): ParsedInvokeSignature | undefined {
-    const text = String(signature || "").trim();
-    if (!text || text.includes("%unk") || text.includes("@unk/") || text.startsWith("@unk")) {
-        return undefined;
-    }
-    const colon = text.lastIndexOf(":");
-    if (colon <= 0) return undefined;
-    const modulePath = stableModulePath(text.slice(0, colon));
-    const body = text.slice(colon + 1).trim().replace(/>$/, "").trim();
-    const open = body.lastIndexOf("(");
-    const close = body.lastIndexOf(")");
-    if (open < 0 || close <= open) return undefined;
-    const before = body.slice(0, open).trim();
-    const params = splitParameterTypes(body.slice(open + 1, close));
-    const methodMatch = before.match(/(?:^|\.)(?:\[(static)\])?([A-Za-z_$][\w$]*)$/);
-    if (!methodMatch) return undefined;
-    const methodName = stableToken(methodMatch[2]);
-    const ownerText = before.slice(0, methodMatch.index ?? before.length).replace(/\.$/, "").trim();
-    const ownerName = stableToken(ownerText
-        .replace(/\.\[static\]$/, "")
-        .split(".")
-        .filter(Boolean)
-        .join("."));
-    if (!modulePath || !methodName) return undefined;
-    if (!ownerName) {
-        return {
-            modulePath,
-            functionName: methodName,
-            parameterTypes: params,
-            invokeKindHint: "free-function",
-        };
-    }
-    return {
-        modulePath,
-        ownerName,
-        methodName,
-        parameterTypes: params,
-        invokeKindHint: methodMatch[1] === "static" ? "static" : undefined,
-    };
-}
-
-function splitParameterTypes(paramsText: string): string[] {
-    const body = String(paramsText || "").trim();
-    if (!body) return [];
-    const out: string[] = [];
-    let depth = 0;
-    let current = "";
-    for (const ch of body) {
-        if (ch === "<" || ch === "(" || ch === "[" || ch === "{") depth++;
-        if (ch === ">" || ch === ")" || ch === "]" || ch === "}") depth = Math.max(0, depth - 1);
-        if (ch === "," && depth === 0) {
-            out.push(current.trim());
-            current = "";
-            continue;
-        }
-        current += ch;
-    }
-    if (current.trim()) out.push(current.trim());
-    return out;
-}
-
-function stableModulePath(value: unknown): string {
-    const text = String(value || "")
-        .replace(/^<+@?/, "")
-        .replace(/^@/, "")
-        .replace(/\\/g, "/")
-        .trim();
-    if (!text || text.includes("%unk") || text.includes("@unk")) return "";
-    return text;
-}
-
-function stableToken(value: unknown): string {
-    const text = String(value || "").trim();
-    if (!text || text.includes("%unk") || text.includes("@unk")) return "";
-    return text;
-}
-
-function stableId(value: unknown): string {
-    return String(value || "surface")
-        .replace(/[^A-Za-z0-9_.-]+/g, "_")
-        .replace(/^_+|_+$/g, "")
-        .slice(0, 160) || "surface";
 }

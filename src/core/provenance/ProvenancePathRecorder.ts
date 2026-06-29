@@ -29,12 +29,12 @@ export function materializeTaintFlowPaths(
         flowId: flow.sinkFactId,
         materializationStatus: path.materializationStatus || path.status,
     }));
-    if (paths.length === 0) return undefined;
     const incompleteReasons = mergeIncompleteReasons([
         ...(dag.incompleteReasons || []),
         ...enumeration.incompleteReasons,
         ...paths.flatMap(path => path.incompleteReasons || []),
     ]);
+    if (paths.length === 0 && incompleteReasons.length === 0) return undefined;
     const materializationStatus = toMaterializationStatus(incompleteReasons);
     return {
         sinkFactId: flow.sinkFactId,
@@ -121,8 +121,8 @@ export function enumerateProvenancePaths(
     dag: ProvenanceDag,
     options?: PathMaterializationOptions,
 ): ProvenancePathEnumeration {
-    const maxPaths = options?.maxPaths || DEFAULT_MAX_PATHS;
-    const maxDepth = options?.maxDepth || DEFAULT_MAX_DEPTH;
+    const maxPaths = options?.maxPaths ?? DEFAULT_MAX_PATHS;
+    const maxDepth = options?.maxDepth ?? DEFAULT_MAX_DEPTH;
     const predecessorAdjacency = new Map<string, ProvenanceDagEdge[]>();
     for (const edge of dag.edges) {
         const bucket = predecessorAdjacency.get(edge.toFactId) || [];

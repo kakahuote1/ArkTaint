@@ -4,127 +4,415 @@
   "status": "official",
   "surfaces": [
     {
-      "surfaceId": "surface.source.transfer_variants.entry_param.taint_src",
-      "kind": "access",
-      "modulePath": "@arktaint/local",
-      "ownerName": "LocalBinding",
-      "propertyName": "source.transfer_variants.entry_param.taint_src",
-      "accessKind": "read",
-      "receiverKind": "namespace",
-      "confidence": "likely",
+      "surfaceId": "surface.source.transfer_variants.entry_param.taint_src.method.transfer_variant_arg1_to_result_102_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=rule_transfer_variants%2Ftransfer_variant_arg1_to_result_102_T.ets:file=rule_transfer_variants%2Ftransfer_variant_arg1_to_result_102_T.ets:export=entry%3Acomponent.transfer_variant_arg1_to_result_102_T:decl=entry%3Acomponent.transfer_variant_arg1_to_result_102_T:member=lifecycle%3Atest.case.transfer_variant_arg1_to_result_102_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "rule_transfer_variants/transfer_variant_arg1_to_result_102_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_transfer_variants/transfer_variant_arg1_to_result_102_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "transfer_variant_arg1_to_result_102_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.transfer_variants.entry_param.taint_src.method.transfer_variant_base_to_arg0_103_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=rule_transfer_variants%2Ftransfer_variant_base_to_arg0_103_T.ets:file=rule_transfer_variants%2Ftransfer_variant_base_to_arg0_103_T.ets:export=entry%3Acomponent.transfer_variant_base_to_arg0_103_T:decl=entry%3Acomponent.transfer_variant_base_to_arg0_103_T:member=lifecycle%3Atest.case.transfer_variant_base_to_arg0_103_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "rule_transfer_variants/transfer_variant_base_to_arg0_103_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_transfer_variants/transfer_variant_base_to_arg0_103_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "transfer_variant_base_to_arg0_103_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.transfer_variants.entry_param.taint_src.method.transfer_variant_box_101_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=rule_transfer_variants%2Ftransfer_variant_box_101_T.ets:file=rule_transfer_variants%2Ftransfer_variant_box_101_T.ets:export=entry%3Acomponent.transfer_variant_box_101_T:decl=entry%3Acomponent.transfer_variant_box_101_T:member=lifecycle%3Atest.case.transfer_variant_box_101_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "rule_transfer_variants/transfer_variant_box_101_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_transfer_variants/transfer_variant_box_101_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "transfer_variant_box_101_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.transfer_variants.entry_param.taint_src.method.transfer_variant_box_106_F",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=rule_transfer_variants%2Ftransfer_variant_box_106_F.ets:file=rule_transfer_variants%2Ftransfer_variant_box_106_F.ets:export=entry%3Acomponent.transfer_variant_box_106_F:decl=entry%3Acomponent.transfer_variant_box_106_F:member=lifecycle%3Atest.case.transfer_variant_box_106_F:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "rule_transfer_variants/transfer_variant_box_106_F.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_transfer_variants/transfer_variant_box_106_F.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "transfer_variant_box_106_F",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.transfer_variants.entry_param.taint_src.method.transfer_variant_no_rule_107_F",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=rule_transfer_variants%2Ftransfer_variant_no_rule_107_F.ets:file=rule_transfer_variants%2Ftransfer_variant_no_rule_107_F.ets:export=entry%3Acomponent.transfer_variant_no_rule_107_F:decl=entry%3Acomponent.transfer_variant_no_rule_107_F:member=lifecycle%3Atest.case.transfer_variant_no_rule_107_F:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "rule_transfer_variants/transfer_variant_no_rule_107_F.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_transfer_variants/transfer_variant_no_rule_107_F.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "transfer_variant_no_rule_107_F",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.transfer_variants.entry_param.taint_src.method.transfer_variant_result_to_arg0_104_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=rule_transfer_variants%2Ftransfer_variant_result_to_arg0_104_T.ets:file=rule_transfer_variants%2Ftransfer_variant_result_to_arg0_104_T.ets:export=entry%3Acomponent.transfer_variant_result_to_arg0_104_T:decl=entry%3Acomponent.transfer_variant_result_to_arg0_104_T:member=lifecycle%3Atest.case.transfer_variant_result_to_arg0_104_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "rule_transfer_variants/transfer_variant_result_to_arg0_104_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_transfer_variants/transfer_variant_result_to_arg0_104_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "transfer_variant_result_to_arg0_104_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
       }
     },
     {
       "surfaceId": "surface.sink.transfer_variants.arg0",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "Sink",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "rule_transfer_variants/taint_mock.ets"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=rule_transfer_variants%2Ftaint_mock.ets:file=rule_transfer_variants%2Ftaint_mock.ets:export=namespace%3ATaintAPI:decl=class%3ATaintAPI:member=method%3Ainstance%3ASink:invoke=call:params=0%3Astring:ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_transfer_variants/taint_mock.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "TaintAPI",
+            "methodName": "Sink",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.variants.stash.arg0_to_base",
+      "surfaceId": "surface.transfer.variants.stash.arg0_to_base.for.rule_transfer_variants_transfer_variant_box_101_T_ets_Vault101_stash_string",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "stash",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "rule_transfer_variants/transfer_variant_box_101_T.ets"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=rule_transfer_variants%2Ftransfer_variant_box_101_T.ets:file=rule_transfer_variants%2Ftransfer_variant_box_101_T.ets:export=namespace%3AVault101:decl=class%3AVault101:member=method%3Ainstance%3Astash:invoke=call:params=0%3Astring:ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_transfer_variants/transfer_variant_box_101_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "Vault101",
+            "methodName": "stash",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.variants.read.base_to_result",
+      "surfaceId": "surface.transfer.variants.stash.arg0_to_base.for.rule_transfer_variants_transfer_variant_box_106_F_ets_Vault106_stash_string",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "read",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "rule_transfer_variants/transfer_variant_box_106_F.ets"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=rule_transfer_variants%2Ftransfer_variant_box_106_F.ets:file=rule_transfer_variants%2Ftransfer_variant_box_106_F.ets:export=namespace%3AVault106:decl=class%3AVault106:member=method%3Ainstance%3Astash:invoke=call:params=0%3Astring:ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_transfer_variants/transfer_variant_box_106_F.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "Vault106",
+            "methodName": "stash",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.variants.read.base_to_result.for.rule_transfer_variants_transfer_variant_box_101_T_ets_Vault101_read",
+      "kind": "invoke",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "rule_transfer_variants/transfer_variant_box_101_T.ets"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=rule_transfer_variants%2Ftransfer_variant_box_101_T.ets:file=rule_transfer_variants%2Ftransfer_variant_box_101_T.ets:export=namespace%3AVault101:decl=class%3AVault101:member=method%3Ainstance%3Aread:invoke=call:params=none:ret=string",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_transfer_variants/transfer_variant_box_101_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "Vault101",
+            "methodName": "read",
+            "parameterTypes": [],
+            "returnType": "string",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.variants.read.base_to_result.for.rule_transfer_variants_transfer_variant_box_106_F_ets_Vault106_read",
+      "kind": "invoke",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "rule_transfer_variants/transfer_variant_box_106_F.ets"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=rule_transfer_variants%2Ftransfer_variant_box_106_F.ets:file=rule_transfer_variants%2Ftransfer_variant_box_106_F.ets:export=namespace%3AVault106:decl=class%3AVault106:member=method%3Ainstance%3Aread:invoke=call:params=none:ret=string",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_transfer_variants/transfer_variant_box_106_F.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "Vault106",
+            "methodName": "read",
+            "parameterTypes": [],
+            "returnType": "string",
+            "staticFlag": false
+          }
+        }
       }
     },
     {
       "surfaceId": "surface.transfer.variants.merge.arg1_to_result",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "merge",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "rule_transfer_variants/transfer_variant_arg1_to_result_102_T.ets"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=rule_transfer_variants%2Ftransfer_variant_arg1_to_result_102_T.ets:file=rule_transfer_variants%2Ftransfer_variant_arg1_to_result_102_T.ets:export=namespace%3AMix102:decl=class%3AMix102:member=method%3Astatic%3A%5Bstatic%5Dmerge:invoke=call:params=0%3Astring%2C1%3Astring:ret=string",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_transfer_variants/transfer_variant_arg1_to_result_102_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "Mix102",
+            "methodName": "[static]merge",
+            "parameterTypes": [
+              "string",
+              "string"
+            ],
+            "returnType": "string",
+            "staticFlag": true
+          }
+        }
       }
     },
     {
       "surfaceId": "surface.transfer.variants.attach.arg0_to_base",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "attach",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "rule_transfer_variants/transfer_variant_base_to_arg0_103_T.ets"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=rule_transfer_variants%2Ftransfer_variant_base_to_arg0_103_T.ets:file=rule_transfer_variants%2Ftransfer_variant_base_to_arg0_103_T.ets:export=namespace%3ABrush103:decl=class%3ABrush103:member=method%3Ainstance%3Aattach:invoke=call:params=0%3Astring:ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_transfer_variants/transfer_variant_base_to_arg0_103_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "Brush103",
+            "methodName": "attach",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
       }
     },
     {
       "surfaceId": "surface.transfer.variants.emit.base_to_arg0",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "emit",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "rule_transfer_variants/transfer_variant_base_to_arg0_103_T.ets"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=rule_transfer_variants%2Ftransfer_variant_base_to_arg0_103_T.ets:file=rule_transfer_variants%2Ftransfer_variant_base_to_arg0_103_T.ets:export=namespace%3ABrush103:decl=class%3ABrush103:member=method%3Ainstance%3Aemit:invoke=call:params=0%3Astring:ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_transfer_variants/transfer_variant_base_to_arg0_103_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "Brush103",
+            "methodName": "emit",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
       }
     },
     {
       "surfaceId": "surface.transfer.variants.relay.result_to_arg0",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "relay",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "rule_transfer_variants/transfer_variant_result_to_arg0_104_T.ets"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=rule_transfer_variants%2Ftransfer_variant_result_to_arg0_104_T.ets:file=rule_transfer_variants%2Ftransfer_variant_result_to_arg0_104_T.ets:export=namespace%3ARelay104:decl=class%3ARelay104:member=method%3Astatic%3A%5Bstatic%5Drelay:invoke=call:params=0%3Astring:ret=string",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_transfer_variants/transfer_variant_result_to_arg0_104_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "Relay104",
+            "methodName": "[static]relay",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "string",
+            "staticFlag": true
+          }
+        }
       }
     }
   ],
   "bindings": [
     {
       "bindingId": "binding.source.transfer_variants.entry_param.taint_src.0.method.transfer_variant_arg1_to_result_102_T",
-      "surfaceId": "surface.source.transfer_variants.entry_param.taint_src",
+      "surfaceId": "surface.source.transfer_variants.entry_param.taint_src.method.transfer_variant_arg1_to_result_102_T",
       "assetId": "asset.rule.test.transfer_variants",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "transfer_variant_arg1_to_result_102_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "transfer_variant_arg1_to_result_102_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -135,25 +423,16 @@
         "template.source.transfer_variants.entry_param.taint_src.for.source.transfer_variants.entry_param.taint_src.0.method.transfer_variant_arg1_to_result_102_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=rule_transfer_variants%2Ftransfer_variant_arg1_to_result_102_T.ets:file=rule_transfer_variants%2Ftransfer_variant_arg1_to_result_102_T.ets:export=entry%3Acomponent.transfer_variant_arg1_to_result_102_T:decl=entry%3Acomponent.transfer_variant_arg1_to_result_102_T:member=lifecycle%3Atest.case.transfer_variant_arg1_to_result_102_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.transfer_variants.entry_param.taint_src.0.method.transfer_variant_base_to_arg0_103_T",
-      "surfaceId": "surface.source.transfer_variants.entry_param.taint_src",
+      "surfaceId": "surface.source.transfer_variants.entry_param.taint_src.method.transfer_variant_base_to_arg0_103_T",
       "assetId": "asset.rule.test.transfer_variants",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "transfer_variant_base_to_arg0_103_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "transfer_variant_base_to_arg0_103_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -164,25 +443,16 @@
         "template.source.transfer_variants.entry_param.taint_src.for.source.transfer_variants.entry_param.taint_src.0.method.transfer_variant_base_to_arg0_103_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=rule_transfer_variants%2Ftransfer_variant_base_to_arg0_103_T.ets:file=rule_transfer_variants%2Ftransfer_variant_base_to_arg0_103_T.ets:export=entry%3Acomponent.transfer_variant_base_to_arg0_103_T:decl=entry%3Acomponent.transfer_variant_base_to_arg0_103_T:member=lifecycle%3Atest.case.transfer_variant_base_to_arg0_103_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.transfer_variants.entry_param.taint_src.0.method.transfer_variant_box_101_T",
-      "surfaceId": "surface.source.transfer_variants.entry_param.taint_src",
+      "surfaceId": "surface.source.transfer_variants.entry_param.taint_src.method.transfer_variant_box_101_T",
       "assetId": "asset.rule.test.transfer_variants",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "transfer_variant_box_101_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "transfer_variant_box_101_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -193,25 +463,16 @@
         "template.source.transfer_variants.entry_param.taint_src.for.source.transfer_variants.entry_param.taint_src.0.method.transfer_variant_box_101_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=rule_transfer_variants%2Ftransfer_variant_box_101_T.ets:file=rule_transfer_variants%2Ftransfer_variant_box_101_T.ets:export=entry%3Acomponent.transfer_variant_box_101_T:decl=entry%3Acomponent.transfer_variant_box_101_T:member=lifecycle%3Atest.case.transfer_variant_box_101_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.transfer_variants.entry_param.taint_src.0.method.transfer_variant_box_106_F",
-      "surfaceId": "surface.source.transfer_variants.entry_param.taint_src",
+      "surfaceId": "surface.source.transfer_variants.entry_param.taint_src.method.transfer_variant_box_106_F",
       "assetId": "asset.rule.test.transfer_variants",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "transfer_variant_box_106_F",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "transfer_variant_box_106_F.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -222,25 +483,16 @@
         "template.source.transfer_variants.entry_param.taint_src.for.source.transfer_variants.entry_param.taint_src.0.method.transfer_variant_box_106_F"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=rule_transfer_variants%2Ftransfer_variant_box_106_F.ets:file=rule_transfer_variants%2Ftransfer_variant_box_106_F.ets:export=entry%3Acomponent.transfer_variant_box_106_F:decl=entry%3Acomponent.transfer_variant_box_106_F:member=lifecycle%3Atest.case.transfer_variant_box_106_F:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.transfer_variants.entry_param.taint_src.0.method.transfer_variant_no_rule_107_F",
-      "surfaceId": "surface.source.transfer_variants.entry_param.taint_src",
+      "surfaceId": "surface.source.transfer_variants.entry_param.taint_src.method.transfer_variant_no_rule_107_F",
       "assetId": "asset.rule.test.transfer_variants",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "transfer_variant_no_rule_107_F",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "transfer_variant_no_rule_107_F.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -251,25 +503,16 @@
         "template.source.transfer_variants.entry_param.taint_src.for.source.transfer_variants.entry_param.taint_src.0.method.transfer_variant_no_rule_107_F"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=rule_transfer_variants%2Ftransfer_variant_no_rule_107_F.ets:file=rule_transfer_variants%2Ftransfer_variant_no_rule_107_F.ets:export=entry%3Acomponent.transfer_variant_no_rule_107_F:decl=entry%3Acomponent.transfer_variant_no_rule_107_F:member=lifecycle%3Atest.case.transfer_variant_no_rule_107_F:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.transfer_variants.entry_param.taint_src.0.method.transfer_variant_result_to_arg0_104_T",
-      "surfaceId": "surface.source.transfer_variants.entry_param.taint_src",
+      "surfaceId": "surface.source.transfer_variants.entry_param.taint_src.method.transfer_variant_result_to_arg0_104_T",
       "assetId": "asset.rule.test.transfer_variants",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "transfer_variant_result_to_arg0_104_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "transfer_variant_result_to_arg0_104_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -280,8 +523,9 @@
         "template.source.transfer_variants.entry_param.taint_src.for.source.transfer_variants.entry_param.taint_src.0.method.transfer_variant_result_to_arg0_104_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=rule_transfer_variants%2Ftransfer_variant_result_to_arg0_104_T.ets:file=rule_transfer_variants%2Ftransfer_variant_result_to_arg0_104_T.ets:export=entry%3Acomponent.transfer_variant_result_to_arg0_104_T:decl=entry%3Acomponent.transfer_variant_result_to_arg0_104_T:member=lifecycle%3Atest.case.transfer_variant_result_to_arg0_104_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.sink.transfer_variants.arg0.0",
@@ -289,10 +533,6 @@
       "assetId": "asset.rule.test.transfer_variants",
       "plane": "rule",
       "role": "sink",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "Sink"
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -303,45 +543,70 @@
         "template.sink.transfer_variants.arg0"
       ],
       "semanticsFamily": "sink",
-      "completeness": "partial",
-      "confidence": "likely",
-      "metadata": {}
+      "completeness": "complete",
+      "confidence": "certain",
+      "metadata": {},
+      "canonicalApiId": "api:project:local:module=rule_transfer_variants%2Ftaint_mock.ets:file=rule_transfer_variants%2Ftaint_mock.ets:export=namespace%3ATaintAPI:decl=class%3ATaintAPI:member=method%3Ainstance%3ASink:invoke=call:params=0%3Astring:ret=void"
     },
     {
-      "bindingId": "binding.transfer.variants.stash.arg0_to_base.0",
-      "surfaceId": "surface.transfer.variants.stash.arg0_to_base",
+      "bindingId": "binding.transfer.variants.stash.arg0_to_base.0.for.rule_transfer_variants_transfer_variant_box_101_T_ets_Vault101_stash_string",
+      "surfaceId": "surface.transfer.variants.stash.arg0_to_base.for.rule_transfer_variants_transfer_variant_box_101_T_ets_Vault101_stash_string",
       "assetId": "asset.rule.test.transfer_variants",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "stash"
-      },
       "effectTemplateRefs": [
-        "template.transfer.variants.stash.arg0_to_base"
+        "template.transfer.variants.stash.arg0_to_base.for.rule_transfer_variants_transfer_variant_box_101_T_ets_Vault101_stash_string"
       ],
       "semanticsFamily": "transfer",
-      "completeness": "partial",
-      "confidence": "likely",
-      "metadata": {}
+      "completeness": "complete",
+      "confidence": "certain",
+      "metadata": {},
+      "canonicalApiId": "api:project:local:module=rule_transfer_variants%2Ftransfer_variant_box_101_T.ets:file=rule_transfer_variants%2Ftransfer_variant_box_101_T.ets:export=namespace%3AVault101:decl=class%3AVault101:member=method%3Ainstance%3Astash:invoke=call:params=0%3Astring:ret=void"
     },
     {
-      "bindingId": "binding.transfer.variants.read.base_to_result.0",
-      "surfaceId": "surface.transfer.variants.read.base_to_result",
+      "bindingId": "binding.transfer.variants.stash.arg0_to_base.0.for.rule_transfer_variants_transfer_variant_box_106_F_ets_Vault106_stash_string",
+      "surfaceId": "surface.transfer.variants.stash.arg0_to_base.for.rule_transfer_variants_transfer_variant_box_106_F_ets_Vault106_stash_string",
       "assetId": "asset.rule.test.transfer_variants",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "read"
-      },
       "effectTemplateRefs": [
-        "template.transfer.variants.read.base_to_result"
+        "template.transfer.variants.stash.arg0_to_base.for.rule_transfer_variants_transfer_variant_box_106_F_ets_Vault106_stash_string"
       ],
       "semanticsFamily": "transfer",
-      "completeness": "partial",
-      "confidence": "likely",
-      "metadata": {}
+      "completeness": "complete",
+      "confidence": "certain",
+      "metadata": {},
+      "canonicalApiId": "api:project:local:module=rule_transfer_variants%2Ftransfer_variant_box_106_F.ets:file=rule_transfer_variants%2Ftransfer_variant_box_106_F.ets:export=namespace%3AVault106:decl=class%3AVault106:member=method%3Ainstance%3Astash:invoke=call:params=0%3Astring:ret=void"
+    },
+    {
+      "bindingId": "binding.transfer.variants.read.base_to_result.0.for.rule_transfer_variants_transfer_variant_box_101_T_ets_Vault101_read",
+      "surfaceId": "surface.transfer.variants.read.base_to_result.for.rule_transfer_variants_transfer_variant_box_101_T_ets_Vault101_read",
+      "assetId": "asset.rule.test.transfer_variants",
+      "plane": "rule",
+      "role": "transfer",
+      "effectTemplateRefs": [
+        "template.transfer.variants.read.base_to_result.for.rule_transfer_variants_transfer_variant_box_101_T_ets_Vault101_read"
+      ],
+      "semanticsFamily": "transfer",
+      "completeness": "complete",
+      "confidence": "certain",
+      "metadata": {},
+      "canonicalApiId": "api:project:local:module=rule_transfer_variants%2Ftransfer_variant_box_101_T.ets:file=rule_transfer_variants%2Ftransfer_variant_box_101_T.ets:export=namespace%3AVault101:decl=class%3AVault101:member=method%3Ainstance%3Aread:invoke=call:params=none:ret=string"
+    },
+    {
+      "bindingId": "binding.transfer.variants.read.base_to_result.0.for.rule_transfer_variants_transfer_variant_box_106_F_ets_Vault106_read",
+      "surfaceId": "surface.transfer.variants.read.base_to_result.for.rule_transfer_variants_transfer_variant_box_106_F_ets_Vault106_read",
+      "assetId": "asset.rule.test.transfer_variants",
+      "plane": "rule",
+      "role": "transfer",
+      "effectTemplateRefs": [
+        "template.transfer.variants.read.base_to_result.for.rule_transfer_variants_transfer_variant_box_106_F_ets_Vault106_read"
+      ],
+      "semanticsFamily": "transfer",
+      "completeness": "complete",
+      "confidence": "certain",
+      "metadata": {},
+      "canonicalApiId": "api:project:local:module=rule_transfer_variants%2Ftransfer_variant_box_106_F.ets:file=rule_transfer_variants%2Ftransfer_variant_box_106_F.ets:export=namespace%3AVault106:decl=class%3AVault106:member=method%3Ainstance%3Aread:invoke=call:params=none:ret=string"
     },
     {
       "bindingId": "binding.transfer.variants.merge.arg1_to_result.0",
@@ -349,17 +614,14 @@
       "assetId": "asset.rule.test.transfer_variants",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "merge"
-      },
       "effectTemplateRefs": [
         "template.transfer.variants.merge.arg1_to_result"
       ],
       "semanticsFamily": "transfer",
-      "completeness": "partial",
-      "confidence": "likely",
-      "metadata": {}
+      "completeness": "complete",
+      "confidence": "certain",
+      "metadata": {},
+      "canonicalApiId": "api:project:local:module=rule_transfer_variants%2Ftransfer_variant_arg1_to_result_102_T.ets:file=rule_transfer_variants%2Ftransfer_variant_arg1_to_result_102_T.ets:export=namespace%3AMix102:decl=class%3AMix102:member=method%3Astatic%3A%5Bstatic%5Dmerge:invoke=call:params=0%3Astring%2C1%3Astring:ret=string"
     },
     {
       "bindingId": "binding.transfer.variants.attach.arg0_to_base.0",
@@ -367,17 +629,14 @@
       "assetId": "asset.rule.test.transfer_variants",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "attach"
-      },
       "effectTemplateRefs": [
         "template.transfer.variants.attach.arg0_to_base"
       ],
       "semanticsFamily": "transfer",
-      "completeness": "partial",
-      "confidence": "likely",
-      "metadata": {}
+      "completeness": "complete",
+      "confidence": "certain",
+      "metadata": {},
+      "canonicalApiId": "api:project:local:module=rule_transfer_variants%2Ftransfer_variant_base_to_arg0_103_T.ets:file=rule_transfer_variants%2Ftransfer_variant_base_to_arg0_103_T.ets:export=namespace%3ABrush103:decl=class%3ABrush103:member=method%3Ainstance%3Aattach:invoke=call:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.transfer.variants.emit.base_to_arg0.0",
@@ -385,17 +644,14 @@
       "assetId": "asset.rule.test.transfer_variants",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "emit"
-      },
       "effectTemplateRefs": [
         "template.transfer.variants.emit.base_to_arg0"
       ],
       "semanticsFamily": "transfer",
-      "completeness": "partial",
-      "confidence": "likely",
-      "metadata": {}
+      "completeness": "complete",
+      "confidence": "certain",
+      "metadata": {},
+      "canonicalApiId": "api:project:local:module=rule_transfer_variants%2Ftransfer_variant_base_to_arg0_103_T.ets:file=rule_transfer_variants%2Ftransfer_variant_base_to_arg0_103_T.ets:export=namespace%3ABrush103:decl=class%3ABrush103:member=method%3Ainstance%3Aemit:invoke=call:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.transfer.variants.relay.result_to_arg0.0",
@@ -403,20 +659,89 @@
       "assetId": "asset.rule.test.transfer_variants",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "relay"
-      },
       "effectTemplateRefs": [
         "template.transfer.variants.relay.result_to_arg0"
       ],
       "semanticsFamily": "transfer",
-      "completeness": "partial",
-      "confidence": "likely",
-      "metadata": {}
+      "completeness": "complete",
+      "confidence": "certain",
+      "metadata": {},
+      "canonicalApiId": "api:project:local:module=rule_transfer_variants%2Ftransfer_variant_result_to_arg0_104_T.ets:file=rule_transfer_variants%2Ftransfer_variant_result_to_arg0_104_T.ets:export=namespace%3ARelay104:decl=class%3ARelay104:member=method%3Astatic%3A%5Bstatic%5Drelay:invoke=call:params=0%3Astring:ret=string"
     }
   ],
   "effectTemplates": [
+    {
+      "id": "template.source.transfer_variants.entry_param.taint_src.for.source.transfer_variants.entry_param.taint_src.0.method.transfer_variant_arg1_to_result_102_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.transfer_variants.entry_param.taint_src.for.source.transfer_variants.entry_param.taint_src.0.method.transfer_variant_base_to_arg0_103_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.transfer_variants.entry_param.taint_src.for.source.transfer_variants.entry_param.taint_src.0.method.transfer_variant_box_101_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.transfer_variants.entry_param.taint_src.for.source.transfer_variants.entry_param.taint_src.0.method.transfer_variant_box_106_F",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.transfer_variants.entry_param.taint_src.for.source.transfer_variants.entry_param.taint_src.0.method.transfer_variant_no_rule_107_F",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.transfer_variants.entry_param.taint_src.for.source.transfer_variants.entry_param.taint_src.0.method.transfer_variant_result_to_arg0_104_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
     {
       "id": "template.sink.transfer_variants.arg0",
       "confidence": "certain",
@@ -430,7 +755,7 @@
       "sinkKind": "sink"
     },
     {
-      "id": "template.transfer.variants.stash.arg0_to_base",
+      "id": "template.transfer.variants.stash.arg0_to_base.for.rule_transfer_variants_transfer_variant_box_101_T_ets_Vault101_stash_string",
       "confidence": "certain",
       "kind": "rule.transfer",
       "from": {
@@ -447,7 +772,40 @@
       "transferKind": "transfer"
     },
     {
-      "id": "template.transfer.variants.read.base_to_result",
+      "id": "template.transfer.variants.stash.arg0_to_base.for.rule_transfer_variants_transfer_variant_box_106_F_ets_Vault106_stash_string",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.variants.read.base_to_result.for.rule_transfer_variants_transfer_variant_box_101_T_ets_Vault101_read",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.variants.read.base_to_result.for.rule_transfer_variants_transfer_variant_box_106_F_ets_Vault106_read",
       "confidence": "certain",
       "kind": "rule.transfer",
       "from": {
@@ -529,78 +887,6 @@
         }
       },
       "transferKind": "transfer"
-    },
-    {
-      "id": "template.source.transfer_variants.entry_param.taint_src.for.source.transfer_variants.entry_param.taint_src.0.method.transfer_variant_arg1_to_result_102_T",
-      "confidence": "certain",
-      "kind": "rule.source",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sourceKind": "entry_param"
-    },
-    {
-      "id": "template.source.transfer_variants.entry_param.taint_src.for.source.transfer_variants.entry_param.taint_src.0.method.transfer_variant_base_to_arg0_103_T",
-      "confidence": "certain",
-      "kind": "rule.source",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sourceKind": "entry_param"
-    },
-    {
-      "id": "template.source.transfer_variants.entry_param.taint_src.for.source.transfer_variants.entry_param.taint_src.0.method.transfer_variant_box_101_T",
-      "confidence": "certain",
-      "kind": "rule.source",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sourceKind": "entry_param"
-    },
-    {
-      "id": "template.source.transfer_variants.entry_param.taint_src.for.source.transfer_variants.entry_param.taint_src.0.method.transfer_variant_box_106_F",
-      "confidence": "certain",
-      "kind": "rule.source",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sourceKind": "entry_param"
-    },
-    {
-      "id": "template.source.transfer_variants.entry_param.taint_src.for.source.transfer_variants.entry_param.taint_src.0.method.transfer_variant_no_rule_107_F",
-      "confidence": "certain",
-      "kind": "rule.source",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sourceKind": "entry_param"
-    },
-    {
-      "id": "template.source.transfer_variants.entry_param.taint_src.for.source.transfer_variants.entry_param.taint_src.0.method.transfer_variant_result_to_arg0_104_T",
-      "confidence": "certain",
-      "kind": "rule.source",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sourceKind": "entry_param"
     }
   ],
   "provenance": {

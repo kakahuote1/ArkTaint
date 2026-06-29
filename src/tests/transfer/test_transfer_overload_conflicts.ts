@@ -1,15 +1,15 @@
 import { Scene } from "../../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../../arkanalyzer/out/src/Config";
 import { TaintPropagationEngine } from "../../core/orchestration/TaintPropagationEngine";
-import { loadRuleSet } from "../../core/rules/RuleLoader";
-import { SinkRule, SourceRule, TransferRule } from "../../core/rules/RuleSchema";
+import { SinkRule, TransferRule } from "../../core/rules/RuleSchema";
+import type { ExactRuleRuntime } from "../rules/ExactRuleTestUtils";
+import { buildExactTransferScenario } from "./ExactTransferScenarioFactory";
+import { findLocalSeedNodes } from "./ExactTransferTestUtils";
 import * as fs from "fs";
 import * as path from "path";
 
 interface CliOptions {
     sourceDir: string;
-    kernelRulePath: string;
-    projectRulePath: string;
     k: number;
 }
 
@@ -29,8 +29,6 @@ interface CaseResult {
 
 function parseArgs(argv: string[]): CliOptions {
     let sourceDir = "tests/demo/transfer_overload_conflicts";
-    let kernelRulePath = "tests/rules/minimal.rules.json";
-    let projectRulePath = "tests/rules/transfer_overload_conflicts.rules.json";
     let k = 1;
 
     for (let i = 0; i < argv.length; i++) {
@@ -41,22 +39,6 @@ function parseArgs(argv: string[]): CliOptions {
         }
         if (arg.startsWith("--sourceDir=")) {
             sourceDir = arg.slice("--sourceDir=".length);
-            continue;
-        }
-        if (arg === "--kernelRule" && i + 1 < argv.length) {
-            kernelRulePath = argv[++i];
-            continue;
-        }
-        if (arg.startsWith("--kernelRule=")) {
-            kernelRulePath = arg.slice("--kernelRule=".length);
-            continue;
-        }
-        if (arg === "--project" && i + 1 < argv.length) {
-            projectRulePath = argv[++i];
-            continue;
-        }
-        if (arg.startsWith("--project=")) {
-            projectRulePath = arg.slice("--project=".length);
             continue;
         }
         if (arg === "--k" && i + 1 < argv.length) {
@@ -75,8 +57,6 @@ function parseArgs(argv: string[]): CliOptions {
 
     return {
         sourceDir: path.resolve(sourceDir),
-        kernelRulePath: path.resolve(kernelRulePath),
-        projectRulePath: path.resolve(projectRulePath),
         k,
     };
 }
@@ -100,38 +80,33 @@ async function runCase(
     scene: Scene,
     caseName: string,
     k: number,
-    sourceRules: SourceRule[],
     sinkRules: SinkRule[],
-    transferRules: TransferRule[]
+    transferRules: TransferRule[],
+    runtime: ExactRuleRuntime,
 ): Promise<CaseRunResult> {
-    const engine = new TaintPropagationEngine(scene, k, { transferRules });
+    const entryMethod = scene.getMethods().find(method => method.getName() === caseName);
+    if (!entryMethod) {
+        throw new Error(`entry method not found: ${caseName}`);
+    }
+    const engine = new TaintPropagationEngine(scene, k, { ...runtime, transferRules, includeBuiltinModules: false });
     engine.verbose = false;
-    await engine.buildPAG();
+    await engine.buildPAG({
+        entryModel: "explicit",
+        syntheticEntryMethods: [entryMethod],
+    });
     engine.setActiveReachableMethodSignatures(undefined, { mergeExplicitEntryScope: false });
-    const seedInfo = engine.propagateWithSourceRules(sourceRules);
+    const seedNodes = findLocalSeedNodes(engine, scene, caseName, "taint_src");
+    engine.propagateWithSeeds(seedNodes);
     const flows = engine.detectSinksByRules(sinkRules);
     const scopedFlows = flows.filter(flow => flowSinkInCaseMethod(scene, flow.sink, caseName));
     return {
         detected: scopedFlows.length > 0,
-        seedCount: seedInfo.seedCount,
+        seedCount: seedNodes.length,
     };
 }
 
 async function main(): Promise<void> {
     const options = parseArgs(process.argv.slice(2));
-    const loaded = loadRuleSet({
-        kernelRulePath: options.kernelRulePath,
-        projectRulePath: options.projectRulePath,
-        autoDiscoverLayers: false,
-    });
-    const sourceRules: SourceRule[] = loaded.ruleSet.sources || [];
-    const sinkRules: SinkRule[] = loaded.ruleSet.sinks || [];
-    const transferRules: TransferRule[] = loaded.ruleSet.transfers || [];
-
-    console.log(`source_rules_loaded=${sourceRules.length}`);
-    console.log(`sink_rules_loaded=${sinkRules.length}`);
-    console.log(`transfer_rules_loaded=${transferRules.length}`);
-
     const sceneConfig = new SceneConfig();
     sceneConfig.buildFromProjectDir(options.sourceDir);
     const scene = new Scene();
@@ -139,6 +114,19 @@ async function main(): Promise<void> {
     scene.inferTypes();
 
     const cases = listCases(options.sourceDir).filter(name => name !== "taint_mock");
+    const scenario = buildExactTransferScenario({
+        scene,
+        scenarioId: "transfer_overload_conflicts",
+        caseNames: cases,
+    });
+    const sourceRules = scenario.sourceRules;
+    const sinkRules = scenario.sinkRules;
+    const transferRules = scenario.transferRules;
+    const exactRuntime = scenario.exactRuntime;
+
+    console.log(`source_rules_loaded=${sourceRules.length}`);
+    console.log(`sink_rules_loaded=${sinkRules.length}`);
+    console.log(`transfer_rules_loaded=${transferRules.length}`);
     const results: CaseResult[] = [];
     let passCount = 0;
     let ruleDrivenTrueCaseCount = 0;
@@ -149,17 +137,17 @@ async function main(): Promise<void> {
             scene,
             caseName,
             options.k,
-            sourceRules,
             sinkRules,
-            transferRules
+            transferRules,
+            exactRuntime,
         );
         const withoutRules = await runCase(
             scene,
             caseName,
             options.k,
-            sourceRules,
             sinkRules,
-            []
+            [],
+            exactRuntime,
         );
 
         let pass = false;

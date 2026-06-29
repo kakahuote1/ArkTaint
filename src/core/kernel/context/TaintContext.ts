@@ -131,6 +131,18 @@ export class TaintContextManager {
         return this.contextCache.getOrNewContextID(callerCtx);
     }
 
+    public restoreCallerContextForCallSite(calleeCtxID: ContextID, callSiteId: number): ContextID | undefined {
+        if (this.k === 0 && !this.contextKSelector) {
+            return this.emptyCID;
+        }
+
+        if (this.getTopElement(calleeCtxID) !== callSiteId) {
+            return undefined;
+        }
+
+        return this.restoreCallerContext(calleeCtxID);
+    }
+
     /**
      * 获取上下文的栈顶元素（最近的 callsite ID�?
      * 用于 Return 边的上下文匹�?

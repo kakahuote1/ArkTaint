@@ -2,8 +2,8 @@ import { Scene } from "../../../../arkanalyzer/out/src/Scene";
 import { CallGraph } from "../../../../arkanalyzer/out/src/callgraph/model/CallGraph";
 import { Pag, PagNode } from "../../../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
 import { ArkAssignStmt, ArkReturnStmt } from "../../../../arkanalyzer/out/src/core/base/Stmt";
-import { ArkInstanceInvokeExpr } from "../../../../arkanalyzer/out/src/core/base/Expr";
-import { ArkInstanceFieldRef, ArkParameterRef, ArkThisRef, ClosureFieldRef } from "../../../../arkanalyzer/out/src/core/base/Ref";
+import { ArkAwaitExpr, ArkCastExpr, ArkInstanceInvokeExpr, ArkStaticInvokeExpr } from "../../../../arkanalyzer/out/src/core/base/Expr";
+import { ArkArrayRef, ArkInstanceFieldRef, ArkParameterRef, ArkThisRef, ClosureFieldRef } from "../../../../arkanalyzer/out/src/core/base/Ref";
 import { Local } from "../../../../arkanalyzer/out/src/core/base/Local";
 import { CallEdgeInfo, CallEdgeType } from "../context/TaintContext";
 import {
@@ -11,6 +11,7 @@ import {
     collectParameterAssignStmts,
     isReflectDispatchInvoke,
     mapInvokeArgsToParamAssigns,
+    diagnoseUnresolvedVirtualDispatch,
     resolveCalleeCandidates,
     resolveMethodsFromCallable,
 } from "../../substrate/queries/CalleeResolver";
@@ -86,10 +87,22 @@ export interface CaptureLazyMaterializer {
     materializedSiteIds: Set<number>;
 }
 
+export interface CaptureLazyMaterializerBuildOptions {
+    progress?: (msg: string) => void;
+    progressInterval?: number;
+}
+
 interface ResolvedCallTarget {
     method: any;
     explicitArgs: any[];
     callSiteSalt: number;
+}
+
+export interface CallEdgeMapBuildOptions {
+    diagnostics?: "enabled" | "disabled";
+    progress?: (msg: string) => void;
+    progressEveryMethods?: number;
+    methods?: Iterable<any>;
 }
 
 interface CaptureDescriptorCaches {
@@ -120,15 +133,30 @@ export function buildCallEdgeMap(
     scene: Scene,
     cg: CallGraph,
     pag: Pag,
-    log: (msg: string) => void
+    log: (msg: string) => void,
+    options: CallEdgeMapBuildOptions = {},
 ): Map<string, CallEdgeInfo> {
     const callEdgeMap = new Map<string, CallEdgeInfo>();
-    log("Building Call Edge Map...");
+    const progress = options.progress || log;
+    const diagnosticsEnabled = options.diagnostics !== "disabled";
+    const progressEveryMethods = options.progressEveryMethods || 100;
+    const methods = options.methods ? [...options.methods] : scene.getMethods();
+    progress(`[call-edge-map] build start methods=${methods.length} diagnostics=${diagnosticsEnabled ? "enabled" : "disabled"}`);
 
     let callEdgesFound = 0;
     let returnEdgesFound = 0;
+    let virtualDispatchGaps = 0;
+    const virtualDispatchGapSites = new Set<string>();
 
-    for (const method of scene.getMethods()) {
+    let methodIndex = 0;
+    for (const method of methods) {
+        methodIndex++;
+        if (methodIndex === 1 || methodIndex % progressEveryMethods === 0) {
+            progress(
+                `[call-edge-map] scanning method #${methodIndex}/${methods.length} `
+                + `current=${method.getName?.() || "<unknown>"}`,
+            );
+        }
         const cfg = method.getCfg();
         if (!cfg) continue;
 
@@ -136,8 +164,29 @@ export function buildCallEdgeMap(
             if (!stmt.containsInvokeExpr()) continue;
             const invokeExpr = stmt.getInvokeExpr();
             if (!invokeExpr) continue;
-            const resolvedTargets = collectResolvedCallTargets(scene, cg, stmt, invokeExpr);
-            if (resolvedTargets.length === 0) continue;
+            const resolvedTargets = collectResolvedCallTargets(scene, cg, stmt, invokeExpr, {
+                diagnoseUnresolvedVirtualDispatch: diagnosticsEnabled,
+            });
+            if (resolvedTargets.length === 0) {
+                const gap = diagnosticsEnabled
+                    ? diagnoseUnresolvedVirtualDispatch(scene, invokeExpr)
+                    : undefined;
+                if (gap) {
+                    const lineNo = stmt.getOriginPositionInfo?.().getLineNo?.() ?? -1;
+                    const callerSig = method.getSignature?.()?.toString?.() || method.getName?.() || "";
+                    const siteKey = `${callerSig}:${lineNo}:${gap.invokeSignature}:${gap.methodName}`;
+                    if (!virtualDispatchGapSites.has(siteKey)) {
+                        virtualDispatchGapSites.add(siteKey);
+                        virtualDispatchGaps++;
+                        log(
+                            `[virtual_dispatch_unresolved] caller=${method.getName()} line=${lineNo} `
+                            + `method=${gap.methodName} receiver=${gap.receiverOwner || gap.receiverType || "unresolved"} `
+                            + `candidates=${gap.candidateCount} evidence=${gap.evidence.join(",")}`
+                        );
+                    }
+                }
+                continue;
+            }
 
             for (const target of resolvedTargets) {
                 const calleeMethod = target.method;
@@ -210,15 +259,13 @@ export function buildCallEdgeMap(
                     }
                 }
 
-                if (!(stmt instanceof ArkAssignStmt)) continue;
+                if (!isAssignStmtLike(stmt)) continue;
 
                 const retDst = stmt.getLeftOp();
                 const retStmts = calleeMethod.getReturnStmt();
                 for (const retStmt of retStmts) {
                     const retValue = (retStmt as ArkReturnStmt).getOp();
-                    if (!(retValue instanceof Local)) continue;
-
-                    const srcNodes = pag.getNodesByValue(retValue);
+                    const srcNodes = resolveReturnValueNodes(pag, retValue);
                     const dstNodes = pag.getNodesByValue(retDst);
                     if (!srcNodes || !dstNodes) continue;
 
@@ -246,8 +293,176 @@ export function buildCallEdgeMap(
         }
     }
 
-    log(`Call Edge Map Built: ${callEdgesFound} call edges, ${returnEdgesFound} return edges.`);
+    const exactReturnEdges = materializeExactSignatureReturnEdges(scene, pag, callEdgeMap, log, methods);
+    returnEdgesFound += exactReturnEdges;
+
+    progress(`Call Edge Map Built: ${callEdgesFound} call edges, ${returnEdgesFound} return edges, ${virtualDispatchGaps} virtual dispatch gaps.`);
     return callEdgeMap;
+}
+
+function materializeExactSignatureReturnEdges(
+    scene: Scene,
+    pag: Pag,
+    callEdgeMap: Map<string, CallEdgeInfo>,
+    log?: (msg: string) => void,
+    methods?: Iterable<any>,
+): number {
+    let returnEdgesFound = 0;
+    const trace = process.env.ARKTAINT_TRACE_CALL_EDGE_MAP === "1";
+    for (const method of methods || scene.getMethods()) {
+        const cfg = method.getCfg();
+        if (!cfg) continue;
+        const callerName = method.getName();
+
+        for (const stmt of cfg.getStmts()) {
+            if (!isAssignStmtLike(stmt) || !stmt.containsInvokeExpr?.()) continue;
+            const invokeExpr = stmt.getInvokeExpr?.();
+            if (!invokeExpr) continue;
+            const calleeSig = invokeExpr.getMethodSignature?.()?.toString?.() || "";
+            if (!calleeSig || calleeSig.includes("%unk")) continue;
+            const calleeMethod = getMethodBySignature(scene, calleeSig);
+            if (!calleeMethod?.getCfg?.()) {
+                if (trace) log?.(`[ReturnEdgeExact-SKIP] no callee for ${calleeSig}`);
+                continue;
+            }
+
+            const calleeName = calleeMethod.getName();
+            const lineNo = stmt.getOriginPositionInfo?.().getLineNo?.() ?? -1;
+            const callSiteId = resolveExistingCallSiteId(callEdgeMap, callerName, calleeName, lineNo);
+            if (callSiteId === undefined) {
+                if (trace) log?.(`[ReturnEdgeExact-SKIP] no exact call edge caller=${callerName} callee=${calleeName} stmt=${stmt.toString?.() || ""}`);
+                continue;
+            }
+            const retDst = stmt.getLeftOp();
+            const dstNodes = pag.getNodesByValue(retDst);
+            if (!dstNodes) {
+                if (trace) log?.(`[ReturnEdgeExact-SKIP] no dst nodes caller=${callerName} callee=${calleeName} stmt=${stmt.toString?.() || ""}`);
+                continue;
+            }
+
+            for (const retStmt of calleeMethod.getReturnStmt?.() || []) {
+                const retValue = (retStmt as any).getOp?.();
+                const srcNodes = resolveReturnValueNodes(pag, retValue);
+                if (!srcNodes) {
+                    if (trace) log?.(`[ReturnEdgeExact-SKIP] no src nodes caller=${callerName} callee=${calleeName} ret=${retStmt.toString?.() || ""}`);
+                    continue;
+                }
+                for (const srcId of srcNodes.values()) {
+                    const srcNode = pag.getNode(srcId) as PagNode;
+                    const copyEdges = [...(srcNode.getOutgoingCopyEdges()?.values() || [])];
+                    if (copyEdges.length === 0) {
+                        if (trace) log?.(`[ReturnEdgeExact-SKIP] no copy edges src=${srcId} caller=${callerName} callee=${calleeName}`);
+                        continue;
+                    }
+                    for (const dstId of dstNodes.values()) {
+                        for (const edge of copyEdges) {
+                            if (edge.getDstID() !== dstId) continue;
+                            const edgeKey = `${srcId}->${dstId}`;
+                            const existing = callEdgeMap.get(edgeKey);
+                            if (existing?.type === CallEdgeType.RETURN) continue;
+                            callEdgeMap.set(edgeKey, {
+                                type: CallEdgeType.RETURN,
+                                callSiteId,
+                                callerMethodName: callerName,
+                                calleeMethodName: calleeName,
+                            });
+                            returnEdgesFound++;
+                            if (trace) log?.(`[ReturnEdgeExact] ${calleeName} -> ${callerName} ${srcId}->${dstId} callsite=${callSiteId}`);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return returnEdgesFound;
+}
+
+function resolveExistingCallSiteId(
+    callEdgeMap: Map<string, CallEdgeInfo>,
+    callerMethodName: string,
+    calleeMethodName: string,
+    lineNo: number,
+): number | undefined {
+    for (const edge of callEdgeMap.values()) {
+        if (edge.type !== CallEdgeType.CALL) continue;
+        if (edge.callerMethodName !== callerMethodName || edge.calleeMethodName !== calleeMethodName) continue;
+        if (lineNo >= 0 && Math.floor(edge.callSiteId / 10000) !== lineNo) continue;
+        return edge.callSiteId;
+    }
+    return undefined;
+}
+
+function isAssignStmtLike(stmt: any): stmt is ArkAssignStmt {
+    return stmt instanceof ArkAssignStmt
+        || (!!stmt && typeof stmt.getLeftOp === "function" && typeof stmt.getRightOp === "function");
+}
+
+function resolveReturnValueNodes(
+    pag: Pag,
+    value: any,
+    visiting: Set<any> = new Set<any>(),
+): Map<number, number> | undefined {
+    if (!value || visiting.has(value)) return undefined;
+    visiting.add(value);
+
+    const out = new Map<number, number>();
+    mergeNodeMaps(out, getExistingPagNodes(pag, value));
+
+    if (value instanceof ArkCastExpr) {
+        mergeNodeMaps(out, resolveReturnValueNodes(pag, value.getOp?.(), visiting));
+    } else if (value instanceof ArkAwaitExpr) {
+        mergeNodeMaps(out, resolveReturnValueNodes(pag, value.getPromise?.(), visiting));
+    } else if ((value instanceof ArkStaticInvokeExpr || value instanceof ArkInstanceInvokeExpr) && isPromiseResolveInvoke(value)) {
+        const args = value.getArgs?.() || [];
+        if (args.length > 0) {
+            mergeNodeMaps(out, resolveReturnValueNodes(pag, args[0], visiting));
+        }
+    } else if (value instanceof Local) {
+        const decl = value.getDeclaringStmt?.();
+        if (decl instanceof ArkAssignStmt && decl.getLeftOp?.() === value) {
+            mergeNodeMaps(out, resolveReturnValueNodes(pag, decl.getRightOp?.(), visiting));
+        }
+    } else if (
+        value instanceof ArkInstanceFieldRef
+        || value instanceof ArkArrayRef
+        || value instanceof ArkParameterRef
+        || value instanceof ArkThisRef
+        || value instanceof ClosureFieldRef
+    ) {
+        mergeNodeMaps(out, getExistingPagNodes(pag, value));
+    }
+
+    visiting.delete(value);
+    return out.size > 0 ? out : undefined;
+}
+
+function mergeNodeMaps(target: Map<number, number>, src: Map<number, number> | undefined): void {
+    if (!src) return;
+    for (const value of src.values()) {
+        target.set(value, value);
+    }
+}
+
+function isPromiseResolveInvoke(value: ArkStaticInvokeExpr | ArkInstanceInvokeExpr): boolean {
+    const signature = value.getMethodSignature?.();
+    const methodName = signature?.getMethodSubSignature?.()?.getMethodName?.() || "";
+    const signatureText = signature?.toString?.() || "";
+    if (methodName !== "resolve") return false;
+    if (signatureText && !signatureText.includes("%unk")) {
+        return signatureText.includes("Promise.") || signatureText.includes(".Promise");
+    }
+    const base = value instanceof ArkInstanceInvokeExpr ? value.getBase() : undefined;
+    if (!(base instanceof Local)) return false;
+    if (base.getName?.() !== "Promise") return false;
+    return (value.getArgs?.() || []).length >= 1;
+}
+
+function hasUnresolvedVirtualDispatchEvidence(scene: Scene, invokeExpr: any): boolean {
+    const gap = diagnoseUnresolvedVirtualDispatch(scene, invokeExpr);
+    if (!gap) return false;
+    const evidence = new Set(gap.evidence);
+    return evidence.has("interface_targets")
+        && (evidence.has("missing_concrete_receiver_owner") || evidence.has("ambiguous_receiver_owner"));
 }
 
 export function buildReceiverFieldBridgeMap(
@@ -256,6 +471,7 @@ export function buildReceiverFieldBridgeMap(
     pag: Pag,
     log: (msg: string) => void,
     budget?: PagIndexBuildBudget,
+    options: { methods?: Iterable<any> } = {},
 ): Map<number, ReceiverFieldBridgeInfo[]> {
     const bridgeMap = new Map<number, ReceiverFieldBridgeInfo[]>();
     const dedup = new Set<string>();
@@ -275,7 +491,8 @@ export function buildReceiverFieldBridgeMap(
         bridgeCount += 1;
     };
 
-    for (const method of scene.getMethods()) {
+    const methods = options.methods ? [...options.methods] : scene.getMethods();
+    for (const method of methods) {
         assertPagIndexBudget(budget);
         const cfg = method.getCfg?.();
         if (!cfg) continue;
@@ -394,6 +611,7 @@ function collectResolvedCallTargets(
     cg: CallGraph,
     stmt: any,
     invokeExpr: any,
+    options: { diagnoseUnresolvedVirtualDispatch?: boolean } = {},
 ): ResolvedCallTarget[] {
     const out: ResolvedCallTarget[] = [];
     const seen = new Set<string>();
@@ -417,8 +635,19 @@ function collectResolvedCallTargets(
     }
 
     const invokeSig = invokeExpr?.getMethodSignature?.()?.toString?.() || "";
-    if (out.length > 0 && !isReflectDispatchInvoke(invokeExpr) && !invokeSig.includes("%unk")) {
+    const hasUnresolvedVirtualDispatch = options.diagnoseUnresolvedVirtualDispatch === false
+        ? false
+        : hasUnresolvedVirtualDispatchEvidence(scene, invokeExpr);
+    if (
+        out.length > 0
+        && !isReflectDispatchInvoke(invokeExpr)
+        && !invokeSig.includes("%unk")
+        && !hasUnresolvedVirtualDispatch
+    ) {
         return out;
+    }
+    if (hasUnresolvedVirtualDispatch) {
+        return [];
     }
 
     for (const resolved of resolveCalleeCandidates(scene, invokeExpr)) {
@@ -466,7 +695,10 @@ export function buildCaptureLazyMaterializer(
     pag: Pag,
     excludedDeferredSiteKeys?: ReadonlySet<string>,
     budget?: BuildStageBudget,
+    options: CaptureLazyMaterializerBuildOptions = {},
 ): CaptureLazyMaterializer {
+    const progress = options.progress;
+    const progressInterval = options.progressInterval ?? 200;
     const capturedSummaryCache = new Map<string, Map<string, Set<string>>>();
     const capturedVisiting = new Set<string>();
     const descriptorCaches = createCaptureDescriptorCaches();
@@ -474,7 +706,16 @@ export function buildCaptureLazyMaterializer(
     const sites: CaptureLazySite[] = [];
 
     let siteId = 0;
-    for (const method of scene.getMethods()) {
+    const methods = scene.getMethods();
+    let scannedMethods = 0;
+    for (const method of methods) {
+        scannedMethods++;
+        if (scannedMethods === 1 || scannedMethods % progressInterval === 0) {
+            progress?.(
+                `[capture-lazy] scanning method #${scannedMethods}/${methods.length} `
+                + `current=${method.getName?.() || "<unknown>"} sites=${sites.length}`,
+            );
+        }
         assertBuildStageBudget(budget, "capture_lazy.methods");
         const cfg = method.getCfg();
         const body = method.getBody();
@@ -516,6 +757,7 @@ export function buildCaptureLazyMaterializer(
             }
         }
     }
+    progress?.(`[capture-lazy] done methods=${scannedMethods} sites=${sites.length} triggers=${siteIdsByTriggerNodeId.size}`);
 
     return {
         siteIdsByTriggerNodeId,
@@ -727,10 +969,11 @@ function collectCaptureDescriptorsForInvokeStmt(
     }
     assertBuildStageBudget(budget, `capture_lazy.descriptors.callee_sites.done(count=${calleeMethods.length})`);
 
-    if (calleeMethods.length === 0 || isReflectDispatchInvoke(invokeExpr)) {
+    if ((calleeMethods.length === 0 || isReflectDispatchInvoke(invokeExpr))
+        && shouldAttemptCaptureCandidateResolution(scene, invokeExpr)) {
         const argCount = invokeExpr.getArgs ? invokeExpr.getArgs().length : 0;
         assertBuildStageBudget(budget, "capture_lazy.descriptors.resolve_candidates.start");
-        for (const resolved of resolveCalleeCandidates(scene, invokeExpr)) {
+        for (const resolved of resolveCalleeCandidates(scene, invokeExpr, { enableDirectCallableTargets: false })) {
             assertBuildStageBudget(budget, "capture_lazy.descriptors.resolve_candidates.iter");
             const targetSig = resolved.method.getSignature().toString();
             const callSiteId = stmt.getOriginPositionInfo().getLineNo() * 10000 + thisSimpleHash(targetSig);
@@ -912,6 +1155,20 @@ function collectCaptureDescriptorsForInvokeStmt(
     }
 
     return descriptors;
+}
+
+function shouldAttemptCaptureCandidateResolution(scene: Scene, invokeExpr: any): boolean {
+    if (!invokeExpr) return false;
+    const invokeSig = invokeExpr?.getMethodSignature?.()?.toString?.() || "";
+    if (invokeSig && !invokeSig.includes("%unk")) return true;
+    const gap = diagnoseUnresolvedVirtualDispatch(scene, invokeExpr);
+    if (!gap) return true;
+    const evidence = new Set(gap.evidence || []);
+    if (evidence.has("missing_concrete_receiver_owner")) return false;
+    if (evidence.has("ambiguous_receiver_owner")) return false;
+    if (evidence.has("name_candidates_exceed_limit")) return false;
+    if (evidence.has("receiver_owner_candidates_not_unique")) return false;
+    return gap.candidateCount <= 1;
 }
 
 function methodSignatureKey(method: any): string {

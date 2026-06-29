@@ -4,75 +4,121 @@
   "status": "official",
   "surfaces": [
     {
-      "surfaceId": "surface.source.sanitizer.entry_param.taint_src",
-      "kind": "access",
-      "modulePath": "@arktaint/local",
-      "ownerName": "LocalBinding",
-      "propertyName": "source.sanitizer.entry_param.taint_src",
-      "accessKind": "read",
-      "receiverKind": "namespace",
-      "confidence": "likely",
+      "surfaceId": "surface.source.sanitizer.call_arg.Source",
+      "kind": "invoke",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "rule_precision_sanitizer/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=rule_precision_sanitizer%2Ftaint_mock.ts:file=rule_precision_sanitizer%2Ftaint_mock.ts:export=default%3Afile:decl=namespace%3Afile:member=function%3ASource:invoke=call:params=0%3Aany:ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "@rule_precision_sanitizer/taint_mock.ts: ",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "Source",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
       }
     },
     {
       "surfaceId": "surface.sink.sanitizer.arg0",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "Sink",
-      "invokeKind": "static",
-      "argCount": 1,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "rule_precision_sanitizer/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=rule_precision_sanitizer%2Ftaint_mock.ts:file=rule_precision_sanitizer%2Ftaint_mock.ts:export=default%3Afile:decl=namespace%3Afile:member=function%3ASink:invoke=call:params=0%3Aany:ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "@rule_precision_sanitizer/taint_mock.ts: ",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "Sink",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
       }
     },
     {
       "surfaceId": "surface.sanitizer.escape.result",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "Escape",
-      "invokeKind": "static",
-      "argCount": 1,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "rule_precision_sanitizer/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=rule_precision_sanitizer%2Ftaint_mock.ts:file=rule_precision_sanitizer%2Ftaint_mock.ts:export=default%3Afile:decl=namespace%3Afile:member=function%3AEscape:invoke=call:params=0%3Aany:ret=any",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "@rule_precision_sanitizer/taint_mock.ts: ",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "Escape",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "any",
+            "staticFlag": false
+          }
+        }
       }
     },
     {
       "surfaceId": "surface.sanitizer.clean.inplace.arg0",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "CleanInPlace",
-      "invokeKind": "static",
-      "argCount": 1,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "rule_precision_sanitizer/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=rule_precision_sanitizer%2Ftaint_mock.ts:file=rule_precision_sanitizer%2Ftaint_mock.ts:export=default%3Afile:decl=namespace%3Afile:member=function%3ACleanInPlace:invoke=call:params=0%3Aany:ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "@rule_precision_sanitizer/taint_mock.ts: ",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "CleanInPlace",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
       }
     }
   ],
   "bindings": [
     {
-      "bindingId": "binding.source.sanitizer.entry_param.taint_src.0.method.sanitize_inplace_003_F",
-      "surfaceId": "surface.source.sanitizer.entry_param.taint_src",
+      "bindingId": "binding.source.sanitizer.call_arg.Source.arg0",
+      "surfaceId": "surface.source.sanitizer.call_arg.Source",
       "assetId": "asset.rule.test.sanitizer_guard",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "sanitize_inplace_003_F",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "sanitize_inplace_003_F.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -80,98 +126,12 @@
         }
       },
       "effectTemplateRefs": [
-        "template.source.sanitizer.entry_param.taint_src.for.source.sanitizer.entry_param.taint_src.0.method.sanitize_inplace_003_F"
+        "template.source.sanitizer.call_arg.Source.arg0"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
-    },
-    {
-      "bindingId": "binding.source.sanitizer.entry_param.taint_src.0.method.sanitize_reassign_004_T",
-      "surfaceId": "surface.source.sanitizer.entry_param.taint_src",
-      "assetId": "asset.rule.test.sanitizer_guard",
-      "plane": "rule",
-      "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "sanitize_reassign_004_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "sanitize_reassign_004_T.ets"
-          }
-        }
-      },
-      "endpoint": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "effectTemplateRefs": [
-        "template.source.sanitizer.entry_param.taint_src.for.source.sanitizer.entry_param.taint_src.0.method.sanitize_reassign_004_T"
-      ],
-      "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
-    },
-    {
-      "bindingId": "binding.source.sanitizer.entry_param.taint_src.0.method.sanitize_result_001_F",
-      "surfaceId": "surface.source.sanitizer.entry_param.taint_src",
-      "assetId": "asset.rule.test.sanitizer_guard",
-      "plane": "rule",
-      "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "sanitize_result_001_F",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "sanitize_result_001_F.ets"
-          }
-        }
-      },
-      "endpoint": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "effectTemplateRefs": [
-        "template.source.sanitizer.entry_param.taint_src.for.source.sanitizer.entry_param.taint_src.0.method.sanitize_result_001_F"
-      ],
-      "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
-    },
-    {
-      "bindingId": "binding.source.sanitizer.entry_param.taint_src.0.method.sanitize_result_002_T",
-      "surfaceId": "surface.source.sanitizer.entry_param.taint_src",
-      "assetId": "asset.rule.test.sanitizer_guard",
-      "plane": "rule",
-      "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "sanitize_result_002_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "sanitize_result_002_T.ets"
-          }
-        }
-      },
-      "endpoint": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "effectTemplateRefs": [
-        "template.source.sanitizer.entry_param.taint_src.for.source.sanitizer.entry_param.taint_src.0.method.sanitize_result_002_T"
-      ],
-      "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=rule_precision_sanitizer%2Ftaint_mock.ts:file=rule_precision_sanitizer%2Ftaint_mock.ts:export=default%3Afile:decl=namespace%3Afile:member=function%3ASource:invoke=call:params=0%3Aany:ret=void"
     },
     {
       "bindingId": "binding.sink.sanitizer.arg0.0",
@@ -179,10 +139,6 @@
       "assetId": "asset.rule.test.sanitizer_guard",
       "plane": "rule",
       "role": "sink",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "Sink"
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -196,8 +152,9 @@
       "metadata": {
         "severity": "medium"
       },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=rule_precision_sanitizer%2Ftaint_mock.ts:file=rule_precision_sanitizer%2Ftaint_mock.ts:export=default%3Afile:decl=namespace%3Afile:member=function%3ASink:invoke=call:params=0%3Aany:ret=void"
     },
     {
       "bindingId": "binding.sanitizer.escape.result.0",
@@ -205,10 +162,6 @@
       "assetId": "asset.rule.test.sanitizer_guard",
       "plane": "rule",
       "role": "sanitizer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "Escape"
-      },
       "endpoint": {
         "base": {
           "kind": "return"
@@ -218,9 +171,10 @@
         "template.sanitizer.escape.result"
       ],
       "semanticsFamily": "sanitizer",
-      "completeness": "partial",
-      "confidence": "likely",
-      "metadata": {}
+      "completeness": "complete",
+      "confidence": "certain",
+      "metadata": {},
+      "canonicalApiId": "api:project:local:module=rule_precision_sanitizer%2Ftaint_mock.ts:file=rule_precision_sanitizer%2Ftaint_mock.ts:export=default%3Afile:decl=namespace%3Afile:member=function%3AEscape:invoke=call:params=0%3Aany:ret=any"
     },
     {
       "bindingId": "binding.sanitizer.clean.inplace.arg0.0",
@@ -228,10 +182,6 @@
       "assetId": "asset.rule.test.sanitizer_guard",
       "plane": "rule",
       "role": "sanitizer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "CleanInPlace"
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -242,12 +192,25 @@
         "template.sanitizer.clean.inplace.arg0"
       ],
       "semanticsFamily": "sanitizer",
-      "completeness": "partial",
-      "confidence": "likely",
-      "metadata": {}
+      "completeness": "complete",
+      "confidence": "certain",
+      "metadata": {},
+      "canonicalApiId": "api:project:local:module=rule_precision_sanitizer%2Ftaint_mock.ts:file=rule_precision_sanitizer%2Ftaint_mock.ts:export=default%3Afile:decl=namespace%3Afile:member=function%3ACleanInPlace:invoke=call:params=0%3Aany:ret=void"
     }
   ],
   "effectTemplates": [
+    {
+      "id": "template.source.sanitizer.call_arg.Source.arg0",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "call_arg"
+    },
     {
       "id": "template.sink.sanitizer.arg0",
       "confidence": "certain",
@@ -284,54 +247,6 @@
       },
       "sanitizerKind": "sanitizer",
       "strength": "strong"
-    },
-    {
-      "id": "template.source.sanitizer.entry_param.taint_src.for.source.sanitizer.entry_param.taint_src.0.method.sanitize_inplace_003_F",
-      "confidence": "certain",
-      "kind": "rule.source",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sourceKind": "entry_param"
-    },
-    {
-      "id": "template.source.sanitizer.entry_param.taint_src.for.source.sanitizer.entry_param.taint_src.0.method.sanitize_reassign_004_T",
-      "confidence": "certain",
-      "kind": "rule.source",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sourceKind": "entry_param"
-    },
-    {
-      "id": "template.source.sanitizer.entry_param.taint_src.for.source.sanitizer.entry_param.taint_src.0.method.sanitize_result_001_F",
-      "confidence": "certain",
-      "kind": "rule.source",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sourceKind": "entry_param"
-    },
-    {
-      "id": "template.source.sanitizer.entry_param.taint_src.for.source.sanitizer.entry_param.taint_src.0.method.sanitize_result_002_T",
-      "confidence": "certain",
-      "kind": "rule.source",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sourceKind": "entry_param"
     }
   ],
   "provenance": {

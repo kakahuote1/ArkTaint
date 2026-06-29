@@ -11,6 +11,8 @@
 } from "../../cli/analyzeTypes";
 import { emptyModuleAuditSnapshot } from "../../core/kernel/contracts/ModuleContract";
 import { emptyPagNodeResolutionAuditSnapshot } from "../../core/kernel/contracts/PagNodeResolution";
+import { emptyOfficialOccurrenceCoverageSnapshot } from "../../core/api/occurrence/OfficialOccurrenceInventory";
+import { summarizeSemanticEffectLedger } from "../../core/api/effects";
 import { CliOptions as AnalyzeCliOptions } from "../../cli/analyzeCliOptions";
 import { runAnalyze } from "../../cli/analyzeRunner";
 import { runAnalyzeCliCommand } from "../../cli/analyze";
@@ -609,6 +611,7 @@ function createAnalyzeOptions(
         k,
         maxEntries,
         reportMode: "full",
+        flowMode: "postsolve",
         outputDir,
         concurrency: Math.max(1, Math.min(2, validSourceDirs.length)),
         incremental: false,
@@ -617,7 +620,7 @@ function createAnalyzeOptions(
         maxFlowsPerEntry: undefined,
         enabledModels: [projectId],
         ruleOptions: {
-            autoDiscoverLayers: true,
+            autoDiscoverRuleSources: true,
         },
     };
 }
@@ -681,16 +684,19 @@ function createFailureAnalyzeReport(repoAbs: string, sourceDirs: string[]): Anal
         sourceDirs,
         profile: "default",
         reportMode: "full",
+        flowMode: "postsolve",
         k: 1,
         maxEntries: sourceDirs.length,
-        ruleLayers: [],
-        ruleLayerStatus: [],
+        ruleSources: [],
+        ruleSourceStatus: [],
         summary: {
             totalEntries: entries.length,
             okEntries: 0,
             withSeeds: 0,
             withFlows: 0,
+            withPartialFlows: 0,
             totalFlows: 0,
+            partialFlows: 0,
             statusCount: { exception: entries.length },
             ruleHits: emptyRuleHitCounters(),
             ruleHitEndpoints: emptyRuleHitCounters(),
@@ -715,6 +721,8 @@ function createFailureAnalyzeReport(repoAbs: string, sourceDirs: string[]): Anal
             },
             pagNodeResolutionAudit: emptyPagNodeResolutionAuditSnapshot(),
             executionHandoffAudit: emptyExecutionHandoffAudit(),
+            officialIdentityCoverage: emptyOfficialOccurrenceCoverageSnapshot(),
+            semanticEffectLedgerSummary: summarizeSemanticEffectLedger([]),
             diagnostics: emptyAnalyzeErrorDiagnostics(),
             diagnosticItems: [],
             moduleAudit: {

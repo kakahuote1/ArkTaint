@@ -120,7 +120,7 @@ function pushZeroHitRuleGate(
     ruleId: string,
     diagnostic?: any,
 ): void {
-    const layer = findRuleLayerForRuleId(report, role, ruleId);
+    const ruleSource = findRuleSourceForRuleId(report, role, ruleId);
     const stage = role === "source"
         ? "source_seed"
         : role === "sink"
@@ -149,9 +149,9 @@ function pushZeroHitRuleGate(
         evidence: {
             ruleId,
             role,
-            layerName: layer?.name,
-            layerPath: layer?.path,
-            packId: layer?.packId,
+            sourceName: ruleSource?.name,
+            sourcePath: ruleSource?.path,
+            packId: ruleSource?.packId,
             reason: skippedReason,
             traceRole: "zero-hit-rule",
             zeroHitReason: diagnostic?.reason,
@@ -164,28 +164,37 @@ function pushZeroHitRuleGate(
     });
 }
 
-function findRuleLayerForRuleId(
+function findRuleSourceForRuleId(
     report: AnalyzeReport,
     role: "source" | "sink" | "transfer",
     ruleId: string,
-): AnalyzeReport["ruleLayerStatus"][number] | undefined {
+): AnalyzeReport["ruleSourceStatus"][number] | undefined {
     if (role === "source") {
-        return report.ruleLayerStatus.find(layer => (layer.sourceRuleIds || []).includes(ruleId));
+        return report.ruleSourceStatus.find(source => (source.sourceRuleIds || []).includes(ruleId));
     }
     if (role === "sink") {
-        return report.ruleLayerStatus.find(layer => (layer.sinkRuleIds || []).includes(ruleId));
+        return report.ruleSourceStatus.find(source => (source.sinkRuleIds || []).includes(ruleId));
     }
     return undefined;
 }
 
 function candidateSubject(item: ClassifiedNoCandidateCallsite): string {
+    const semanticFocus = String((item as any).semanticFocus || "");
+    if (item.canonicalApiId) {
+        return stableToken([
+            "canonicalApiId",
+            item.canonicalApiId,
+            semanticFocus,
+        ].join("|"));
+    }
     return stableToken([
+        "identity-gap",
         item.callee_signature,
         item.method,
         item.invokeKind,
         String(item.argCount),
         item.sourceFile,
-        String((item as any).semanticFocus || ""),
+        semanticFocus,
     ].join("|"));
 }
 
@@ -195,6 +204,8 @@ function candidateEvidence(
 ): Record<string, unknown> {
     const anyItem = item as any;
     const evidence: Record<string, unknown> = {
+        canonicalApiId: item.canonicalApiId,
+        identityStatus: item.canonicalApiId ? "accepted" : "unresolved",
         calleeSignature: item.callee_signature,
         method: item.method,
         invokeKind: item.invokeKind,

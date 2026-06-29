@@ -14,7 +14,6 @@ import {
     addMapSetValue,
     collectNodeIdsFromValue,
     collectObjectNodeIdsFromValue,
-    resolveHarmonyMethods,
 } from "../../../kernel/contracts/HarmonyModuleUtils";
 
 type AbilityHandoffModel = AbilityHandoffSemanticModel;
@@ -23,23 +22,15 @@ type BuildAbilityHandoffModelArgs = BuildAbilityHandoffSemanticModelArgs;
 export interface HarmonyAbilityHandoffSemanticsOptions {
     id?: string;
     description?: string;
-    startMethods?: string[];
-    targetMethods?: string[];
+    startCanonicalApiIds?: string[];
+    targetCanonicalApiIds?: string[];
 }
 
 const DEFAULT_ABILITY_HANDOFF_OPTIONS: Required<HarmonyAbilityHandoffSemanticsOptions> = {
     id: "harmony.ability_handoff",
     description: "Built-in Harmony Ability handoff bridges.",
-    startMethods: [
-        "startAbility",
-        "startAbilityForResult",
-        "connectServiceExtensionAbility",
-    ],
-    targetMethods: [
-        "onCreate",
-        "onNewWant",
-        "onConnect",
-    ],
+    startCanonicalApiIds: [],
+    targetCanonicalApiIds: [],
 };
 
 export function createHarmonyAbilityHandoffSemanticModule(
@@ -48,15 +39,15 @@ export function createHarmonyAbilityHandoffSemanticModule(
     const resolved = {
         ...DEFAULT_ABILITY_HANDOFF_OPTIONS,
         ...options,
-        startMethods: options.startMethods && options.startMethods.length > 0
-            ? [...options.startMethods]
-            : [...DEFAULT_ABILITY_HANDOFF_OPTIONS.startMethods],
-        targetMethods: options.targetMethods && options.targetMethods.length > 0
-            ? [...options.targetMethods]
-            : [...DEFAULT_ABILITY_HANDOFF_OPTIONS.targetMethods],
+        startCanonicalApiIds: options.startCanonicalApiIds && options.startCanonicalApiIds.length > 0
+            ? [...options.startCanonicalApiIds]
+            : [...DEFAULT_ABILITY_HANDOFF_OPTIONS.startCanonicalApiIds],
+        targetCanonicalApiIds: options.targetCanonicalApiIds && options.targetCanonicalApiIds.length > 0
+            ? [...options.targetCanonicalApiIds]
+            : [...DEFAULT_ABILITY_HANDOFF_OPTIONS.targetCanonicalApiIds],
     };
-    const startMethodNames = new Set(resolved.startMethods);
-    const targetMethodNames = new Set(resolved.targetMethods);
+    const startCanonicalApiIds = new Set(resolved.startCanonicalApiIds);
+    const targetCanonicalApiIds = new Set(resolved.targetCanonicalApiIds);
 
     return defineModule({
         id: resolved.id,
@@ -66,9 +57,10 @@ export function createHarmonyAbilityHandoffSemanticModule(
                 scene: ctx.raw.scene,
                 pag: ctx.raw.pag,
                 allowedMethodSignatures: ctx.raw.allowedMethodSignatures,
+                scan: ctx.scan,
             }, {
-                startMethodNames,
-                targetMethodNames,
+                startCanonicalApiIds,
+                targetCanonicalApiIds,
             });
             ctx.debug.summary("Harmony-AbilityHandoff", {
                 calls: model.callCount,
@@ -134,15 +126,15 @@ export const harmonyAbilityHandoffSemanticModule = createHarmonyAbilityHandoffSe
 export const harmonyAbilityHandoffModule: TaintModule = harmonyAbilityHandoffSemanticModule;
 
 interface BuildAbilityHandoffInternalOptions {
-    startMethodNames: Set<string>;
-    targetMethodNames: Set<string>;
+    startCanonicalApiIds: Set<string>;
+    targetCanonicalApiIds: Set<string>;
 }
 
 export function buildAbilityHandoffModel(
     args: BuildAbilityHandoffModelArgs,
     options: BuildAbilityHandoffInternalOptions = {
-        startMethodNames: new Set(DEFAULT_ABILITY_HANDOFF_OPTIONS.startMethods),
-        targetMethodNames: new Set(DEFAULT_ABILITY_HANDOFF_OPTIONS.targetMethods),
+        startCanonicalApiIds: new Set(DEFAULT_ABILITY_HANDOFF_OPTIONS.startCanonicalApiIds),
+        targetCanonicalApiIds: new Set(DEFAULT_ABILITY_HANDOFF_OPTIONS.targetCanonicalApiIds),
     },
 ): AbilityHandoffModel {
     const { scene, pag, allowedMethodSignatures } = args;
@@ -152,7 +144,8 @@ export function buildAbilityHandoffModel(
     const targetMethods = collectTargetLifecycleMethods(
         scene,
         allowedMethodSignatures,
-        options.targetMethodNames,
+        args.scan,
+        options.targetCanonicalApiIds,
     );
     const continuedFieldLoadNodeIdsByClassAndWantField = collectContinuedFieldLoadNodeIdsByClassAndWantField(
         scene,
@@ -161,57 +154,44 @@ export function buildAbilityHandoffModel(
     );
     let callCount = 0;
 
-    const methods = resolveHarmonyMethods(scene, allowedMethodSignatures);
-    for (const method of methods) {
-        const cfg = method.getCfg?.();
-        if (!cfg) continue;
-        const sourceClassName = method.getDeclaringArkClass?.()?.getName?.() || "";
+    const startCalls = args.scan && options.startCanonicalApiIds.size > 0
+        ? args.scan.invokes({ canonicalApiIds: [...options.startCanonicalApiIds] })
+        : [];
+    for (const call of startCalls) {
+        const sourceClassName = call.ownerDeclaringClassName || "";
+        if (call.args().length === 0) continue;
+        const sourceNodeIds = new Set<number>([
+            ...call.argNodeIds(0),
+            ...call.argObjectNodeIds(0),
+            ...call.argCarrierNodeIds(0),
+        ]);
+        if (sourceNodeIds.size === 0) continue;
+        callCount++;
 
-        for (const stmt of cfg.getStmts()) {
-            if (!stmt.containsInvokeExpr || !stmt.containsInvokeExpr()) continue;
-            const invokeExpr = stmt.getInvokeExpr();
-            if (!invokeExpr) continue;
-            const methodSig = invokeExpr.getMethodSignature?.();
-            const methodName = methodSig?.getMethodSubSignature?.()?.getMethodName?.() || "";
-            if (!options.startMethodNames.has(methodName)) continue;
-            if (!isAbilityContextLikeInvoke(invokeExpr, methodSig)) continue;
-
-            const callArgs = invokeExpr.getArgs ? invokeExpr.getArgs() : [];
-            if (callArgs.length === 0) continue;
-            const wantArg = callArgs[0];
-
-            const sourceNodeIds = new Set<number>([
-                ...collectNodeIdsFromValue(pag, wantArg),
-                ...collectObjectNodeIdsFromValue(pag, wantArg),
-            ]);
-            if (sourceNodeIds.size === 0) continue;
-            callCount++;
-
-            for (const targetMethod of targetMethods) {
-                const targetClassName = targetMethod.getDeclaringArkClass?.()?.getName?.() || "";
-                if (targetClassName && targetClassName === sourceClassName) {
-                    continue;
+        for (const targetMethod of targetMethods) {
+            const targetClassName = targetMethod.getDeclaringArkClass?.()?.getName?.() || "";
+            if (targetClassName && targetClassName === sourceClassName) {
+                continue;
+            }
+            const targetParamNodeIds = collectWantParamNodeIds(pag, targetMethod);
+            const targetFieldLoadNodeIdsByFieldName = collectWantFieldLoadNodeIds(pag, targetMethod);
+            if (targetParamNodeIds.size === 0) continue;
+            for (const sourceNodeId of sourceNodeIds) {
+                for (const targetNodeId of targetParamNodeIds) {
+                    addMapSetValue(targetNodeIdsBySourceNodeId, sourceNodeId, targetNodeId);
                 }
-                const targetParamNodeIds = collectWantParamNodeIds(pag, targetMethod);
-                const targetFieldLoadNodeIdsByFieldName = collectWantFieldLoadNodeIds(pag, targetMethod);
-                if (targetParamNodeIds.size === 0) continue;
-                for (const sourceNodeId of sourceNodeIds) {
-                    for (const targetNodeId of targetParamNodeIds) {
-                        addMapSetValue(targetNodeIdsBySourceNodeId, sourceNodeId, targetNodeId);
+                for (const [fieldName, targetFieldNodeIds] of targetFieldLoadNodeIdsByFieldName.entries()) {
+                    const sourceFieldKey = `${sourceNodeId}#${fieldName}`;
+                    for (const targetNodeId of targetFieldNodeIds) {
+                        addMapSetValue(targetFieldLoadNodeIdsBySourceFieldKey, sourceFieldKey, targetNodeId);
                     }
-                    for (const [fieldName, targetFieldNodeIds] of targetFieldLoadNodeIdsByFieldName.entries()) {
+                }
+                const continuedFieldLoads = continuedFieldLoadNodeIdsByClassAndWantField.get(targetClassName);
+                if (continuedFieldLoads) {
+                    for (const [fieldName, targetFieldNodeIds] of continuedFieldLoads.entries()) {
                         const sourceFieldKey = `${sourceNodeId}#${fieldName}`;
                         for (const targetNodeId of targetFieldNodeIds) {
-                            addMapSetValue(targetFieldLoadNodeIdsBySourceFieldKey, sourceFieldKey, targetNodeId);
-                        }
-                    }
-                    const continuedFieldLoads = continuedFieldLoadNodeIdsByClassAndWantField.get(targetClassName);
-                    if (continuedFieldLoads) {
-                        for (const [fieldName, targetFieldNodeIds] of continuedFieldLoads.entries()) {
-                            const sourceFieldKey = `${sourceNodeId}#${fieldName}`;
-                            for (const targetNodeId of targetFieldNodeIds) {
-                                addMapSetValue(continuedFieldLoadNodeIdsBySourceFieldKey, sourceFieldKey, targetNodeId);
-                            }
+                            addMapSetValue(continuedFieldLoadNodeIdsBySourceFieldKey, sourceFieldKey, targetNodeId);
                         }
                     }
                 }
@@ -234,85 +214,62 @@ export function buildAbilityHandoffModel(
     };
 }
 
-function isAbilityContextLikeInvoke(invokeExpr: any, methodSig: any): boolean {
-    const className = methodSig?.getDeclaringClassSignature?.()?.getClassName?.() || "";
-    const classSigText = methodSig?.getDeclaringClassSignature?.()?.toString?.()?.toLowerCase?.() || "";
-    if (className === "AbilityContext" || classSigText.includes("abilitycontext")) {
-        return true;
-    }
-
-    const base = invokeExpr?.getBase?.();
-    const baseTypeText = base?.getType?.()?.toString?.()?.toLowerCase?.() || "";
-    if (baseTypeText.includes("abilitycontext")) {
-        return true;
-    }
-
-    const baseClassSig = base?.getType?.()?.getClassSignature?.()?.toString?.()?.toLowerCase?.() || "";
-    if (baseClassSig.includes("abilitycontext")) {
-        return true;
-    }
-
-    const baseText = base?.toString?.()?.toLowerCase?.() || "";
-    if (baseText.includes(".context") || baseText === "context") {
-        return true;
-    }
-    return valueBacktraceHintsContext(base, 0);
-}
-
-function valueBacktraceHintsContext(value: any, depth: number): boolean {
-    if (!value || depth >= 4) return false;
-    const declaringStmt = value?.getDeclaringStmt?.();
-    if (!(declaringStmt instanceof ArkAssignStmt)) return false;
-    const right = declaringStmt.getRightOp?.();
-    if (right instanceof ArkInstanceFieldRef) {
-        const fieldName = right.getFieldSignature?.().getFieldName?.()?.toLowerCase?.() || "";
-        if (fieldName === "context") {
-            return true;
-        }
-        return valueBacktraceHintsContext(right.getBase?.(), depth + 1);
-    }
-    if (right instanceof Local) {
-        return valueBacktraceHintsContext(right, depth + 1);
-    }
-    return false;
-}
-
 function collectTargetLifecycleMethods(
     scene: any,
-    _allowedMethodSignatures?: Set<string>,
-    targetMethodNames: Set<string> = new Set(DEFAULT_ABILITY_HANDOFF_OPTIONS.targetMethods),
+    allowedMethodSignatures: Set<string> | undefined,
+    scan: BuildAbilityHandoffModelArgs["scan"],
+    targetCanonicalApiIds: Set<string> = new Set(DEFAULT_ABILITY_HANDOFF_OPTIONS.targetCanonicalApiIds),
 ): any[] {
+    if (!scan || targetCanonicalApiIds.size === 0) return [];
+    const targetMethodSignatures = new Set<string>();
+    for (const call of scan.invokes({ canonicalApiIds: [...targetCanonicalApiIds] })) {
+        const signature = String(call.ownerMethodSignature || "").trim();
+        if (!signature) continue;
+        if (allowedMethodSignatures && !allowedMethodSignatures.has(signature)) continue;
+        targetMethodSignatures.add(signature);
+    }
+    if (targetMethodSignatures.size === 0) return [];
+
     return scene.getMethods().filter((method: any) => {
-        const methodName = method.getName?.() || "";
-        if (!targetMethodNames.has(methodName)) {
-            return false;
-        }
-        const parameters = method.getParameters?.() || [];
-        const hasWantParam = parameters.some((parameter: any) => {
-            const typeText = String(parameter.getType?.()?.toString?.() || "").toLowerCase();
-            const nameText = String(parameter.getName?.() || "").toLowerCase();
-            return typeText.includes("want") || nameText.includes("want");
-        });
-        if (!hasWantParam) {
-            return false;
-        }
-        const declaringClass = method.getDeclaringArkClass?.();
-        const className = declaringClass?.getName?.() || "";
-        if (/ability|extension/i.test(className)) {
+        const signature = method.getSignature?.()?.toString?.() || "";
+        if (!signature || !targetMethodSignatures.has(signature)) return false;
+        if (!methodHasWantParameter(method)) return false;
+        return methodBelongsToAbilityBoundary(method);
+    });
+}
+
+function isWantParameter(parameter: any): boolean {
+    return isExactWantTypeText(String(parameter?.getType?.()?.toString?.() || ""));
+}
+
+function isExactWantTypeText(typeText: string): boolean {
+    return String(typeText || "")
+        .split(/[^A-Za-z0-9_$]+/)
+        .some(token => token === "Want");
+}
+
+function methodHasWantParameter(method: any): boolean {
+    const parameters = method.getParameters?.() || [];
+    return parameters.some((parameter: any) => isWantParameter(parameter));
+}
+
+function methodBelongsToAbilityBoundary(method: any): boolean {
+    const declaringClass = method.getDeclaringArkClass?.();
+    const className = declaringClass?.getName?.() || "";
+    if (/ability|extension/i.test(className)) {
+        return true;
+    }
+    let cursor = declaringClass?.getSuperClass?.() || null;
+    let depth = 0;
+    while (cursor && depth < 8) {
+        const superName = cursor.getName?.() || "";
+        if (/ability|extension/i.test(superName)) {
             return true;
         }
-        let cursor = declaringClass?.getSuperClass?.() || null;
-        let depth = 0;
-        while (cursor && depth < 8) {
-            const superName = cursor.getName?.() || "";
-            if (/ability|extension/i.test(superName)) {
-                return true;
-            }
-            cursor = cursor.getSuperClass?.() || null;
-            depth += 1;
-        }
-        return false;
-    });
+        cursor = cursor.getSuperClass?.() || null;
+        depth += 1;
+    }
+    return false;
 }
 
 function collectWantParamNodeIds(pag: Pag, method: any): Set<number> {
@@ -328,9 +285,7 @@ function collectWantParamNodeIds(pag: Pag, method: any): Set<number> {
         const left = stmt.getLeftOp();
         if (!(left instanceof Local)) continue;
         const param = parameters[right.getIndex()];
-        const typeText = String(param?.getType?.()?.toString?.() || "").toLowerCase();
-        const nameText = String(param?.getName?.() || "").toLowerCase();
-        if (!typeText.includes("want") && !nameText.includes("want")) continue;
+        if (!isWantParameter(param)) continue;
 
         for (const nodeId of collectNodeIdsFromValue(pag, left)) {
             out.add(nodeId);
@@ -341,17 +296,16 @@ function collectWantParamNodeIds(pag: Pag, method: any): Set<number> {
     }
 
     for (const parameter of parameters) {
-        const typeText = String(parameter?.getType?.()?.toString?.() || "").toLowerCase();
-        const nameText = String(parameter?.getName?.() || "").toLowerCase();
-        if (!typeText.includes("want") && !nameText.includes("want")) continue;
+        if (!isWantParameter(parameter)) continue;
+        const nameText = String(parameter?.getName?.() || "").trim();
         for (const stmt of cfg.getStmts()) {
             if (!(stmt instanceof ArkAssignStmt)) continue;
             const right = stmt.getRightOp();
             if (!(right instanceof ArkInstanceFieldRef)) continue;
             const base = right.getBase?.();
-            const baseName = String(base?.getName?.() || "").toLowerCase();
-            const baseType = String(base?.getType?.()?.toString?.() || "").toLowerCase();
-            if (baseName !== nameText && !baseType.includes("want")) continue;
+            const baseName = String(base?.getName?.() || "").trim();
+            const baseType = String(base?.getType?.()?.toString?.() || "");
+            if (baseName !== nameText && !isExactWantTypeText(baseType)) continue;
             const left = stmt.getLeftOp();
             if (!(left instanceof Local)) continue;
             for (const nodeId of collectNodeIdsFromValue(pag, left)) {
@@ -364,15 +318,14 @@ function collectWantParamNodeIds(pag: Pag, method: any): Set<number> {
     }
 
     for (const parameter of parameters) {
-        const typeText = String(parameter?.getType?.()?.toString?.() || "").toLowerCase();
-        const nameText = String(parameter?.getName?.() || "").toLowerCase();
-        if (!typeText.includes("want") && !nameText.includes("want")) continue;
+        if (!isWantParameter(parameter)) continue;
+        const nameText = String(parameter?.getName?.() || "").trim();
         const bodyLocals = method.getBody?.()?.getLocals?.();
         if (!bodyLocals) continue;
         for (const local of bodyLocals.values()) {
-            const localName = String(local?.getName?.() || "").toLowerCase();
-            const localType = String(local?.getType?.()?.toString?.() || "").toLowerCase();
-            if (localName !== nameText && !localType.includes("want")) continue;
+            const localName = String(local?.getName?.() || "").trim();
+            const localType = String(local?.getType?.()?.toString?.() || "");
+            if (localName !== nameText && !isExactWantTypeText(localType)) continue;
             for (const nodeId of collectNodeIdsFromValue(pag, local)) {
                 out.add(nodeId);
             }
@@ -394,9 +347,7 @@ function collectWantFieldLoadNodeIds(pag: Pag, method: any): Map<string, Set<num
     const wantParamIndexes = new Set<number>();
     for (let index = 0; index < parameters.length; index++) {
         const parameter = parameters[index];
-        const typeText = String(parameter?.getType?.()?.toString?.() || "").toLowerCase();
-        const nameText = String(parameter?.getName?.() || "").toLowerCase();
-        if (typeText.includes("want") || nameText.includes("want")) {
+        if (isWantParameter(parameter)) {
             wantParamIndexes.add(index);
         }
     }
@@ -522,10 +473,9 @@ function collectWantLocalNames(method: any): Set<string> {
     const wantParamIndexes = new Set<number>();
     for (let index = 0; index < parameters.length; index++) {
         const parameter = parameters[index];
-        const typeText = String(parameter?.getType?.()?.toString?.() || "").toLowerCase();
-        const nameText = String(parameter?.getName?.() || "").toLowerCase();
-        if (typeText.includes("want") || nameText.includes("want")) {
+        if (isWantParameter(parameter)) {
             wantParamIndexes.add(index);
+            const nameText = String(parameter?.getName?.() || "").trim();
             if (nameText) {
                 out.add(nameText);
             }

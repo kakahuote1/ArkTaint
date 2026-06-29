@@ -2,8 +2,8 @@ import { Scene } from "../../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../../arkanalyzer/out/src/Config";
 import { TaintPropagationEngine } from "../../core/orchestration/TaintPropagationEngine";
 import { PagNode } from "../../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
-import { SinkRule, TaintRuleSet } from "../../core/rules/RuleSchema";
-import * as fs from "fs";
+import { SinkRule } from "../../core/rules/RuleSchema";
+import { loadRuleSet } from "../../core/rules/RuleLoader";
 import * as path from "path";
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -31,10 +31,15 @@ function flowSinkInMethod(scene: Scene, sinkStmt: any, methodName: string): bool
 }
 
 function loadRdbValuesSinkRules(): SinkRule[] {
-    const rulePath = path.resolve("src/models/kernel/rules/sinks/data.rules.json");
-    const ruleSet = JSON.parse(fs.readFileSync(rulePath, "utf-8")) as TaintRuleSet;
-    return (ruleSet.sinks || [])
-        .filter(rule => rule.id === "sink.harmony.rdb.update.values.arg0");
+    const loaded = loadRuleSet({
+        kernelRulePath: path.resolve("tests/rules/minimal.rules.json"),
+        ruleCatalogPath: path.resolve("src/models"),
+        autoDiscoverRuleSources: false,
+        allowMissingProject: true,
+        allowMissingCandidate: true,
+    });
+    return (loaded.ruleSet.sinks || [])
+        .filter(rule => rule.id === "sink.harmony.rdb.update.values.arg0.for.sink.harmony.rdb.update.values.arg0.0.exact.update.class.RdbStore");
 }
 
 async function detectCase(scene: Scene, methodName: string, sinkRules: SinkRule[]): Promise<boolean> {

@@ -16,13 +16,15 @@ import type {
     ModuleContainerCapability,
     ModuleContainerFamilyKind,
 } from "../../../kernel/contracts/InternalModuleLoweringIR";
-import { resolveExistingPagNodes } from "../../../kernel/contracts/PagNodeResolution";
+import { resolveExistingPagNodes, materializeExactPagNodes } from "../../../kernel/contracts/PagNodeResolution";
 
 export interface TsjsContainerSemanticModuleOptions {
     id: string;
     description: string;
     families?: ModuleContainerFamilyKind[];
     capabilities?: ModuleContainerCapability[];
+    mutationCanonicalApiIds: string[];
+    accessCanonicalApiIds: string[];
 }
 
 const ALL_CONTAINER_FAMILIES: ModuleContainerFamilyKind[] = [
@@ -48,6 +50,23 @@ const ALL_CONTAINER_CAPABILITIES: ModuleContainerCapability[] = [
     "resultset",
 ];
 
+type CanonicalCallStmtSet = ReadonlySet<any>;
+
+function normalizeCanonicalApiIds(values: readonly string[]): string[] {
+    return [...new Set(values.map(value => String(value || "").trim()).filter(Boolean))]
+        .sort((left, right) => left.localeCompare(right));
+}
+
+function scanCanonicalInvokeStmts(scan: ModuleFactEvent["scan"], canonicalApiIds: readonly string[]): Set<any> {
+    const ids = normalizeCanonicalApiIds(canonicalApiIds);
+    if (ids.length === 0) return new Set<any>();
+    return new Set<any>(scan.invokes({ canonicalApiIds: ids }).map(call => call.stmt));
+}
+
+function isAllowedCanonicalCallStmt(stmt: any, allowedStmts?: CanonicalCallStmtSet): boolean {
+    return !!allowedStmts && allowedStmts.has(stmt);
+}
+
 function isContainerKindAllowed(
     kind: ModuleContainerFamilyKind | undefined,
     allowedFamilies: ReadonlySet<ModuleContainerFamilyKind>,
@@ -72,14 +91,19 @@ function isContainerSlotFamilyAllowed(
 }
 
 export function createTsjsContainerSemanticModule(
-    options?: Partial<TsjsContainerSemanticModuleOptions>,
+    options: TsjsContainerSemanticModuleOptions,
 ): TaintModule {
-    const families = new Set<ModuleContainerFamilyKind>(options?.families || ALL_CONTAINER_FAMILIES);
-    const capabilities = new Set<ModuleContainerCapability>(options?.capabilities || ALL_CONTAINER_CAPABILITIES);
+    if (options.mutationCanonicalApiIds.length === 0 && options.accessCanonicalApiIds.length === 0) {
+        throw new Error("tsjs container semantic module requires canonical API ids");
+    }
+    const families = new Set<ModuleContainerFamilyKind>(options.families || ALL_CONTAINER_FAMILIES);
+    const capabilities = new Set<ModuleContainerCapability>(options.capabilities || ALL_CONTAINER_CAPABILITIES);
     return defineModule({
-        id: options?.id || "tsjs.container",
-        description: options?.description || "Built-in TS/JS container and collection semantics.",
-        setup() {
+        id: options.id,
+        description: options.description,
+        setup(ctx) {
+        const mutationCallStmts = scanCanonicalInvokeStmts(ctx.scan, options.mutationCanonicalApiIds);
+        const accessCallStmts = scanCanonicalInvokeStmts(ctx.scan, options.accessCanonicalApiIds);
         const collectResultContainerEmissions = (
             event: ModuleFactEvent,
             reason: string,
@@ -112,28 +136,28 @@ export function createTsjsContainerSemanticModule(
         const cachedSlotStores = (local: Local, pag: Pag): ContainerSlotStoreInfo[] => {
             const cached = slotStoreCache.get(local);
             if (cached) return cached;
-            const value = collectContainerSlotStoresFromTaintedLocal(local, pag, families);
+            const value = collectContainerSlotStoresFromTaintedLocal(local, pag, families, mutationCallStmts);
             slotStoreCache.set(local, value);
             return value;
         };
         const cachedMutationBaseNodeIds = (local: Local, pag: Pag): number[] => {
             const cached = mutationBaseCache.get(local);
             if (cached) return cached;
-            const value = collectContainerMutationBaseNodeIdsFromTaintedLocal(local, pag, families);
+            const value = collectContainerMutationBaseNodeIdsFromTaintedLocal(local, pag, families, mutationCallStmts);
             mutationBaseCache.set(local, value);
             return value;
         };
         const cachedObjectFromEntriesEffects = (local: Local, pag: Pag): ObjectFromEntriesEffects => {
             const cached = objectFromEntriesCache.get(local);
             if (cached) return cached;
-            const value = collectObjectFromEntriesEffectsFromTaintedLocal(local, pag);
+            const value = collectObjectFromEntriesEffectsFromTaintedLocal(local, pag, accessCallStmts);
             objectFromEntriesCache.set(local, value);
             return value;
         };
         const cachedPromiseAggregateEffects = (local: Local, pag: Pag): PromiseAggregateEffects => {
             const cached = promiseAggregateCache.get(local);
             if (cached) return cached;
-            const value = collectPromiseAggregateEffectsFromTaintedLocal(local, pag);
+            const value = collectPromiseAggregateEffectsFromTaintedLocal(local, pag, families, accessCallStmts, mutationCallStmts);
             promiseAggregateCache.set(local, value);
             return value;
         };
@@ -150,7 +174,7 @@ export function createTsjsContainerSemanticModule(
             }
             const cached = bySlot.get(slotKey);
             if (cached) return cached;
-            const value = collectResultSetProducerEffectsFromTaintedLocal(local, pag, resultSetSlot);
+            const value = collectResultSetProducerEffectsFromTaintedLocal(local, pag, resultSetSlot, accessCallStmts);
             bySlot.set(slotKey, value);
             return value;
         };
@@ -163,7 +187,7 @@ export function createTsjsContainerSemanticModule(
             const key = `${objId}|${slot}`;
             const cached = slotLoadCache.get(key);
             if (cached) return cached;
-            const value = collectContainerSlotLoadNodeIds(objId, slot, pag, callbacks);
+            const value = collectContainerSlotLoadNodeIds(objId, slot, pag, callbacks, accessCallStmts, mutationCallStmts);
             slotLoadCache.set(key, value);
             return value;
         };
@@ -175,7 +199,7 @@ export function createTsjsContainerSemanticModule(
             const key = `${objId}|${slot}`;
             const cached = viewEffectsCache.get(key);
             if (cached) return cached;
-            const value = collectContainerViewEffectsBySlot(objId, slot, pag);
+            const value = collectContainerViewEffectsBySlot(objId, slot, pag, accessCallStmts, mutationCallStmts);
             viewEffectsCache.set(key, value);
             return value;
         };
@@ -225,6 +249,22 @@ export function createTsjsContainerSemanticModule(
                         if (capabilities.has("promise_aggregate")) {
                             const promiseAggregate = cachedPromiseAggregateEffects(value, pag);
                             emissions.push(collectResultContainerEmissions(event, "Promise-Aggregate", promiseAggregate.resultNodeIds, promiseAggregate.resultSlotStores));
+                            for (const callbackArg of collectPromiseThenCallbackArgsFromResultLocal(value, accessCallStmts)) {
+                                const callbackParamNodeIds = event.callbacks.paramNodeIds(callbackArg, 0, { maxCandidates: 8 });
+                                const currentField = event.current.cloneField();
+                                if (currentField && currentField.length > 0) {
+                                    emissions.push(event.emit.toFields(
+                                        callbackParamNodeIds,
+                                        currentField,
+                                        "Promise-Continuation-Field",
+                                    ));
+                                } else {
+                                    emissions.push(event.emit.toNodes(
+                                        callbackParamNodeIds,
+                                        "Promise-Continuation",
+                                    ));
+                                }
+                            }
                         }
 
                         if (capabilities.has("resultset") && families.has("resultset")) {
@@ -291,11 +331,6 @@ export function createTsjsContainerSemanticModule(
     });
 }
 
-export const tsjsContainerModule: TaintModule = createTsjsContainerSemanticModule({
-    id: "tsjs.container",
-    description: "Built-in TS/JS container and collection semantics.",
-});
-
 function isNativeArrayBaseNode(pag: any, nodeId: number): boolean {
     const node = pag.getNode(nodeId);
     const value = node?.getValue?.();
@@ -333,6 +368,7 @@ export function collectContainerSlotStoresFromTaintedLocal(
     local: Local,
     pag: Pag,
     allowedFamilies?: ReadonlySet<ModuleContainerFamilyKind>,
+    allowedMutationCallStmts?: CanonicalCallStmtSet,
 ): ContainerSlotStoreInfo[] {
     const results: ContainerSlotStoreInfo[] = [];
     const dedup = new Set<string>();
@@ -362,6 +398,7 @@ export function collectContainerSlotStoresFromTaintedLocal(
         if (!stmt.containsInvokeExpr || !stmt.containsInvokeExpr()) continue;
         const invokeExpr = stmt.getInvokeExpr();
         if (!(invokeExpr instanceof ArkInstanceInvokeExpr)) continue;
+        if (!isAllowedCanonicalCallStmt(stmt, allowedMutationCallStmts)) continue;
 
         const base = invokeExpr.getBase();
         const args = invokeExpr.getArgs ? invokeExpr.getArgs() : [];
@@ -399,7 +436,7 @@ export function collectContainerSlotStoresFromTaintedLocal(
         }
 
         if ((methodName === "add" || methodName === "append" || methodName === "push" || methodName === "insertEnd") && args.length >= 1 && args[0] === local) {
-            const ordinal = resolveAddOrdinal(base, stmt);
+            const ordinal = resolveAddOrdinal(base, stmt, allowedMutationCallStmts);
             if (ordinal < 0) continue;
             let slot: string | null = null;
             if (containerKind === "set") slot = `set:${ordinal}`;
@@ -418,7 +455,7 @@ export function collectContainerSlotStoresFromTaintedLocal(
         }
 
         if (methodName === "add" && containerKind === "weakset" && args.length >= 1 && args[0] === local) {
-            const ordinal = resolveAddOrdinal(base, stmt);
+            const ordinal = resolveAddOrdinal(base, stmt, allowedMutationCallStmts);
             if (ordinal < 0) continue;
             for (const objId of resolveBaseObjIds(base, pag)) {
                 const slot = `weakset:${ordinal}`;
@@ -451,12 +488,14 @@ export function collectContainerMutationBaseNodeIdsFromTaintedLocal(
     local: Local,
     pag: Pag,
     allowedFamilies?: ReadonlySet<ModuleContainerFamilyKind>,
+    allowedMutationCallStmts?: CanonicalCallStmtSet,
 ): number[] {
     const results: number[] = [];
     const dedup = new Set<number>();
 
     for (const stmt of local.getUsedStmts()) {
         if (!(stmt instanceof ArkInvokeStmt) || !stmt.containsInvokeExpr?.()) continue;
+        if (!isAllowedCanonicalCallStmt(stmt, allowedMutationCallStmts)) continue;
         const invokeExpr = stmt.getInvokeExpr();
         if (!(invokeExpr instanceof ArkInstanceInvokeExpr)) continue;
 
@@ -488,6 +527,8 @@ export function collectContainerSlotLoadNodeIds(
     slot: string,
     pag: Pag,
     callbacks: ModuleFactEvent["callbacks"],
+    allowedAccessCallStmts?: CanonicalCallStmtSet,
+    allowedMutationCallStmts?: CanonicalCallStmtSet,
 ): number[] {
     const results: number[] = [];
     const dedup = new Set<number>();
@@ -497,7 +538,7 @@ export function collectContainerSlotLoadNodeIds(
         const val = baseNode.getValue();
         if (!(val instanceof Local)) continue;
         if (baseNode.getID() !== objId && !baseNode.getPointTo().contains(objId)) continue;
-        collectContainerSlotLoadNodeIdsForBaseLocal(val, slot, pag, callbacks, results, dedup);
+        collectContainerSlotLoadNodeIdsForBaseLocal(val, slot, pag, callbacks, results, dedup, allowedAccessCallStmts, allowedMutationCallStmts);
     }
 
     return results;
@@ -508,10 +549,12 @@ export function collectContainerSlotLoadNodeIdsFromLocal(
     slot: string,
     pag: Pag,
     callbacks: ModuleFactEvent["callbacks"],
+    allowedAccessCallStmts?: CanonicalCallStmtSet,
+    allowedMutationCallStmts?: CanonicalCallStmtSet,
 ): number[] {
     const results: number[] = [];
     const dedup = new Set<number>();
-    collectContainerSlotLoadNodeIdsForBaseLocal(base, slot, pag, callbacks, results, dedup);
+    collectContainerSlotLoadNodeIdsForBaseLocal(base, slot, pag, callbacks, results, dedup, allowedAccessCallStmts, allowedMutationCallStmts);
     return results;
 }
 
@@ -519,17 +562,20 @@ export function collectArrayForEachCallbackParamNodeIdsFromTaintedLocal(
     local: Local,
     pag: Pag,
     callbacks: ModuleFactEvent["callbacks"],
+    allowedFamilies?: ReadonlySet<ModuleContainerFamilyKind>,
+    allowedAccessCallStmts?: CanonicalCallStmtSet,
+    allowedMutationCallStmts?: CanonicalCallStmtSet,
 ): number[] {
     const results: number[] = [];
     const seenObjIds = new Set<number>();
     const dedup = new Set<number>();
 
-    for (const info of collectContainerSlotStoresFromTaintedLocal(local, pag)) {
+    for (const info of collectContainerSlotStoresFromTaintedLocal(local, pag, allowedFamilies, allowedMutationCallStmts)) {
         if (!info.slot.startsWith("arr:")) continue;
         if (seenObjIds.has(info.objId)) continue;
         seenObjIds.add(info.objId);
 
-        const callbackNodeIds = collectArrayCallbackParamNodeIds(info.objId, pag, callbacks, "forEach", [0]);
+        const callbackNodeIds = collectArrayCallbackParamNodeIds(info.objId, pag, callbacks, "forEach", [0], allowedAccessCallStmts);
         for (const nodeId of callbackNodeIds) {
             if (dedup.has(nodeId)) continue;
             dedup.add(nodeId);
@@ -544,6 +590,9 @@ export function collectArrayHigherOrderEffectsFromTaintedLocal(
     local: Local,
     pag: Pag,
     callbacks: ModuleFactEvent["callbacks"],
+    allowedFamilies?: ReadonlySet<ModuleContainerFamilyKind>,
+    allowedAccessCallStmts?: CanonicalCallStmtSet,
+    allowedMutationCallStmts?: CanonicalCallStmtSet,
 ): ArrayHigherOrderEffects {
     const callbackParamNodeIds: number[] = [];
     const resultNodeIds: number[] = [];
@@ -553,12 +602,12 @@ export function collectArrayHigherOrderEffectsFromTaintedLocal(
     const resultDedup = new Set<number>();
     const slotDedup = new Set<string>();
 
-    for (const info of collectContainerSlotStoresFromTaintedLocal(local, pag)) {
+    for (const info of collectContainerSlotStoresFromTaintedLocal(local, pag, allowedFamilies, allowedMutationCallStmts)) {
         if (!info.slot.startsWith("arr:")) continue;
         if (seenObjIds.has(info.objId)) continue;
         seenObjIds.add(info.objId);
 
-        const effect = collectArrayHigherOrderEffectsForObj(info.objId, info.slot, pag, callbacks);
+        const effect = collectArrayHigherOrderEffectsForObj(info.objId, info.slot, pag, callbacks, allowedAccessCallStmts);
         for (const nodeId of effect.callbackParamNodeIds) {
             if (callbackDedup.has(nodeId)) continue;
             callbackDedup.add(nodeId);
@@ -584,7 +633,11 @@ export function collectArrayHigherOrderEffectsFromTaintedLocal(
     };
 }
 
-export function collectObjectFromEntriesEffectsFromTaintedLocal(local: Local, pag: Pag): ObjectFromEntriesEffects {
+export function collectObjectFromEntriesEffectsFromTaintedLocal(
+    local: Local,
+    pag: Pag,
+    allowedAccessCallStmts?: CanonicalCallStmtSet,
+): ObjectFromEntriesEffects {
     const resultLoadNodeIds: number[] = [];
     const resultFieldStores: Array<{ objId: number; field: string }> = [];
     const loadDedup = new Set<number>();
@@ -609,6 +662,7 @@ export function collectObjectFromEntriesEffectsFromTaintedLocal(local: Local, pa
         for (const outerArray of outerArrays) {
             for (const outerUse of outerArray.getUsedStmts()) {
                 if (!(outerUse instanceof ArkAssignStmt)) continue;
+                if (!isAllowedCanonicalCallStmt(outerUse, allowedAccessCallStmts)) continue;
                 const right = outerUse.getRightOp();
                 if (!(right instanceof ArkStaticInvokeExpr)) continue;
                 if (resolveMethodName(right) !== "fromEntries") continue;
@@ -650,22 +704,29 @@ export function collectObjectFromEntriesEffectsFromTaintedLocal(local: Local, pa
     };
 }
 
-export function collectPromiseAggregateEffectsFromTaintedLocal(local: Local, pag: Pag): PromiseAggregateEffects {
+export function collectPromiseAggregateEffectsFromTaintedLocal(
+    local: Local,
+    pag: Pag,
+    allowedFamilies?: ReadonlySet<ModuleContainerFamilyKind>,
+    allowedAccessCallStmts?: CanonicalCallStmtSet,
+    allowedMutationCallStmts?: CanonicalCallStmtSet,
+): PromiseAggregateEffects {
     const resultNodeIds: number[] = [];
     const resultSlotStores: ContainerSlotStoreInfo[] = [];
     const dedup = new Set<number>();
     const slotDedup = new Set<string>();
     const seenArrayObjIds = new Set<number>();
 
-    for (const stmt of local.getUsedStmts()) {
+    for (const stmt of collectLocalUseStmtsWithCfgRecovery(local)) {
         if (!(stmt instanceof ArkAssignStmt)) continue;
+        if (!isAllowedCanonicalCallStmt(stmt, allowedAccessCallStmts)) continue;
         const right = stmt.getRightOp();
         if (!(right instanceof ArkStaticInvokeExpr) && !(right instanceof ArkInstanceInvokeExpr)) continue;
         if (!isPromiseAggregateInvoke(right)) continue;
         const args = right.getArgs ? right.getArgs() : [];
-        if (!args.includes(local)) continue;
+        if (!args.some(arg => sameLocalValue(arg, local))) continue;
 
-        const dstNodes = resolveExistingPagNodesForValue(pag, stmt.getLeftOp(), stmt);
+        const dstNodes = materializeExactPagNodes(pag, stmt.getLeftOp(), stmt);
         if (!dstNodes) continue;
         for (const nodeId of dstNodes.values()) {
             if (dedup.has(nodeId)) continue;
@@ -674,12 +735,12 @@ export function collectPromiseAggregateEffectsFromTaintedLocal(local: Local, pag
         }
     }
 
-    for (const info of collectContainerSlotStoresFromTaintedLocal(local, pag)) {
+    for (const info of collectContainerSlotStoresFromTaintedLocal(local, pag, allowedFamilies, allowedMutationCallStmts)) {
         if (!info.slot.startsWith("arr:")) continue;
         if (seenArrayObjIds.has(info.objId)) continue;
         seenArrayObjIds.add(info.objId);
 
-        const aggregateResultNodeIds = collectPromiseAggregateResultNodeIdsForObj(info.objId, pag);
+        const aggregateResultNodeIds = collectPromiseAggregateResultNodeIdsForObj(info.objId, pag, allowedAccessCallStmts);
         for (const nodeId of aggregateResultNodeIds) {
             if (dedup.has(nodeId)) continue;
             dedup.add(nodeId);
@@ -699,7 +760,11 @@ export function collectPromiseAggregateEffectsFromTaintedLocal(local: Local, pag
     };
 }
 
-export function collectArrayConstructorEffectsFromTaintedLocal(local: Local, pag: Pag): ResultContainerEffects {
+export function collectArrayConstructorEffectsFromTaintedLocal(
+    local: Local,
+    pag: Pag,
+    allowedAccessCallStmts?: CanonicalCallStmtSet,
+): ResultContainerEffects {
     const resultNodeIds: number[] = [];
     const resultSlotStores: ContainerSlotStoreInfo[] = [];
     const resultDedup = new Set<number>();
@@ -707,6 +772,7 @@ export function collectArrayConstructorEffectsFromTaintedLocal(local: Local, pag
 
     for (const stmt of local.getUsedStmts()) {
         if (!(stmt instanceof ArkAssignStmt)) continue;
+        if (!isAllowedCanonicalCallStmt(stmt, allowedAccessCallStmts)) continue;
         const right = stmt.getRightOp();
         if (!(right instanceof ArkStaticInvokeExpr) && !(right instanceof ArkInstanceInvokeExpr)) continue;
 
@@ -757,7 +823,11 @@ export function collectArrayConstructorEffectsFromTaintedLocal(local: Local, pag
     };
 }
 
-export function collectStringSplitEffectsFromTaintedLocal(local: Local, pag: Pag): ResultContainerEffects {
+export function collectStringSplitEffectsFromTaintedLocal(
+    local: Local,
+    pag: Pag,
+    allowedAccessCallStmts?: CanonicalCallStmtSet,
+): ResultContainerEffects {
     const resultNodeIds: number[] = [];
     const resultSlotStores: ContainerSlotStoreInfo[] = [];
     const resultDedup = new Set<number>();
@@ -765,6 +835,7 @@ export function collectStringSplitEffectsFromTaintedLocal(local: Local, pag: Pag
 
     for (const stmt of local.getUsedStmts()) {
         if (!(stmt instanceof ArkAssignStmt)) continue;
+        if (!isAllowedCanonicalCallStmt(stmt, allowedAccessCallStmts)) continue;
         const right = stmt.getRightOp();
         if (!(right instanceof ArkInstanceInvokeExpr)) continue;
         if (right.getBase() !== local) continue;
@@ -793,7 +864,12 @@ export function collectStringSplitEffectsFromTaintedLocal(local: Local, pag: Pag
     };
 }
 
-export function collectArrayStaticViewEffectsBySlotFromLocal(local: Local, slot: string, pag: Pag): ResultContainerEffects {
+export function collectArrayStaticViewEffectsBySlotFromLocal(
+    local: Local,
+    slot: string,
+    pag: Pag,
+    allowedAccessCallStmts?: CanonicalCallStmtSet,
+): ResultContainerEffects {
     const resultNodeIds: number[] = [];
     const resultSlotStores: ContainerSlotStoreInfo[] = [];
     const resultDedup = new Set<number>();
@@ -805,6 +881,7 @@ export function collectArrayStaticViewEffectsBySlotFromLocal(local: Local, slot:
 
     for (const stmt of local.getUsedStmts()) {
         if (!(stmt instanceof ArkAssignStmt)) continue;
+        if (!isAllowedCanonicalCallStmt(stmt, allowedAccessCallStmts)) continue;
         const right = stmt.getRightOp();
         if (!(right instanceof ArkStaticInvokeExpr) && !(right instanceof ArkInstanceInvokeExpr)) continue;
         const methodName = resolveMethodName(right);
@@ -837,7 +914,12 @@ export function collectArrayStaticViewEffectsBySlotFromLocal(local: Local, slot:
     };
 }
 
-export function collectArrayStaticViewEffectsBySlot(objId: number, slot: string, pag: Pag): ResultContainerEffects {
+export function collectArrayStaticViewEffectsBySlot(
+    objId: number,
+    slot: string,
+    pag: Pag,
+    allowedAccessCallStmts?: CanonicalCallStmtSet,
+): ResultContainerEffects {
     const resultNodeIds: number[] = [];
     const resultSlotStores: ContainerSlotStoreInfo[] = [];
     const resultDedup = new Set<number>();
@@ -849,7 +931,7 @@ export function collectArrayStaticViewEffectsBySlot(objId: number, slot: string,
         if (!(val instanceof Local)) continue;
         if (!baseNode.getPointTo().contains(objId)) continue;
 
-        const effects = collectArrayStaticViewEffectsBySlotFromLocal(val, slot, pag);
+        const effects = collectArrayStaticViewEffectsBySlotFromLocal(val, slot, pag, allowedAccessCallStmts);
         for (const nodeId of effects.resultNodeIds) {
             if (resultDedup.has(nodeId)) continue;
             resultDedup.add(nodeId);
@@ -872,13 +954,15 @@ export function collectArrayStaticViewEffectsBySlot(objId: number, slot: string,
 export function collectArrayFromMapperCallbackParamNodeIdsFromTaintedLocal(
     local: Local,
     pag: Pag,
-    callbacks: ModuleFactEvent["callbacks"]
+    callbacks: ModuleFactEvent["callbacks"],
+    allowedAccessCallStmts?: CanonicalCallStmtSet,
 ): number[] {
     const results: number[] = [];
     const dedup = new Set<number>();
 
     for (const stmt of local.getUsedStmts()) {
         if (!(stmt instanceof ArkAssignStmt) && !(stmt instanceof ArkInvokeStmt)) continue;
+        if (!isAllowedCanonicalCallStmt(stmt, allowedAccessCallStmts)) continue;
         const invokeExpr = stmt instanceof ArkAssignStmt ? stmt.getRightOp() : stmt.getInvokeExpr();
         if (!(invokeExpr instanceof ArkStaticInvokeExpr) && !(invokeExpr instanceof ArkInstanceInvokeExpr)) continue;
         const methodName = resolveMethodName(invokeExpr);
@@ -900,7 +984,8 @@ export function collectArrayFromMapperCallbackParamNodeIdsFromTaintedLocal(
 export function collectArrayFromMapperCallbackParamNodeIdsForObj(
     objId: number,
     pag: Pag,
-    callbacks: ModuleFactEvent["callbacks"]
+    callbacks: ModuleFactEvent["callbacks"],
+    allowedAccessCallStmts?: CanonicalCallStmtSet,
 ): number[] {
     const results: number[] = [];
     const dedup = new Set<number>();
@@ -911,7 +996,7 @@ export function collectArrayFromMapperCallbackParamNodeIdsForObj(
         if (!(val instanceof Local)) continue;
         if (!baseNode.getPointTo().contains(objId)) continue;
 
-        for (const nodeId of collectArrayFromMapperCallbackParamNodeIdsFromTaintedLocal(val, pag, callbacks)) {
+        for (const nodeId of collectArrayFromMapperCallbackParamNodeIdsFromTaintedLocal(val, pag, callbacks, allowedAccessCallStmts)) {
             if (dedup.has(nodeId)) continue;
             dedup.add(nodeId);
             results.push(nodeId);
@@ -921,7 +1006,13 @@ export function collectArrayFromMapperCallbackParamNodeIdsForObj(
     return results;
 }
 
-export function collectContainerViewEffectsBySlot(objId: number, slot: string, pag: Pag): ResultContainerEffects {
+export function collectContainerViewEffectsBySlot(
+    objId: number,
+    slot: string,
+    pag: Pag,
+    allowedAccessCallStmts?: CanonicalCallStmtSet,
+    allowedMutationCallStmts?: CanonicalCallStmtSet,
+): ResultContainerEffects {
     const resultNodeIds: number[] = [];
     const resultSlotStores: ContainerSlotStoreInfo[] = [];
     const resultDedup = new Set<number>();
@@ -932,7 +1023,7 @@ export function collectContainerViewEffectsBySlot(objId: number, slot: string, p
         const val = baseNode.getValue();
         if (!(val instanceof Local)) continue;
         if (baseNode.getID() !== objId && !baseNode.getPointTo().contains(objId)) continue;
-        collectContainerViewEffectsBySlotForBaseLocal(val, slot, pag, resultNodeIds, resultSlotStores, resultDedup, slotDedup);
+        collectContainerViewEffectsBySlotForBaseLocal(val, slot, pag, resultNodeIds, resultSlotStores, resultDedup, slotDedup, allowedAccessCallStmts, allowedMutationCallStmts);
     }
 
     return {
@@ -941,12 +1032,18 @@ export function collectContainerViewEffectsBySlot(objId: number, slot: string, p
     };
 }
 
-export function collectContainerViewEffectsBySlotFromLocal(base: Local, slot: string, pag: Pag): ResultContainerEffects {
+export function collectContainerViewEffectsBySlotFromLocal(
+    base: Local,
+    slot: string,
+    pag: Pag,
+    allowedAccessCallStmts?: CanonicalCallStmtSet,
+    allowedMutationCallStmts?: CanonicalCallStmtSet,
+): ResultContainerEffects {
     const resultNodeIds: number[] = [];
     const resultSlotStores: ContainerSlotStoreInfo[] = [];
     const resultDedup = new Set<number>();
     const slotDedup = new Set<string>();
-    collectContainerViewEffectsBySlotForBaseLocal(base, slot, pag, resultNodeIds, resultSlotStores, resultDedup, slotDedup);
+    collectContainerViewEffectsBySlotForBaseLocal(base, slot, pag, resultNodeIds, resultSlotStores, resultDedup, slotDedup, allowedAccessCallStmts, allowedMutationCallStmts);
     return {
         resultNodeIds,
         resultSlotStores,
@@ -1083,6 +1180,7 @@ export function collectResultSetProducerEffectsFromTaintedLocal(
     local: Local,
     pag: Pag,
     slot: string = "rs:*",
+    allowedAccessCallStmts?: CanonicalCallStmtSet,
 ): ResultContainerEffects {
     const resultNodeIds: number[] = [];
     const resultSlotStores: ContainerSlotStoreInfo[] = [];
@@ -1091,6 +1189,7 @@ export function collectResultSetProducerEffectsFromTaintedLocal(
 
     for (const stmt of local.getUsedStmts()) {
         if (!(stmt instanceof ArkAssignStmt)) continue;
+        if (!isAllowedCanonicalCallStmt(stmt, allowedAccessCallStmts)) continue;
         const right = stmt.getRightOp();
         if (!(right instanceof ArkInstanceInvokeExpr)) continue;
         if (right.getBase() !== local) continue;
@@ -1138,7 +1237,7 @@ function resolveMethodName(invokeExpr: ArkInstanceInvokeExpr | ArkStaticInvokeEx
 
 function isArrayStaticCall(sig: string, methodName: string): boolean {
     if (methodName !== "from" && methodName !== "of") return false;
-    return sig.length === 0 || sig.includes("Array.") || sig.includes("@%unk/%unk");
+    return sig.includes("Array.");
 }
 
 function isContainerMutationForBase(
@@ -1269,7 +1368,8 @@ function collectArrayCallbackParamNodeIds(
     pag: Pag,
     callbacks: ModuleFactEvent["callbacks"],
     methodName: string,
-    paramIndexes?: number[]
+    paramIndexes?: number[],
+    allowedAccessCallStmts?: CanonicalCallStmtSet,
 ): number[] {
     const results: number[] = [];
     const dedup = new Set<number>();
@@ -1282,6 +1382,7 @@ function collectArrayCallbackParamNodeIds(
 
         for (const stmt of val.getUsedStmts()) {
             if (!(stmt instanceof ArkInvokeStmt)) continue;
+            if (!isAllowedCanonicalCallStmt(stmt, allowedAccessCallStmts)) continue;
             const invokeExpr = stmt.getInvokeExpr();
             if (!(invokeExpr instanceof ArkInstanceInvokeExpr)) continue;
             if (invokeExpr.getBase() !== val) continue;
@@ -1305,7 +1406,8 @@ function collectArrayHigherOrderEffectsForObj(
     objId: number,
     slot: string,
     pag: Pag,
-    callbacks: ModuleFactEvent["callbacks"]
+    callbacks: ModuleFactEvent["callbacks"],
+    allowedAccessCallStmts?: CanonicalCallStmtSet,
 ): ArrayHigherOrderEffects {
     const callbackParamNodeIds: number[] = [];
     const resultNodeIds: number[] = [];
@@ -1322,6 +1424,7 @@ function collectArrayHigherOrderEffectsForObj(
 
         for (const stmt of val.getUsedStmts()) {
             if (stmt instanceof ArkInvokeStmt) {
+                if (!isAllowedCanonicalCallStmt(stmt, allowedAccessCallStmts)) continue;
                 const invokeExpr = stmt.getInvokeExpr();
                 if (!(invokeExpr instanceof ArkInstanceInvokeExpr)) continue;
                 if (invokeExpr.getBase() !== val) continue;
@@ -1340,6 +1443,7 @@ function collectArrayHigherOrderEffectsForObj(
             }
 
             if (!(stmt instanceof ArkAssignStmt)) continue;
+            if (!isAllowedCanonicalCallStmt(stmt, allowedAccessCallStmts)) continue;
             const right = stmt.getRightOp();
             if (!(right instanceof ArkInstanceInvokeExpr)) continue;
             if (right.getBase() !== val) continue;
@@ -1408,7 +1512,11 @@ function collectArrayHigherOrderEffectsForObj(
     };
 }
 
-function collectPromiseAggregateResultNodeIdsForObj(objId: number, pag: Pag): number[] {
+function collectPromiseAggregateResultNodeIdsForObj(
+    objId: number,
+    pag: Pag,
+    allowedAccessCallStmts?: CanonicalCallStmtSet,
+): number[] {
     const results: number[] = [];
     const dedup = new Set<number>();
 
@@ -1418,15 +1526,16 @@ function collectPromiseAggregateResultNodeIdsForObj(objId: number, pag: Pag): nu
         if (!(val instanceof Local)) continue;
         if (!baseNode.getPointTo().contains(objId)) continue;
 
-        for (const stmt of val.getUsedStmts()) {
+        for (const stmt of collectLocalUseStmtsWithCfgRecovery(val)) {
             if (!(stmt instanceof ArkAssignStmt)) continue;
+            if (!isAllowedCanonicalCallStmt(stmt, allowedAccessCallStmts)) continue;
             const right = stmt.getRightOp();
             if (!(right instanceof ArkStaticInvokeExpr) && !(right instanceof ArkInstanceInvokeExpr)) continue;
             if (!isPromiseAggregateInvoke(right)) continue;
             const args = right.getArgs ? right.getArgs() : [];
-            if (!args.includes(val)) continue;
+            if (!args.some(arg => sameLocalValue(arg, val))) continue;
 
-            const dstNodes = resolveExistingPagNodesForValue(pag, stmt.getLeftOp(), stmt);
+            const dstNodes = materializeExactPagNodes(pag, stmt.getLeftOp(), stmt);
             if (!dstNodes) continue;
             for (const nodeId of dstNodes.values()) {
                 if (dedup.has(nodeId)) continue;
@@ -1434,6 +1543,33 @@ function collectPromiseAggregateResultNodeIdsForObj(objId: number, pag: Pag): nu
                 results.push(nodeId);
             }
         }
+    }
+
+    return results;
+}
+
+function collectPromiseThenCallbackArgsFromResultLocal(
+    local: Local,
+    allowedAccessCallStmts?: CanonicalCallStmtSet,
+): any[] {
+    const results: any[] = [];
+    const dedup = new Set<string>();
+
+    for (const stmt of collectLocalUseStmtsWithCfgRecovery(local)) {
+        if (!isAllowedCanonicalCallStmt(stmt, allowedAccessCallStmts)) continue;
+        const invokeExpr = stmt instanceof ArkInvokeStmt
+            ? stmt.getInvokeExpr()
+            : undefined;
+        if (!(invokeExpr instanceof ArkInstanceInvokeExpr)) continue;
+        if (!sameLocalValue(invokeExpr.getBase(), local)) continue;
+        if (resolveMethodName(invokeExpr) !== "then") continue;
+        const args = invokeExpr.getArgs ? invokeExpr.getArgs() : [];
+        if (args.length === 0) continue;
+        const callbackArg = args[0];
+        const key = callbackArg?.toString?.() || String(callbackArg);
+        if (dedup.has(key)) continue;
+        dedup.add(key);
+        results.push(callbackArg);
     }
 
     return results;
@@ -1458,11 +1594,85 @@ function isPromiseAggregateInvoke(invokeExpr: ArkStaticInvokeExpr | ArkInstanceI
     const methodName = resolveMethodName(invokeExpr);
     if (!["all", "race", "allSettled", "any"].includes(methodName)) return false;
     const sig = invokeExpr.getMethodSignature()?.toString() || "";
-    return sig.length === 0 || sig.includes("Promise.") || sig.includes("@%unk/%unk");
+    return sig.includes("Promise.");
 }
 
 function resolveExistingPagNodesForValue(pag: Pag, value: any, anchorStmt: ArkAssignStmt): Map<number, number> | undefined {
     return resolveExistingPagNodes(pag, value, anchorStmt);
+}
+
+function collectLocalUseStmtsWithCfgRecovery(local: Local): any[] {
+    const out = new Set<any>(local.getUsedStmts?.() || []);
+    const cfg = local.getDeclaringStmt?.()?.getCfg?.();
+    const stmts = cfg?.getStmts?.();
+    if (!stmts) return [...out];
+    for (const stmt of stmts) {
+        if (stmtUsesLocalValue(stmt, local)) {
+            out.add(stmt);
+        }
+    }
+    return [...out];
+}
+
+function stmtUsesLocalValue(stmt: any, local: Local): boolean {
+    if (stmt instanceof ArkAssignStmt) {
+        return valueUsesLocal(stmt.getRightOp?.(), local)
+            || valueUsesLocal(stmt.getLeftOp?.(), local);
+    }
+    if (stmt instanceof ArkInvokeStmt) {
+        return valueUsesLocal(stmt.getInvokeExpr?.(), local);
+    }
+    return valueUsesLocal(stmt, local);
+}
+
+function valueUsesLocal(value: any, local: Local, visiting = new Set<any>()): boolean {
+    if (!value || visiting.has(value)) return false;
+    if (sameLocalValue(value, local)) return true;
+    visiting.add(value);
+    if (value instanceof ArkInstanceInvokeExpr) {
+        if (valueUsesLocal(value.getBase?.(), local, visiting)) return true;
+        for (const arg of value.getArgs?.() || []) {
+            if (valueUsesLocal(arg, local, visiting)) return true;
+        }
+        return false;
+    }
+    if (value instanceof ArkStaticInvokeExpr) {
+        for (const arg of value.getArgs?.() || []) {
+            if (valueUsesLocal(arg, local, visiting)) return true;
+        }
+        return false;
+    }
+    if (value instanceof ArkArrayRef) {
+        return valueUsesLocal(value.getBase?.(), local, visiting)
+            || valueUsesLocal(value.getIndex?.(), local, visiting);
+    }
+    if (value instanceof ArkInstanceFieldRef) {
+        return valueUsesLocal(value.getBase?.(), local, visiting);
+    }
+    if (value instanceof ArkNormalBinopExpr) {
+        return valueUsesLocal(value.getOp1?.(), local, visiting)
+            || valueUsesLocal(value.getOp2?.(), local, visiting);
+    }
+    for (const use of value.getUses?.() || []) {
+        if (valueUsesLocal(use, local, visiting)) return true;
+    }
+    return false;
+}
+
+function sameLocalValue(value: any, local: Local): value is Local {
+    if (value === local) return true;
+    if (!(value instanceof Local)) return false;
+    return localStableKey(value) === localStableKey(local);
+}
+
+function localStableKey(local: Local): string {
+    const methodSig = local.getDeclaringStmt?.()
+        ?.getCfg?.()
+        ?.getDeclaringMethod?.()
+        ?.getSignature?.()
+        ?.toString?.() || "";
+    const declaringStmt = local.getDeclaringStmt?.()?.toString?.() || "";
+    return `${methodSig}::${local.getName?.() || ""}::${declaringStmt}`;
 }
 
 function collectContainerSlotLoadNodeIdsForBaseLocal(
@@ -1471,7 +1681,9 @@ function collectContainerSlotLoadNodeIdsForBaseLocal(
     pag: Pag,
     callbacks: ModuleFactEvent["callbacks"],
     results: number[],
-    dedup: Set<number>
+    dedup: Set<number>,
+    allowedAccessCallStmts?: CanonicalCallStmtSet,
+    allowedMutationCallStmts?: CanonicalCallStmtSet,
 ): void {
     for (const stmt of val.getUsedStmts()) {
         if (stmt instanceof ArkAssignStmt) {
@@ -1499,6 +1711,7 @@ function collectContainerSlotLoadNodeIdsForBaseLocal(
             }
 
             if (right instanceof ArkInstanceInvokeExpr && right.getBase() === val) {
+                if (!isAllowedCanonicalCallStmt(stmt, allowedAccessCallStmts)) continue;
                 const methodName = resolveMethodName(right);
                 const sig = right.getMethodSignature()?.toString() || "";
                 const args = right.getArgs ? right.getArgs() : [];
@@ -1519,12 +1732,12 @@ function collectContainerSlotLoadNodeIdsForBaseLocal(
                 } else if (methodName === "getFirst" && queueLike) {
                     matched = isContainerSlotMatch(slot, "queue:0");
                 } else if (methodName === "getLast" && queueLike && slot.startsWith("queue:")) {
-                    matched = isLikelyContainerTailSourceSlot(slot, val, new Set(["add", "append", "push", "insertEnd"]), "queue:");
+                    matched = isLikelyContainerTailSourceSlot(slot, val, new Set(["add", "append", "push", "insertEnd"]), "queue:", allowedMutationCallStmts);
                 } else if (methodName === "get" && listLike) {
                     const idxKey = args.length > 0 ? resolveValueKey(args[0]) : undefined;
                     matched = idxKey !== undefined && isContainerSlotMatch(slot, `list:${idxKey}`);
                 } else if (methodName === "peek" && stackLike && slot.startsWith("stack:")) {
-                    matched = isLikelyContainerTailSourceSlot(slot, val, new Set(["push"]), "stack:");
+                    matched = isLikelyContainerTailSourceSlot(slot, val, new Set(["push"]), "stack:", allowedMutationCallStmts);
                 } else if (isResultSetScalarLoadMethod(methodName) && resultSetLike) {
                     const key = args.length > 0 ? resolveValueKey(args[0]) : undefined;
                     matched = slot === "rs:*" || (key !== undefined && isContainerSlotMatch(slot, `rs:${key}`));
@@ -1562,12 +1775,12 @@ function collectContainerSlotLoadNodeIdsForBaseLocal(
                 } else if (methodName === "shift" && arrayLike && isContainerSlotMatch(slot, "arr:0")) {
                     matched = true;
                 } else if (methodName === "pop" && arrayLike && slot.startsWith("arr:")) {
-                    matched = isLikelyArrayPopSourceSlot(slot, val);
+                    matched = isLikelyArrayPopSourceSlot(slot, val, allowedMutationCallStmts);
                 } else if (methodName === "splice" && arrayLike && slot.startsWith("arr:")) {
                     matched = isSpliceRemovedSlot(slot, args);
                 }
 
-                if (matched && !isContainerSlotLiveAtStmt(val, slot, stmt)) {
+                if (matched && !isContainerSlotLiveAtStmt(val, slot, stmt, allowedMutationCallStmts)) {
                     matched = false;
                 }
 
@@ -1583,6 +1796,7 @@ function collectContainerSlotLoadNodeIdsForBaseLocal(
             }
 
             if (right instanceof ArkInstanceInvokeExpr) {
+                if (!isAllowedCanonicalCallStmt(stmt, allowedAccessCallStmts)) continue;
                 const methodName = resolveMethodName(right);
                 const args = right.getArgs ? right.getArgs() : [];
                 if (methodName === "concat" && slot.startsWith("arr:") && args.includes(val)) {
@@ -1598,6 +1812,7 @@ function collectContainerSlotLoadNodeIdsForBaseLocal(
         }
 
         if (stmt instanceof ArkInvokeStmt) {
+            if (!isAllowedCanonicalCallStmt(stmt, allowedAccessCallStmts)) continue;
             const invokeExpr = stmt.getInvokeExpr();
             if (!(invokeExpr instanceof ArkInstanceInvokeExpr)) continue;
             if (invokeExpr.getBase() !== val) continue;
@@ -1624,13 +1839,16 @@ function collectContainerViewEffectsBySlotForBaseLocal(
     resultNodeIds: number[],
     resultSlotStores: ContainerSlotStoreInfo[],
     resultDedup: Set<number>,
-    slotDedup: Set<string>
+    slotDedup: Set<string>,
+    allowedAccessCallStmts?: CanonicalCallStmtSet,
+    allowedMutationCallStmts?: CanonicalCallStmtSet,
 ): void {
     for (const stmt of val.getUsedStmts()) {
         if (!(stmt instanceof ArkAssignStmt)) continue;
         const right = stmt.getRightOp();
         if (!(right instanceof ArkInstanceInvokeExpr)) continue;
         if (right.getBase() !== val) continue;
+        if (!isAllowedCanonicalCallStmt(stmt, allowedAccessCallStmts)) continue;
 
         const methodName = resolveMethodName(right);
         const sig = right.getMethodSignature()?.toString() || "";
@@ -1672,7 +1890,7 @@ function collectContainerViewEffectsBySlotForBaseLocal(
             matched = slot.startsWith("rs:");
         }
 
-        if (matched && !isContainerSlotLiveAtStmt(val, slot, stmt)) {
+        if (matched && !isContainerSlotLiveAtStmt(val, slot, stmt, allowedMutationCallStmts)) {
             matched = false;
         }
 
@@ -1753,7 +1971,12 @@ function resolveFromEntriesKeyFromPairLocal(pairBase: Local): string | undefined
     return undefined;
 }
 
-function isLikelyArrayPopSourceSlot(slot: string, base: Local): boolean {
+function isLikelyArrayPopSourceSlot(
+    slot: string,
+    base: Local,
+    allowedMutationCallStmts?: CanonicalCallStmtSet,
+): boolean {
+    void allowedMutationCallStmts;
     if (slot === "arr:*") return true;
     const slotIndex = parseArraySlotIndex(slot);
     if (slotIndex === undefined) return false;
@@ -1850,11 +2073,20 @@ function resolveArrayMaxStoredIndex(local: Local, visiting: Set<Local>): number 
     return maxIndex;
 }
 
-function resolveAddOrdinal(base: Local, targetStmt: any): number {
-    return resolveSequentialOrdinal(base, targetStmt, new Set(["add", "append", "push", "insertEnd"]));
+function resolveAddOrdinal(
+    base: Local,
+    targetStmt: any,
+    allowedMutationCallStmts?: CanonicalCallStmtSet,
+): number {
+    return resolveSequentialOrdinal(base, targetStmt, new Set(["add", "append", "push", "insertEnd"]), allowedMutationCallStmts);
 }
 
-function resolveSequentialOrdinal(base: Local, targetStmt: any, methods: Set<string>): number {
+function resolveSequentialOrdinal(
+    base: Local,
+    targetStmt: any,
+    methods: Set<string>,
+    allowedMutationCallStmts?: CanonicalCallStmtSet,
+): number {
     const stmts = [...base.getUsedStmts()].sort(
         (a: any, b: any) => a.getOriginPositionInfo().getLineNo() - b.getOriginPositionInfo().getLineNo()
     );
@@ -1865,6 +2097,7 @@ function resolveSequentialOrdinal(base: Local, targetStmt: any, methods: Set<str
         const invokeExpr = stmt.getInvokeExpr();
         if (!(invokeExpr instanceof ArkInstanceInvokeExpr)) continue;
         if (invokeExpr.getBase() !== base) continue;
+        if (!isAllowedCanonicalCallStmt(stmt, allowedMutationCallStmts)) continue;
         const methodName = resolveMethodName(invokeExpr);
         if (methodName === "clear") {
             idx = 0;
@@ -1877,16 +2110,26 @@ function resolveSequentialOrdinal(base: Local, targetStmt: any, methods: Set<str
     return -1;
 }
 
-function isLikelyContainerTailSourceSlot(slot: string, base: Local, methods: Set<string>, prefix: string): boolean {
+function isLikelyContainerTailSourceSlot(
+    slot: string,
+    base: Local,
+    methods: Set<string>,
+    prefix: string,
+    allowedMutationCallStmts?: CanonicalCallStmtSet,
+): boolean {
     if (!slot.startsWith(prefix)) return false;
     const slotIndex = Number(slot.slice(prefix.length));
     if (Number.isNaN(slotIndex)) return false;
-    const maxIndex = resolveMaxSequentialOrdinal(base, methods);
+    const maxIndex = resolveMaxSequentialOrdinal(base, methods, allowedMutationCallStmts);
     if (maxIndex === undefined) return true;
     return slotIndex === maxIndex;
 }
 
-function resolveMaxSequentialOrdinal(base: Local, methods: Set<string>): number | undefined {
+function resolveMaxSequentialOrdinal(
+    base: Local,
+    methods: Set<string>,
+    allowedMutationCallStmts?: CanonicalCallStmtSet,
+): number | undefined {
     const stmts = [...base.getUsedStmts()].sort(
         (a: any, b: any) => a.getOriginPositionInfo().getLineNo() - b.getOriginPositionInfo().getLineNo()
     );
@@ -1897,6 +2140,7 @@ function resolveMaxSequentialOrdinal(base: Local, methods: Set<string>): number 
         const invokeExpr = stmt.getInvokeExpr();
         if (!(invokeExpr instanceof ArkInstanceInvokeExpr)) continue;
         if (invokeExpr.getBase() !== base) continue;
+        if (!isAllowedCanonicalCallStmt(stmt, allowedMutationCallStmts)) continue;
         const methodName = resolveMethodName(invokeExpr);
         if (methodName === "clear") {
             idx = 0;
@@ -1910,7 +2154,12 @@ function resolveMaxSequentialOrdinal(base: Local, methods: Set<string>): number 
     return maxIndex;
 }
 
-function isContainerSlotLiveAtStmt(base: Local, slot: string, anchorStmt: any): boolean {
+function isContainerSlotLiveAtStmt(
+    base: Local,
+    slot: string,
+    anchorStmt: any,
+    allowedMutationCallStmts?: CanonicalCallStmtSet,
+): boolean {
     const cfg = anchorStmt?.getCfg?.() || base.getDeclaringStmt?.()?.getCfg?.();
     const stmts = cfg?.getStmts?.();
     if (!stmts) return true;
@@ -1949,6 +2198,7 @@ function isContainerSlotLiveAtStmt(base: Local, slot: string, anchorStmt: any): 
         const invokeExpr = stmt.getInvokeExpr();
         if (!(invokeExpr instanceof ArkInstanceInvokeExpr)) continue;
         if (invokeExpr.getBase() !== base) continue;
+        if (!isAllowedCanonicalCallStmt(stmt, allowedMutationCallStmts)) continue;
 
         const methodName = resolveMethodName(invokeExpr);
         const sig = invokeExpr.getMethodSignature()?.toString() || "";
@@ -1970,7 +2220,7 @@ function isContainerSlotLiveAtStmt(base: Local, slot: string, anchorStmt: any): 
             continue;
         }
 
-        if (isContainerSlotStoreMutation(methodName, containerKind, slot, args, base, stmt)) {
+        if (isContainerSlotStoreMutation(methodName, containerKind, slot, args, base, stmt, allowedMutationCallStmts)) {
             state = "live";
         }
     }
@@ -2063,6 +2313,7 @@ function isContainerSlotStoreMutation(
     args: any[],
     base: Local,
     stmt: any,
+    allowedMutationCallStmts?: CanonicalCallStmtSet,
 ): boolean {
     if ((containerKind === "map" || containerKind === "weakmap") && isMapLikeStoreMethod(methodName)) {
         const key = args.length > 0 ? resolveValueKey(args[0]) : undefined;
@@ -2074,7 +2325,7 @@ function isContainerSlotStoreMutation(
     }
 
     if ((methodName === "add" || methodName === "append" || methodName === "push" || methodName === "insertEnd") && args.length >= 1) {
-        const ordinal = resolveAddOrdinal(base, stmt);
+        const ordinal = resolveAddOrdinal(base, stmt, allowedMutationCallStmts);
         if (ordinal < 0) return false;
 
         if (containerKind === "list") return isContainerSlotMatch(slot, `list:${ordinal}`);
@@ -2209,7 +2460,5 @@ function resolveForEachCallbackParamIndexes(slot: string): number[] {
     if (slot.startsWith("set:")) return [0, 1];
     return [];
 }
-
-export default tsjsContainerModule;
 
 

@@ -1,8 +1,12 @@
 ﻿import { Scene } from "../../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../../arkanalyzer/out/src/Config";
+import { PagNode } from "../../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
 import { TaintPropagationEngine } from "../../core/orchestration/TaintPropagationEngine";
-import { SinkRule, SourceRule } from "../../core/rules/RuleSchema";
+import { SinkRule } from "../../core/rules/RuleSchema";
+import { createAssetIdentityIndex, type AssetDocumentBase, type AssetIdentityIndex } from "../../core/assets/schema";
+import { createCanonicalApiRegistry, type CanonicalApiRegistry } from "../../core/api/identity";
 import { validateRuleSet } from "../../core/rules/RuleValidator";
+import { projectApiEffectAssetFromMethod, type TestApiEffectAsset } from "../helpers/ApiEffectTestAssets";
 import * as path from "path";
 
 interface CaseSpec {
@@ -10,8 +14,56 @@ interface CaseSpec {
     expected: boolean;
 }
 
+interface ExactRuleRuntime {
+    apiAssets: AssetDocumentBase[];
+    canonicalApiRegistry: CanonicalApiRegistry;
+    assetIdentityIndex: AssetIdentityIndex;
+}
+
 function assert(condition: unknown, message: string): asserts condition {
     if (!condition) throw new Error(message);
+}
+
+function canonicalApiIdMatch(exact: TestApiEffectAsset): { kind: "canonical_api_id_equals"; value: string } {
+    return { kind: "canonical_api_id_equals", value: exact.apiEffect.canonicalApiId };
+}
+
+function assertCanonicalExactRules(rules: SinkRule[]): void {
+    for (const rule of rules) {
+        assert(rule.match.kind === "canonical_api_id_equals", `${rule.id} must use canonical API identity`);
+        assert(
+            rule.match.value === rule.apiEffect.canonicalApiId,
+            `${rule.id} match value must equal apiEffect.canonicalApiId`
+        );
+    }
+}
+
+function buildExactRuleRuntime(effects: TestApiEffectAsset[]): ExactRuleRuntime {
+    const descriptorsById = new Map<string, TestApiEffectAsset["canonicalApiDescriptor"]>();
+    for (const effect of effects) {
+        descriptorsById.set(effect.canonicalApiDescriptor.canonicalApiId, effect.canonicalApiDescriptor);
+    }
+    const canonicalApiRegistry = createCanonicalApiRegistry([...descriptorsById.values()]);
+    const assetIdentityIndex = createAssetIdentityIndex({ canonicalApiRegistry });
+    const apiAssets = effects.map(effect => effect.asset);
+    for (const asset of apiAssets) {
+        assetIdentityIndex.addAsset(asset);
+    }
+    return { apiAssets, canonicalApiRegistry, assetIdentityIndex };
+}
+
+function findSeedNodes(engine: TaintPropagationEngine, scene: Scene, methodName: string, localName: string): PagNode[] {
+    const method = scene.getMethods().find(m => m.getName() === methodName);
+    assert(method, `method not found: ${methodName}`);
+    const cfg = method.getCfg();
+    assert(cfg, `cfg not found: ${methodName}`);
+    for (const stmt of cfg.getStmts()) {
+        const left = (stmt as any).getLeftOp?.();
+        if (!left || left.getName?.() !== localName) continue;
+        const nodeIds = engine.pag.getNodesByValue(left);
+        return nodeIds ? [...nodeIds.values()].map(id => engine.pag.getNode(id) as PagNode) : [];
+    }
+    return [];
 }
 
 function flowSinkInCaseMethod(scene: Scene, sinkStmt: any, caseMethodName: string): boolean {
@@ -25,38 +77,38 @@ function flowSinkInCaseMethod(scene: Scene, sinkStmt: any, caseMethodName: strin
 async function runCase(
     scene: Scene,
     caseName: string,
-    sourceRules: SourceRule[],
-    sinkRules: SinkRule[]
+    sinkRules: SinkRule[],
+    runtime: ExactRuleRuntime,
 ): Promise<boolean> {
     const caseMethod = scene.getMethods().find(m => m.getName() === caseName);
     assert(caseMethod, `case method not found: ${caseName}`);
-    const engine = new TaintPropagationEngine(scene, 1);
+    const engine = new TaintPropagationEngine(scene, 1, runtime);
     engine.verbose = false;
     await engine.buildPAG({ entryModel: "explicit", syntheticEntryMethods: [caseMethod] });
-    engine.propagateWithSourceRules(sourceRules);
+    const seedNodes = findSeedNodes(engine, scene, caseName, "taint_src");
+    assert(seedNodes.length > 0, `${caseName}: expected taint_src seed nodes`);
+    engine.propagateWithSeeds(seedNodes);
     const flows = engine.detectSinksByRules(sinkRules);
     const scopedFlows = flows.filter(flow => flowSinkInCaseMethod(scene, flow.sink, caseName));
     return scopedFlows.length > 0;
 }
 
-function findMethodSignature(scene: Scene, methodName: string, signatureHint: string): string {
+function findMethod(scene: Scene, methodName: string, signatureHint: string) {
     const method = scene.getMethods().find(m =>
         m.getName() === methodName
         && m.getSignature().toString().includes(signatureHint)
     );
     assert(method, `method not found: ${methodName} (${signatureHint})`);
-    return method.getSignature().toString();
+    return method;
 }
 
-function findDeclaringClassSignature(scene: Scene, className: string, methodName: string): string {
+function findMethodForClass(scene: Scene, className: string, methodName: string) {
     const method = scene.getMethods().find(m =>
         m.getName() === methodName
         && m.getDeclaringArkClass?.()?.getName?.() === className
     );
-    assert(method, `method not found for class signature: ${className}.${methodName}`);
-    const classSignature = method.getDeclaringArkClass()?.getSignature?.()?.toString?.();
-    assert(classSignature && classSignature.length > 0, `class signature missing: ${className}.${methodName}`);
-    return classSignature;
+    assert(method, `method not found: ${className}.${methodName}`);
+    return method;
 }
 
 async function main(): Promise<void> {
@@ -67,10 +119,30 @@ async function main(): Promise<void> {
     scene.buildSceneFromProjectDir(sceneConfig);
     scene.inferTypes();
 
-    const sinkArg0Sig = findMethodSignature(scene, "SinkArg0", "taint_mock");
-    const sinkArg1Sig = findMethodSignature(scene, "SinkArg1", "taint_mock");
-    const invokeKindHostClassSig = findDeclaringClassSignature(scene, "InvokeKindHost", "SinkInvokeKind");
-
+    const sinkArg0Method = findMethod(scene, "SinkArg0", "taint_mock");
+    const sinkArg1Method = findMethod(scene, "SinkArg1", "taint_mock");
+    const sinkInvokeKindMethod = findMethodForClass(scene, "InvokeKindHost", "SinkInvokeKind");
+    const sinkArg0Effect = projectApiEffectAssetFromMethod({
+        id: "sink.arg0",
+        role: "sink",
+        method: sinkArg0Method,
+        endpoint: { base: { kind: "arg", index: 0 } },
+        sinkKind: "test",
+    });
+    const sinkArg1Effect = projectApiEffectAssetFromMethod({
+        id: "sink.arg1",
+        role: "sink",
+        method: sinkArg1Method,
+        endpoint: { base: { kind: "arg", index: 1 } },
+        sinkKind: "test",
+    });
+    const sinkInvokeKindEffect = projectApiEffectAssetFromMethod({
+        id: "sink.invokeKind",
+        role: "sink",
+        method: sinkInvokeKindMethod,
+        endpoint: { base: { kind: "arg", index: 0 } },
+        sinkKind: "test",
+    });
     const cases: CaseSpec[] = [
         { name: "sink_target_arg0_001_T", expected: true },
         { name: "sink_target_arg0_002_F", expected: false },
@@ -80,47 +152,45 @@ async function main(): Promise<void> {
         { name: "sink_invoke_kind_008_F", expected: false },
     ];
 
-    const sourceRules: SourceRule[] = cases.map(c => ({
-        id: `source.sink_exact.entry_param.${c.name}`,
-        sourceKind: "entry_param",
-        target: "arg0",
-        match: { kind: "method_name_equals", value: c.name },
-    }));
+    const exactRuntime = buildExactRuleRuntime([
+        sinkArg0Effect,
+        sinkArg1Effect,
+        sinkInvokeKindEffect,
+    ]);
 
     const sinkRules: SinkRule[] = [
         {
-            id: "sink.exact.signature_equals.arg0",
+            id: "sink.exact.canonical_api_id.arg0",
             target: { endpoint: "arg0" },
-            match: { kind: "signature_equals", value: sinkArg0Sig },
+            match: canonicalApiIdMatch(sinkArg0Effect),
+            apiEffect: sinkArg0Effect.apiEffect,
         },
         {
-            id: "sink.exact.callee_signature_equals.arg1",
+            id: "sink.exact.canonical_api_id.arg1",
             target: { endpoint: "arg1" },
-            match: { kind: "signature_equals", value: sinkArg1Sig },
+            match: canonicalApiIdMatch(sinkArg1Effect),
+            apiEffect: sinkArg1Effect.apiEffect,
         },
         {
-            id: "sink.exact.declaring_class_equals.invoke_kind_host",
+            id: "sink.exact.canonical_api_id.invoke_kind_host",
             target: { endpoint: "arg0" },
-            match: {
-                kind: "declaring_class_equals",
-                value: invokeKindHostClassSig,
-                invokeKind: "instance",
-                argCount: 1,
-            },
+            match: canonicalApiIdMatch(sinkInvokeKindEffect),
+            apiEffect: sinkInvokeKindEffect.apiEffect,
         },
     ];
+    assertCanonicalExactRules(sinkRules);
 
     const validation = validateRuleSet({
-        sources: sourceRules,
+        sources: [],
         sinks: sinkRules,
         transfers: [],
     });
-    assert(validation.valid, `sink exact-match rules invalid: ${validation.errors.join("; ")}`);
+    assert(validation.valid, `sink canonical identity exactness rules invalid: ${validation.errors.join("; ")}`);
 
     let passCount = 0;
     for (const c of cases) {
-        const detectedWithRules = await runCase(scene, c.name, sourceRules, sinkRules);
-        const detectedWithoutRules = await runCase(scene, c.name, sourceRules, []);
+        const detectedWithRules = await runCase(scene, c.name, sinkRules, exactRuntime);
+        const detectedWithoutRules = await runCase(scene, c.name, [], exactRuntime);
         const pass = c.expected
             ? (detectedWithRules && !detectedWithoutRules)
             : !detectedWithRules;
@@ -132,7 +202,7 @@ async function main(): Promise<void> {
         );
     }
 
-    console.log("====== Sink Exact Match Test ======");
+    console.log("====== Sink Canonical Identity Exactness Test ======");
     console.log(`total_cases=${cases.length}`);
     console.log(`pass_cases=${passCount}`);
     console.log(`fail_cases=${cases.length - passCount}`);

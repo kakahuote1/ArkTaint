@@ -4,6 +4,7 @@ import { ContextID } from "../../../../arkanalyzer/out/src/callgraph/pointerAnal
 import { fieldPathKey, fieldPathStartsWith, normalizeFieldPathSegments } from "../field/FieldPath";
 
 export class TaintTracker {
+    private readonly trackFactIds: boolean;
     // Key = "nodeId@contextId", Value = source signatures
     private taintedNodes: Map<string, Set<string>> = new Map();
     // Key = "nodeId@contextId.field.path", Value = source signatures
@@ -19,6 +20,10 @@ export class TaintTracker {
     private taintedFieldPathsAnyContext: Map<number, Set<string>> = new Map();
     private taintedFieldSourcesAnyContext: Map<number, Map<string, Set<string>>> = new Map();
     private taintedFieldFactIdsAnyContext: Map<number, Map<string, Set<string>>> = new Map();
+
+    constructor(options: { trackFactIds?: boolean } = {}) {
+        this.trackFactIds = options.trackFactIds !== false;
+    }
 
     private makeKey(nodeId: number, contextId: ContextID): string {
         return `${nodeId}@${contextId}`;
@@ -69,7 +74,7 @@ export class TaintTracker {
             this.addSource(this.taintedNodes, baseKey, source);
             this.taintedNodesAnyContext.add(nodeId);
             this.addAnyContextSource(this.taintedNodeSourcesAnyContext, nodeId, source);
-            if (factId) {
+            if (this.trackFactIds && factId) {
                 if (!this.taintedNodeFactIds.has(baseKey)) {
                     this.taintedNodeFactIds.set(baseKey, new Set<string>());
                 }
@@ -89,7 +94,7 @@ export class TaintTracker {
             }
             this.taintedFieldPathsAnyContext.get(nodeId)!.add(normalizedFieldPathKey);
             this.addFieldAnyContextSource(nodeId, normalizedFieldPathKey, source);
-            if (factId) {
+            if (this.trackFactIds && factId) {
                 if (!this.taintedFieldFactIds.has(fieldKey)) {
                     this.taintedFieldFactIds.set(fieldKey, new Set<string>());
                 }

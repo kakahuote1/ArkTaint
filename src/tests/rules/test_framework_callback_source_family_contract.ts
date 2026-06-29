@@ -1,11 +1,12 @@
 import * as path from "path";
 import { SinkRule, SourceRule } from "../../core/rules/RuleSchema";
-import { buildFrameworkCallbackSourceRules } from "../../core/rules/FrameworkCallbackSourceCatalog";
 import { loadRuleSet } from "../../core/rules/RuleLoader";
 import { TaintPropagationEngine } from "../../core/orchestration/TaintPropagationEngine";
 import { buildTestScene } from "../helpers/TestSceneBuilder";
 import { createIsolatedCaseView, ensureDir } from "../helpers/ExecutionHandoffContractSupport";
 import { findCaseMethod, resolveCaseMethod } from "../helpers/SyntheticCaseHarness";
+import { projectApiEffectAssetFromMethod } from "../helpers/ApiEffectTestAssets";
+import type { AssetDocumentBase } from "../../core/assets/schema";
 
 function assert(condition: unknown, message: string): asserts condition {
     if (!condition) {
@@ -28,14 +29,6 @@ interface FamilyFlowResult {
     withoutFamily: boolean;
     sourceRuleCount: number;
 }
-
-const SINK_RULES: SinkRule[] = [
-    {
-        id: "sink.framework.callback.family.arg0",
-        match: { kind: "method_name_equals", value: "Sink" },
-        target: { endpoint: "arg0" },
-    },
-];
 
 const FAMILY_FLOW_SPECS: FamilyFlowSpec[] = [
     {
@@ -225,7 +218,28 @@ function findEntryMethod(scene: ReturnType<typeof buildTestScene>, spec: FamilyF
     return sameName;
 }
 
-async function runFamilyFlowProbe(spec: FamilyFlowSpec, sourceRules: SourceRule[]): Promise<FamilyFlowResult> {
+function buildSinkRules(scene: ReturnType<typeof buildTestScene>): { rules: SinkRule[]; assets: AssetDocumentBase[] } {
+    const sinkMethod = scene.getMethods().find(method => method.getName?.() === "Sink");
+    assert(sinkMethod, "sink method not found: Sink");
+    const sinkEffect = projectApiEffectAssetFromMethod({
+        id: "sink.framework.callback.family.arg0",
+        role: "sink",
+        method: sinkMethod,
+        endpoint: { base: { kind: "arg", index: 0 } },
+        sinkKind: "test",
+    });
+    return {
+        assets: [sinkEffect.asset],
+        rules: [{
+        id: "sink.framework.callback.family.arg0",
+        match: { kind: "canonical_api_id_equals", value: sinkEffect.canonicalApiDescriptor.canonicalApiId },
+        apiEffect: sinkEffect.apiEffect,
+        target: { endpoint: "arg0" },
+        }],
+    };
+}
+
+async function runFamilyFlowProbe(spec: FamilyFlowSpec, sourceRules: SourceRule[], apiAssets: AssetDocumentBase[]): Promise<FamilyFlowResult> {
     const caseViewRoot = path.resolve("tmp/test_runs/research/framework_callback_source_family_contract/latest/case_views");
     ensureDir(caseViewRoot);
     const projectDir = createIsolatedCaseView(path.resolve(spec.sourceDir), spec.caseName, caseViewRoot);
@@ -234,14 +248,17 @@ async function runFamilyFlowProbe(spec: FamilyFlowSpec, sourceRules: SourceRule[
     assert(entryMethod, `entry method not found for ${spec.caseName}:${spec.entryMethodName}`);
 
     const detect = async (rules: SourceRule[]): Promise<boolean> => {
-        const engine = new TaintPropagationEngine(scene, 1);
+        const sinkRules = buildSinkRules(scene);
+        const engine = new TaintPropagationEngine(scene, 1, {
+            apiAssets: [...apiAssets, ...sinkRules.assets],
+        });
         engine.verbose = false;
         await engine.buildPAG({
             entryModel: "explicit",
             syntheticEntryMethods: [entryMethod],
         });
         const seedInfo = engine.propagateWithSourceRules(rules);
-        const flows = engine.detectSinksByRules(SINK_RULES);
+        const flows = engine.detectSinksByRules(sinkRules.rules);
         if (rules.length > 0) {
             assert(seedInfo.seedCount > 0, `${spec.caseName}: expected source seeds for family ${spec.family}`);
         }
@@ -259,7 +276,7 @@ async function runFamilyFlowProbe(spec: FamilyFlowSpec, sourceRules: SourceRule[
     };
 }
 
-async function runFamilyNoFlowProbe(spec: FamilyFlowSpec, sourceRules: SourceRule[]): Promise<FamilyFlowResult> {
+async function runFamilyNoFlowProbe(spec: FamilyFlowSpec, sourceRules: SourceRule[], apiAssets: AssetDocumentBase[]): Promise<FamilyFlowResult> {
     const caseViewRoot = path.resolve("tmp/test_runs/research/framework_callback_source_family_contract/latest/case_views");
     ensureDir(caseViewRoot);
     const projectDir = createIsolatedCaseView(path.resolve(spec.sourceDir), spec.caseName, caseViewRoot);
@@ -268,14 +285,17 @@ async function runFamilyNoFlowProbe(spec: FamilyFlowSpec, sourceRules: SourceRul
     assert(entryMethod, `entry method not found for ${spec.caseName}:${spec.entryMethodName}`);
 
     const detect = async (rules: SourceRule[]): Promise<boolean> => {
-        const engine = new TaintPropagationEngine(scene, 1);
+        const sinkRules = buildSinkRules(scene);
+        const engine = new TaintPropagationEngine(scene, 1, {
+            apiAssets: [...apiAssets, ...sinkRules.assets],
+        });
         engine.verbose = false;
         await engine.buildPAG({
             entryModel: "explicit",
             syntheticEntryMethods: [entryMethod],
         });
         engine.propagateWithSourceRules(rules);
-        const flows = engine.detectSinksByRules(SINK_RULES);
+        const flows = engine.detectSinksByRules(sinkRules.rules);
         return flows.length > 0;
     };
 
@@ -291,25 +311,18 @@ async function runFamilyNoFlowProbe(spec: FamilyFlowSpec, sourceRules: SourceRul
 }
 
 async function main(): Promise<void> {
-    const generatedRules = buildFrameworkCallbackSourceRules();
     const loaded = loadRuleSet({
         kernelRulePath: path.resolve("tests/rules/minimal.rules.json"),
         ruleCatalogPath: path.resolve("src/models"),
-        autoDiscoverLayers: false,
+        autoDiscoverRuleSources: false,
         allowMissingProject: true,
     });
     const loadedCallbackRules = filterCallbackSourceRules(loaded.ruleSet.sources || []);
-
-    const generatedIds = sortStrings(generatedRules.map(rule => rule.id));
     const loadedIds = sortStrings(loadedCallbackRules.map(rule => rule.id));
-    assert(
-        JSON.stringify(generatedIds) === JSON.stringify(loadedIds),
-        "loaded framework callback source inventory should exactly match generated callback source catalog",
-    );
 
     for (const rule of loadedCallbackRules) {
         assert(rule.family && rule.family.trim().length > 0, `callback source rule missing family: ${rule.id}`);
-        assert(rule.tier === "A" || rule.tier === "B" || rule.tier === "C", `callback source rule missing tier: ${rule.id}`);
+        assert(typeof rule.family === "string" && rule.family.length > 0, `callback source rule missing family: ${rule.id}`);
     }
 
     const requiredIds = [
@@ -336,7 +349,7 @@ async function main(): Promise<void> {
     for (const spec of FAMILY_FLOW_SPECS) {
         const familyRules = loadedCallbackRules.filter(rule => rule.family === spec.family);
         assert(familyRules.length > 0, `family has no loaded callback source rules: ${spec.family}`);
-        const result = await runFamilyFlowProbe(spec, familyRules);
+        const result = await runFamilyFlowProbe(spec, familyRules, loaded.assets);
         assert(result.withFamily, `${spec.caseName}: expected sink flow with family ${spec.family}`);
         assert(!result.withoutFamily, `${spec.caseName}: expected no sink flow without family ${spec.family}`);
         results.push(result);
@@ -345,7 +358,7 @@ async function main(): Promise<void> {
     for (const spec of FAMILY_NO_FLOW_SPECS) {
         const familyRules = loadedCallbackRules.filter(rule => rule.family === spec.family);
         assert(familyRules.length > 0, `family has no loaded callback source rules: ${spec.family}`);
-        const result = await runFamilyNoFlowProbe(spec, familyRules);
+        const result = await runFamilyNoFlowProbe(spec, familyRules, loaded.assets);
         assert(!result.withFamily, `${spec.caseName}: expected no sink flow for non-text UI onChange`);
         assert(!result.withoutFamily, `${spec.caseName}: expected no sink flow without family ${spec.family}`);
         results.push(result);

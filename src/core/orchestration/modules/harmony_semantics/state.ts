@@ -4,7 +4,6 @@ import { ArkAssignStmt } from "../../../../../arkanalyzer/out/src/core/base/Stmt
 import { ArkInstanceFieldRef, ArkParameterRef } from "../../../../../arkanalyzer/out/src/core/base/Ref";
 import { ArkInstanceInvokeExpr, ArkNewExpr, ArkPtrInvokeExpr } from "../../../../../arkanalyzer/out/src/core/base/Expr";
 import { Local } from "../../../../../arkanalyzer/out/src/core/base/Local";
-import { Decorator } from "../../../../../arkanalyzer/out/src/core/base/Decorator";
 import {
     defineModule,
     type TaintModule,
@@ -28,32 +27,32 @@ import { createExactHandoffHandle, HandoffEffect } from "../../../kernel/semanti
 export interface HarmonyStateBindingSemanticsOptions {
     id?: string;
     description?: string;
-    stateDecorators?: string[];
-    propDecorators?: string[];
-    linkDecorators?: string[];
-    provideDecorators?: string[];
-    consumeDecorators?: string[];
-    eventDecorators?: string[];
+    stateDecoratorCanonicalApiIds?: string[];
+    propDecoratorCanonicalApiIds?: string[];
+    linkDecoratorCanonicalApiIds?: string[];
+    provideDecoratorCanonicalApiIds?: string[];
+    consumeDecoratorCanonicalApiIds?: string[];
+    eventDecoratorCanonicalApiIds?: string[];
 }
 
 const DEFAULT_STATE_OPTIONS: Required<HarmonyStateBindingSemanticsOptions> = {
     id: "harmony.state",
     description: "Built-in Harmony state/prop/link/provide-consume bridges.",
-    stateDecorators: ["State"],
-    propDecorators: ["Prop", "Link", "ObjectLink", "Local", "Param", "Once", "Event", "Trace"],
-    linkDecorators: ["Link", "ObjectLink", "Local", "Trace"],
-    provideDecorators: ["Provide", "Provider"],
-    consumeDecorators: ["Consume", "Consumer"],
-    eventDecorators: ["Event"],
+    stateDecoratorCanonicalApiIds: [],
+    propDecoratorCanonicalApiIds: [],
+    linkDecoratorCanonicalApiIds: [],
+    provideDecoratorCanonicalApiIds: [],
+    consumeDecoratorCanonicalApiIds: [],
+    eventDecoratorCanonicalApiIds: [],
 };
 
 interface BuildStateManagementInternalOptions {
-    stateDecoratorKinds: Set<string>;
-    propDecoratorKinds: Set<string>;
-    linkDecoratorKinds: Set<string>;
-    provideDecoratorKinds: Set<string>;
-    consumeDecoratorKinds: Set<string>;
-    eventDecoratorKinds: Set<string>;
+    stateDecoratorCanonicalApiIds: Set<string>;
+    propDecoratorCanonicalApiIds: Set<string>;
+    linkDecoratorCanonicalApiIds: Set<string>;
+    provideDecoratorCanonicalApiIds: Set<string>;
+    consumeDecoratorCanonicalApiIds: Set<string>;
+    eventDecoratorCanonicalApiIds: Set<string>;
 }
 
 export function createHarmonyStateBindingSemanticModule(
@@ -62,32 +61,32 @@ export function createHarmonyStateBindingSemanticModule(
     const resolved = {
         ...DEFAULT_STATE_OPTIONS,
         ...options,
-        stateDecorators: options.stateDecorators && options.stateDecorators.length > 0
-            ? [...options.stateDecorators]
-            : [...DEFAULT_STATE_OPTIONS.stateDecorators],
-        propDecorators: options.propDecorators && options.propDecorators.length > 0
-            ? [...options.propDecorators]
-            : [...DEFAULT_STATE_OPTIONS.propDecorators],
-        linkDecorators: options.linkDecorators && options.linkDecorators.length > 0
-            ? [...options.linkDecorators]
-            : [...DEFAULT_STATE_OPTIONS.linkDecorators],
-        provideDecorators: options.provideDecorators && options.provideDecorators.length > 0
-            ? [...options.provideDecorators]
-            : [...DEFAULT_STATE_OPTIONS.provideDecorators],
-        consumeDecorators: options.consumeDecorators && options.consumeDecorators.length > 0
-            ? [...options.consumeDecorators]
-            : [...DEFAULT_STATE_OPTIONS.consumeDecorators],
-        eventDecorators: options.eventDecorators && options.eventDecorators.length > 0
-            ? [...options.eventDecorators]
-            : [...DEFAULT_STATE_OPTIONS.eventDecorators],
+        stateDecoratorCanonicalApiIds: options.stateDecoratorCanonicalApiIds && options.stateDecoratorCanonicalApiIds.length > 0
+            ? [...options.stateDecoratorCanonicalApiIds]
+            : [...DEFAULT_STATE_OPTIONS.stateDecoratorCanonicalApiIds],
+        propDecoratorCanonicalApiIds: options.propDecoratorCanonicalApiIds && options.propDecoratorCanonicalApiIds.length > 0
+            ? [...options.propDecoratorCanonicalApiIds]
+            : [...DEFAULT_STATE_OPTIONS.propDecoratorCanonicalApiIds],
+        linkDecoratorCanonicalApiIds: options.linkDecoratorCanonicalApiIds && options.linkDecoratorCanonicalApiIds.length > 0
+            ? [...options.linkDecoratorCanonicalApiIds]
+            : [...DEFAULT_STATE_OPTIONS.linkDecoratorCanonicalApiIds],
+        provideDecoratorCanonicalApiIds: options.provideDecoratorCanonicalApiIds && options.provideDecoratorCanonicalApiIds.length > 0
+            ? [...options.provideDecoratorCanonicalApiIds]
+            : [...DEFAULT_STATE_OPTIONS.provideDecoratorCanonicalApiIds],
+        consumeDecoratorCanonicalApiIds: options.consumeDecoratorCanonicalApiIds && options.consumeDecoratorCanonicalApiIds.length > 0
+            ? [...options.consumeDecoratorCanonicalApiIds]
+            : [...DEFAULT_STATE_OPTIONS.consumeDecoratorCanonicalApiIds],
+        eventDecoratorCanonicalApiIds: options.eventDecoratorCanonicalApiIds && options.eventDecoratorCanonicalApiIds.length > 0
+            ? [...options.eventDecoratorCanonicalApiIds]
+            : [...DEFAULT_STATE_OPTIONS.eventDecoratorCanonicalApiIds],
     };
     const internalOptions: BuildStateManagementInternalOptions = {
-        stateDecoratorKinds: new Set(resolved.stateDecorators),
-        propDecoratorKinds: new Set(resolved.propDecorators),
-        linkDecoratorKinds: new Set(resolved.linkDecorators),
-        provideDecoratorKinds: new Set(resolved.provideDecorators),
-        consumeDecoratorKinds: new Set(resolved.consumeDecorators),
-        eventDecoratorKinds: new Set(resolved.eventDecorators),
+        stateDecoratorCanonicalApiIds: new Set(resolved.stateDecoratorCanonicalApiIds),
+        propDecoratorCanonicalApiIds: new Set(resolved.propDecoratorCanonicalApiIds),
+        linkDecoratorCanonicalApiIds: new Set(resolved.linkDecoratorCanonicalApiIds),
+        provideDecoratorCanonicalApiIds: new Set(resolved.provideDecoratorCanonicalApiIds),
+        consumeDecoratorCanonicalApiIds: new Set(resolved.consumeDecoratorCanonicalApiIds),
+        eventDecoratorCanonicalApiIds: new Set(resolved.eventDecoratorCanonicalApiIds),
     };
 
     return defineModule({
@@ -99,8 +98,11 @@ export function createHarmonyStateBindingSemanticModule(
                 pag: ctx.raw.pag,
                 allowedMethodSignatures: ctx.raw.allowedMethodSignatures,
                 callbacks: ctx.callbacks,
+                scan: ctx.scan,
             }, internalOptions);
-            const handoff = createHandoffPropagationSession(buildStateHandoffEffects(model));
+            const handoff = createHandoffPropagationSession(buildStateHandoffEffects(model), {
+                currentnessAnalysis: ctx.raw.currentnessAnalysis,
+            });
             for (const binding of model.eventDeferredBindings) {
                 ctx.deferred.declarative({
                     sourceMethod: binding.sourceMethod,
@@ -113,6 +115,7 @@ export function createHarmonyStateBindingSemanticModule(
                 });
             }
             ctx.debug.summary("Harmony-State", {
+                decorator_occurrences: ctx.raw.canonicalDecoratorOccurrences?.length || 0,
                 bridge_edges: model.bridgeEdgeCount,
                 constructor_calls: model.constructorCallCount,
                 state_capture_fields: model.stateCaptureAssignCount,
@@ -126,6 +129,11 @@ export function createHarmonyStateBindingSemanticModule(
             };
         },
     });
+}
+
+function uniqueStrings(values: readonly string[]): string[] {
+    return [...new Set(values.map(item => String(item || "").trim()).filter(Boolean))]
+        .sort((left, right) => left.localeCompare(right));
 }
 
 export const harmonyStateSemanticModule = createHarmonyStateBindingSemanticModule();
@@ -298,15 +306,15 @@ interface StateCaptureInfo {
 export function buildStateManagementModel(
     args: BuildStateManagementModelArgs,
     options: BuildStateManagementInternalOptions = {
-        stateDecoratorKinds: new Set(DEFAULT_STATE_OPTIONS.stateDecorators),
-        propDecoratorKinds: new Set(DEFAULT_STATE_OPTIONS.propDecorators),
-        linkDecoratorKinds: new Set(DEFAULT_STATE_OPTIONS.linkDecorators),
-        provideDecoratorKinds: new Set(DEFAULT_STATE_OPTIONS.provideDecorators),
-        consumeDecoratorKinds: new Set(DEFAULT_STATE_OPTIONS.consumeDecorators),
-        eventDecoratorKinds: new Set(DEFAULT_STATE_OPTIONS.eventDecorators),
+        stateDecoratorCanonicalApiIds: new Set(),
+        propDecoratorCanonicalApiIds: new Set(),
+        linkDecoratorCanonicalApiIds: new Set(),
+        provideDecoratorCanonicalApiIds: new Set(),
+        consumeDecoratorCanonicalApiIds: new Set(),
+        eventDecoratorCanonicalApiIds: new Set(),
     },
 ): StateManagementModel {
-    const decorated = collectDecoratedFieldSets(args.scene, options);
+    const decorated = collectDecoratedFieldSets(args, options);
     const methods = resolveStateManagementModelMethods(
         args.scene,
         decorated,
@@ -565,9 +573,8 @@ export function buildStateManagementModel(
     };
 }
 
-
 function collectDecoratedFieldSets(
-    scene: Scene,
+    args: BuildStateManagementModelArgs,
     options: BuildStateManagementInternalOptions,
 ): DecoratedFieldSets {
     const bridgeSourceFieldSignatures = new Set<string>();
@@ -581,65 +588,58 @@ function collectDecoratedFieldSets(
     const consumeFieldsByKey = new Map<string, DecoratedKeyFieldInfo[]>();
     const eventFieldsByClassName = new Map<string, Set<string>>();
 
-    for (const cls of scene.getClasses()) {
-        const className = cls.getName();
-        for (const field of cls.getFields()) {
-            const decorators = field.getDecorators() || [];
-            if (decorators.length === 0) continue;
-            const fieldIsScalar = isScalarLikeField(field);
-            for (const decorator of decorators) {
-                const kind = normalizeDecoratorKind(decorator);
-                if (!kind) continue;
-                if (options.stateDecoratorKinds.has(kind)) {
-                    const sig = field.getSignature()?.toString?.() || "";
-                    if (sig) bridgeSourceFieldSignatures.add(sig);
-                    if (sig) addBridgeFieldSignature(bridgeFieldSignatureByClassAndName, className, field.getName(), sig);
-                    if (fieldIsScalar) addScalarDecoratedField(scalarFieldSignatures, scalarFieldsByClassAndName, className, field.getName(), sig);
-                    if (!stateFieldsByClassName.has(className)) {
-                        stateFieldsByClassName.set(className, new Set<string>());
-                    }
-                    stateFieldsByClassName.get(className)!.add(field.getName());
-                } else if (options.propDecoratorKinds.has(kind)) {
-                    const sig = field.getSignature()?.toString?.() || "";
-                    if (sig) bridgeSourceFieldSignatures.add(sig);
-                    if (sig) addBridgeFieldSignature(bridgeFieldSignatureByClassAndName, className, field.getName(), sig);
-                    if (fieldIsScalar) addScalarDecoratedField(scalarFieldSignatures, scalarFieldsByClassAndName, className, field.getName(), sig);
-                    if (!propLikeFieldsByClassName.has(className)) {
-                        propLikeFieldsByClassName.set(className, new Set<string>());
-                    }
-                    propLikeFieldsByClassName.get(className)!.add(field.getName());
-                    if (options.eventDecoratorKinds.has(kind)) {
-                        if (!eventFieldsByClassName.has(className)) {
-                            eventFieldsByClassName.set(className, new Set<string>());
-                        }
-                        eventFieldsByClassName.get(className)!.add(field.getName());
-                    }
-                    if (options.linkDecoratorKinds.has(kind)) {
-                        if (!linkFieldsByClassName.has(className)) {
-                            linkFieldsByClassName.set(className, new Set<string>());
-                        }
-                        linkFieldsByClassName.get(className)!.add(field.getName());
-                    }
-                } else if (options.provideDecoratorKinds.has(kind) || options.consumeDecoratorKinds.has(kind)) {
-                    const sig = field.getSignature()?.toString?.() || "";
-                    if (!sig) continue;
-                    if (fieldIsScalar) addScalarDecoratedField(scalarFieldSignatures, scalarFieldsByClassAndName, className, field.getName(), sig);
-                    const key = extractDecoratorKey(decorator) || field.getName();
-                    const targetMap = options.provideDecoratorKinds.has(kind)
-                        ? provideFieldsByKey
-                        : consumeFieldsByKey;
-                    if (!targetMap.has(key)) targetMap.set(key, []);
-                    targetMap.get(key)!.push({
-                        className,
-                        fieldSignature: sig,
-                        fieldName: field.getName(),
-                    });
-                }
-            }
+    const addClassField = (map: Map<string, Set<string>>, field: DecoratedFieldInfo): void => {
+        addMapSetValue(map, field.className, field.fieldName);
+    };
+    const addBridgeField = (field: DecoratedFieldInfo): void => {
+        if (field.fieldSignature) bridgeSourceFieldSignatures.add(field.fieldSignature);
+        let classFields = bridgeFieldSignatureByClassAndName.get(field.className);
+        if (!classFields) {
+            classFields = new Map<string, string>();
+            bridgeFieldSignatureByClassAndName.set(field.className, classFields);
         }
+        if (field.fieldSignature) classFields.set(field.fieldName, field.fieldSignature);
+    };
+    const addKeyedField = (
+        map: Map<string, DecoratedKeyFieldInfo[]>,
+        field: DecoratedFieldInfo,
+        canonicalApiIds: Set<string>,
+    ): void => {
+        for (const key of decoratedFieldKeys(field, canonicalApiIds)) {
+            const fields = map.get(key) || [];
+            if (!fields.some(item => item.fieldSignature === field.fieldSignature && item.fieldName === field.fieldName)) {
+                fields.push({
+                    className: field.className,
+                    fieldSignature: field.fieldSignature,
+                    fieldName: field.fieldName,
+                });
+            }
+            map.set(key, fields);
+        }
+    };
+
+    for (const field of scanDecoratedFields(args, options.stateDecoratorCanonicalApiIds)) {
+        addClassField(stateFieldsByClassName, field);
+        addBridgeField(field);
+    }
+    for (const field of scanDecoratedFields(args, options.propDecoratorCanonicalApiIds)) {
+        addClassField(propLikeFieldsByClassName, field);
+    }
+    for (const field of scanDecoratedFields(args, options.linkDecoratorCanonicalApiIds)) {
+        addClassField(linkFieldsByClassName, field);
+        addBridgeField(field);
+    }
+    for (const field of scanDecoratedFields(args, options.provideDecoratorCanonicalApiIds)) {
+        addKeyedField(provideFieldsByKey, field, options.provideDecoratorCanonicalApiIds);
+    }
+    for (const field of scanDecoratedFields(args, options.consumeDecoratorCanonicalApiIds)) {
+        addKeyedField(consumeFieldsByKey, field, options.consumeDecoratorCanonicalApiIds);
+    }
+    for (const field of scanDecoratedFields(args, options.eventDecoratorCanonicalApiIds)) {
+        addClassField(eventFieldsByClassName, field);
     }
 
-        return {
+    return {
         bridgeSourceFieldSignatures,
         bridgeFieldSignatureByClassAndName,
         scalarFieldSignatures,
@@ -653,36 +653,79 @@ function collectDecoratedFieldSets(
     };
 }
 
-function addBridgeFieldSignature(
-    map: Map<string, Map<string, string>>,
-    className: string,
-    fieldName: string,
-    signature: string,
-): void {
-    if (!className || !fieldName || !signature) return;
-    if (!map.has(className)) map.set(className, new Map<string, string>());
-    map.get(className)!.set(fieldName, signature);
+interface DecoratedFieldInfo {
+    className: string;
+    fieldName: string;
+    fieldSignature: string;
+    decorators: ReturnType<BuildStateManagementModelArgs["scan"]["decoratedFields"]>[number]["decorators"];
 }
 
-function addScalarDecoratedField(
-    signatures: Set<string>,
-    fieldsByClassAndName: Map<string, Set<string>>,
-    className: string,
-    fieldName: string,
-    signature: string,
-): void {
-    if (signature) signatures.add(signature);
-    addFieldName(fieldsByClassAndName, className, fieldName);
+function scanDecoratedFields(
+    args: BuildStateManagementModelArgs,
+    canonicalApiIds: Set<string>,
+): DecoratedFieldInfo[] {
+    if (canonicalApiIds.size === 0) return [];
+    return args.scan.decoratedFields({
+        decoratorCanonicalApiIds: [...canonicalApiIds],
+    }).map(field => ({
+        className: field.className,
+        fieldName: field.fieldName,
+        fieldSignature: field.fieldSignature,
+        decorators: field.decorators.bind(field),
+    }));
 }
 
-function addFieldName(
-    map: Map<string, Set<string>>,
-    className: string,
-    fieldName: string,
-): void {
-    if (!className || !fieldName) return;
-    if (!map.has(className)) map.set(className, new Set<string>());
-    map.get(className)!.add(fieldName);
+function decoratedFieldKeys(field: DecoratedFieldInfo, canonicalApiIds: Set<string>): string[] {
+    const keys = new Set<string>();
+    for (const decorator of field.decorators()) {
+        if (!decorator.canonicalApiId || !canonicalApiIds.has(decorator.canonicalApiId)) continue;
+        for (const key of decoratorKeyCandidates(decorator)) {
+            keys.add(key);
+        }
+    }
+    return [...keys.values()];
+}
+
+function decoratorKeyCandidates(decorator: { param?: string; content?: string }): string[] {
+    const keys = new Set<string>();
+    for (const raw of [decorator.param, decorator.content]) {
+        const normalized = normalizeDecoratorKey(raw || "");
+        if (normalized) keys.add(normalized);
+        for (const quoted of extractQuotedDecoratorLiterals(raw || "")) {
+            keys.add(quoted);
+        }
+    }
+    return [...keys.values()];
+}
+
+function normalizeDecoratorKey(raw: string): string | undefined {
+    const text = String(raw || "").trim();
+    if (text.length === 0) return undefined;
+    const quoted = parseClosedQuotedDecoratorText(text);
+    if (quoted !== undefined) return quoted;
+    if (/^[A-Za-z0-9_.:-]+$/.test(text)) return text;
+    return undefined;
+}
+
+function extractQuotedDecoratorLiterals(raw: string): string[] {
+    const out = new Set<string>();
+    const text = String(raw || "");
+    const pattern = /(['"`])((?:\\.|(?!\1).)+)\1/g;
+    let match: RegExpExecArray | null;
+    while ((match = pattern.exec(text)) !== null) {
+        const normalized = normalizeDecoratorKey(match[0]);
+        if (normalized) out.add(normalized);
+    }
+    return [...out.values()];
+}
+
+function parseClosedQuotedDecoratorText(text: string): string | undefined {
+    if (text.length < 2) return undefined;
+    const quote = text[0];
+    if ((quote !== "'" && quote !== "\"" && quote !== "`") || text[text.length - 1] !== quote) {
+        return undefined;
+    }
+    return text.slice(1, -1).replace(/\\(["'`\\])/g, "$1");
 }
 
 function hasFieldName(
@@ -691,35 +734,6 @@ function hasFieldName(
     fieldName: string,
 ): boolean {
     return map.get(className)?.has(fieldName) || false;
-}
-
-function isScalarLikeField(field: any): boolean {
-    return isScalarLikeTypeText(field.getType?.()?.toString?.())
-        || isScalarLikeTypeText(field.getSignature?.()?.getType?.()?.toString?.());
-}
-
-function isScalarLikeTypeText(raw: string | undefined): boolean {
-    const text = String(raw || "").trim().toLowerCase();
-    if (!text) return false;
-    if (text.includes("[]") || text.includes("array<") || text.includes("map<") || text.includes("set<")) {
-        return false;
-    }
-    return text === "string"
-        || text === "boolean"
-        || text === "number"
-        || text === "bigint"
-        || text === "symbol"
-        || text === "null"
-        || text === "undefined"
-        || text === "void"
-        || text === "byte"
-        || text === "short"
-        || text === "int"
-        || text === "long"
-        || text === "float"
-        || text === "double"
-        || text.endsWith(".string")
-        || text.includes("std.core.string");
 }
 
 function extractClassNameFromFieldSignature(signature: string): string | undefined {
@@ -774,35 +788,6 @@ function methodConstructsDecoratedClass(method: any, decoratedClassNames: Set<st
         }
     }
     return false;
-}
-
-function extractDecoratorKey(decorator: Decorator): string | undefined {
-    const fromParam = normalizeDecoratorKey(decorator.getParam?.() || "");
-    if (fromParam) return fromParam;
-    const content = decorator.getContent?.() || "";
-    const m = content.match(/\(\s*['"`]([^'"`]+)['"`]\s*\)/);
-    if (!m) return undefined;
-    return normalizeDecoratorKey(m[1]);
-}
-
-function normalizeDecoratorKey(raw: string): string | undefined {
-    if (raw === undefined || raw === null) return undefined;
-    const text = String(raw).trim();
-    if (text.length === 0) return undefined;
-    const quoted = text.match(/^["'`](.+)["'`]$/);
-    if (quoted) return quoted[1];
-    return text;
-}
-
-function normalizeDecoratorKind(decorator: Decorator): string | undefined {
-    const raw = decorator.getKind?.() || "";
-    if (!raw) return undefined;
-    const normalized = raw.replace(/^@/, "").trim();
-    if (!normalized) return undefined;
-    const noCall = normalized.endsWith("()")
-        ? normalized.slice(0, normalized.length - 2)
-        : normalized;
-    return noCall;
 }
 
 function collectStateCaptureByObjectNode(args: {

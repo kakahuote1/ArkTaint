@@ -4,88 +4,446 @@
   "status": "official",
   "surfaces": [
     {
-      "surfaceId": "surface.source.transfer_overload.entry_param.taint_src",
-      "kind": "access",
-      "modulePath": "@arktaint/local",
-      "ownerName": "LocalBinding",
-      "propertyName": "source.transfer_overload.entry_param.taint_src",
-      "accessKind": "read",
-      "receiverKind": "namespace",
-      "confidence": "likely",
+      "surfaceId": "surface.source.transfer_overload.entry_param.taint_src.method.overload_conflict_arity_005_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=transfer_overload_conflicts%2Foverload_conflict_arity_005_T.ets:file=transfer_overload_conflicts%2Foverload_conflict_arity_005_T.ets:export=entry%3Acomponent.overload_conflict_arity_005_T:decl=entry%3Acomponent.overload_conflict_arity_005_T:member=lifecycle%3Atest.case.overload_conflict_arity_005_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "transfer_overload_conflicts/overload_conflict_arity_005_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "transfer_overload_conflicts/overload_conflict_arity_005_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "overload_conflict_arity_005_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.transfer_overload.entry_param.taint_src.method.overload_conflict_arity_006_F",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=transfer_overload_conflicts%2Foverload_conflict_arity_006_F.ets:file=transfer_overload_conflicts%2Foverload_conflict_arity_006_F.ets:export=entry%3Acomponent.overload_conflict_arity_006_F:decl=entry%3Acomponent.overload_conflict_arity_006_F:member=lifecycle%3Atest.case.overload_conflict_arity_006_F:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "transfer_overload_conflicts/overload_conflict_arity_006_F.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "transfer_overload_conflicts/overload_conflict_arity_006_F.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "overload_conflict_arity_006_F",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.transfer_overload.entry_param.taint_src.method.overload_conflict_instance_001_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=transfer_overload_conflicts%2Foverload_conflict_instance_001_T.ets:file=transfer_overload_conflicts%2Foverload_conflict_instance_001_T.ets:export=entry%3Acomponent.overload_conflict_instance_001_T:decl=entry%3Acomponent.overload_conflict_instance_001_T:member=lifecycle%3Atest.case.overload_conflict_instance_001_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "transfer_overload_conflicts/overload_conflict_instance_001_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "transfer_overload_conflicts/overload_conflict_instance_001_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "overload_conflict_instance_001_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.transfer_overload.entry_param.taint_src.method.overload_conflict_instance_002_F",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=transfer_overload_conflicts%2Foverload_conflict_instance_002_F.ets:file=transfer_overload_conflicts%2Foverload_conflict_instance_002_F.ets:export=entry%3Acomponent.overload_conflict_instance_002_F:decl=entry%3Acomponent.overload_conflict_instance_002_F:member=lifecycle%3Atest.case.overload_conflict_instance_002_F:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "transfer_overload_conflicts/overload_conflict_instance_002_F.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "transfer_overload_conflicts/overload_conflict_instance_002_F.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "overload_conflict_instance_002_F",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.transfer_overload.entry_param.taint_src.method.overload_conflict_static_003_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=transfer_overload_conflicts%2Foverload_conflict_static_003_T.ets:file=transfer_overload_conflicts%2Foverload_conflict_static_003_T.ets:export=entry%3Acomponent.overload_conflict_static_003_T:decl=entry%3Acomponent.overload_conflict_static_003_T:member=lifecycle%3Atest.case.overload_conflict_static_003_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "transfer_overload_conflicts/overload_conflict_static_003_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "transfer_overload_conflicts/overload_conflict_static_003_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "overload_conflict_static_003_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.transfer_overload.entry_param.taint_src.method.overload_conflict_static_004_F",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=transfer_overload_conflicts%2Foverload_conflict_static_004_F.ets:file=transfer_overload_conflicts%2Foverload_conflict_static_004_F.ets:export=entry%3Acomponent.overload_conflict_static_004_F:decl=entry%3Acomponent.overload_conflict_static_004_F:member=lifecycle%3Atest.case.overload_conflict_static_004_F:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "transfer_overload_conflicts/overload_conflict_static_004_F.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "transfer_overload_conflicts/overload_conflict_static_004_F.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "overload_conflict_static_004_F",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
       }
     },
     {
       "surfaceId": "surface.sink.transfer_overload.arg0",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "Sink",
-      "invokeKind": "static",
-      "argCount": 1,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "transfer_overload_conflicts/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=transfer_overload_conflicts%2Ftaint_mock.ts:file=transfer_overload_conflicts%2Ftaint_mock.ts:export=namespace%3Ataint.%25dflt:decl=namespace%3Ataint.%25dflt:member=function%3ASink:invoke=call:params=0%3Aany:ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "transfer_overload_conflicts/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "taint.%dflt",
+            "methodName": "Sink",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "void",
+            "staticFlag": true
+          }
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.overload.instance.allowed.arg0_to_result",
+      "surfaceId": "surface.transfer.overload.instance.allowed.arg0_to_result.for.transfer_overload_conflicts_taint_mock_ts_taint_ConflictAllowed_BridgeSame_any",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "ConflictAllowed",
-      "methodName": "BridgeSame",
-      "invokeKind": "instance",
-      "argCount": 1,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "transfer_overload_conflicts/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=transfer_overload_conflicts%2Ftaint_mock.ts:file=transfer_overload_conflicts%2Ftaint_mock.ts:export=namespace%3Ataint.ConflictAllowed:decl=class%3Ataint.ConflictAllowed:member=method%3Ainstance%3ABridgeSame:invoke=call:params=0%3Aany:ret=any",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "transfer_overload_conflicts/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "taint.ConflictAllowed",
+            "methodName": "BridgeSame",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "any",
+            "staticFlag": false
+          }
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.overload.static.allowed.arg0_to_result",
+      "surfaceId": "surface.transfer.overload.instance.allowed.arg0_to_result.for.transfer_overload_conflicts_taint_mock_ts_taint_ConflictBlocked_BridgeSame_any",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "ConflictStaticAllowed",
-      "methodName": "BridgeSame",
-      "invokeKind": "static",
-      "argCount": 1,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "transfer_overload_conflicts/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=transfer_overload_conflicts%2Ftaint_mock.ts:file=transfer_overload_conflicts%2Ftaint_mock.ts:export=namespace%3Ataint.ConflictBlocked:decl=class%3Ataint.ConflictBlocked:member=method%3Ainstance%3ABridgeSame:invoke=call:params=0%3Aany:ret=any",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "transfer_overload_conflicts/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "taint.ConflictBlocked",
+            "methodName": "BridgeSame",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "any",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.overload.instance.allowed.arg0_to_result.for.transfer_overload_conflicts_taint_mock_ts_taint_ConflictStaticAllowed_static_BridgeSame_any",
+      "kind": "invoke",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "transfer_overload_conflicts/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=transfer_overload_conflicts%2Ftaint_mock.ts:file=transfer_overload_conflicts%2Ftaint_mock.ts:export=namespace%3Ataint.ConflictStaticAllowed:decl=class%3Ataint.ConflictStaticAllowed:member=method%3Astatic%3A%5Bstatic%5DBridgeSame:invoke=call:params=0%3Aany:ret=any",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "transfer_overload_conflicts/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "taint.ConflictStaticAllowed",
+            "methodName": "[static]BridgeSame",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "any",
+            "staticFlag": true
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.overload.instance.allowed.arg0_to_result.for.transfer_overload_conflicts_taint_mock_ts_taint_ConflictStaticBlocked_static_BridgeSame_any",
+      "kind": "invoke",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "transfer_overload_conflicts/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=transfer_overload_conflicts%2Ftaint_mock.ts:file=transfer_overload_conflicts%2Ftaint_mock.ts:export=namespace%3Ataint.ConflictStaticBlocked:decl=class%3Ataint.ConflictStaticBlocked:member=method%3Astatic%3A%5Bstatic%5DBridgeSame:invoke=call:params=0%3Aany:ret=any",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "transfer_overload_conflicts/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "taint.ConflictStaticBlocked",
+            "methodName": "[static]BridgeSame",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "any",
+            "staticFlag": true
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.overload.static.allowed.arg0_to_result.for.transfer_overload_conflicts_taint_mock_ts_taint_ConflictAllowed_BridgeSame_any",
+      "kind": "invoke",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "transfer_overload_conflicts/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=transfer_overload_conflicts%2Ftaint_mock.ts:file=transfer_overload_conflicts%2Ftaint_mock.ts:export=namespace%3Ataint.ConflictAllowed:decl=class%3Ataint.ConflictAllowed:member=method%3Ainstance%3ABridgeSame:invoke=call:params=0%3Aany:ret=any",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "transfer_overload_conflicts/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "taint.ConflictAllowed",
+            "methodName": "BridgeSame",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "any",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.overload.static.allowed.arg0_to_result.for.transfer_overload_conflicts_taint_mock_ts_taint_ConflictBlocked_BridgeSame_any",
+      "kind": "invoke",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "transfer_overload_conflicts/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=transfer_overload_conflicts%2Ftaint_mock.ts:file=transfer_overload_conflicts%2Ftaint_mock.ts:export=namespace%3Ataint.ConflictBlocked:decl=class%3Ataint.ConflictBlocked:member=method%3Ainstance%3ABridgeSame:invoke=call:params=0%3Aany:ret=any",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "transfer_overload_conflicts/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "taint.ConflictBlocked",
+            "methodName": "BridgeSame",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "any",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.overload.static.allowed.arg0_to_result.for.transfer_overload_conflicts_taint_mock_ts_taint_ConflictStaticAllowed_static_BridgeSame_any",
+      "kind": "invoke",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "transfer_overload_conflicts/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=transfer_overload_conflicts%2Ftaint_mock.ts:file=transfer_overload_conflicts%2Ftaint_mock.ts:export=namespace%3Ataint.ConflictStaticAllowed:decl=class%3Ataint.ConflictStaticAllowed:member=method%3Astatic%3A%5Bstatic%5DBridgeSame:invoke=call:params=0%3Aany:ret=any",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "transfer_overload_conflicts/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "taint.ConflictStaticAllowed",
+            "methodName": "[static]BridgeSame",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "any",
+            "staticFlag": true
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.overload.static.allowed.arg0_to_result.for.transfer_overload_conflicts_taint_mock_ts_taint_ConflictStaticBlocked_static_BridgeSame_any",
+      "kind": "invoke",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "transfer_overload_conflicts/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=transfer_overload_conflicts%2Ftaint_mock.ts:file=transfer_overload_conflicts%2Ftaint_mock.ts:export=namespace%3Ataint.ConflictStaticBlocked:decl=class%3Ataint.ConflictStaticBlocked:member=method%3Astatic%3A%5Bstatic%5DBridgeSame:invoke=call:params=0%3Aany:ret=any",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "transfer_overload_conflicts/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "taint.ConflictStaticBlocked",
+            "methodName": "[static]BridgeSame",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "any",
+            "staticFlag": true
+          }
+        }
       }
     },
     {
       "surfaceId": "surface.transfer.overload.arity.two_args.arg1_to_result",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "ConflictArity",
-      "methodName": "BridgeArity",
-      "invokeKind": "static",
-      "argCount": 2,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "transfer_overload_conflicts/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=transfer_overload_conflicts%2Ftaint_mock.ts:file=transfer_overload_conflicts%2Ftaint_mock.ts:export=namespace%3Ataint.ConflictArity:decl=class%3Ataint.ConflictArity:member=method%3Astatic%3A%5Bstatic%5DBridgeArity:invoke=call:params=0%3Aany%2C1%3Aany:ret=any",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "transfer_overload_conflicts/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "taint.ConflictArity",
+            "methodName": "[static]BridgeArity",
+            "parameterTypes": [
+              "any",
+              "any"
+            ],
+            "returnType": "any",
+            "staticFlag": true
+          }
+        }
       }
     }
   ],
   "bindings": [
     {
       "bindingId": "binding.source.transfer_overload.entry_param.taint_src.0.method.overload_conflict_arity_005_T",
-      "surfaceId": "surface.source.transfer_overload.entry_param.taint_src",
+      "surfaceId": "surface.source.transfer_overload.entry_param.taint_src.method.overload_conflict_arity_005_T",
       "assetId": "asset.rule.test.transfer_overload_conflicts",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "overload_conflict_arity_005_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "overload_conflict_arity_005_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -96,25 +454,16 @@
         "template.source.transfer_overload.entry_param.taint_src.for.source.transfer_overload.entry_param.taint_src.0.method.overload_conflict_arity_005_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=transfer_overload_conflicts%2Foverload_conflict_arity_005_T.ets:file=transfer_overload_conflicts%2Foverload_conflict_arity_005_T.ets:export=entry%3Acomponent.overload_conflict_arity_005_T:decl=entry%3Acomponent.overload_conflict_arity_005_T:member=lifecycle%3Atest.case.overload_conflict_arity_005_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.transfer_overload.entry_param.taint_src.0.method.overload_conflict_arity_006_F",
-      "surfaceId": "surface.source.transfer_overload.entry_param.taint_src",
+      "surfaceId": "surface.source.transfer_overload.entry_param.taint_src.method.overload_conflict_arity_006_F",
       "assetId": "asset.rule.test.transfer_overload_conflicts",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "overload_conflict_arity_006_F",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "overload_conflict_arity_006_F.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -125,25 +474,16 @@
         "template.source.transfer_overload.entry_param.taint_src.for.source.transfer_overload.entry_param.taint_src.0.method.overload_conflict_arity_006_F"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=transfer_overload_conflicts%2Foverload_conflict_arity_006_F.ets:file=transfer_overload_conflicts%2Foverload_conflict_arity_006_F.ets:export=entry%3Acomponent.overload_conflict_arity_006_F:decl=entry%3Acomponent.overload_conflict_arity_006_F:member=lifecycle%3Atest.case.overload_conflict_arity_006_F:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.transfer_overload.entry_param.taint_src.0.method.overload_conflict_instance_001_T",
-      "surfaceId": "surface.source.transfer_overload.entry_param.taint_src",
+      "surfaceId": "surface.source.transfer_overload.entry_param.taint_src.method.overload_conflict_instance_001_T",
       "assetId": "asset.rule.test.transfer_overload_conflicts",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "overload_conflict_instance_001_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "overload_conflict_instance_001_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -154,25 +494,16 @@
         "template.source.transfer_overload.entry_param.taint_src.for.source.transfer_overload.entry_param.taint_src.0.method.overload_conflict_instance_001_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=transfer_overload_conflicts%2Foverload_conflict_instance_001_T.ets:file=transfer_overload_conflicts%2Foverload_conflict_instance_001_T.ets:export=entry%3Acomponent.overload_conflict_instance_001_T:decl=entry%3Acomponent.overload_conflict_instance_001_T:member=lifecycle%3Atest.case.overload_conflict_instance_001_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.transfer_overload.entry_param.taint_src.0.method.overload_conflict_instance_002_F",
-      "surfaceId": "surface.source.transfer_overload.entry_param.taint_src",
+      "surfaceId": "surface.source.transfer_overload.entry_param.taint_src.method.overload_conflict_instance_002_F",
       "assetId": "asset.rule.test.transfer_overload_conflicts",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "overload_conflict_instance_002_F",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "overload_conflict_instance_002_F.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -183,25 +514,16 @@
         "template.source.transfer_overload.entry_param.taint_src.for.source.transfer_overload.entry_param.taint_src.0.method.overload_conflict_instance_002_F"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=transfer_overload_conflicts%2Foverload_conflict_instance_002_F.ets:file=transfer_overload_conflicts%2Foverload_conflict_instance_002_F.ets:export=entry%3Acomponent.overload_conflict_instance_002_F:decl=entry%3Acomponent.overload_conflict_instance_002_F:member=lifecycle%3Atest.case.overload_conflict_instance_002_F:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.transfer_overload.entry_param.taint_src.0.method.overload_conflict_static_003_T",
-      "surfaceId": "surface.source.transfer_overload.entry_param.taint_src",
+      "surfaceId": "surface.source.transfer_overload.entry_param.taint_src.method.overload_conflict_static_003_T",
       "assetId": "asset.rule.test.transfer_overload_conflicts",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "overload_conflict_static_003_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "overload_conflict_static_003_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -212,25 +534,16 @@
         "template.source.transfer_overload.entry_param.taint_src.for.source.transfer_overload.entry_param.taint_src.0.method.overload_conflict_static_003_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=transfer_overload_conflicts%2Foverload_conflict_static_003_T.ets:file=transfer_overload_conflicts%2Foverload_conflict_static_003_T.ets:export=entry%3Acomponent.overload_conflict_static_003_T:decl=entry%3Acomponent.overload_conflict_static_003_T:member=lifecycle%3Atest.case.overload_conflict_static_003_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.transfer_overload.entry_param.taint_src.0.method.overload_conflict_static_004_F",
-      "surfaceId": "surface.source.transfer_overload.entry_param.taint_src",
+      "surfaceId": "surface.source.transfer_overload.entry_param.taint_src.method.overload_conflict_static_004_F",
       "assetId": "asset.rule.test.transfer_overload_conflicts",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "overload_conflict_static_004_F",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "overload_conflict_static_004_F.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -241,8 +554,9 @@
         "template.source.transfer_overload.entry_param.taint_src.for.source.transfer_overload.entry_param.taint_src.0.method.overload_conflict_static_004_F"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=transfer_overload_conflicts%2Foverload_conflict_static_004_F.ets:file=transfer_overload_conflicts%2Foverload_conflict_static_004_F.ets:export=entry%3Acomponent.overload_conflict_static_004_F:decl=entry%3Acomponent.overload_conflict_static_004_F:member=lifecycle%3Atest.case.overload_conflict_static_004_F:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.sink.transfer_overload.arg0.0",
@@ -250,10 +564,6 @@
       "assetId": "asset.rule.test.transfer_overload_conflicts",
       "plane": "rule",
       "role": "sink",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "Sink"
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -264,59 +574,122 @@
         "template.sink.transfer_overload.arg0"
       ],
       "semanticsFamily": "sink",
-      "completeness": "partial",
-      "confidence": "likely",
-      "metadata": {}
+      "completeness": "complete",
+      "confidence": "certain",
+      "metadata": {},
+      "canonicalApiId": "api:project:local:module=transfer_overload_conflicts%2Ftaint_mock.ts:file=transfer_overload_conflicts%2Ftaint_mock.ts:export=namespace%3Ataint.%25dflt:decl=namespace%3Ataint.%25dflt:member=function%3ASink:invoke=call:params=0%3Aany:ret=void"
     },
     {
-      "bindingId": "binding.transfer.overload.instance.allowed.arg0_to_result.0",
-      "surfaceId": "surface.transfer.overload.instance.allowed.arg0_to_result",
+      "bindingId": "binding.transfer.overload.instance.allowed.arg0_to_result.0.for.transfer_overload_conflicts_taint_mock_ts_taint_ConflictAllowed_BridgeSame_any",
+      "surfaceId": "surface.transfer.overload.instance.allowed.arg0_to_result.for.transfer_overload_conflicts_taint_mock_ts_taint_ConflictAllowed_BridgeSame_any",
       "assetId": "asset.rule.test.transfer_overload_conflicts",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "BridgeSame",
-        "invokeKind": "instance",
-        "argCount": 1,
-        "scope": {
-          "className": {
-            "mode": "equals",
-            "value": "ConflictAllowed"
-          }
-        }
-      },
       "effectTemplateRefs": [
-        "template.transfer.overload.instance.allowed.arg0_to_result"
+        "template.transfer.overload.instance.allowed.arg0_to_result.for.transfer_overload_conflicts_taint_mock_ts_taint_ConflictAllowed_BridgeSame_any"
       ],
       "semanticsFamily": "transfer",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=transfer_overload_conflicts%2Ftaint_mock.ts:file=transfer_overload_conflicts%2Ftaint_mock.ts:export=namespace%3Ataint.ConflictAllowed:decl=class%3Ataint.ConflictAllowed:member=method%3Ainstance%3ABridgeSame:invoke=call:params=0%3Aany:ret=any"
     },
     {
-      "bindingId": "binding.transfer.overload.static.allowed.arg0_to_result.0",
-      "surfaceId": "surface.transfer.overload.static.allowed.arg0_to_result",
+      "bindingId": "binding.transfer.overload.instance.allowed.arg0_to_result.0.for.transfer_overload_conflicts_taint_mock_ts_taint_ConflictBlocked_BridgeSame_any",
+      "surfaceId": "surface.transfer.overload.instance.allowed.arg0_to_result.for.transfer_overload_conflicts_taint_mock_ts_taint_ConflictBlocked_BridgeSame_any",
       "assetId": "asset.rule.test.transfer_overload_conflicts",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "BridgeSame",
-        "invokeKind": "static",
-        "argCount": 1,
-        "scope": {
-          "className": {
-            "mode": "equals",
-            "value": "ConflictStaticAllowed"
-          }
-        }
-      },
       "effectTemplateRefs": [
-        "template.transfer.overload.static.allowed.arg0_to_result"
+        "template.transfer.overload.instance.allowed.arg0_to_result.for.transfer_overload_conflicts_taint_mock_ts_taint_ConflictBlocked_BridgeSame_any"
       ],
       "semanticsFamily": "transfer",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=transfer_overload_conflicts%2Ftaint_mock.ts:file=transfer_overload_conflicts%2Ftaint_mock.ts:export=namespace%3Ataint.ConflictBlocked:decl=class%3Ataint.ConflictBlocked:member=method%3Ainstance%3ABridgeSame:invoke=call:params=0%3Aany:ret=any"
+    },
+    {
+      "bindingId": "binding.transfer.overload.instance.allowed.arg0_to_result.0.for.transfer_overload_conflicts_taint_mock_ts_taint_ConflictStaticAllowed_static_BridgeSame_any",
+      "surfaceId": "surface.transfer.overload.instance.allowed.arg0_to_result.for.transfer_overload_conflicts_taint_mock_ts_taint_ConflictStaticAllowed_static_BridgeSame_any",
+      "assetId": "asset.rule.test.transfer_overload_conflicts",
+      "plane": "rule",
+      "role": "transfer",
+      "effectTemplateRefs": [
+        "template.transfer.overload.instance.allowed.arg0_to_result.for.transfer_overload_conflicts_taint_mock_ts_taint_ConflictStaticAllowed_static_BridgeSame_any"
+      ],
+      "semanticsFamily": "transfer",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=transfer_overload_conflicts%2Ftaint_mock.ts:file=transfer_overload_conflicts%2Ftaint_mock.ts:export=namespace%3Ataint.ConflictStaticAllowed:decl=class%3Ataint.ConflictStaticAllowed:member=method%3Astatic%3A%5Bstatic%5DBridgeSame:invoke=call:params=0%3Aany:ret=any"
+    },
+    {
+      "bindingId": "binding.transfer.overload.instance.allowed.arg0_to_result.0.for.transfer_overload_conflicts_taint_mock_ts_taint_ConflictStaticBlocked_static_BridgeSame_any",
+      "surfaceId": "surface.transfer.overload.instance.allowed.arg0_to_result.for.transfer_overload_conflicts_taint_mock_ts_taint_ConflictStaticBlocked_static_BridgeSame_any",
+      "assetId": "asset.rule.test.transfer_overload_conflicts",
+      "plane": "rule",
+      "role": "transfer",
+      "effectTemplateRefs": [
+        "template.transfer.overload.instance.allowed.arg0_to_result.for.transfer_overload_conflicts_taint_mock_ts_taint_ConflictStaticBlocked_static_BridgeSame_any"
+      ],
+      "semanticsFamily": "transfer",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=transfer_overload_conflicts%2Ftaint_mock.ts:file=transfer_overload_conflicts%2Ftaint_mock.ts:export=namespace%3Ataint.ConflictStaticBlocked:decl=class%3Ataint.ConflictStaticBlocked:member=method%3Astatic%3A%5Bstatic%5DBridgeSame:invoke=call:params=0%3Aany:ret=any"
+    },
+    {
+      "bindingId": "binding.transfer.overload.static.allowed.arg0_to_result.0.for.transfer_overload_conflicts_taint_mock_ts_taint_ConflictAllowed_BridgeSame_any",
+      "surfaceId": "surface.transfer.overload.static.allowed.arg0_to_result.for.transfer_overload_conflicts_taint_mock_ts_taint_ConflictAllowed_BridgeSame_any",
+      "assetId": "asset.rule.test.transfer_overload_conflicts",
+      "plane": "rule",
+      "role": "transfer",
+      "effectTemplateRefs": [
+        "template.transfer.overload.static.allowed.arg0_to_result.for.transfer_overload_conflicts_taint_mock_ts_taint_ConflictAllowed_BridgeSame_any"
+      ],
+      "semanticsFamily": "transfer",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=transfer_overload_conflicts%2Ftaint_mock.ts:file=transfer_overload_conflicts%2Ftaint_mock.ts:export=namespace%3Ataint.ConflictAllowed:decl=class%3Ataint.ConflictAllowed:member=method%3Ainstance%3ABridgeSame:invoke=call:params=0%3Aany:ret=any"
+    },
+    {
+      "bindingId": "binding.transfer.overload.static.allowed.arg0_to_result.0.for.transfer_overload_conflicts_taint_mock_ts_taint_ConflictBlocked_BridgeSame_any",
+      "surfaceId": "surface.transfer.overload.static.allowed.arg0_to_result.for.transfer_overload_conflicts_taint_mock_ts_taint_ConflictBlocked_BridgeSame_any",
+      "assetId": "asset.rule.test.transfer_overload_conflicts",
+      "plane": "rule",
+      "role": "transfer",
+      "effectTemplateRefs": [
+        "template.transfer.overload.static.allowed.arg0_to_result.for.transfer_overload_conflicts_taint_mock_ts_taint_ConflictBlocked_BridgeSame_any"
+      ],
+      "semanticsFamily": "transfer",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=transfer_overload_conflicts%2Ftaint_mock.ts:file=transfer_overload_conflicts%2Ftaint_mock.ts:export=namespace%3Ataint.ConflictBlocked:decl=class%3Ataint.ConflictBlocked:member=method%3Ainstance%3ABridgeSame:invoke=call:params=0%3Aany:ret=any"
+    },
+    {
+      "bindingId": "binding.transfer.overload.static.allowed.arg0_to_result.0.for.transfer_overload_conflicts_taint_mock_ts_taint_ConflictStaticAllowed_static_BridgeSame_any",
+      "surfaceId": "surface.transfer.overload.static.allowed.arg0_to_result.for.transfer_overload_conflicts_taint_mock_ts_taint_ConflictStaticAllowed_static_BridgeSame_any",
+      "assetId": "asset.rule.test.transfer_overload_conflicts",
+      "plane": "rule",
+      "role": "transfer",
+      "effectTemplateRefs": [
+        "template.transfer.overload.static.allowed.arg0_to_result.for.transfer_overload_conflicts_taint_mock_ts_taint_ConflictStaticAllowed_static_BridgeSame_any"
+      ],
+      "semanticsFamily": "transfer",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=transfer_overload_conflicts%2Ftaint_mock.ts:file=transfer_overload_conflicts%2Ftaint_mock.ts:export=namespace%3Ataint.ConflictStaticAllowed:decl=class%3Ataint.ConflictStaticAllowed:member=method%3Astatic%3A%5Bstatic%5DBridgeSame:invoke=call:params=0%3Aany:ret=any"
+    },
+    {
+      "bindingId": "binding.transfer.overload.static.allowed.arg0_to_result.0.for.transfer_overload_conflicts_taint_mock_ts_taint_ConflictStaticBlocked_static_BridgeSame_any",
+      "surfaceId": "surface.transfer.overload.static.allowed.arg0_to_result.for.transfer_overload_conflicts_taint_mock_ts_taint_ConflictStaticBlocked_static_BridgeSame_any",
+      "assetId": "asset.rule.test.transfer_overload_conflicts",
+      "plane": "rule",
+      "role": "transfer",
+      "effectTemplateRefs": [
+        "template.transfer.overload.static.allowed.arg0_to_result.for.transfer_overload_conflicts_taint_mock_ts_taint_ConflictStaticBlocked_static_BridgeSame_any"
+      ],
+      "semanticsFamily": "transfer",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=transfer_overload_conflicts%2Ftaint_mock.ts:file=transfer_overload_conflicts%2Ftaint_mock.ts:export=namespace%3Ataint.ConflictStaticBlocked:decl=class%3Ataint.ConflictStaticBlocked:member=method%3Astatic%3A%5Bstatic%5DBridgeSame:invoke=call:params=0%3Aany:ret=any"
     },
     {
       "bindingId": "binding.transfer.overload.arity.two_args.arg1_to_result.0",
@@ -324,85 +697,17 @@
       "assetId": "asset.rule.test.transfer_overload_conflicts",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "BridgeArity",
-        "invokeKind": "static",
-        "argCount": 2
-      },
       "effectTemplateRefs": [
         "template.transfer.overload.arity.two_args.arg1_to_result"
       ],
       "semanticsFamily": "transfer",
-      "completeness": "partial",
-      "confidence": "likely",
-      "metadata": {}
+      "completeness": "complete",
+      "confidence": "certain",
+      "metadata": {},
+      "canonicalApiId": "api:project:local:module=transfer_overload_conflicts%2Ftaint_mock.ts:file=transfer_overload_conflicts%2Ftaint_mock.ts:export=namespace%3Ataint.ConflictArity:decl=class%3Ataint.ConflictArity:member=method%3Astatic%3A%5Bstatic%5DBridgeArity:invoke=call:params=0%3Aany%2C1%3Aany:ret=any"
     }
   ],
   "effectTemplates": [
-    {
-      "id": "template.sink.transfer_overload.arg0",
-      "confidence": "certain",
-      "kind": "rule.sink",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sinkKind": "sink"
-    },
-    {
-      "id": "template.transfer.overload.instance.allowed.arg0_to_result",
-      "confidence": "certain",
-      "kind": "rule.transfer",
-      "from": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "to": {
-        "base": {
-          "kind": "return"
-        }
-      },
-      "transferKind": "transfer"
-    },
-    {
-      "id": "template.transfer.overload.static.allowed.arg0_to_result",
-      "confidence": "certain",
-      "kind": "rule.transfer",
-      "from": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "to": {
-        "base": {
-          "kind": "return"
-        }
-      },
-      "transferKind": "transfer"
-    },
-    {
-      "id": "template.transfer.overload.arity.two_args.arg1_to_result",
-      "confidence": "certain",
-      "kind": "rule.transfer",
-      "from": {
-        "base": {
-          "kind": "arg",
-          "index": 1
-        }
-      },
-      "to": {
-        "base": {
-          "kind": "return"
-        }
-      },
-      "transferKind": "transfer"
-    },
     {
       "id": "template.source.transfer_overload.entry_param.taint_src.for.source.transfer_overload.entry_param.taint_src.0.method.overload_conflict_arity_005_T",
       "confidence": "certain",
@@ -474,6 +779,171 @@
         }
       },
       "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.sink.transfer_overload.arg0",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "sink"
+    },
+    {
+      "id": "template.transfer.overload.instance.allowed.arg0_to_result.for.transfer_overload_conflicts_taint_mock_ts_taint_ConflictAllowed_BridgeSame_any",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.overload.instance.allowed.arg0_to_result.for.transfer_overload_conflicts_taint_mock_ts_taint_ConflictBlocked_BridgeSame_any",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.overload.instance.allowed.arg0_to_result.for.transfer_overload_conflicts_taint_mock_ts_taint_ConflictStaticAllowed_static_BridgeSame_any",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.overload.instance.allowed.arg0_to_result.for.transfer_overload_conflicts_taint_mock_ts_taint_ConflictStaticBlocked_static_BridgeSame_any",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.overload.static.allowed.arg0_to_result.for.transfer_overload_conflicts_taint_mock_ts_taint_ConflictAllowed_BridgeSame_any",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.overload.static.allowed.arg0_to_result.for.transfer_overload_conflicts_taint_mock_ts_taint_ConflictBlocked_BridgeSame_any",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.overload.static.allowed.arg0_to_result.for.transfer_overload_conflicts_taint_mock_ts_taint_ConflictStaticAllowed_static_BridgeSame_any",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.overload.static.allowed.arg0_to_result.for.transfer_overload_conflicts_taint_mock_ts_taint_ConflictStaticBlocked_static_BridgeSame_any",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.overload.arity.two_args.arg1_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
     }
   ],
   "provenance": {

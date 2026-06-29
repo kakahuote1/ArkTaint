@@ -1,15 +1,13 @@
 // ==================== Taint Rule Schema v2.0 ====================
 
-export type RuleMatchKind =
-    | "signature_equals"
-    | "declaring_class_equals"
-    | "method_name_equals"
-    | "field_name_equals";
+import type { ApiEffectIdentity } from "../api/ApiOccurrenceIdentity";
+
+export type RuleMatchKind = "canonical_api_id_equals";
 
 export type RuleEndpoint = "base" | "result" | "matched_param" | `arg${number}`;
 export type RuleInvokeKind = "any" | "instance" | "static";
-export type RuleConstraintMode = "equals" | "contains" | "regex";
 export type RuleEndpointTaintScope = "self" | "contained-values";
+export type RuleSlotWriteMode = "replace" | "append";
 export type SourceRuleKind =
     | "seed_local_name"
     | "entry_param"
@@ -18,36 +16,11 @@ export type SourceRuleKind =
     | "field_read"
     | "callback_param"
     | "bound_state";
-export type EntryParamMatchMode = "name_only" | "name_and_type";
 export type RuleSeverity = "low" | "medium" | "high" | "critical";
-export type RuleTier = "A" | "B" | "C";
-export type RuleLayer = "kernel" | "project";
-export type CallbackResolutionMode = "direct_arg" | "known_option";
-
-export interface RuleStringConstraint {
-    mode: RuleConstraintMode;
-    value: string;
-}
 
 export interface RuleMatch {
     kind: RuleMatchKind;
     value: string;
-    calleeClass?: RuleStringConstraint;
-    invokeKind?: RuleInvokeKind;
-    argCount?: number;
-    typeHint?: string;
-    literalArgs?: Array<{
-        index: number;
-        values: string[];
-    }>;
-}
-
-export interface RuleScopeConstraint {
-    file?: RuleStringConstraint;
-    module?: RuleStringConstraint;
-    className?: RuleStringConstraint;
-    methodName?: RuleStringConstraint;
-    methodDecorators?: RuleStringConstraint[];
 }
 
 export interface RuleEndpointRef {
@@ -55,8 +28,9 @@ export interface RuleEndpointRef {
     path?: string[];
     pathFrom?: RuleEndpoint;
     slotKind?: string;
+    slotWriteMode?: RuleSlotWriteMode;
     taintScope?: RuleEndpointTaintScope;
-    semanticEndpointKind?: "return" | "promiseResult" | "constructorResult" | "callbackReturn";
+    semanticEndpointKind?: "return" | "promiseResult" | "promiseRejected" | "constructorResult" | "callbackReturn" | "rest";
 }
 
 export type RuleEndpointOrRef = RuleEndpoint | RuleEndpointRef;
@@ -72,34 +46,23 @@ export interface BaseRule {
     enabled?: boolean;
     description?: string;
     tags?: string[];
-    layer?: RuleLayer;
     family?: string;
-    tier?: RuleTier;
     match: RuleMatch;
-    scope?: RuleScopeConstraint;
     category?: string;
     severity?: RuleSeverity;
+    apiEffect: ApiEffectIdentity;
 }
 
 export interface SourceRule extends BaseRule {
     sourceKind: SourceRuleKind;
     target: RuleEndpointOrRef;
-    calleeScope?: RuleScopeConstraint;
-    callbackArgIndexes?: number[];
-    callbackFieldNames?: string[];
-    callbackResolution?: CallbackResolutionMode;
-    paramNameIncludes?: string[];
-    paramTypeIncludes?: string[];
-    paramMatchMode?: EntryParamMatchMode;
 }
 
 export interface SinkRule extends BaseRule {
-    calleeScope?: RuleScopeConstraint;
     target?: RuleEndpointOrRef;
 }
 
 export interface SanitizerRule extends BaseRule {
-    calleeScope?: RuleScopeConstraint;
     target?: RuleEndpointOrRef;
 }
 

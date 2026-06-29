@@ -1,7 +1,6 @@
 import { ArkMainActivationEdge } from "./ArkMainActivationTypes";
 import { ArkMainEntryFact } from "../ArkMainTypes";
 import { reasonFromFact } from "./ArkMainActivationBuilderUtils";
-import { getArkMainTargetPhase } from "../scheduling/ArkMainSchedulingRules";
 
 export function buildCallbackRegistrationEdges(facts: ArkMainEntryFact[]): ArkMainActivationEdge[] {
     return facts
@@ -16,7 +15,7 @@ export function buildCallbackRegistrationEdges(facts: ArkMainEntryFact[]): ArkMa
             return {
                 kind,
                 edgeFamily,
-                phaseHint: getArkMainTargetPhase(edgeFamily),
+                phaseHint: fact.phase,
                 fromMethod: fact.sourceMethod,
                 toMethod: fact.method,
                 reasons: [reasonFromFact(fact)],

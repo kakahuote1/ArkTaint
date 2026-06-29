@@ -126,9 +126,15 @@ async function main(): Promise<void> {
             {
                 id: "source.fixture.cli",
                 sourceKind: "call_return",
-                match: {
-                    kind: "method_name_equals",
-                    value: "Source",
+                surface: {
+                    kind: "invoke",
+                    modulePath: "project/taint_mock.ts",
+                    ownerName: "taint",
+                    methodName: "Source",
+                    invokeKind: "static",
+                    argCount: 0,
+                    parameterTypes: [],
+                    returnType: "string",
                 },
                 target: "result",
             },
@@ -136,9 +142,15 @@ async function main(): Promise<void> {
         sinks: [
             {
                 id: "sink.fixture.cli",
-                match: {
-                    kind: "method_name_equals",
-                    value: "Sink",
+                surface: {
+                    kind: "invoke",
+                    modulePath: "project/taint_mock.ts",
+                    ownerName: "taint",
+                    methodName: "Sink",
+                    invokeKind: "static",
+                    argCount: 1,
+                    parameterTypes: ["string"],
+                    returnType: "void",
                 },
                 target: "arg0",
             },

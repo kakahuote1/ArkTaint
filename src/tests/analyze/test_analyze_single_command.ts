@@ -9,7 +9,7 @@ import { resolveTestRunDir } from "../helpers/TestWorkspaceLayout";
 interface AnalyzeReport {
     repo: string;
     sourceDirs: string[];
-    ruleLayers: string[];
+    ruleSources: string[];
     summary: {
         totalEntries: number;
         stageProfile: {
@@ -40,15 +40,15 @@ async function main(): Promise<void> {
     console.log("====== Analyze Single Command Test ======");
     console.log(`repo=${report.repo}`);
     console.log(`source_dirs=${(report.sourceDirs || []).join(",")}`);
-    console.log(`rule_layers=${(report.ruleLayers || []).join(" -> ")}`);
+    console.log(`rule_sources=${(report.ruleSources || []).join(" -> ")}`);
     console.log(`total_entries=${report.summary?.totalEntries || 0}`);
     console.log(`total_ms=${report.summary?.stageProfile?.totalMs || 0}`);
 
     if (!Array.isArray(report.sourceDirs) || report.sourceDirs.length === 0) {
         throw new Error("expected sourceDirs auto discovery to produce at least one sourceDir");
     }
-    if (!Array.isArray(report.ruleLayers) || !report.ruleLayers.includes("kernel")) {
-        throw new Error(`expected kernel rule layer, got: ${JSON.stringify(report.ruleLayers)}`);
+    if (!Array.isArray(report.ruleSources) || !report.ruleSources.includes("kernel")) {
+        throw new Error(`expected kernel rule layer, got: ${JSON.stringify(report.ruleSources)}`);
     }
     if ((report.summary?.totalEntries || 0) <= 0) {
         throw new Error(`expected totalEntries > 0, got ${report.summary?.totalEntries || 0}`);

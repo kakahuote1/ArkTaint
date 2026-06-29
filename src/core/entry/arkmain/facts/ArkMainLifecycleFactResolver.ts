@@ -1,83 +1,49 @@
 import { Scene } from "../../../../../arkanalyzer/out/src/Scene";
 import { ArkMainFactCollectionContext } from "./ArkMainFactContext";
-import { collectFrameworkManagedOwners } from "./ArkMainOwnerDiscovery";
+import { resolveOfficialLifecycleContract } from "./ArkMainLifecycleContracts";
+import { collectSdkOverrideCandidates } from "./ArkMainSdkDeclarationDiscovery";
+import { arkanalyzerMethodKeyFromArkMethod } from "./ArkMainArkanalyzerMethodKey";
 import {
-    resolveAbilityLifecycleContract,
-    resolveAbilityLifecycleContractFromOverride,
-    resolveComponentLifecycleContract,
-    resolveExtensionLifecycleContract,
-    resolveExtensionLifecycleContractFromOverride,
-    resolveStageLifecycleContract,
-    resolveStageLifecycleContractFromOverride,
-} from "./ArkMainLifecycleContracts";
-import { collectSdkOverrideCandidates } from "./ArkMainStructuralDiscovery";
+    resolveArkMainOfficialLifecycleDeclarationsByMethodKey,
+} from "../catalog/ArkMainOfficialDeclarationCatalog";
 
 export function collectLifecycleFacts(scene: Scene, context: ArkMainFactCollectionContext): void {
-    const sdkOverrideBySignature = new Map(
-        collectSdkOverrideCandidates(scene).map(candidate => [candidate.method.getSignature().toString(), candidate]),
-    );
-    const managedOwners = collectFrameworkManagedOwners(scene);
-
-    for (const cls of scene.getClasses()) {
-        const methods = cls.getMethods().filter(method => !method.isStatic());
-        const isAbilityOwner = managedOwners.isAbilityOwner(cls);
-        const isStageOwner = managedOwners.isStageOwner(cls);
-        const isExtensionOwner = managedOwners.isExtensionOwner(cls);
-        const isComponentLikeOwner = managedOwners.isComponentOwner(cls) || managedOwners.isBuilderOwner(cls);
-        const ownerRecognitionLayer = managedOwners.getPrimaryRecognitionLayer(cls);
-
-        for (const method of methods) {
-            const methodName = method.getName();
-            const signature = method.getSignature().toString();
-            const sdkOverrideCandidate = sdkOverrideBySignature.get(signature);
-
-            if (isAbilityOwner || isStageOwner || isExtensionOwner) {
-                const lifecycleContract = isAbilityOwner
-                    ? (sdkOverrideCandidate
-                        ? resolveAbilityLifecycleContractFromOverride(methodName)
-                        : resolveAbilityLifecycleContract(methodName))
-                    : isStageOwner
-                        ? (sdkOverrideCandidate
-                            ? resolveStageLifecycleContractFromOverride(methodName)
-                            : resolveStageLifecycleContract(methodName))
-                        : (sdkOverrideCandidate
-                            ? resolveExtensionLifecycleContractFromOverride(methodName)
-                            : resolveExtensionLifecycleContract(methodName));
-                if (!lifecycleContract) {
-                    continue;
-                }
+    for (const candidate of collectSdkOverrideCandidates(scene)) {
+        const declarations = resolveOfficialDeclarationsForSdkOverrideCandidate(candidate);
+        for (const declaration of declarations) {
+            const contract = resolveOfficialLifecycleContract(declaration);
+            if (contract) {
                 context.addFact({
-                    phase: lifecycleContract.phase,
-                    kind: lifecycleContract.kind,
-                    method,
-                    reason: lifecycleContract.reason,
-                    entryFamily: lifecycleContract.entryFamily,
-                    entryShape: lifecycleContract.entryShape,
-                    recognitionLayer: sdkOverrideCandidate
-                        ? sdkOverrideCandidate.discoveryLayer
-                        : (ownerRecognitionLayer || "owner_qualified_inheritance"),
+                    phase: contract.phase,
+                    kind: contract.kind,
+                    method: candidate.method,
+                    ownerKind: contract.ownerKind,
+                    reason: `${contract.reason} overridden by ${candidate.method.getSignature?.()?.toString?.() || candidate.method.getName?.()}`,
+                    canonicalApiId: declaration.canonicalApiId,
+                    semanticSurfaceId: declaration.surfaceId,
+                    semanticBindingId: declaration.bindingId,
+                    semanticTemplateId: declaration.templateId,
+                    semanticGate: "exact_arkanalyzer_method_key",
+                    entryFamily: contract.entryFamily,
+                    entryShape: contract.entryShape,
+                    recognitionLayer: candidate.discoveryLayer,
                 });
-                context.addPhaseCandidateMethod(lifecycleContract.phase, method);
-                continue;
+                context.addPhaseCandidateMethod(contract.phase, candidate.method);
             }
-
-            const componentContract = isComponentLikeOwner
-                ? resolveComponentLifecycleContract(methodName)
-                : null;
-            if (!componentContract) {
-                continue;
-            }
-
-            context.addFact({
-                phase: componentContract.phase,
-                kind: componentContract.kind,
-                method,
-                reason: componentContract.reason,
-                entryFamily: componentContract.entryFamily,
-                entryShape: componentContract.entryShape,
-                recognitionLayer: ownerRecognitionLayer || "qualified_decorator_first_layer",
-            });
-            context.addPhaseCandidateMethod(componentContract.phase, method);
         }
     }
+}
+
+function resolveOfficialDeclarationsForSdkOverrideCandidate(
+    candidate: ReturnType<typeof collectSdkOverrideCandidates>[number],
+) {
+    if (candidate.officialDeclarations?.length) {
+        return candidate.officialDeclarations;
+    }
+    const baseMethodKey = candidate.baseMethod
+        ? arkanalyzerMethodKeyFromArkMethod(candidate.baseMethod)
+        : undefined;
+    return baseMethodKey
+        ? resolveArkMainOfficialLifecycleDeclarationsByMethodKey(baseMethodKey)
+        : [];
 }

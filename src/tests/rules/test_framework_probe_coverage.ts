@@ -1,25 +1,29 @@
 import * as fs from "fs";
 import * as path from "path";
 import { spawnSync } from "child_process";
-import { RuleInvokeKind, RuleMatchKind, RuleScopeConstraint, RuleStringConstraint } from "../../core/rules/RuleSchema";
+import { RuleMatchKind } from "../../core/rules/RuleSchema";
 import { loadRuleSet } from "../../core/rules/RuleLoader";
 import { getAnalyzeSummaryJsonPath } from "../helpers/AnalyzeCliRunner";
 
 type RuleKind = "source" | "sink" | "transfer";
+type RuleStringConstraint = { mode: "equals" | "contains" | "regex"; value: string };
+type SignatureInvokeKind = "instance" | "static" | "namespace" | "free-function";
+type RuleScopeConstraint = {
+    file?: RuleStringConstraint;
+    module?: RuleStringConstraint;
+    className?: RuleStringConstraint;
+    methodName?: RuleStringConstraint;
+};
 
 interface FrameworkRuleLike {
     id: string;
     enabled?: boolean;
     family?: string;
-    tier?: "A" | "B" | "C";
     sourceKind?: string;
     tags?: string[];
     match: {
         kind: RuleMatchKind;
         value: string;
-        invokeKind?: RuleInvokeKind;
-        argCount?: number;
-        typeHint?: string;
     };
     scope?: RuleScopeConstraint;
 }
@@ -36,7 +40,7 @@ interface SignatureSite {
     methodName: string;
     classSignature: string;
     className: string;
-    invokeKind: RuleInvokeKind;
+    invokeKind: SignatureInvokeKind;
     argCount: number;
     samples?: SignatureSample[];
 }
@@ -53,7 +57,6 @@ interface RuleCoverageItem {
     kind: RuleKind;
     id: string;
     family: string;
-    tier: string;
     runtimeHit: number;
     staticHit: boolean;
     boundaryDeclared: boolean;
@@ -97,29 +100,11 @@ function matchesStringConstraint(constraint: RuleStringConstraint | undefined, t
     }
 }
 
-function matchesInvokeShape(rule: FrameworkRuleLike, site: SignatureSite): boolean {
-    const m = rule.match;
-    if (m.invokeKind && m.invokeKind !== "any" && m.invokeKind !== site.invokeKind) return false;
-    if (typeof m.argCount === "number" && m.argCount !== site.argCount) return false;
-    if (m.typeHint && m.typeHint.trim().length > 0) {
-        const hint = m.typeHint.trim().toLowerCase();
-        const haystack = `${site.signature} ${site.classSignature} ${site.className}`.toLowerCase();
-        if (!haystack.includes(hint)) return false;
-    }
-    return true;
-}
-
 function matchesRuleMatchOnSignature(rule: FrameworkRuleLike, site: SignatureSite): boolean {
     const value = rule.match?.value || "";
     switch (rule.match?.kind) {
-        case "method_name_equals":
-            return site.methodName === value;
-        case "signature_equals":
+        case "canonical_api_id_equals":
             return site.signature === value;
-        case "declaring_class_equals":
-            return site.classSignature === value || site.className === value;
-        case "field_name_equals":
-            return false;
         default:
             return false;
     }
@@ -128,14 +113,8 @@ function matchesRuleMatchOnSignature(rule: FrameworkRuleLike, site: SignatureSit
 function matchesRuleMatchOnMethod(rule: FrameworkRuleLike, method: MethodSite): boolean {
     const value = rule.match?.value || "";
     switch (rule.match?.kind) {
-        case "method_name_equals":
-            return method.methodName === value;
-        case "signature_equals":
+        case "canonical_api_id_equals":
             return method.signature === value;
-        case "declaring_class_equals":
-            return method.classSignature === value || method.className === value;
-        case "field_name_equals":
-            return false;
         default:
             return false;
     }
@@ -193,7 +172,6 @@ function staticRuleMatches(kind: RuleKind, rule: FrameworkRuleLike, signatures: 
 
         if (srcKind === "call_return" || srcKind === "call_arg" || srcKind === "callback_param") {
             return signatures.some(site => {
-                if (!matchesInvokeShape(rule, site)) return false;
                 if (!matchesRuleMatchOnSignature(rule, site)) return false;
                 return matchesCallerScope(rule.scope, site) || matchesCalleeScopeForSignature(rule.scope, site);
             });
@@ -203,7 +181,6 @@ function staticRuleMatches(kind: RuleKind, rule: FrameworkRuleLike, signatures: 
     }
 
     return signatures.some(site => {
-        if (!matchesInvokeShape(rule, site)) return false;
         if (!matchesRuleMatchOnSignature(rule, site)) return false;
         return matchesCalleeScopeForSignature(rule.scope, site);
     });
@@ -240,7 +217,7 @@ function main(): void {
     const loadedRules = loadRuleSet({
         kernelRulePath,
         ruleCatalogPath,
-        autoDiscoverLayers: false,
+        autoDiscoverRuleSources: false,
         allowMissingProject: true,
     });
     const frameworkRules = loadedRules.ruleSet as {
@@ -270,7 +247,6 @@ function main(): void {
             kind,
             id: rule.id,
             family: rule.family || rule.id,
-            tier: rule.tier || "-",
             runtimeHit,
             staticHit,
             boundaryDeclared,
@@ -340,10 +316,10 @@ function main(): void {
 
     md.push("## Rule Coverage");
     md.push("");
-    md.push("| Kind | Rule | Tier | RuntimeHit | StaticHit | Boundary | Satisfied |");
-    md.push("|---|---|---|---:|---|---|---|");
+    md.push("| Kind | Rule | RuntimeHit | StaticHit | Boundary | Satisfied |");
+    md.push("|---|---|---:|---|---|---|");
     for (const x of ruleCoverage.sort((a, b) => a.kind.localeCompare(b.kind) || a.id.localeCompare(b.id))) {
-        md.push(`| ${x.kind} | ${x.id} | ${x.tier} | ${x.runtimeHit} | ${x.staticHit ? "Y" : "N"} | ${x.boundaryDeclared ? "Y" : "N"} | ${x.satisfied ? "Y" : "N"} |`);
+        md.push(`| ${x.kind} | ${x.id} | ${x.runtimeHit} | ${x.staticHit ? "Y" : "N"} | ${x.boundaryDeclared ? "Y" : "N"} | ${x.satisfied ? "Y" : "N"} |`);
     }
 
     md.push("");
@@ -360,7 +336,7 @@ function main(): void {
         md.push("## Unresolved Rules");
         md.push("");
         for (const x of unresolvedRules) {
-            md.push(`- [${x.kind}] ${x.id} (tier=${x.tier}, runtimeHit=${x.runtimeHit}, staticHit=${x.staticHit}, boundary=${x.boundaryDeclared})`);
+            md.push(`- [${x.kind}] ${x.id} (runtimeHit=${x.runtimeHit}, staticHit=${x.staticHit}, boundary=${x.boundaryDeclared})`);
         }
     }
 
@@ -368,7 +344,7 @@ function main(): void {
     md.push("## Zero-hit Rules (Runtime)");
     md.push("");
     for (const x of zeroHitRules) {
-        md.push(`- [${x.kind}] ${x.id} (tier=${x.tier}, staticHit=${x.staticHit}, boundary=${x.boundaryDeclared})`);
+        md.push(`- [${x.kind}] ${x.id} (staticHit=${x.staticHit}, boundary=${x.boundaryDeclared})`);
     }
 
     fs.writeFileSync(coverageMdPath, `${md.join("\n")}\n`, "utf-8");

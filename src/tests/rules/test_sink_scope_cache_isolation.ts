@@ -3,7 +3,19 @@ import { SceneConfig } from "../../../arkanalyzer/out/src/Config";
 import { TaintPropagationEngine } from "../../core/orchestration/TaintPropagationEngine";
 import { PagNode } from "../../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
 import { SinkRule } from "../../core/rules/RuleSchema";
+import { createAssetIdentityIndex, type AssetDocumentBase, type AssetIdentityIndex } from "../../core/assets/schema";
+import { createCanonicalApiRegistry } from "../../core/api/identity";
+import type { CanonicalApiRegistry } from "../../core/api/identity";
 import * as path from "path";
+import { exactSinkRule } from "./ExactRuleTestUtils";
+
+type ExactSinkFixture = ReturnType<typeof exactSinkRule>;
+
+interface ExactRuleRuntime {
+    apiAssets: AssetDocumentBase[];
+    canonicalApiRegistry: CanonicalApiRegistry;
+    assetIdentityIndex: AssetIdentityIndex;
+}
 
 function assert(condition: unknown, message: string): asserts condition {
     if (!condition) throw new Error(message);
@@ -29,6 +41,29 @@ function flowSinkInMethod(scene: Scene, sinkStmt: any, methodName: string): bool
     return !!cfg && cfg.getStmts().includes(sinkStmt);
 }
 
+function findClassMethod(scene: Scene, className: string, methodName: string): any {
+    const method = scene.getMethods().find(m =>
+        m.getName?.() === methodName
+        && m.getDeclaringArkClass?.()?.getName?.() === className
+    );
+    assert(method, `method not found: ${className}.${methodName}`);
+    return method;
+}
+
+function buildExactRuleRuntime(fixtures: ExactSinkFixture[]): ExactRuleRuntime {
+    const descriptorsById = new Map<string, ExactSinkFixture["exact"]["canonicalApiDescriptor"]>();
+    for (const fixture of fixtures) {
+        descriptorsById.set(fixture.exact.canonicalApiDescriptor.canonicalApiId, fixture.exact.canonicalApiDescriptor);
+    }
+    const canonicalApiRegistry = createCanonicalApiRegistry([...descriptorsById.values()]);
+    const assetIdentityIndex = createAssetIdentityIndex({ canonicalApiRegistry });
+    const apiAssets = fixtures.map(fixture => fixture.asset);
+    for (const asset of apiAssets) {
+        assetIdentityIndex.addAsset(asset);
+    }
+    return { apiAssets, canonicalApiRegistry, assetIdentityIndex };
+}
+
 async function main(): Promise<void> {
     const sourceDir = path.resolve("tests/demo/rule_precision_sink");
     const sceneConfig = new SceneConfig();
@@ -41,7 +76,22 @@ async function main(): Promise<void> {
     const entryMethod = scene.getMethods().find(m => m.getName() === methodName);
     assert(entryMethod, `entry method not found: ${methodName}`);
 
-    const engine = new TaintPropagationEngine(scene, 1);
+    const wrongIdentityEffect = exactSinkRule({
+        id: "sink.test.rdb_store.wrong_identity.arg0",
+        family: "sink.test.rdb_util.update",
+        method: findClassMethod(scene, "RdbStore", "update"),
+        target: "arg0",
+    });
+    const correctIdentityEffect = exactSinkRule({
+        id: "sink.test.rdb_util.correct_identity.arg0",
+        family: "sink.test.rdb_util.update",
+        method: findClassMethod(scene, "RdbStoreUtil", "update"),
+        target: "arg0",
+    });
+    const sinkRules: SinkRule[] = [wrongIdentityEffect.rule, correctIdentityEffect.rule];
+    const exactRuntime = buildExactRuleRuntime([wrongIdentityEffect, correctIdentityEffect]);
+
+    const engine = new TaintPropagationEngine(scene, 1, exactRuntime);
     engine.verbose = false;
     await engine.buildPAG({
         entryModel: "explicit",
@@ -52,50 +102,16 @@ async function main(): Promise<void> {
     assert(seedNodes.length > 0, "expected taint_src PAG seed nodes");
     engine.propagateWithSeeds(seedNodes);
 
-    const updateSignature = "@rule_precision_sink/taint_mock.ts: taint.RdbStoreUtil.[static]update(any, any, any)";
-    const sinkRules: SinkRule[] = [
-        {
-            id: "sink.test.rdb_util.wrong_scope.arg0",
-            family: "sink.test.rdb_util.update",
-            tier: "B",
-            match: {
-                kind: "signature_equals",
-                value: updateSignature,
-                invokeKind: "static",
-                argCount: 3,
-            },
-            scope: {
-                className: { mode: "equals", value: "DefinitelyNotRdbStoreUtil" },
-            },
-            target: { endpoint: "arg0" },
-        },
-        {
-            id: "sink.test.rdb_util.correct_scope.arg0",
-            family: "sink.test.rdb_util.update",
-            tier: "C",
-            match: {
-                kind: "signature_equals",
-                value: updateSignature,
-                invokeKind: "static",
-                argCount: 3,
-            },
-            scope: {
-                className: { mode: "contains", value: "RdbStoreUtil" },
-            },
-            target: { endpoint: "arg0" },
-        },
-    ];
-
     const flows = engine.detectSinksByRules(sinkRules)
         .filter(flow => flowSinkInMethod(scene, flow.sink, methodName));
 
-    console.log("====== Sink Scope Cache Isolation Test ======");
+    console.log("====== Sink Canonical Identity Cache Isolation Test ======");
     console.log(`flow_count=${flows.length}`);
     console.log(`sink_rules=${flows.map(flow => flow.sinkRuleId || "<none>").join(",")}`);
 
-    assert(flows.length > 0, "expected second scoped rule to detect the sink despite first scoped rule miss");
-    assert(flows.every(flow => flow.sinkRuleId === "sink.test.rdb_util.correct_scope.arg0"),
-        "expected only the correctly scoped sink rule to produce flows");
+    assert(flows.length > 0, "expected second canonical-id rule to detect the sink despite first canonical-id miss");
+    assert(flows.every(flow => flow.sinkRuleId === "sink.test.rdb_util.correct_identity.arg0"),
+        "expected only the correctly identified sink rule to produce flows");
 }
 
 main().catch(err => {

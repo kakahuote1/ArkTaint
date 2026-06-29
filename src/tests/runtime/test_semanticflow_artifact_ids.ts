@@ -6,6 +6,7 @@ import { publishSemanticFlowProjectAssets } from "../../core/semanticflow/Semant
 import type { SemanticFlowItemResult } from "../../core/semanticflow/SemanticFlowTypes";
 import { serializeSemanticFlowAssets } from "../../core/semanticflow/SemanticFlowSerialize";
 import { assert, expectThrows, makeHandoffAsset, makeRuleAsset } from "./SemanticFlowV2TestHelpers";
+import { bindExactAssetIdentities, exactProjectInvokeSurface } from "../helpers/AssetIdentityTestUtils";
 
 function main(): void {
     const asset = makeRuleAsset("asset.project.logger.sink");
@@ -133,20 +134,17 @@ function makeListenerHandoffAsset(input: {
     family: string;
 }): AssetDocumentBase {
     const asset = makeHandoffAsset(input.id) as any;
-    asset.surfaces[0] = {
+    asset.surfaces[0] = exactProjectInvokeSurface({
         surfaceId: `${input.id}.surface`,
-        kind: "invoke",
         modulePath: "entry/src/main/ets/common/utils/webdav/manager.ts",
         ownerName: "WebDavManager",
         methodName: input.methodName,
         invokeKind: "instance",
-        argCount: 1,
+        parameterTypes: ["SyntheticListener"],
+        returnType: "void",
         confidence: "likely",
-        provenance: {
-            source: "llm-proposal",
-            location: { file: "entry/src/main/ets/common/utils/webdav/manager.ts", line: 1 },
-        },
-    };
+        provenanceSource: "llm-proposal",
+    });
     asset.bindings[0] = {
         bindingId: input.bindingId,
         surfaceId: `${input.id}.surface`,
@@ -156,14 +154,14 @@ function makeListenerHandoffAsset(input: {
         endpoint: { base: { kind: "arg", index: 0 } },
         effectTemplateRefs: [input.templateId],
         semanticsFamily: "callback-context-slot",
-        completeness: "partial",
+        completeness: "complete",
         confidence: "likely",
     };
     const handle = {
         cellKind: "callback-context-slot",
         family: input.family,
         key: [{ kind: "fromEndpoint", endpoint: { base: { kind: "arg", index: 0 } } }],
-        precision: "infer",
+        precision: "exact",
     };
     asset.effectTemplates = input.kind === "handoff.put"
         ? [{
@@ -171,17 +169,17 @@ function makeListenerHandoffAsset(input: {
             kind: "handoff.put",
             handle,
             value: { base: { kind: "arg", index: 0 } },
-            updateStrength: "infer",
+            updateStrength: "strong",
             confidence: "likely",
         }]
         : [{
             id: input.templateId,
             kind: "handoff.kill",
             handle,
-            updateStrength: "infer",
+            updateStrength: "strong",
             confidence: "likely",
         }];
-    return asset as AssetDocumentBase;
+    return bindExactAssetIdentities(asset as AssetDocumentBase);
 }
 
 function makeItem(anchorId: string, asset: ReturnType<typeof makeRuleAsset>): SemanticFlowItemResult {

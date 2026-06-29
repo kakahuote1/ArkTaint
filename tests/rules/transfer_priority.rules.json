@@ -4,88 +4,310 @@
   "status": "official",
   "surfaces": [
     {
-      "surfaceId": "surface.source.transfer_priority.entry_param.taint_src",
-      "kind": "access",
-      "modulePath": "@arktaint/local",
-      "ownerName": "LocalBinding",
-      "propertyName": "source.transfer_priority.entry_param.taint_src",
-      "accessKind": "read",
-      "receiverKind": "namespace",
-      "confidence": "likely",
+      "surfaceId": "surface.source.transfer_priority.entry_param.taint_src.method.transfer_priority_001_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=transfer_priority%2Ftransfer_priority_001_T.ets:file=transfer_priority%2Ftransfer_priority_001_T.ets:export=entry%3Acomponent.transfer_priority_001_T:decl=entry%3Acomponent.transfer_priority_001_T:member=lifecycle%3Atest.case.transfer_priority_001_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "transfer_priority/transfer_priority_001_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "transfer_priority/transfer_priority_001_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "transfer_priority_001_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.transfer_priority.entry_param.taint_src.method.transfer_priority_002_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=transfer_priority%2Ftransfer_priority_002_T.ets:file=transfer_priority%2Ftransfer_priority_002_T.ets:export=entry%3Acomponent.transfer_priority_002_T:decl=entry%3Acomponent.transfer_priority_002_T:member=lifecycle%3Atest.case.transfer_priority_002_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "transfer_priority/transfer_priority_002_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "transfer_priority/transfer_priority_002_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "transfer_priority_002_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.transfer_priority.entry_param.taint_src.method.transfer_priority_003_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=transfer_priority%2Ftransfer_priority_003_T.ets:file=transfer_priority%2Ftransfer_priority_003_T.ets:export=entry%3Acomponent.transfer_priority_003_T:decl=entry%3Acomponent.transfer_priority_003_T:member=lifecycle%3Atest.case.transfer_priority_003_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "transfer_priority/transfer_priority_003_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "transfer_priority/transfer_priority_003_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "transfer_priority_003_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
       }
     },
     {
       "surfaceId": "surface.sink.transfer_priority.arg0",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "Sink",
-      "invokeKind": "static",
-      "argCount": 1,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "transfer_priority/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=transfer_priority%2Ftaint_mock.ts:file=transfer_priority%2Ftaint_mock.ts:export=namespace%3Ataint.%25dflt:decl=namespace%3Ataint.%25dflt:member=function%3ASink:invoke=call:params=0%3Aany:ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "transfer_priority/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "taint.%dflt",
+            "methodName": "Sink",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "void",
+            "staticFlag": true
+          }
+        }
       }
     },
     {
       "surfaceId": "surface.transfer.priority.exact.class_exact.arg0_to_result",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "PriorityHostExact",
-      "methodName": "PriorityHostExact",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "transfer_priority/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=transfer_priority%2Ftaint_mock.ts:file=transfer_priority%2Ftaint_mock.ts:export=namespace%3Ataint.PriorityHostExact:decl=class%3Ataint.PriorityHostExact:member=method%3Ainstance%3ABridge:invoke=call:params=0%3Aany:ret=any",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "transfer_priority/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "taint.PriorityHostExact",
+            "methodName": "Bridge",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "any",
+            "staticFlag": false
+          }
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.priority.constrained.scope.arg0_to_result",
+      "surfaceId": "surface.transfer.priority.constrained.scope.arg0_to_result.for.transfer_priority_taint_mock_ts_taint_PriorityHostExact_Bridge_any",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "PriorityHostConstrained",
-      "methodName": "Bridge",
-      "invokeKind": "instance",
-      "argCount": 1,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "transfer_priority/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=transfer_priority%2Ftaint_mock.ts:file=transfer_priority%2Ftaint_mock.ts:export=namespace%3Ataint.PriorityHostExact:decl=class%3Ataint.PriorityHostExact:member=method%3Ainstance%3ABridge:invoke=call:params=0%3Aany:ret=any",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "transfer_priority/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "taint.PriorityHostExact",
+            "methodName": "Bridge",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "any",
+            "staticFlag": false
+          }
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.priority.method_scoped.host.arg0_to_result",
+      "surfaceId": "surface.transfer.priority.constrained.scope.arg0_to_result.for.transfer_priority_taint_mock_ts_taint_PriorityHostConstrained_Bridge_any",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "PriorityHostMethodScoped",
-      "methodName": "Bridge",
-      "invokeKind": "instance",
-      "argCount": 1,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "transfer_priority/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=transfer_priority%2Ftaint_mock.ts:file=transfer_priority%2Ftaint_mock.ts:export=namespace%3Ataint.PriorityHostConstrained:decl=class%3Ataint.PriorityHostConstrained:member=method%3Ainstance%3ABridge:invoke=call:params=0%3Aany:ret=any",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "transfer_priority/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "taint.PriorityHostConstrained",
+            "methodName": "Bridge",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "any",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.priority.constrained.scope.arg0_to_result.for.transfer_priority_taint_mock_ts_taint_PriorityHostMethodScoped_Bridge_any",
+      "kind": "invoke",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "transfer_priority/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=transfer_priority%2Ftaint_mock.ts:file=transfer_priority%2Ftaint_mock.ts:export=namespace%3Ataint.PriorityHostMethodScoped:decl=class%3Ataint.PriorityHostMethodScoped:member=method%3Ainstance%3ABridge:invoke=call:params=0%3Aany:ret=any",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "transfer_priority/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "taint.PriorityHostMethodScoped",
+            "methodName": "Bridge",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "any",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.priority.method_scoped.host.arg0_to_result.for.transfer_priority_taint_mock_ts_taint_PriorityHostExact_Bridge_any",
+      "kind": "invoke",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "transfer_priority/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=transfer_priority%2Ftaint_mock.ts:file=transfer_priority%2Ftaint_mock.ts:export=namespace%3Ataint.PriorityHostExact:decl=class%3Ataint.PriorityHostExact:member=method%3Ainstance%3ABridge:invoke=call:params=0%3Aany:ret=any",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "transfer_priority/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "taint.PriorityHostExact",
+            "methodName": "Bridge",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "any",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.priority.method_scoped.host.arg0_to_result.for.transfer_priority_taint_mock_ts_taint_PriorityHostConstrained_Bridge_any",
+      "kind": "invoke",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "transfer_priority/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=transfer_priority%2Ftaint_mock.ts:file=transfer_priority%2Ftaint_mock.ts:export=namespace%3Ataint.PriorityHostConstrained:decl=class%3Ataint.PriorityHostConstrained:member=method%3Ainstance%3ABridge:invoke=call:params=0%3Aany:ret=any",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "transfer_priority/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "taint.PriorityHostConstrained",
+            "methodName": "Bridge",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "any",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.priority.method_scoped.host.arg0_to_result.for.transfer_priority_taint_mock_ts_taint_PriorityHostMethodScoped_Bridge_any",
+      "kind": "invoke",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "transfer_priority/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=transfer_priority%2Ftaint_mock.ts:file=transfer_priority%2Ftaint_mock.ts:export=namespace%3Ataint.PriorityHostMethodScoped:decl=class%3Ataint.PriorityHostMethodScoped:member=method%3Ainstance%3ABridge:invoke=call:params=0%3Aany:ret=any",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "transfer_priority/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "taint.PriorityHostMethodScoped",
+            "methodName": "Bridge",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "any",
+            "staticFlag": false
+          }
+        }
       }
     }
   ],
   "bindings": [
     {
       "bindingId": "binding.source.transfer_priority.entry_param.taint_src.0.method.transfer_priority_001_T",
-      "surfaceId": "surface.source.transfer_priority.entry_param.taint_src",
+      "surfaceId": "surface.source.transfer_priority.entry_param.taint_src.method.transfer_priority_001_T",
       "assetId": "asset.rule.test.transfer_priority",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "transfer_priority_001_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "transfer_priority_001_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -96,25 +318,16 @@
         "template.source.transfer_priority.entry_param.taint_src.for.source.transfer_priority.entry_param.taint_src.0.method.transfer_priority_001_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=transfer_priority%2Ftransfer_priority_001_T.ets:file=transfer_priority%2Ftransfer_priority_001_T.ets:export=entry%3Acomponent.transfer_priority_001_T:decl=entry%3Acomponent.transfer_priority_001_T:member=lifecycle%3Atest.case.transfer_priority_001_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.transfer_priority.entry_param.taint_src.0.method.transfer_priority_002_T",
-      "surfaceId": "surface.source.transfer_priority.entry_param.taint_src",
+      "surfaceId": "surface.source.transfer_priority.entry_param.taint_src.method.transfer_priority_002_T",
       "assetId": "asset.rule.test.transfer_priority",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "transfer_priority_002_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "transfer_priority_002_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -125,25 +338,16 @@
         "template.source.transfer_priority.entry_param.taint_src.for.source.transfer_priority.entry_param.taint_src.0.method.transfer_priority_002_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=transfer_priority%2Ftransfer_priority_002_T.ets:file=transfer_priority%2Ftransfer_priority_002_T.ets:export=entry%3Acomponent.transfer_priority_002_T:decl=entry%3Acomponent.transfer_priority_002_T:member=lifecycle%3Atest.case.transfer_priority_002_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.transfer_priority.entry_param.taint_src.0.method.transfer_priority_003_T",
-      "surfaceId": "surface.source.transfer_priority.entry_param.taint_src",
+      "surfaceId": "surface.source.transfer_priority.entry_param.taint_src.method.transfer_priority_003_T",
       "assetId": "asset.rule.test.transfer_priority",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "transfer_priority_003_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "transfer_priority_003_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -154,8 +358,9 @@
         "template.source.transfer_priority.entry_param.taint_src.for.source.transfer_priority.entry_param.taint_src.0.method.transfer_priority_003_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=transfer_priority%2Ftransfer_priority_003_T.ets:file=transfer_priority%2Ftransfer_priority_003_T.ets:export=entry%3Acomponent.transfer_priority_003_T:decl=entry%3Acomponent.transfer_priority_003_T:member=lifecycle%3Atest.case.transfer_priority_003_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.sink.transfer_priority.arg0.0",
@@ -163,10 +368,6 @@
       "assetId": "asset.rule.test.transfer_priority",
       "plane": "rule",
       "role": "sink",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "Sink"
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -177,9 +378,10 @@
         "template.sink.transfer_priority.arg0"
       ],
       "semanticsFamily": "sink",
-      "completeness": "partial",
-      "confidence": "likely",
-      "metadata": {}
+      "completeness": "complete",
+      "confidence": "certain",
+      "metadata": {},
+      "canonicalApiId": "api:project:local:module=transfer_priority%2Ftaint_mock.ts:file=transfer_priority%2Ftaint_mock.ts:export=namespace%3Ataint.%25dflt:decl=namespace%3Ataint.%25dflt:member=function%3ASink:invoke=call:params=0%3Aany:ret=void"
     },
     {
       "bindingId": "binding.transfer.priority.exact.class_exact.arg0_to_result.0",
@@ -187,140 +389,103 @@
       "assetId": "asset.rule.test.transfer_priority",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "Bridge",
-        "invokeKind": "instance",
-        "argCount": 1,
-        "scope": {
-          "className": {
-            "mode": "equals",
-            "value": "PriorityHostExact"
-          }
-        }
-      },
       "effectTemplateRefs": [
         "template.transfer.priority.exact.class_exact.arg0_to_result"
       ],
       "semanticsFamily": "transfer",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=transfer_priority%2Ftaint_mock.ts:file=transfer_priority%2Ftaint_mock.ts:export=namespace%3Ataint.PriorityHostExact:decl=class%3Ataint.PriorityHostExact:member=method%3Ainstance%3ABridge:invoke=call:params=0%3Aany:ret=any"
     },
     {
-      "bindingId": "binding.transfer.priority.constrained.scope.arg0_to_result.0",
-      "surfaceId": "surface.transfer.priority.constrained.scope.arg0_to_result",
+      "bindingId": "binding.transfer.priority.constrained.scope.arg0_to_result.0.for.transfer_priority_taint_mock_ts_taint_PriorityHostExact_Bridge_any",
+      "surfaceId": "surface.transfer.priority.constrained.scope.arg0_to_result.for.transfer_priority_taint_mock_ts_taint_PriorityHostExact_Bridge_any",
       "assetId": "asset.rule.test.transfer_priority",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "Bridge",
-        "invokeKind": "instance",
-        "scope": {
-          "className": {
-            "mode": "contains",
-            "value": "PriorityHostConstrained"
-          }
-        }
-      },
       "effectTemplateRefs": [
-        "template.transfer.priority.constrained.scope.arg0_to_result"
+        "template.transfer.priority.constrained.scope.arg0_to_result.for.transfer_priority_taint_mock_ts_taint_PriorityHostExact_Bridge_any"
       ],
       "semanticsFamily": "transfer",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=transfer_priority%2Ftaint_mock.ts:file=transfer_priority%2Ftaint_mock.ts:export=namespace%3Ataint.PriorityHostExact:decl=class%3Ataint.PriorityHostExact:member=method%3Ainstance%3ABridge:invoke=call:params=0%3Aany:ret=any"
     },
     {
-      "bindingId": "binding.transfer.priority.method_scoped.host.arg0_to_result.0",
-      "surfaceId": "surface.transfer.priority.method_scoped.host.arg0_to_result",
+      "bindingId": "binding.transfer.priority.constrained.scope.arg0_to_result.0.for.transfer_priority_taint_mock_ts_taint_PriorityHostConstrained_Bridge_any",
+      "surfaceId": "surface.transfer.priority.constrained.scope.arg0_to_result.for.transfer_priority_taint_mock_ts_taint_PriorityHostConstrained_Bridge_any",
       "assetId": "asset.rule.test.transfer_priority",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "Bridge",
-        "invokeKind": "instance",
-        "argCount": 1,
-        "scope": {
-          "className": {
-            "mode": "equals",
-            "value": "PriorityHostMethodScoped"
-          }
-        }
-      },
       "effectTemplateRefs": [
-        "template.transfer.priority.method_scoped.host.arg0_to_result"
+        "template.transfer.priority.constrained.scope.arg0_to_result.for.transfer_priority_taint_mock_ts_taint_PriorityHostConstrained_Bridge_any"
       ],
       "semanticsFamily": "transfer",
-      "completeness": "partial",
-      "confidence": "likely",
-      "metadata": {}
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=transfer_priority%2Ftaint_mock.ts:file=transfer_priority%2Ftaint_mock.ts:export=namespace%3Ataint.PriorityHostConstrained:decl=class%3Ataint.PriorityHostConstrained:member=method%3Ainstance%3ABridge:invoke=call:params=0%3Aany:ret=any"
+    },
+    {
+      "bindingId": "binding.transfer.priority.constrained.scope.arg0_to_result.0.for.transfer_priority_taint_mock_ts_taint_PriorityHostMethodScoped_Bridge_any",
+      "surfaceId": "surface.transfer.priority.constrained.scope.arg0_to_result.for.transfer_priority_taint_mock_ts_taint_PriorityHostMethodScoped_Bridge_any",
+      "assetId": "asset.rule.test.transfer_priority",
+      "plane": "rule",
+      "role": "transfer",
+      "effectTemplateRefs": [
+        "template.transfer.priority.constrained.scope.arg0_to_result.for.transfer_priority_taint_mock_ts_taint_PriorityHostMethodScoped_Bridge_any"
+      ],
+      "semanticsFamily": "transfer",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=transfer_priority%2Ftaint_mock.ts:file=transfer_priority%2Ftaint_mock.ts:export=namespace%3Ataint.PriorityHostMethodScoped:decl=class%3Ataint.PriorityHostMethodScoped:member=method%3Ainstance%3ABridge:invoke=call:params=0%3Aany:ret=any"
+    },
+    {
+      "bindingId": "binding.transfer.priority.method_scoped.host.arg0_to_result.0.for.transfer_priority_taint_mock_ts_taint_PriorityHostExact_Bridge_any",
+      "surfaceId": "surface.transfer.priority.method_scoped.host.arg0_to_result.for.transfer_priority_taint_mock_ts_taint_PriorityHostExact_Bridge_any",
+      "assetId": "asset.rule.test.transfer_priority",
+      "plane": "rule",
+      "role": "transfer",
+      "effectTemplateRefs": [
+        "template.transfer.priority.method_scoped.host.arg0_to_result.for.transfer_priority_taint_mock_ts_taint_PriorityHostExact_Bridge_any"
+      ],
+      "semanticsFamily": "transfer",
+      "completeness": "complete",
+      "confidence": "certain",
+      "metadata": {},
+      "canonicalApiId": "api:project:local:module=transfer_priority%2Ftaint_mock.ts:file=transfer_priority%2Ftaint_mock.ts:export=namespace%3Ataint.PriorityHostExact:decl=class%3Ataint.PriorityHostExact:member=method%3Ainstance%3ABridge:invoke=call:params=0%3Aany:ret=any"
+    },
+    {
+      "bindingId": "binding.transfer.priority.method_scoped.host.arg0_to_result.0.for.transfer_priority_taint_mock_ts_taint_PriorityHostConstrained_Bridge_any",
+      "surfaceId": "surface.transfer.priority.method_scoped.host.arg0_to_result.for.transfer_priority_taint_mock_ts_taint_PriorityHostConstrained_Bridge_any",
+      "assetId": "asset.rule.test.transfer_priority",
+      "plane": "rule",
+      "role": "transfer",
+      "effectTemplateRefs": [
+        "template.transfer.priority.method_scoped.host.arg0_to_result.for.transfer_priority_taint_mock_ts_taint_PriorityHostConstrained_Bridge_any"
+      ],
+      "semanticsFamily": "transfer",
+      "completeness": "complete",
+      "confidence": "certain",
+      "metadata": {},
+      "canonicalApiId": "api:project:local:module=transfer_priority%2Ftaint_mock.ts:file=transfer_priority%2Ftaint_mock.ts:export=namespace%3Ataint.PriorityHostConstrained:decl=class%3Ataint.PriorityHostConstrained:member=method%3Ainstance%3ABridge:invoke=call:params=0%3Aany:ret=any"
+    },
+    {
+      "bindingId": "binding.transfer.priority.method_scoped.host.arg0_to_result.0.for.transfer_priority_taint_mock_ts_taint_PriorityHostMethodScoped_Bridge_any",
+      "surfaceId": "surface.transfer.priority.method_scoped.host.arg0_to_result.for.transfer_priority_taint_mock_ts_taint_PriorityHostMethodScoped_Bridge_any",
+      "assetId": "asset.rule.test.transfer_priority",
+      "plane": "rule",
+      "role": "transfer",
+      "effectTemplateRefs": [
+        "template.transfer.priority.method_scoped.host.arg0_to_result.for.transfer_priority_taint_mock_ts_taint_PriorityHostMethodScoped_Bridge_any"
+      ],
+      "semanticsFamily": "transfer",
+      "completeness": "complete",
+      "confidence": "certain",
+      "metadata": {},
+      "canonicalApiId": "api:project:local:module=transfer_priority%2Ftaint_mock.ts:file=transfer_priority%2Ftaint_mock.ts:export=namespace%3Ataint.PriorityHostMethodScoped:decl=class%3Ataint.PriorityHostMethodScoped:member=method%3Ainstance%3ABridge:invoke=call:params=0%3Aany:ret=any"
     }
   ],
   "effectTemplates": [
-    {
-      "id": "template.sink.transfer_priority.arg0",
-      "confidence": "certain",
-      "kind": "rule.sink",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sinkKind": "sink"
-    },
-    {
-      "id": "template.transfer.priority.exact.class_exact.arg0_to_result",
-      "confidence": "certain",
-      "kind": "rule.transfer",
-      "from": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "to": {
-        "base": {
-          "kind": "return"
-        }
-      },
-      "transferKind": "transfer"
-    },
-    {
-      "id": "template.transfer.priority.constrained.scope.arg0_to_result",
-      "confidence": "certain",
-      "kind": "rule.transfer",
-      "from": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "to": {
-        "base": {
-          "kind": "return"
-        }
-      },
-      "transferKind": "transfer"
-    },
-    {
-      "id": "template.transfer.priority.method_scoped.host.arg0_to_result",
-      "confidence": "certain",
-      "kind": "rule.transfer",
-      "from": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "to": {
-        "base": {
-          "kind": "return"
-        }
-      },
-      "transferKind": "transfer"
-    },
     {
       "id": "template.source.transfer_priority.entry_param.taint_src.for.source.transfer_priority.entry_param.taint_src.0.method.transfer_priority_001_T",
       "confidence": "certain",
@@ -356,6 +521,137 @@
         }
       },
       "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.sink.transfer_priority.arg0",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "sink"
+    },
+    {
+      "id": "template.transfer.priority.exact.class_exact.arg0_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.priority.constrained.scope.arg0_to_result.for.transfer_priority_taint_mock_ts_taint_PriorityHostExact_Bridge_any",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.priority.constrained.scope.arg0_to_result.for.transfer_priority_taint_mock_ts_taint_PriorityHostConstrained_Bridge_any",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.priority.constrained.scope.arg0_to_result.for.transfer_priority_taint_mock_ts_taint_PriorityHostMethodScoped_Bridge_any",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.priority.method_scoped.host.arg0_to_result.for.transfer_priority_taint_mock_ts_taint_PriorityHostExact_Bridge_any",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.priority.method_scoped.host.arg0_to_result.for.transfer_priority_taint_mock_ts_taint_PriorityHostConstrained_Bridge_any",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.priority.method_scoped.host.arg0_to_result.for.transfer_priority_taint_mock_ts_taint_PriorityHostMethodScoped_Bridge_any",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
     }
   ],
   "provenance": {

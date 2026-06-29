@@ -338,6 +338,37 @@ async function main(): Promise<void> {
     ]).emitForFact(makeEvent(1));
     assert(!killedSession || killedSession.length === 0, "expected exact strong kill between put/get to suppress stale handoff");
 
+    const killedSessionWithoutCurrentness = createHandoffPropagationSession([
+        {
+            kind: "put",
+            handle: token,
+            source: { nodeId: 1 },
+            reason: "put-before-kill-no-currentness",
+            flowScope: "same-method",
+            sequence: 1,
+        },
+        {
+            kind: "kill",
+            handle: token,
+            reason: "definite-kill-no-currentness",
+            flowScope: "same-method",
+            sequence: 2,
+            updateStrength: "strong",
+        },
+        {
+            kind: "get",
+            handle: token,
+            target: { nodeId: 2 },
+            reason: "get-after-kill-no-currentness",
+            flowScope: "same-method",
+            sequence: 3,
+        },
+    ], { currentnessAnalysis: "disabled" }).emitForFact(makeEvent(1));
+    assert(
+        killedSessionWithoutCurrentness?.length === 1,
+        `expected disabled currentness to preserve baseline handoff, got ${killedSessionWithoutCurrentness?.length || 0}`,
+    );
+
     const weakKillSession = createHandoffPropagationSession([
         {
             kind: "put",
@@ -386,39 +417,33 @@ async function main(): Promise<void> {
     ]).emitForFact(makeEvent(1));
     assert(!reversedSession || reversedSession.length === 0, "expected same-scope get-before-put to be skipped");
 
-    const partialToken = createHandoffHandle("keyed-semantic-slot", "test.storage", "token-like", { precision: "partial" });
-    const unknownToken = createHandoffHandle("keyed-semantic-slot", "test.storage", "runtime-key", { precision: "unknown" });
-    const mayConservative = createHandoffPropagationSession([
+    for (const precision of ["partial", "unknown"]) {
+        let rejected = false;
+        try {
+            createHandoffHandle("keyed-semantic-slot", "test.storage", "runtime-key", { precision: precision as any });
+        } catch (error) {
+            rejected = String((error as any)?.message || error).includes("precision must be exact");
+        }
+        assert(rejected, `expected ${precision} handoff handle precision to be rejected`);
+    }
+
+    const exactTokenLike = createExactHandoffHandle("keyed-semantic-slot", "test.storage", "token-like");
+    const exactRuntimeKey = createExactHandoffHandle("keyed-semantic-slot", "test.storage", "runtime-key");
+    const exactMismatch = createHandoffPropagationSession([
         {
             kind: "put",
-            handle: partialToken,
+            handle: exactTokenLike,
             source: { nodeId: 5 },
-            reason: "put-partial",
+            reason: "put-token-like",
         },
         {
             kind: "get",
-            handle: unknownToken,
+            handle: exactRuntimeKey,
             target: { nodeId: 6 },
-            reason: "get-unknown",
+            reason: "get-runtime-key",
         },
     ]).emitForFact(makeEvent(5));
-    assert(mayConservative?.length === 1, `expected conservative may-compatible handoff, got ${mayConservative?.length || 0}`);
-
-    const mayBlocked = createHandoffPropagationSession([
-        {
-            kind: "put",
-            handle: partialToken,
-            source: { nodeId: 5 },
-            reason: "put-partial",
-        },
-        {
-            kind: "get",
-            handle: unknownToken,
-            target: { nodeId: 6 },
-            reason: "get-unknown",
-        },
-    ], { mayCompatibilityPolicy: "block" }).emitForFact(makeEvent(5));
-    assert(!mayBlocked || mayBlocked.length === 0, "expected block policy to suppress may-compatible handoff");
+    assert(!exactMismatch || exactMismatch.length === 0, "different exact handoff keys must not be may-compatible");
 
     const nonCanonicalEventName = createExactHandoffHandle("keyed-semantic-slot", "project.eventualCache", "token");
     const familyAliasSession = createHandoffPropagationSession([

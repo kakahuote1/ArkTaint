@@ -4,6 +4,7 @@ import { TaintPropagationEngine } from "../../core/orchestration/TaintPropagatio
 import { PagNode } from "../../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
 import { SinkRule, TransferRule } from "../../core/rules/RuleSchema";
 import * as path from "path";
+import { exactRuleRuntimeFromFixtures, exactSinkRule, exactTransferRule, type ExactRuleFixture } from "./ExactRuleTestUtils";
 
 function assert(condition: unknown, message: string): asserts condition {
     if (!condition) throw new Error(message);
@@ -13,6 +14,15 @@ function flowSinkInMethod(scene: Scene, sinkStmt: any, methodName: string): bool
     const method = scene.getMethods().find(m => m.getName() === methodName);
     const cfg = method?.getCfg();
     return !!cfg && cfg.getStmts().includes(sinkStmt);
+}
+
+function findMethod(scene: Scene, methodName: string, signatureHint: string): any {
+    const method = scene.getMethods().find(m =>
+        m.getName?.() === methodName
+        && m.getSignature?.().toString?.().includes(signatureHint)
+    );
+    assert(method, `method not found: ${methodName} (${signatureHint})`);
+    return method;
 }
 
 function findSeedNodes(engine: TaintPropagationEngine, scene: Scene, methodName: string, localName: string): PagNode[] {
@@ -39,60 +49,38 @@ async function main(): Promise<void> {
     const entryMethod = scene.getMethods().find(m => m.getName() === "sink_inline_transfer_payload_017_T");
     assert(entryMethod, "expected sink_inline_transfer_payload_017_T entry method");
 
-    const transferRules: TransferRule[] = [
-        {
-            id: "transfer.precision.inline_payload_box.to_bucket",
-            match: {
-                kind: "method_name_equals",
-                value: "toBucket",
-                invokeKind: "instance",
-                argCount: 0,
-            },
-            scope: {
-                className: { mode: "equals", value: "InlinePayloadBox" },
-            },
-            from: "base",
-            to: "result",
-        },
-    ];
-    const sinkRules: SinkRule[] = [
-        {
-            id: "sink.precision.inline_db.update.arg0",
-            family: "sink.precision.inline_db.update",
-            tier: "C",
-            match: {
-                kind: "method_name_equals",
-                value: "update",
-                invokeKind: "instance",
-                argCount: 3,
-            },
-            scope: {
-                className: { mode: "equals", value: "InlineDb" },
-            },
-            target: { endpoint: "arg0" },
-        },
-    ];
-    const sameFamilyNoFlowSinkRules: SinkRule[] = [
-        {
-            id: "sink.precision.inline_db.update.arg1.no_flow",
-            family: "sink.precision.inline_db.update",
-            tier: "A",
-            match: {
-                kind: "method_name_equals",
-                value: "update",
-                invokeKind: "instance",
-                argCount: 3,
-            },
-            scope: {
-                className: { mode: "equals", value: "InlineDb" },
-            },
-            target: { endpoint: "arg1" },
-        },
-        ...sinkRules,
-    ];
+    const transferEffect = exactTransferRule({
+        id: "transfer.precision.inline_payload_box.to_bucket",
+        method: findMethod(scene, "toBucket", "InlinePayloadBox"),
+        from: "base",
+        to: "result",
+    });
+    const sinkArg0Effect = exactSinkRule({
+        id: "sink.precision.inline_db.update.arg0",
+        family: "sink.precision.inline_db.update",
+        method: findMethod(scene, "update", "InlineDb"),
+        target: "arg0",
+    });
+    const sinkArg1Effect = exactSinkRule({
+        id: "sink.precision.inline_db.update.arg1.no_flow",
+        family: "sink.precision.inline_db.update",
+        method: findMethod(scene, "update", "InlineDb"),
+        target: "arg1",
+    });
+    const transferRules: TransferRule[] = [transferEffect.rule];
+    const sinkRules: SinkRule[] = [sinkArg0Effect.rule];
+    const sameFamilyDifferentEndpointSinkRules: SinkRule[] = [sinkArg1Effect.rule, ...sinkRules];
+    const allFixtures = [transferEffect, sinkArg0Effect, sinkArg1Effect];
 
-    const detect = async (rules: TransferRule[], sinks: SinkRule[] = sinkRules) => {
-        const engine = new TaintPropagationEngine(scene, 1, { transferRules: rules });
+    const detect = async (
+        rules: TransferRule[],
+        sinks: SinkRule[] = sinkRules,
+        fixtures: Array<ExactRuleFixture<TransferRule | SinkRule>> = allFixtures,
+    ) => {
+        const engine = new TaintPropagationEngine(scene, 1, {
+            transferRules: rules,
+            ...exactRuleRuntimeFromFixtures(fixtures),
+        });
         engine.verbose = false;
         await engine.buildPAG({
             entryModel: "explicit",
@@ -108,22 +96,22 @@ async function main(): Promise<void> {
 
     const withoutTransfer = await detect([]);
     const withTransfer = await detect(transferRules);
-    const withSameFamilyNoFlowHigherTier = await detect(transferRules, sameFamilyNoFlowSinkRules);
+    const withSameFamilyDifferentEndpoint = await detect(transferRules, sameFamilyDifferentEndpointSinkRules);
 
     console.log("====== Sink Inline Transfer Payload Test ======");
     console.log(`seed_count=${withTransfer.seedCount}`);
     console.log(`without_transfer_flow_count=${withoutTransfer.flows.length}`);
     console.log(`with_transfer_flow_count=${withTransfer.flows.length}`);
-    console.log(`with_same_family_no_flow_higher_tier_count=${withSameFamilyNoFlowHigherTier.flows.length}`);
+    console.log(`with_same_family_different_endpoint_count=${withSameFamilyDifferentEndpoint.flows.length}`);
     console.log(`flow_sources=${withTransfer.flows.map(flow => flow.source).join(",")}`);
     console.log(`flow_transfer_rules=${withTransfer.flows.map(flow => (flow.transferRuleIds || []).join("+") || "<none>").join(",")}`);
 
     assert(withoutTransfer.flows.length === 0, "inline payload sink must not be detected without a matching transfer model");
     assert(withTransfer.flows.length >= 1, "expected inline transfer result passed to sink arg0 to be detected");
-    assert(withSameFamilyNoFlowHigherTier.flows.length >= 1,
-        "a higher-tier same-family rule with no flow must not suppress a lower-tier rule that detects a different endpoint");
-    assert(withSameFamilyNoFlowHigherTier.flows.some(flow => flow.sinkEndpoint === "arg0"),
-        "same-family priority must stay endpoint-scoped so the payload endpoint remains reportable");
+    assert(withSameFamilyDifferentEndpoint.flows.length >= 1,
+        "a same-family rule with no flow must not suppress another rule that detects a different endpoint");
+    assert(withSameFamilyDifferentEndpoint.flows.some(flow => flow.sinkEndpoint === "arg0"),
+        "same-family selection must stay endpoint-scoped so the payload endpoint remains reportable");
     assert(withTransfer.flows.some(flow => flow.sinkEndpoint === "arg0"), "expected sink endpoint arg0");
     assert(withTransfer.flows.some(flow => (flow.transferRuleIds || []).includes("transfer.precision.inline_payload_box.to_bucket")),
         "expected detected flow to carry the inline transfer rule id");

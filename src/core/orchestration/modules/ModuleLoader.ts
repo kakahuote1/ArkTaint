@@ -35,6 +35,7 @@ export interface ModuleLoaderOptions {
 
 export interface ModuleLoadResult {
     modules: TaintModule[];
+    assets: AssetDocumentBase[];
     loadedFiles: string[];
     warnings: string[];
     loadIssues: ExtensionModuleLoadIssue[];
@@ -67,6 +68,7 @@ interface LoadedModuleCandidate {
 
 interface LoadedModuleResult {
     candidates: LoadedModuleCandidate[];
+    assets: AssetDocumentBase[];
     loadIssue?: ExtensionModuleLoadIssue;
 }
 
@@ -92,6 +94,7 @@ export function loadModules(options: ModuleLoaderOptions = {}): ModuleLoadResult
     const warnings: string[] = [];
     const attemptedModules = new Set<string>();
     const loadedFiles = new Set<string>();
+    const loadedAssets = new Map<string, AssetDocumentBase>();
     const loadIssues: ExtensionModuleLoadIssue[] = [];
     const selectedModules = new Map<string, SelectedModule>();
     const disabledModuleIds = new Set(options.disabledModuleIds || []);
@@ -116,6 +119,7 @@ export function loadModules(options: ModuleLoaderOptions = {}): ModuleLoadResult
                     loadedFiles,
                     loadIssues,
                     selectedModules,
+                    loadedAssets,
                     warnings,
                     disabledModuleIds,
                     onWarning: options.onWarning,
@@ -139,6 +143,7 @@ export function loadModules(options: ModuleLoaderOptions = {}): ModuleLoadResult
                     loadedFiles,
                     loadIssues,
                     selectedModules,
+                    loadedAssets,
                     warnings,
                     disabledModuleIds,
                     onWarning: options.onWarning,
@@ -147,15 +152,17 @@ export function loadModules(options: ModuleLoaderOptions = {}): ModuleLoadResult
             );
         }
         for (const file of pack.assetFiles) {
-            const module = loadModuleAssetFile(
+            const loaded = loadModuleAssetFile(
                 file,
                 warnings,
                 options.onWarning,
                 resolveAssetLoadMode(file, evaluationRoots),
                 loadIssues,
             );
-            if (!module) continue;
+            if (!loaded) continue;
             loadedFiles.add(path.resolve(file));
+            registerLoadedModuleAsset(loadedAssets, loaded.asset, warnings, options.onWarning);
+            const module = loaded.module;
             if (disabledModuleIds.has(module.id)) continue;
             registerModule(selectedModules, module, "project_module", warnings, options.onWarning);
         }
@@ -180,6 +187,7 @@ export function loadModules(options: ModuleLoaderOptions = {}): ModuleLoadResult
                 loadedFiles,
                 loadIssues,
                 selectedModules,
+                loadedAssets,
                 warnings,
                 disabledModuleIds,
                 onWarning: options.onWarning,
@@ -195,6 +203,7 @@ export function loadModules(options: ModuleLoaderOptions = {}): ModuleLoadResult
 
     return {
         modules: [...selectedModules.values()].map(item => item.module),
+        assets: [...loadedAssets.values()],
         loadedFiles: [...loadedFiles.values()].sort((a, b) => a.localeCompare(b)),
         warnings,
         loadIssues,
@@ -282,15 +291,15 @@ export function inspectModules(options: ModuleLoaderOptions = {}): ModuleInspect
             inspectFile(file, "project_module", pack.projectId, pack.rootDir);
         }
         for (const file of pack.assetFiles) {
-            const module = loadModuleAssetFile(
+            const loaded = loadModuleAssetFile(
                 file,
                 warnings,
                 options.onWarning,
                 resolveAssetLoadMode(file, evaluationRoots),
                 loadIssues,
             );
-            if (!module) continue;
-            pushCandidate(module, module.enabled !== false, "project_module", pack.projectId);
+            if (!loaded) continue;
+            pushCandidate(loaded.module, loaded.module.enabled !== false, "project_module", pack.projectId);
         }
     }
 
@@ -452,6 +461,7 @@ function loadModuleFile(
         loadedFiles: Set<string>;
         loadIssues: ExtensionModuleLoadIssue[];
         selectedModules: Map<string, SelectedModule>;
+        loadedAssets: Map<string, AssetDocumentBase>;
         warnings: string[];
         disabledModuleIds: Set<string>;
         onWarning?: (warning: string) => void;
@@ -486,6 +496,9 @@ function loadModuleFile(
     }
     if (loaded.candidates.length > 0) {
         ctx.loadedFiles.add(modulePath);
+    }
+    for (const asset of loaded.assets) {
+        registerLoadedModuleAsset(ctx.loadedAssets, asset, ctx.warnings, ctx.onWarning);
     }
     for (const candidate of loaded.candidates) {
         const module = candidate.module;
@@ -524,6 +537,7 @@ function loadModulesFromModule(
     if (runtimeResult.loadIssue) {
         return {
             candidates: [],
+            assets: [],
             loadIssue: runtimeResult.loadIssue,
         };
     }
@@ -536,6 +550,7 @@ function loadModulesFromModule(
     if (exportsResult.loadIssue) {
         return {
             candidates: [],
+            assets: [],
             loadIssue: exportsResult.loadIssue,
         };
     }
@@ -560,6 +575,7 @@ function loadModulesFromModule(
     }
     return {
         candidates: [...byId.values()],
+        assets: exportedAssets,
     };
 }
 
@@ -669,13 +685,18 @@ function bundleModuleAsset(
     );
 }
 
+interface LoadedModuleAssetFile {
+    module: TaintModule;
+    asset: AssetDocumentBase;
+}
+
 function loadModuleAssetFile(
     file: string,
     warnings: string[],
     onWarning?: (warning: string) => void,
     loadMode: AnalysisAssetLoadMode = "trusted-analysis",
     loadIssues?: ExtensionModuleLoadIssue[],
-): TaintModule | undefined {
+): LoadedModuleAssetFile | undefined {
     const modulePath = path.resolve(file);
     if (!fs.existsSync(modulePath) || !fs.statSync(modulePath).isFile()) {
         const message = `module asset file not found: ${modulePath}`;
@@ -691,7 +712,10 @@ function loadModuleAssetFile(
             loadIssues?.push(makeModuleAssetLoadIssue(modulePath, message, "MODULE_ASSET_INVALID_SHAPE"));
             return undefined;
         }
-        return bundleModuleAsset(parsed, modulePath, loadMode);
+        return {
+            module: bundleModuleAsset(parsed, modulePath, loadMode),
+            asset: parsed,
+        };
     } catch (error) {
         const message = String((error as any)?.message || error);
         pushLoaderWarning(warnings, onWarning, `failed to load module asset file ${modulePath}: ${message}`);
@@ -753,6 +777,24 @@ function registerModule(
         );
     }
     selectedModules.set(module.id, { module, source });
+}
+
+function registerLoadedModuleAsset(
+    loadedAssets: Map<string, AssetDocumentBase>,
+    asset: AssetDocumentBase,
+    warnings: string[],
+    onWarning?: (warning: string) => void,
+): void {
+    if (!asset?.id) return;
+    if (loadedAssets.has(asset.id)) {
+        pushLoaderWarning(
+            warnings,
+            onWarning,
+            `module asset id ${asset.id} loaded more than once; keeping first asset`,
+        );
+        return;
+    }
+    loadedAssets.set(asset.id, asset);
 }
 
 function describeModuleSource(source: ModuleSelectionSource): string {

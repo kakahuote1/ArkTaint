@@ -1,91 +1,32 @@
-import { createBuiltinModuleAsset, moduleInvokeSurface } from "../../moduleAssetHelpers";
+import { createBuiltinModuleAsset } from "../../moduleAssetHelpers";
+import { officialInvokeSurfaceFromId } from "../../moduleAssetHelpers";
 
-const harmonyWorkerTaskPoolModuleAsset = createBuiltinModuleAsset({
-    id: "harmony.worker_taskpool",
-    description: "Built-in Harmony Worker/TaskPool forward bridges.",
-    semanticsFamily: "harmony-worker-taskpool",
-    role: "handoff",
-    capability: "module.bridge",
-    surfaces: [
-        moduleInvokeSurface("harmony.worker_taskpool.Worker.postMessage", "Worker", "postMessage", 1, "instance", "@ohos.worker"),
-        moduleInvokeSurface("harmony.worker_taskpool.Worker.onMessage", "Worker", "onMessage", 1, "instance", "@ohos.worker"),
-        moduleInvokeSurface("harmony.worker_taskpool.taskpool.execute", "taskpool", "execute", 2, "namespace", "@ohos.taskpool"),
-    ],
-    payload: {
-        bridge: {
-            from: {
-                surface: {
-                    kind: "invoke",
-                    selector: {
-                        methodName: "postMessage",
-                        minArgs: 1,
-                        instanceOnly: true,
-                    },
-                },
-                slot: "arg",
-                index: 0,
-            },
-            to: {
-                surface: {
-                    kind: "invoke",
-                    selector: {
-                        methodName: "onMessage",
-                        minArgs: 1,
-                        instanceOnly: true,
-                    },
-                },
-                slot: "callback_param",
-                callbackArgIndex: 0,
-                paramIndex: 0,
-            },
-            constraints: [{ kind: "same_receiver" }],
-            emit: {
-                reason: "Harmony-WorkerTaskPool",
-                allowUnreachableTarget: true,
-            },
-            dispatch: {
-                reason: "Harmony-WorkerTaskPool",
-                preset: "callback_event",
-            },
-        },
-    },
-});
+const taskpoolExecuteCanonicalApiIds = [
+    "api:official:openharmony:module=%40ohos.taskpool:file=api%2F%40ohos.taskpool.d.ts:export=default%3Ataskpool:decl=namespace%3Ataskpool:member=function%3Aexecute:invoke=call:params=0%3A(...args%3A%20A)%20%3D%3E%20R%20%7C%20Promise%3CR%3E%2C1%3Arest%3AA:ret=Promise%3CR%3E",
+    "api:official:openharmony:module=%40ohos.taskpool:file=api%2F%40ohos.taskpool.d.ts:export=default%3Ataskpool:decl=namespace%3Ataskpool:member=function%3Aexecute:invoke=call:params=0%3AFunction%2C1%3Arest%3AObject%5B%5D:ret=Promise%3CObject%3E",
+];
 
-const harmonyTaskPoolExecuteModuleAsset = createBuiltinModuleAsset({
-    id: "harmony.taskpool_execute",
+const taskpoolExecuteAssets = taskpoolExecuteCanonicalApiIds.map((canonicalApiId, index) => createBuiltinModuleAsset({
+    id: `harmony.taskpool_execute.${String(index + 1).padStart(4, "0")}`,
     description: "Built-in Harmony TaskPool execute payload bridge.",
     semanticsFamily: "harmony-worker-taskpool",
     role: "handoff",
     capability: "module.bridge",
-    surfaces: [
-        moduleInvokeSurface("harmony.taskpool_execute.taskpool.execute", "taskpool", "execute", 2, "namespace", "@ohos.taskpool"),
-    ],
+    surfaces: [canonicalApiId].map(officialInvokeSurfaceFromId),
     payload: {
         bridge: {
             from: {
-                surface: {
-                    kind: "invoke",
-                    selector: {
-                        methodName: "execute",
-                        declaringClassIncludes: "taskpool",
-                        minArgs: 2,
-                    },
-                },
+                surface: { canonicalApiId },
                 slot: "arg",
                 index: 1,
+                rest: true,
             },
             to: {
-                surface: {
-                    kind: "invoke",
-                    selector: {
-                        methodName: "execute",
-                        declaringClassIncludes: "taskpool",
-                        minArgs: 2,
-                    },
-                },
+                surface: { canonicalApiId },
                 slot: "callback_param",
                 callbackArgIndex: 0,
                 paramIndex: 0,
+                rest: true,
             },
             emit: {
                 reason: "Harmony-WorkerTaskPool",
@@ -97,9 +38,6 @@ const harmonyTaskPoolExecuteModuleAsset = createBuiltinModuleAsset({
             },
         },
     },
-});
+}));
 
-export default [
-    harmonyWorkerTaskPoolModuleAsset,
-    harmonyTaskPoolExecuteModuleAsset,
-];
+export default taskpoolExecuteAssets;

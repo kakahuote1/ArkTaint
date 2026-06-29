@@ -4,49 +4,71 @@
   "status": "official",
   "surfaces": [
     {
-      "surfaceId": "surface.source.test.entry_param.taint_src",
-      "kind": "access",
-      "modulePath": "@arktaint/local",
-      "ownerName": "LocalBinding",
-      "propertyName": "source.test.entry_param.taint_src",
-      "accessKind": "read",
-      "receiverKind": "namespace",
-      "confidence": "likely",
+      "surfaceId": "surface.source.test.call_arg.taint.Source",
+      "kind": "invoke",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "context_sensitive/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=context_sensitive%2Ftaint_mock.ts:file=context_sensitive%2Ftaint_mock.ts:export=namespace%3Ataint:decl=namespace%3Ataint:member=function%3ASource:invoke=call:params=0%3Aany:ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "@context_sensitive/taint_mock.ts: ",
+            "declaringNamespacePath": [
+              "taint"
+            ],
+            "declaringClassName": "%dflt",
+            "methodName": "Source",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
       }
     },
     {
       "surfaceId": "surface.sink.test.method_name.Sink",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "Sink",
-      "invokeKind": "static",
-      "argCount": 1,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "context_sensitive/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=context_sensitive%2Ftaint_mock.ts:file=context_sensitive%2Ftaint_mock.ts:export=namespace%3Ataint:decl=namespace%3Ataint:member=function%3ASink:invoke=call:params=0%3Aany:ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "@context_sensitive/taint_mock.ts: ",
+            "declaringNamespacePath": [
+              "taint"
+            ],
+            "declaringClassName": "%dflt",
+            "methodName": "Sink",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
       }
     }
   ],
   "bindings": [
     {
-      "bindingId": "binding.source.test.entry_param.taint_src.0.method.argument_passing_001_T",
-      "surfaceId": "surface.source.test.entry_param.taint_src",
+      "bindingId": "binding.source.test.call_arg.taint.Source.arg0",
+      "surfaceId": "surface.source.test.call_arg.taint.Source",
       "assetId": "asset.rule.test.source_sink_only",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "argument_passing_001_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "argument_passing_001_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -54,156 +76,12 @@
         }
       },
       "effectTemplateRefs": [
-        "template.source.test.entry_param.taint_src.for.source.test.entry_param.taint_src.0.method.argument_passing_001_T"
+        "template.source.test.call_arg.taint.Source.arg0"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
-    },
-    {
-      "bindingId": "binding.source.test.entry_param.taint_src.0.method.argument_passing_002_F",
-      "surfaceId": "surface.source.test.entry_param.taint_src",
-      "assetId": "asset.rule.test.source_sink_only",
-      "plane": "rule",
-      "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "argument_passing_002_F",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "argument_passing_002_F.ets"
-          }
-        }
-      },
-      "endpoint": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "effectTemplateRefs": [
-        "template.source.test.entry_param.taint_src.for.source.test.entry_param.taint_src.0.method.argument_passing_002_F"
-      ],
-      "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
-    },
-    {
-      "bindingId": "binding.source.test.entry_param.taint_src.0.method.multi_invoke_001_T",
-      "surfaceId": "surface.source.test.entry_param.taint_src",
-      "assetId": "asset.rule.test.source_sink_only",
-      "plane": "rule",
-      "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "multi_invoke_001_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "multi_invoke_001_T.ets"
-          }
-        }
-      },
-      "endpoint": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "effectTemplateRefs": [
-        "template.source.test.entry_param.taint_src.for.source.test.entry_param.taint_src.0.method.multi_invoke_001_T"
-      ],
-      "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
-    },
-    {
-      "bindingId": "binding.source.test.entry_param.taint_src.0.method.multi_invoke_002_F",
-      "surfaceId": "surface.source.test.entry_param.taint_src",
-      "assetId": "asset.rule.test.source_sink_only",
-      "plane": "rule",
-      "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "multi_invoke_002_F",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "multi_invoke_002_F.ets"
-          }
-        }
-      },
-      "endpoint": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "effectTemplateRefs": [
-        "template.source.test.entry_param.taint_src.for.source.test.entry_param.taint_src.0.method.multi_invoke_002_F"
-      ],
-      "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
-    },
-    {
-      "bindingId": "binding.source.test.entry_param.taint_src.0.method.return_value_passing_001_T",
-      "surfaceId": "surface.source.test.entry_param.taint_src",
-      "assetId": "asset.rule.test.source_sink_only",
-      "plane": "rule",
-      "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "return_value_passing_001_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "return_value_passing_001_T.ets"
-          }
-        }
-      },
-      "endpoint": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "effectTemplateRefs": [
-        "template.source.test.entry_param.taint_src.for.source.test.entry_param.taint_src.0.method.return_value_passing_001_T"
-      ],
-      "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
-    },
-    {
-      "bindingId": "binding.source.test.entry_param.taint_src.0.method.return_value_passing_002_F",
-      "surfaceId": "surface.source.test.entry_param.taint_src",
-      "assetId": "asset.rule.test.source_sink_only",
-      "plane": "rule",
-      "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "return_value_passing_002_F",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "return_value_passing_002_F.ets"
-          }
-        }
-      },
-      "endpoint": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "effectTemplateRefs": [
-        "template.source.test.entry_param.taint_src.for.source.test.entry_param.taint_src.0.method.return_value_passing_002_F"
-      ],
-      "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=context_sensitive%2Ftaint_mock.ts:file=context_sensitive%2Ftaint_mock.ts:export=namespace%3Ataint:decl=namespace%3Ataint:member=function%3ASource:invoke=call:params=0%3Aany:ret=void"
     },
     {
       "bindingId": "binding.sink.test.method_name.Sink.0",
@@ -211,97 +89,46 @@
       "assetId": "asset.rule.test.source_sink_only",
       "plane": "rule",
       "role": "sink",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "Sink"
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
       },
       "effectTemplateRefs": [
         "template.sink.test.method_name.Sink"
       ],
       "semanticsFamily": "sink",
-      "completeness": "partial",
-      "confidence": "likely",
-      "metadata": {}
+      "completeness": "complete",
+      "confidence": "certain",
+      "metadata": {},
+      "canonicalApiId": "api:project:local:module=context_sensitive%2Ftaint_mock.ts:file=context_sensitive%2Ftaint_mock.ts:export=namespace%3Ataint:decl=namespace%3Ataint:member=function%3ASink:invoke=call:params=0%3Aany:ret=void"
     }
   ],
   "effectTemplates": [
     {
+      "id": "template.source.test.call_arg.taint.Source.arg0",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "call_arg"
+    },
+    {
       "id": "template.sink.test.method_name.Sink",
       "confidence": "certain",
       "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
       "sinkKind": "sink"
-    },
-    {
-      "id": "template.source.test.entry_param.taint_src.for.source.test.entry_param.taint_src.0.method.argument_passing_001_T",
-      "confidence": "certain",
-      "kind": "rule.source",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sourceKind": "entry_param"
-    },
-    {
-      "id": "template.source.test.entry_param.taint_src.for.source.test.entry_param.taint_src.0.method.argument_passing_002_F",
-      "confidence": "certain",
-      "kind": "rule.source",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sourceKind": "entry_param"
-    },
-    {
-      "id": "template.source.test.entry_param.taint_src.for.source.test.entry_param.taint_src.0.method.multi_invoke_001_T",
-      "confidence": "certain",
-      "kind": "rule.source",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sourceKind": "entry_param"
-    },
-    {
-      "id": "template.source.test.entry_param.taint_src.for.source.test.entry_param.taint_src.0.method.multi_invoke_002_F",
-      "confidence": "certain",
-      "kind": "rule.source",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sourceKind": "entry_param"
-    },
-    {
-      "id": "template.source.test.entry_param.taint_src.for.source.test.entry_param.taint_src.0.method.return_value_passing_001_T",
-      "confidence": "certain",
-      "kind": "rule.source",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sourceKind": "entry_param"
-    },
-    {
-      "id": "template.source.test.entry_param.taint_src.for.source.test.entry_param.taint_src.0.method.return_value_passing_002_F",
-      "confidence": "certain",
-      "kind": "rule.source",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sourceKind": "entry_param"
     }
   ],
   "provenance": {

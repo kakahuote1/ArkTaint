@@ -4,49 +4,202 @@
   "status": "official",
   "surfaces": [
     {
-      "surfaceId": "surface.source.harmony_watch.entry_param",
-      "kind": "access",
-      "modulePath": "@arktaint/local",
-      "ownerName": "LocalBinding",
-      "propertyName": "source.harmony_watch.entry_param",
-      "accessKind": "read",
-      "receiverKind": "namespace",
-      "confidence": "likely",
+      "surfaceId": "surface.source.harmony_watch.entry_param.method.watch_explicit_safe_sink_006_F",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_watch%2Fwatch_explicit_safe_sink_006_F.ets:file=harmony_watch%2Fwatch_explicit_safe_sink_006_F.ets:export=entry%3Acomponent.watch_explicit_safe_sink_006_F:decl=entry%3Acomponent.watch_explicit_safe_sink_006_F:member=lifecycle%3Atest.case.watch_explicit_safe_sink_006_F:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "harmony_watch/watch_explicit_safe_sink_006_F.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_watch/watch_explicit_safe_sink_006_F.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "watch_explicit_safe_sink_006_F",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony_watch.entry_param.method.watch_non_watched_path_007_F",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_watch%2Fwatch_non_watched_path_007_F.ets:file=harmony_watch%2Fwatch_non_watched_path_007_F.ets:export=entry%3Acomponent.watch_non_watched_path_007_F:decl=entry%3Acomponent.watch_non_watched_path_007_F:member=lifecycle%3Atest.case.watch_non_watched_path_007_F:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_watch/watch_non_watched_path_007_F.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_watch/watch_non_watched_path_007_F.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "watch_non_watched_path_007_F",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony_watch.entry_param.method.watch_trigger_001_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_watch%2Fwatch_trigger_001_T.ets:file=harmony_watch%2Fwatch_trigger_001_T.ets:export=entry%3Acomponent.watch_trigger_001_T:decl=entry%3Acomponent.watch_trigger_001_T:member=lifecycle%3Atest.case.watch_trigger_001_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_watch/watch_trigger_001_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_watch/watch_trigger_001_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "watch_trigger_001_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony_watch.entry_param.method.watch_trigger_002_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_watch%2Fwatch_trigger_002_T.ets:file=harmony_watch%2Fwatch_trigger_002_T.ets:export=entry%3Acomponent.watch_trigger_002_T:decl=entry%3Acomponent.watch_trigger_002_T:member=lifecycle%3Atest.case.watch_trigger_002_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_watch/watch_trigger_002_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_watch/watch_trigger_002_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "watch_trigger_002_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony_watch.entry_param.method.watch_trigger_003_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_watch%2Fwatch_trigger_003_T.ets:file=harmony_watch%2Fwatch_trigger_003_T.ets:export=entry%3Acomponent.watch_trigger_003_T:decl=entry%3Acomponent.watch_trigger_003_T:member=lifecycle%3Atest.case.watch_trigger_003_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_watch/watch_trigger_003_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_watch/watch_trigger_003_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "watch_trigger_003_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony_watch.entry_param.method.watch_trigger_004_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_watch%2Fwatch_trigger_004_T.ets:file=harmony_watch%2Fwatch_trigger_004_T.ets:export=entry%3Acomponent.watch_trigger_004_T:decl=entry%3Acomponent.watch_trigger_004_T:member=lifecycle%3Atest.case.watch_trigger_004_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_watch/watch_trigger_004_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_watch/watch_trigger_004_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "watch_trigger_004_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
       }
     },
     {
       "surfaceId": "surface.sink.harmony_watch.mock_sink",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "Sink",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "harmony_watch/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=harmony_watch%2Ftaint_mock.ts:file=harmony_watch%2Ftaint_mock.ts:export=namespace%3Ataint.%25dflt:decl=namespace%3Ataint.%25dflt:member=function%3ASink:invoke=call:params=0%3Aany:ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_watch/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "taint.%dflt",
+            "methodName": "Sink",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "void",
+            "staticFlag": true
+          }
+        }
       }
     }
   ],
   "bindings": [
     {
       "bindingId": "binding.source.harmony_watch.entry_param.0.method.watch_explicit_safe_sink_006_F",
-      "surfaceId": "surface.source.harmony_watch.entry_param",
+      "surfaceId": "surface.source.harmony_watch.entry_param.method.watch_explicit_safe_sink_006_F",
       "assetId": "asset.rule.test.harmony_watch",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "watch_explicit_safe_sink_006_F",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "watch_explicit_safe_sink_006_F.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -57,25 +210,16 @@
         "template.source.harmony_watch.entry_param.for.source.harmony_watch.entry_param.0.method.watch_explicit_safe_sink_006_F"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_watch%2Fwatch_explicit_safe_sink_006_F.ets:file=harmony_watch%2Fwatch_explicit_safe_sink_006_F.ets:export=entry%3Acomponent.watch_explicit_safe_sink_006_F:decl=entry%3Acomponent.watch_explicit_safe_sink_006_F:member=lifecycle%3Atest.case.watch_explicit_safe_sink_006_F:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony_watch.entry_param.0.method.watch_non_watched_path_007_F",
-      "surfaceId": "surface.source.harmony_watch.entry_param",
+      "surfaceId": "surface.source.harmony_watch.entry_param.method.watch_non_watched_path_007_F",
       "assetId": "asset.rule.test.harmony_watch",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "watch_non_watched_path_007_F",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "watch_non_watched_path_007_F.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -86,25 +230,16 @@
         "template.source.harmony_watch.entry_param.for.source.harmony_watch.entry_param.0.method.watch_non_watched_path_007_F"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_watch%2Fwatch_non_watched_path_007_F.ets:file=harmony_watch%2Fwatch_non_watched_path_007_F.ets:export=entry%3Acomponent.watch_non_watched_path_007_F:decl=entry%3Acomponent.watch_non_watched_path_007_F:member=lifecycle%3Atest.case.watch_non_watched_path_007_F:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony_watch.entry_param.0.method.watch_trigger_001_T",
-      "surfaceId": "surface.source.harmony_watch.entry_param",
+      "surfaceId": "surface.source.harmony_watch.entry_param.method.watch_trigger_001_T",
       "assetId": "asset.rule.test.harmony_watch",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "watch_trigger_001_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "watch_trigger_001_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -115,25 +250,16 @@
         "template.source.harmony_watch.entry_param.for.source.harmony_watch.entry_param.0.method.watch_trigger_001_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_watch%2Fwatch_trigger_001_T.ets:file=harmony_watch%2Fwatch_trigger_001_T.ets:export=entry%3Acomponent.watch_trigger_001_T:decl=entry%3Acomponent.watch_trigger_001_T:member=lifecycle%3Atest.case.watch_trigger_001_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony_watch.entry_param.0.method.watch_trigger_002_T",
-      "surfaceId": "surface.source.harmony_watch.entry_param",
+      "surfaceId": "surface.source.harmony_watch.entry_param.method.watch_trigger_002_T",
       "assetId": "asset.rule.test.harmony_watch",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "watch_trigger_002_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "watch_trigger_002_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -144,25 +270,16 @@
         "template.source.harmony_watch.entry_param.for.source.harmony_watch.entry_param.0.method.watch_trigger_002_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_watch%2Fwatch_trigger_002_T.ets:file=harmony_watch%2Fwatch_trigger_002_T.ets:export=entry%3Acomponent.watch_trigger_002_T:decl=entry%3Acomponent.watch_trigger_002_T:member=lifecycle%3Atest.case.watch_trigger_002_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony_watch.entry_param.0.method.watch_trigger_003_T",
-      "surfaceId": "surface.source.harmony_watch.entry_param",
+      "surfaceId": "surface.source.harmony_watch.entry_param.method.watch_trigger_003_T",
       "assetId": "asset.rule.test.harmony_watch",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "watch_trigger_003_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "watch_trigger_003_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -173,25 +290,16 @@
         "template.source.harmony_watch.entry_param.for.source.harmony_watch.entry_param.0.method.watch_trigger_003_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_watch%2Fwatch_trigger_003_T.ets:file=harmony_watch%2Fwatch_trigger_003_T.ets:export=entry%3Acomponent.watch_trigger_003_T:decl=entry%3Acomponent.watch_trigger_003_T:member=lifecycle%3Atest.case.watch_trigger_003_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony_watch.entry_param.0.method.watch_trigger_004_T",
-      "surfaceId": "surface.source.harmony_watch.entry_param",
+      "surfaceId": "surface.source.harmony_watch.entry_param.method.watch_trigger_004_T",
       "assetId": "asset.rule.test.harmony_watch",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "watch_trigger_004_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "watch_trigger_004_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -202,8 +310,9 @@
         "template.source.harmony_watch.entry_param.for.source.harmony_watch.entry_param.0.method.watch_trigger_004_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_watch%2Fwatch_trigger_004_T.ets:file=harmony_watch%2Fwatch_trigger_004_T.ets:export=entry%3Acomponent.watch_trigger_004_T:decl=entry%3Acomponent.watch_trigger_004_T:member=lifecycle%3Atest.case.watch_trigger_004_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.sink.harmony_watch.mock_sink.0",
@@ -211,10 +320,6 @@
       "assetId": "asset.rule.test.harmony_watch",
       "plane": "rule",
       "role": "sink",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "Sink"
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -225,24 +330,13 @@
         "template.sink.harmony_watch.mock_sink"
       ],
       "semanticsFamily": "sink",
-      "completeness": "partial",
-      "confidence": "likely",
-      "metadata": {}
+      "completeness": "complete",
+      "confidence": "certain",
+      "metadata": {},
+      "canonicalApiId": "api:project:local:module=harmony_watch%2Ftaint_mock.ts:file=harmony_watch%2Ftaint_mock.ts:export=namespace%3Ataint.%25dflt:decl=namespace%3Ataint.%25dflt:member=function%3ASink:invoke=call:params=0%3Aany:ret=void"
     }
   ],
   "effectTemplates": [
-    {
-      "id": "template.sink.harmony_watch.mock_sink",
-      "confidence": "certain",
-      "kind": "rule.sink",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sinkKind": "sink"
-    },
     {
       "id": "template.source.harmony_watch.entry_param.for.source.harmony_watch.entry_param.0.method.watch_explicit_safe_sink_006_F",
       "confidence": "certain",
@@ -314,6 +408,18 @@
         }
       },
       "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.sink.harmony_watch.mock_sink",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "sink"
     }
   ],
   "provenance": {

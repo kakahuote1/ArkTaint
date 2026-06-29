@@ -1,7 +1,12 @@
 import { Scene } from "../../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../../arkanalyzer/out/src/Config";
 import { loadRuleSet } from "../../core/rules/RuleLoader";
-import { buildEngineForCase, findCaseMethod, resolveCaseMethod } from "../helpers/SyntheticCaseHarness";
+import {
+    buildEngineForCase,
+    engineOptionsFromLoadedRuleSet,
+    findCaseMethod,
+    resolveCaseMethod,
+} from "../helpers/SyntheticCaseHarness";
 import * as path from "path";
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -16,7 +21,7 @@ async function main(): Promise<void> {
         kernelRulePath: path.resolve("src/models/kernel/rules/sinks/logging.rules.json"),
         projectRulePath: path.resolve("tests/rules/source_sink_only.rules.json"),
         allowMissingProject: false,
-        autoDiscoverLayers: false,
+        autoDiscoverRuleSources: false,
     });
 
     const sceneConfig = new SceneConfig();
@@ -29,7 +34,10 @@ async function main(): Promise<void> {
     const entryMethod = findCaseMethod(scene, entry);
     assert(entryMethod, "expected fixture entry method");
 
-    const engine = await buildEngineForCase(scene, 1, entryMethod, { verbose: false });
+    const engine = await buildEngineForCase(scene, 1, entryMethod, {
+        engineOptions: engineOptionsFromLoadedRuleSet(loaded),
+        verbose: false,
+    });
     const reachable = engine.computeReachableMethodSignatures();
     engine.setActiveReachableMethodSignatures(reachable);
     const seedInfo = engine.propagateWithSourceRules(loaded.ruleSet.sources || []);

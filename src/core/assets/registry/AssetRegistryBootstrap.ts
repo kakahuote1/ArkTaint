@@ -5,7 +5,7 @@ import {
     type AssetStatus,
     type TrustedAnalysisAssetStatus,
 } from "../schema/CommonTypes";
-import { createAssetSurfaceRegistry, type InMemoryAssetSurfaceRegistry } from "../schema/SurfaceIdentity";
+import { createAssetIdentityIndex, type AssetIdentityIndex } from "../schema/AssetIdentityIndex";
 
 export type TrustedCoverageAssetStatus = TrustedAnalysisAssetStatus;
 
@@ -13,6 +13,9 @@ export const TRUSTED_COVERAGE_ASSET_STATUSES: readonly TrustedCoverageAssetStatu
 
 export interface AssetRegistryBootstrapOptions {
     failOnInvalid?: boolean;
+    canonicalApiRegistry: {
+        has(canonicalApiId: string): boolean;
+    };
 }
 
 export interface SkippedBootstrapAsset {
@@ -27,7 +30,7 @@ export interface BootstrapValidationError {
 }
 
 export interface AssetRegistryBootstrapResult {
-    registry: InMemoryAssetSurfaceRegistry;
+    registry: AssetIdentityIndex;
     trustedAssetIds: string[];
     skippedAssets: SkippedBootstrapAsset[];
     validationErrors: BootstrapValidationError[];
@@ -37,11 +40,13 @@ export function isTrustedCoverageAssetStatus(status: AssetStatus): status is Tru
     return isTrustedAnalysisAssetStatus(status);
 }
 
-export function bootstrapAssetSurfaceRegistry(
+export function bootstrapAssetIdentityIndex(
     assets: readonly AssetDocumentBase[],
-    options: AssetRegistryBootstrapOptions = {},
+    options: AssetRegistryBootstrapOptions,
 ): AssetRegistryBootstrapResult {
-    const registry = createAssetSurfaceRegistry();
+    const registry = createAssetIdentityIndex({
+        canonicalApiRegistry: options.canonicalApiRegistry,
+    });
     const trustedAssetIds: string[] = [];
     const skippedAssets: SkippedBootstrapAsset[] = [];
     const validationErrors: BootstrapValidationError[] = [];
@@ -67,7 +72,26 @@ export function bootstrapAssetSurfaceRegistry(
             continue;
         }
 
-        registry.addAsset(asset);
+        try {
+            registry.addAsset(asset);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            const validationError = { assetId: asset.id, errors: [message] };
+            validationErrors.push(validationError);
+            if (failOnInvalid) {
+                throw new Error(`invalid trusted asset ${asset.id}: ${message}`);
+            }
+            continue;
+        }
+        const conflicts = registry.listConflicts().filter(item => item.assetIds.includes(asset.id));
+        if (conflicts.length > 0) {
+            const validationError = { assetId: asset.id, errors: conflicts.map(item => item.message) };
+            validationErrors.push(validationError);
+            if (failOnInvalid) {
+                throw new Error(`invalid trusted asset ${asset.id}: ${validationError.errors.join("; ")}`);
+            }
+            continue;
+        }
         trustedAssetIds.push(asset.id);
     }
 

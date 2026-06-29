@@ -6,66 +6,160 @@
     {
       "surfaceId": "surface.source.precision.call_return.source_return",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "SourceReturn",
-      "invokeKind": "static",
-      "argCount": 1,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "rule_precision_source/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=rule_precision_source%2Ftaint_mock.ts:file=rule_precision_source%2Ftaint_mock.ts:export=namespace%3Ataint.%25dflt:decl=namespace%3Ataint.%25dflt:member=function%3ASourceReturn:invoke=call:params=0%3Aany:ret=any",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_precision_source/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "taint.%dflt",
+            "methodName": "SourceReturn",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "any",
+            "staticFlag": true
+          }
+        }
       }
     },
     {
       "surfaceId": "surface.source.precision.call_arg.source_arg_arg1",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "SourceArg",
-      "invokeKind": "static",
-      "argCount": 2,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "rule_precision_source/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=rule_precision_source%2Ftaint_mock.ts:file=rule_precision_source%2Ftaint_mock.ts:export=namespace%3Ataint.%25dflt:decl=namespace%3Ataint.%25dflt:member=function%3ASourceArg:invoke=call:params=0%3Aany%2C1%3Aany:ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_precision_source/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "taint.%dflt",
+            "methodName": "SourceArg",
+            "parameterTypes": [
+              "any",
+              "any"
+            ],
+            "returnType": "void",
+            "staticFlag": true
+          }
+        }
       }
     },
     {
-      "surfaceId": "surface.source.precision.field_read.secret",
-      "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "h210c8933",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
+      "surfaceId": "surface.source.precision.field_read.secret.for.rule_precision_source_source_field_read_005_T_ets_dflt_source_field_read_005_T",
+      "kind": "access",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "rule_precision_source/source_field_read_005_T.ets"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=rule_precision_source%2Fsource_field_read_005_T.ets:file=rule_precision_source%2Fsource_field_read_005_T.ets:export=namespace%3A%25AC0%24%25dflt-source_field_read_005_T:decl=class%3A%25AC0%24%25dflt-source_field_read_005_T:member=property%3Asecret:invoke=property-read:params=none:ret=string",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_precision_source/source_field_read_005_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "source_field_read_005_T",
+            "parameterTypes": [],
+            "returnType": "SyntheticTaintValue",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.precision.field_read.secret.for.rule_precision_source_source_field_read_006_F_ets_dflt_source_field_read_006_F",
+      "kind": "access",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "rule_precision_source/source_field_read_006_F.ets"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=rule_precision_source%2Fsource_field_read_006_F.ets:file=rule_precision_source%2Fsource_field_read_006_F.ets:export=namespace%3A%25AC0%24%25dflt-source_field_read_006_F:decl=class%3A%25AC0%24%25dflt-source_field_read_006_F:member=property%3Asecret:invoke=property-read:params=none:ret=string",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_precision_source/source_field_read_006_F.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "source_field_read_006_F",
+            "parameterTypes": [],
+            "returnType": "SyntheticTaintValue",
+            "staticFlag": false
+          }
+        }
       }
     },
     {
       "surfaceId": "surface.source.precision.scope.call_return",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "SourceScope",
-      "invokeKind": "static",
-      "argCount": 1,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "rule_precision_source/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=rule_precision_source%2Ftaint_mock.ts:file=rule_precision_source%2Ftaint_mock.ts:export=namespace%3Ataint.%25dflt:decl=namespace%3Ataint.%25dflt:member=function%3ASourceScope:invoke=call:params=0%3Aany:ret=any",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_precision_source/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "taint.%dflt",
+            "methodName": "SourceScope",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "any",
+            "staticFlag": true
+          }
+        }
       }
     },
     {
       "surfaceId": "surface.sink.precision.method_name.sink",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "Sink",
-      "invokeKind": "static",
-      "argCount": 1,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "rule_precision_source/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=rule_precision_source%2Ftaint_mock.ts:file=rule_precision_source%2Ftaint_mock.ts:export=namespace%3Ataint.%25dflt:decl=namespace%3Ataint.%25dflt:member=function%3ASink:invoke=call:params=0%3Aany:ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_precision_source/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "taint.%dflt",
+            "methodName": "Sink",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "void",
+            "staticFlag": true
+          }
+        }
       }
     }
   ],
@@ -76,10 +170,6 @@
       "assetId": "asset.rule.test.source_precision",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "SourceReturn"
-      },
       "endpoint": {
         "base": {
           "kind": "return"
@@ -89,9 +179,10 @@
         "template.source.precision.call_return.source_return"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely",
-      "metadata": {}
+      "completeness": "complete",
+      "confidence": "certain",
+      "metadata": {},
+      "canonicalApiId": "api:project:local:module=rule_precision_source%2Ftaint_mock.ts:file=rule_precision_source%2Ftaint_mock.ts:export=namespace%3Ataint.%25dflt:decl=namespace%3Ataint.%25dflt:member=function%3ASourceReturn:invoke=call:params=0%3Aany:ret=any"
     },
     {
       "bindingId": "binding.source.precision.call_arg.source_arg_arg1.0",
@@ -99,10 +190,6 @@
       "assetId": "asset.rule.test.source_precision",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "SourceArg"
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -113,26 +200,17 @@
         "template.source.precision.call_arg.source_arg_arg1"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely",
-      "metadata": {}
+      "completeness": "complete",
+      "confidence": "certain",
+      "metadata": {},
+      "canonicalApiId": "api:project:local:module=rule_precision_source%2Ftaint_mock.ts:file=rule_precision_source%2Ftaint_mock.ts:export=namespace%3Ataint.%25dflt:decl=namespace%3Ataint.%25dflt:member=function%3ASourceArg:invoke=call:params=0%3Aany%2C1%3Aany:ret=void"
     },
     {
       "bindingId": "binding.source.precision.field_read.secret.0.method.source_field_read_005_T",
-      "surfaceId": "surface.source.precision.field_read.secret",
+      "surfaceId": "surface.source.precision.field_read.secret.for.rule_precision_source_source_field_read_005_T_ets_dflt_source_field_read_005_T",
       "assetId": "asset.rule.test.source_precision",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "source_field_read_005_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "source_field_read_005_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "return"
@@ -145,26 +223,17 @@
         "template.source.precision.field_read.secret.for.source.precision.field_read.secret.0.method.source_field_read_005_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely",
-      "metadata": {}
+      "completeness": "complete",
+      "confidence": "certain",
+      "metadata": {},
+      "canonicalApiId": "api:project:local:module=rule_precision_source%2Fsource_field_read_005_T.ets:file=rule_precision_source%2Fsource_field_read_005_T.ets:export=namespace%3A%25AC0%24%25dflt-source_field_read_005_T:decl=class%3A%25AC0%24%25dflt-source_field_read_005_T:member=property%3Asecret:invoke=property-read:params=none:ret=string"
     },
     {
       "bindingId": "binding.source.precision.field_read.secret.0.method.source_field_read_006_F",
-      "surfaceId": "surface.source.precision.field_read.secret",
+      "surfaceId": "surface.source.precision.field_read.secret.for.rule_precision_source_source_field_read_006_F_ets_dflt_source_field_read_006_F",
       "assetId": "asset.rule.test.source_precision",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "source_field_read_006_F",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "source_field_read_006_F.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "return"
@@ -177,9 +246,10 @@
         "template.source.precision.field_read.secret.for.source.precision.field_read.secret.0.method.source_field_read_006_F"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely",
-      "metadata": {}
+      "completeness": "complete",
+      "confidence": "certain",
+      "metadata": {},
+      "canonicalApiId": "api:project:local:module=rule_precision_source%2Fsource_field_read_006_F.ets:file=rule_precision_source%2Fsource_field_read_006_F.ets:export=namespace%3A%25AC0%24%25dflt-source_field_read_006_F:decl=class%3A%25AC0%24%25dflt-source_field_read_006_F:member=property%3Asecret:invoke=property-read:params=none:ret=string"
     },
     {
       "bindingId": "binding.source.precision.scope.call_return.0",
@@ -187,16 +257,6 @@
       "assetId": "asset.rule.test.source_precision",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "SourceScope",
-        "scope": {
-          "methodName": {
-            "mode": "equals",
-            "value": "source_scope_match_007_T"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "return"
@@ -206,9 +266,10 @@
         "template.source.precision.scope.call_return"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely",
-      "metadata": {}
+      "completeness": "complete",
+      "confidence": "certain",
+      "metadata": {},
+      "canonicalApiId": "api:project:local:module=rule_precision_source%2Ftaint_mock.ts:file=rule_precision_source%2Ftaint_mock.ts:export=namespace%3Ataint.%25dflt:decl=namespace%3Ataint.%25dflt:member=function%3ASourceScope:invoke=call:params=0%3Aany:ret=any"
     },
     {
       "bindingId": "binding.sink.precision.method_name.sink.0",
@@ -216,10 +277,6 @@
       "assetId": "asset.rule.test.source_precision",
       "plane": "rule",
       "role": "sink",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "Sink"
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -230,9 +287,10 @@
         "template.sink.precision.method_name.sink"
       ],
       "semanticsFamily": "sink",
-      "completeness": "partial",
-      "confidence": "likely",
-      "metadata": {}
+      "completeness": "complete",
+      "confidence": "certain",
+      "metadata": {},
+      "canonicalApiId": "api:project:local:module=rule_precision_source%2Ftaint_mock.ts:file=rule_precision_source%2Ftaint_mock.ts:export=namespace%3Ataint.%25dflt:decl=namespace%3Ataint.%25dflt:member=function%3ASink:invoke=call:params=0%3Aany:ret=void"
     }
   ],
   "effectTemplates": [
@@ -258,29 +316,6 @@
         }
       },
       "sourceKind": "call_arg"
-    },
-    {
-      "id": "template.source.precision.scope.call_return",
-      "confidence": "certain",
-      "kind": "rule.source",
-      "value": {
-        "base": {
-          "kind": "return"
-        }
-      },
-      "sourceKind": "call_return"
-    },
-    {
-      "id": "template.sink.precision.method_name.sink",
-      "confidence": "certain",
-      "kind": "rule.sink",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sinkKind": "sink"
     },
     {
       "id": "template.source.precision.field_read.secret.for.source.precision.field_read.secret.0.method.source_field_read_005_T",
@@ -309,6 +344,29 @@
         ]
       },
       "sourceKind": "field_read"
+    },
+    {
+      "id": "template.source.precision.scope.call_return",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "sourceKind": "call_return"
+    },
+    {
+      "id": "template.sink.precision.method_name.sink",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "sink"
     }
   ],
   "provenance": {

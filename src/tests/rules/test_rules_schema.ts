@@ -6,14 +6,14 @@ interface CliOptions {
     ruleCatalogPath?: string;
     projectRulePath?: string;
     candidateRulePath?: string;
-    autoDiscoverLayers?: boolean;
+    autoDiscoverRuleSources?: boolean;
     allowMissingProject?: boolean;
     allowMissingCandidate?: boolean;
 }
 
 function parseArgs(argv: string[]): CliOptions {
     const out: CliOptions = {
-        autoDiscoverLayers: true,
+        autoDiscoverRuleSources: true,
     };
 
     for (let i = 0; i < argv.length; i++) {
@@ -58,8 +58,8 @@ function parseArgs(argv: string[]): CliOptions {
             out.allowMissingCandidate = true;
             continue;
         }
-        if (arg === "--noAutoDiscoverLayers") {
-            out.autoDiscoverLayers = false;
+        if (arg === "--noAutoDiscoverRuleSources") {
+            out.autoDiscoverRuleSources = false;
             continue;
         }
     }
@@ -74,7 +74,7 @@ async function main(): Promise<void> {
         ruleCatalogPath: options.ruleCatalogPath,
         projectRulePath: options.projectRulePath,
         candidateRulePath: options.candidateRulePath,
-        autoDiscoverLayers: options.autoDiscoverLayers,
+        autoDiscoverRuleSources: options.autoDiscoverRuleSources,
         allowMissingProject: options.allowMissingProject,
         allowMissingCandidate: options.allowMissingCandidate,
     });
@@ -88,7 +88,7 @@ async function main(): Promise<void> {
     console.log(`rule_catalog=${loaded.ruleCatalogPath || "N/A"}`);
     console.log(`project=${loaded.projectRulePath || "N/A"}`);
     console.log(`candidate_rule=${loaded.candidateRulePath || "N/A"}`);
-    console.log(`applied_layers=${loaded.appliedLayerOrder.join(" -> ")}`);
+    console.log(`applied_rule_sources=${loaded.appliedRuleSources.join(" -> ")}`);
     console.log(`sources=${counts.sources}`);
     console.log(`sinks=${counts.sinks}`);
     console.log(`sanitizers=${counts.sanitizers}`);
@@ -123,8 +123,8 @@ async function main(): Promise<void> {
     if (loaded.kernelRulePath) {
         console.log(`resolved_kernel_rule=${path.resolve(loaded.kernelRulePath)}`);
     }
-    console.log("layer_status=");
-    for (const s of loaded.layerStatus) {
+    console.log("rule_source_status=");
+    for (const s of loaded.ruleSourceStatus) {
         console.log(`  ${s.name}: exists=${s.exists} applied=${s.applied} source=${s.source} path=${s.path}`);
     }
 }

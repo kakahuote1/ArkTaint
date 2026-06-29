@@ -1,123 +1,45 @@
-import { readAnalyzeSummary, runAnalyzeCli } from "../helpers/AnalyzeCliRunner";
-import { stringifyRuleAssetFixture } from "../helpers/RuleAssetFixtureFactory";
-import { resolveTestRunDir, resolveTestRunPath } from "../helpers/TestWorkspaceLayout";
 import * as fs from "fs";
 import * as path from "path";
+import type { AssetDocumentBase } from "../../core/assets/schema";
+import { lowerRuleAssetsToRuleSet } from "../../core/rules/RuleAssetLowering";
+import { loadRuleSet } from "../../core/rules/RuleLoader";
 
 function assert(condition: unknown, message: string): asserts condition {
-    if (!condition) throw new Error(message);
-}
-
-interface AnalyzeSummary {
-    summary: { totalFlows: number; withSeeds: number };
-    entries: Array<{
-        entryName: string;
-        status: string;
-        postsolveResults?: Array<{
-            flow: { sinkFactId?: string; sinkText: string };
-            evidenceSummary: { evidenceKinds: string[]; primaryReason?: string };
-            judgement: { kind: string };
-            paths: Array<{ judgement: { kind: string }; evidence: Array<{ kind: string }> }>;
-        }>;
-    }>;
-}
-
-function writeText(filePath: string, content: string): void {
-    fs.mkdirSync(path.dirname(filePath), { recursive: true });
-    fs.writeFileSync(filePath, content, "utf-8");
+    if (!condition) {
+        throw new Error(message);
+    }
 }
 
 async function main(): Promise<void> {
-    const root = resolveTestRunDir("analyze", "kernel_sanitizer_catalog");
-    const caseRoot = resolveTestRunPath("analyze", "kernel_sanitizer_catalog", "crypto_signature_result");
-    const repoRoot = path.join(caseRoot, "repo");
-    const outputDir = path.join(caseRoot, "out");
-    const sourceDir = path.join(repoRoot, "src", "main", "ets");
-    const rulePath = path.join(caseRoot, "kernel_sanitizer_catalog.rules.json");
+    const officialPath = path.resolve("src/models/kernel/rules/sanitizers/official_declarations.rules.json");
+    const officialAsset = JSON.parse(fs.readFileSync(officialPath, "utf-8")) as AssetDocumentBase;
+    const officialBindings = (officialAsset.bindings || []).filter(binding => binding.role === "sanitizer");
 
-    fs.rmSync(root, { recursive: true, force: true });
-
-    writeText(
-        path.join(sourceDir, "EntryAbility.ets"),
-        [
-            "import { UIAbility } from '@kit.AbilityKit';",
-            "",
-            "class Sign {",
-            "  signSync(v: string): string { return v; }",
-            "}",
-            "",
-            "function Out(_v: string): void {}",
-            "",
-            "export default class EntryAbility extends UIAbility {",
-            "  onCreate(taint_src: string): void {",
-            "    const signer = new Sign();",
-            "    const clean = signer.signSync(taint_src);",
-            "    Out(clean);",
-            "    Out(taint_src);",
-            "  }",
-            "}",
-            "",
-        ].join("\n"),
-    );
-
-    writeText(
-        rulePath,
-        stringifyRuleAssetFixture({
-            id: "asset.rule.fixture.kernel_sanitizer_catalog",
-            sources: [{
-                id: "source.fixture.kernel_sanitizer_catalog",
-                sourceKind: "entry_param",
-                match: { kind: "method_name_equals", value: "onCreate" },
-                target: "arg0",
-            }],
-            sinks: [{
-                id: "sink.fixture.kernel_sanitizer_catalog",
-                match: { kind: "method_name_equals", value: "Out" },
-                target: "arg0",
-            }],
-            sanitizers: [],
-            transfers: [{
-                id: "transfer.fixture.kernel_sanitizer_catalog.sign_sync_arg0_to_result",
-                match: { kind: "method_name_equals", value: "signSync" },
-                from: "arg0",
-                to: "result",
-            }],
-        }),
-    );
-
-    runAnalyzeCli([
-        "--repo", repoRoot,
-        "--sourceDir", ".",
-        "--project", rulePath,
-        "--reportMode", "full",
-        "--no-incremental",
-        "--k", "1",
-        "--outputDir", outputDir,
-    ]);
-
-    const report = readAnalyzeSummary<AnalyzeSummary>(outputDir);
-    const entry = report.entries.find(item => item.entryName === "@arkMain") || report.entries[0];
-    assert(report.summary.withSeeds > 0, "expected withSeeds > 0");
-    assert(entry?.status === "ok", `expected ok entry, got ${entry?.status}`);
-
-    const results = entry.postsolveResults || [];
-    const sanitized = results.find(item => item.evidenceSummary.evidenceKinds.includes("sanitizer_rule"));
-    assert(sanitized, `expected kernel sanitizer evidence, got ${JSON.stringify(results.map(item => item.evidenceSummary))}`);
+    assert(officialBindings.length === 11, `expected 11 official sanitizer audit records, got ${officialBindings.length}`);
     assert(
-        sanitized!.paths.some(pathResult =>
-            pathResult.judgement.kind === "Refuted-Strong"
-            && pathResult.evidence.some(evidence => evidence.kind === "sanitizer_rule")
-        ),
-        `expected at least one kernel-sanitized witness path, got ${JSON.stringify(sanitized!.paths)}`,
+        officialBindings.every(binding => binding.metadata?.enabled === false),
+        "official crypto sanitizer records must remain disabled after OSAN-002",
     );
+
+    const loweredOfficial = lowerRuleAssetsToRuleSet([officialAsset]).ruleSet.sanitizers || [];
+    assert(loweredOfficial.length === officialBindings.length, "lowering should preserve disabled sanitizer records for auditability");
     assert(
-        results.some(item => item.judgement.kind !== "Refuted-Strong"),
-        "expected raw unsanitized flow to survive",
+        loweredOfficial.every(rule => rule.enabled === false && rule.apiEffect?.role === "sanitizer"),
+        "lowered official sanitizer records must be disabled and keep sanitizer apiEffect identity",
     );
+
+    const loaded = loadRuleSet({
+        ruleCatalogPath: path.resolve("src/models"),
+        allowMissingProject: true,
+        allowMissingCandidate: true,
+    });
+    const activeOfficial = (loaded.ruleSet.sanitizers || [])
+        .filter(rule => rule.apiEffect?.assetId === officialAsset.id);
+    assert(activeOfficial.length === 0, `disabled official sanitizers must not load, got ${activeOfficial.length}`);
 
     console.log("PASS test_analyze_kernel_sanitizer_catalog");
-    console.log(`surviving_total_flows=${report.summary.totalFlows}`);
-    console.log(`postsolve_results=${results.length}`);
+    console.log(`official_sanitizer_audit_records=${officialBindings.length}`);
+    console.log(`active_official_sanitizers=${activeOfficial.length}`);
 }
 
 main().catch(error => {

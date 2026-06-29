@@ -357,10 +357,11 @@ export async function runAnalyzeCliCommand(options: CliOptions): Promise<void> {
     console.log(`stage_profile=${JSON.stringify(report.summary.stageProfile)}`);
     console.log(`memory_profile=${JSON.stringify(report.summary.memoryProfile)}`);
     console.log(`transfer_no_hit_reasons=${JSON.stringify(report.summary.transferNoHitReasons)}`);
+    console.log(`official_identity_coverage=${JSON.stringify(report.summary.officialIdentityCoverage)}`);
     if (report.summary.arkMainSeeds) {
         console.log(`arkmain_seeds=${JSON.stringify(report.summary.arkMainSeeds)}`);
     }
-    console.log(`rule_layers=${report.ruleLayers.join(" -> ")}`);
+    console.log(`rule_sources=${report.ruleSources.join(" -> ")}`);
     console.log(`summary_json=${jsonPath}`);
     console.log(`summary_md=${mdPath}`);
     console.log(`diagnostics_txt=${diagnosticsTextPath}`);

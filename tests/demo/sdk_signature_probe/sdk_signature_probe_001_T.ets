@@ -159,7 +159,7 @@ function sdk_signature_probe_001_T(userInput: string): void {
     });
     hub.emit("login", seed);
 
-    // HiLog sinks (A/B/C tiers)
+    // HiLog sinks
     const logA = new HiLog();
     logA.info(0, "probe", "%{public}s", seed);
     logA.error(0, "probe", "%{public}s", seed);
@@ -171,7 +171,7 @@ function sdk_signature_probe_001_T(userInput: string): void {
     const logConsole = new console();
     logConsole.log(seed);
 
-    // JSON transfers (A/B/C tiers)
+    // JSON transfers
     const jsonCodec = new JsonCodec();
     const serializedA = jsonCodec.stringify(params);
     const parsedA = jsonCodec.parse(serializedA);

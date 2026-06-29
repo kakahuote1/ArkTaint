@@ -4,49 +4,148 @@
   "status": "official",
   "surfaces": [
     {
-      "surfaceId": "surface.source.harmony.persistentstorage.entry_param",
-      "kind": "access",
-      "modulePath": "@arktaint/local",
-      "ownerName": "LocalBinding",
-      "propertyName": "source.harmony.persistentstorage.entry_param",
-      "accessKind": "read",
-      "receiverKind": "namespace",
-      "confidence": "likely",
+      "surfaceId": "surface.source.harmony.persistentstorage.entry_param.method.persistentstorage_relation_001_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_persistentstorage%2Fpersistentstorage_relation_001_T.ets:file=harmony_persistentstorage%2Fpersistentstorage_relation_001_T.ets:export=entry%3Acomponent.persistentstorage_relation_001_T:decl=entry%3Acomponent.persistentstorage_relation_001_T:member=lifecycle%3Atest.case.persistentstorage_relation_001_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "harmony_persistentstorage/persistentstorage_relation_001_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_persistentstorage/persistentstorage_relation_001_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "persistentstorage_relation_001_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.persistentstorage.entry_param.method.persistentstorage_relation_002_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_persistentstorage%2Fpersistentstorage_relation_002_T.ets:file=harmony_persistentstorage%2Fpersistentstorage_relation_002_T.ets:export=entry%3Acomponent.persistentstorage_relation_002_T:decl=entry%3Acomponent.persistentstorage_relation_002_T:member=lifecycle%3Atest.case.persistentstorage_relation_002_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_persistentstorage/persistentstorage_relation_002_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_persistentstorage/persistentstorage_relation_002_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "persistentstorage_relation_002_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.persistentstorage.entry_param.method.persistentstorage_relation_003_F",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_persistentstorage%2Fpersistentstorage_relation_003_F.ets:file=harmony_persistentstorage%2Fpersistentstorage_relation_003_F.ets:export=entry%3Acomponent.persistentstorage_relation_003_F:decl=entry%3Acomponent.persistentstorage_relation_003_F:member=lifecycle%3Atest.case.persistentstorage_relation_003_F:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_persistentstorage/persistentstorage_relation_003_F.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_persistentstorage/persistentstorage_relation_003_F.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "persistentstorage_relation_003_F",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.persistentstorage.entry_param.method.persistentstorage_relation_004_F",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_persistentstorage%2Fpersistentstorage_relation_004_F.ets:file=harmony_persistentstorage%2Fpersistentstorage_relation_004_F.ets:export=entry%3Acomponent.persistentstorage_relation_004_F:decl=entry%3Acomponent.persistentstorage_relation_004_F:member=lifecycle%3Atest.case.persistentstorage_relation_004_F:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_persistentstorage/persistentstorage_relation_004_F.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_persistentstorage/persistentstorage_relation_004_F.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "persistentstorage_relation_004_F",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
       }
     },
     {
       "surfaceId": "surface.sink.harmony.persistentstorage.mock_sink",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "Sink",
-      "invokeKind": "static",
-      "argCount": 1,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "harmony_persistentstorage/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=harmony_persistentstorage%2Ftaint_mock.ts:file=harmony_persistentstorage%2Ftaint_mock.ts:export=namespace%3Ataint.%25dflt:decl=namespace%3Ataint.%25dflt:member=function%3ASink:invoke=call:params=0%3Aany:ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_persistentstorage/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "taint.%dflt",
+            "methodName": "Sink",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "void",
+            "staticFlag": true
+          }
+        }
       }
     }
   ],
   "bindings": [
     {
       "bindingId": "binding.source.harmony.persistentstorage.entry_param.0.method.persistentstorage_relation_001_T",
-      "surfaceId": "surface.source.harmony.persistentstorage.entry_param",
+      "surfaceId": "surface.source.harmony.persistentstorage.entry_param.method.persistentstorage_relation_001_T",
       "assetId": "asset.rule.test.harmony_persistentstorage",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "persistentstorage_relation_001_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "persistentstorage_relation_001_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -57,25 +156,16 @@
         "template.source.harmony.persistentstorage.entry_param.for.source.harmony.persistentstorage.entry_param.0.method.persistentstorage_relation_001_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_persistentstorage%2Fpersistentstorage_relation_001_T.ets:file=harmony_persistentstorage%2Fpersistentstorage_relation_001_T.ets:export=entry%3Acomponent.persistentstorage_relation_001_T:decl=entry%3Acomponent.persistentstorage_relation_001_T:member=lifecycle%3Atest.case.persistentstorage_relation_001_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony.persistentstorage.entry_param.0.method.persistentstorage_relation_002_T",
-      "surfaceId": "surface.source.harmony.persistentstorage.entry_param",
+      "surfaceId": "surface.source.harmony.persistentstorage.entry_param.method.persistentstorage_relation_002_T",
       "assetId": "asset.rule.test.harmony_persistentstorage",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "persistentstorage_relation_002_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "persistentstorage_relation_002_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -86,25 +176,16 @@
         "template.source.harmony.persistentstorage.entry_param.for.source.harmony.persistentstorage.entry_param.0.method.persistentstorage_relation_002_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_persistentstorage%2Fpersistentstorage_relation_002_T.ets:file=harmony_persistentstorage%2Fpersistentstorage_relation_002_T.ets:export=entry%3Acomponent.persistentstorage_relation_002_T:decl=entry%3Acomponent.persistentstorage_relation_002_T:member=lifecycle%3Atest.case.persistentstorage_relation_002_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony.persistentstorage.entry_param.0.method.persistentstorage_relation_003_F",
-      "surfaceId": "surface.source.harmony.persistentstorage.entry_param",
+      "surfaceId": "surface.source.harmony.persistentstorage.entry_param.method.persistentstorage_relation_003_F",
       "assetId": "asset.rule.test.harmony_persistentstorage",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "persistentstorage_relation_003_F",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "persistentstorage_relation_003_F.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -115,25 +196,16 @@
         "template.source.harmony.persistentstorage.entry_param.for.source.harmony.persistentstorage.entry_param.0.method.persistentstorage_relation_003_F"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_persistentstorage%2Fpersistentstorage_relation_003_F.ets:file=harmony_persistentstorage%2Fpersistentstorage_relation_003_F.ets:export=entry%3Acomponent.persistentstorage_relation_003_F:decl=entry%3Acomponent.persistentstorage_relation_003_F:member=lifecycle%3Atest.case.persistentstorage_relation_003_F:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony.persistentstorage.entry_param.0.method.persistentstorage_relation_004_F",
-      "surfaceId": "surface.source.harmony.persistentstorage.entry_param",
+      "surfaceId": "surface.source.harmony.persistentstorage.entry_param.method.persistentstorage_relation_004_F",
       "assetId": "asset.rule.test.harmony_persistentstorage",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "persistentstorage_relation_004_F",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "persistentstorage_relation_004_F.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -144,8 +216,9 @@
         "template.source.harmony.persistentstorage.entry_param.for.source.harmony.persistentstorage.entry_param.0.method.persistentstorage_relation_004_F"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_persistentstorage%2Fpersistentstorage_relation_004_F.ets:file=harmony_persistentstorage%2Fpersistentstorage_relation_004_F.ets:export=entry%3Acomponent.persistentstorage_relation_004_F:decl=entry%3Acomponent.persistentstorage_relation_004_F:member=lifecycle%3Atest.case.persistentstorage_relation_004_F:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.sink.harmony.persistentstorage.mock_sink.0",
@@ -153,10 +226,6 @@
       "assetId": "asset.rule.test.harmony_persistentstorage",
       "plane": "rule",
       "role": "sink",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "Sink"
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -167,24 +236,13 @@
         "template.sink.harmony.persistentstorage.mock_sink"
       ],
       "semanticsFamily": "sink",
-      "completeness": "partial",
-      "confidence": "likely",
-      "metadata": {}
+      "completeness": "complete",
+      "confidence": "certain",
+      "metadata": {},
+      "canonicalApiId": "api:project:local:module=harmony_persistentstorage%2Ftaint_mock.ts:file=harmony_persistentstorage%2Ftaint_mock.ts:export=namespace%3Ataint.%25dflt:decl=namespace%3Ataint.%25dflt:member=function%3ASink:invoke=call:params=0%3Aany:ret=void"
     }
   ],
   "effectTemplates": [
-    {
-      "id": "template.sink.harmony.persistentstorage.mock_sink",
-      "confidence": "certain",
-      "kind": "rule.sink",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sinkKind": "sink"
-    },
     {
       "id": "template.source.harmony.persistentstorage.entry_param.for.source.harmony.persistentstorage.entry_param.0.method.persistentstorage_relation_001_T",
       "confidence": "certain",
@@ -232,6 +290,18 @@
         }
       },
       "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.sink.harmony.persistentstorage.mock_sink",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "sink"
     }
   ],
   "provenance": {

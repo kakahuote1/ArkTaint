@@ -2,10 +2,15 @@ import * as path from "path";
 import { Scene } from "../../../arkanalyzer/out/src/Scene";
 import { Pag } from "../../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
 import { TaintPropagationEngine } from "../../core/orchestration/TaintPropagationEngine";
+import type { TaintEngineOptions } from "../../core/orchestration/TaintPropagationEngine";
 import { TaintFlow } from "../../core/kernel/model/TaintFlow";
 import { loadEnginePlugins } from "../../core/orchestration/plugins/EnginePluginLoader";
 import { defineEnginePlugin } from "../../core/orchestration/plugins/EnginePlugin";
 import { buildTestScene } from "../helpers/TestSceneBuilder";
+import { createAssetIdentityIndex } from "../../core/assets/schema";
+import { createCanonicalApiRegistry } from "../../core/api/identity";
+import { projectApiEffectAssetFromMethod } from "../helpers/ApiEffectTestAssets";
+import type { SourceRule, SinkRule } from "../../core/rules/RuleSchema";
 
 function assert(condition: unknown, message: string): asserts condition {
     if (!condition) {
@@ -98,27 +103,87 @@ function findLocalObjectNodeId(scene: Scene, pag: Pag, methodName: string, local
     return undefined;
 }
 
-function sourceRule() {
+function findMethodSignature(scene: Scene, methodName: string): string {
+    const method = findMethodByName(scene, methodName);
+    assert(method, `method not found: ${methodName}`);
+    return method.getSignature().toString();
+}
+
+function sourceRule(scene: Scene): SourceRule {
+    const exact = projectApiEffectAssetFromMethod({
+        id: "engine-plugin.source",
+        role: "source",
+        method: requiredMethod(scene, "Source"),
+        endpoint: { base: { kind: "return" } },
+        sourceKind: "call_return",
+    });
     return {
         id: "source.fixture.rule",
         sourceKind: "call_return" as const,
         match: {
-            kind: "method_name_equals" as const,
-            value: "Source",
+            kind: "canonical_api_id_equals" as const,
+            value: exact.canonicalApiDescriptor.canonicalApiId,
         },
+        apiEffect: exact.apiEffect,
         target: "result" as const,
     };
 }
 
-function sinkRule() {
+function sinkRule(scene: Scene): SinkRule {
+    const exact = projectApiEffectAssetFromMethod({
+        id: "engine-plugin.sink",
+        role: "sink",
+        method: requiredMethod(scene, "Sink"),
+        endpoint: { base: { kind: "arg", index: 0 } },
+        sinkKind: "test",
+    });
     return {
         id: "sink.fixture.rule",
         match: {
-            kind: "method_name_equals" as const,
-            value: "Sink",
+            kind: "canonical_api_id_equals" as const,
+            value: exact.canonicalApiDescriptor.canonicalApiId,
         },
+        apiEffect: exact.apiEffect,
         target: "arg0" as const,
     };
+}
+
+function exactEngineOptions(scene: Scene, options: TaintEngineOptions = {}): TaintEngineOptions {
+    const source = projectApiEffectAssetFromMethod({
+        id: "engine-plugin.source",
+        role: "source",
+        method: requiredMethod(scene, "Source"),
+        endpoint: { base: { kind: "return" } },
+        sourceKind: "call_return",
+    });
+    const sink = projectApiEffectAssetFromMethod({
+        id: "engine-plugin.sink",
+        role: "sink",
+        method: requiredMethod(scene, "Sink"),
+        endpoint: { base: { kind: "arg", index: 0 } },
+        sinkKind: "test",
+    });
+    const assets = [source.asset, sink.asset, ...(options.apiAssets || [])];
+    const registry = createCanonicalApiRegistry([
+        source.canonicalApiDescriptor,
+        sink.canonicalApiDescriptor,
+    ]);
+    const assetIdentityIndex = createAssetIdentityIndex({ canonicalApiRegistry: registry });
+    for (const asset of assets) {
+        assetIdentityIndex.addAsset(asset);
+    }
+    return {
+        ...options,
+        apiAssets: assets,
+        canonicalApiRegistry: registry,
+        assetIdentityIndex,
+    };
+}
+
+function requiredMethod(scene: Scene, methodName: string): any {
+    const method = findMethodByName(scene, methodName);
+    assert(method, `method not found: ${methodName}`);
+    return method;
 }
 
 async function main(): Promise<void> {
@@ -182,7 +247,7 @@ async function main(): Promise<void> {
 
     {
         const scene = buildTestScene(projectDir);
-        const engine = new TaintPropagationEngine(scene, 1);
+        const engine = new TaintPropagationEngine(scene, 1, exactEngineOptions(scene));
         engine.verbose = false;
         await engine.buildPAG({ entryModel: "arkMain" });
         const reachable = engine.computeReachableMethodSignatures();
@@ -198,9 +263,9 @@ async function main(): Promise<void> {
 
     {
         const scene = buildTestScene(projectDir);
-        const engine = new TaintPropagationEngine(scene, 1, {
+        const engine = new TaintPropagationEngine(scene, 1, exactEngineOptions(scene, {
             enginePlugins: loadedPluginResult.plugins,
-        });
+        }));
         engine.verbose = false;
         await engine.buildPAG({ entryModel: "arkMain" });
         const reachable = engine.computeReachableMethodSignatures();
@@ -221,10 +286,10 @@ async function main(): Promise<void> {
 
     {
         const scene = buildTestScene(projectDir);
-        const engine = new TaintPropagationEngine(scene, 1, {
+        const engine = new TaintPropagationEngine(scene, 1, exactEngineOptions(scene, {
             enginePlugins: loadedPluginResult.plugins,
             pluginDryRun: true,
-        });
+        }));
         engine.verbose = false;
         await engine.buildPAG({ entryModel: "arkMain" });
         const reachable = engine.computeReachableMethodSignatures();
@@ -246,18 +311,18 @@ async function main(): Promise<void> {
                 throw new Error("broken-start");
             },
         });
-        const engine = new TaintPropagationEngine(scene, 1, {
+        const engine = new TaintPropagationEngine(scene, 1, exactEngineOptions(scene, {
             enginePlugins: [brokenStartPlugin],
-        });
+        }));
         engine.verbose = false;
         await engine.buildPAG({
             entryModel: "arkMain",
             syntheticEntryMethods: buildMethod ? [buildMethod] : undefined,
         });
         engine.setActiveReachableMethodSignatures(engine.computeReachableMethodSignatures());
-        const seeds = engine.propagateWithSourceRules([sourceRule()]);
+        const seeds = engine.propagateWithSourceRules([sourceRule(scene)]);
         assert(seeds.seedCount > 0, "broken start plugin should be isolated and baseline seeding should continue");
-        const findings = engine.detectSinksByRules([sinkRule()]);
+        const findings = engine.detectSinksByRules([sinkRule(scene)]);
         assert(findings.length > 0, "broken start plugin should not abort baseline detection");
         const pluginAudit = engine.getEnginePluginAuditSnapshot();
         assert(pluginAudit.failedPluginNames.includes("fixture.broken_start"), "engine plugin audit should expose failed plugin names");
@@ -293,16 +358,16 @@ async function main(): Promise<void> {
                 });
             },
         });
-        const engine = new TaintPropagationEngine(scene, 1, {
+        const engine = new TaintPropagationEngine(scene, 1, exactEngineOptions(scene, {
             enginePlugins: [observerPlugin],
-        });
+        }));
         engine.verbose = false;
         await engine.buildPAG({
             entryModel: "arkMain",
             syntheticEntryMethods: buildMethod ? [buildMethod] : undefined,
         });
         engine.setActiveReachableMethodSignatures(engine.computeReachableMethodSignatures());
-        engine.propagateWithSourceRules([sourceRule()]);
+        engine.propagateWithSourceRules([sourceRule(scene)]);
         const pluginAudit = engine.getEnginePluginAuditSnapshot();
         assert(
             pluginAudit.lastPropagationPhase?.taintFlowObserverCount === 1,
@@ -324,18 +389,18 @@ async function main(): Promise<void> {
                 });
             },
         });
-        const engine = new TaintPropagationEngine(scene, 1, {
+        const engine = new TaintPropagationEngine(scene, 1, exactEngineOptions(scene, {
             enginePlugins: [brokenObserverPlugin],
-        });
+        }));
         engine.verbose = false;
         await engine.buildPAG({
             entryModel: "arkMain",
             syntheticEntryMethods: buildMethod ? [buildMethod] : undefined,
         });
         engine.setActiveReachableMethodSignatures(engine.computeReachableMethodSignatures());
-        const seeds = engine.propagateWithSourceRules([sourceRule()]);
+        const seeds = engine.propagateWithSourceRules([sourceRule(scene)]);
         assert(seeds.seedCount > 0, "broken propagation observer should not stop baseline propagation");
-        const findings = engine.detectSinksByRules([sinkRule()]);
+        const findings = engine.detectSinksByRules([sinkRule(scene)]);
         assert(findings.length > 0, "broken propagation observer should not stop baseline findings");
         assert(failureCount === 1, "broken propagation observer should be disabled after its first failure");
         const pluginAudit = engine.getEnginePluginAuditSnapshot();
@@ -362,9 +427,9 @@ async function main(): Promise<void> {
                 });
             },
         });
-        const engine = new TaintPropagationEngine(scene, 1, {
+        const engine = new TaintPropagationEngine(scene, 1, exactEngineOptions(scene, {
             enginePlugins: [addCheckPlugin],
-        });
+        }));
         engine.verbose = false;
         await engine.buildPAG({
             entryModel: "arkMain",
@@ -384,18 +449,18 @@ async function main(): Promise<void> {
                 api.filter(() => null);
             },
         });
-        const engine = new TaintPropagationEngine(scene, 1, {
+        const engine = new TaintPropagationEngine(scene, 1, exactEngineOptions(scene, {
             enginePlugins: [filterPlugin],
-        });
+        }));
         engine.verbose = false;
         await engine.buildPAG({
             entryModel: "arkMain",
             syntheticEntryMethods: buildMethod ? [buildMethod] : undefined,
         });
         engine.setActiveReachableMethodSignatures(engine.computeReachableMethodSignatures());
-        const seeds = engine.propagateWithSourceRules([sourceRule()]);
+        const seeds = engine.propagateWithSourceRules([sourceRule(scene)]);
         assert(seeds.seedCount > 0, "expected fixture source rule to seed");
-        const findings = engine.detectSinksByRules([sinkRule()]);
+        const findings = engine.detectSinksByRules([sinkRule(scene)]);
         assert(findings.length === 0, "onResult.filter should remove default findings");
     }
 
@@ -420,14 +485,14 @@ async function main(): Promise<void> {
                 });
             },
         });
-        const withoutPlugin = new TaintPropagationEngine(scene, 1);
+        const withoutPlugin = new TaintPropagationEngine(scene, 1, exactEngineOptions(scene));
         withoutPlugin.verbose = false;
         await withoutPlugin.buildPAG({
             entryModel: "arkMain",
             syntheticEntryMethods: [manualFlowMethod],
         });
         withoutPlugin.setActiveReachableMethodSignatures(withoutPlugin.computeReachableMethodSignatures());
-        withoutPlugin.propagateWithSourceRules([sourceRule()]);
+        withoutPlugin.propagateWithSourceRules([sourceRule(scene)]);
         const baselineTargetNodeId = findLocalNodeId(scene, (withoutPlugin as any).pag as Pag, "manualFlowEntry", "this");
         assert(baselineTargetNodeId !== undefined, "expected manualFlowEntry this node");
         const baselineFacts = withoutPlugin.getObservedTaintFacts().get(baselineTargetNodeId) || [];
@@ -435,16 +500,16 @@ async function main(): Promise<void> {
 
         const pluginScene = buildTestScene(projectDir);
         const withPluginMethod = findMethodByName(pluginScene, "manualFlowEntry");
-        const withPlugin = new TaintPropagationEngine(pluginScene, 1, {
+        const withPlugin = new TaintPropagationEngine(pluginScene, 1, exactEngineOptions(pluginScene, {
             enginePlugins: [flowPlugin],
-        });
+        }));
         withPlugin.verbose = false;
         await withPlugin.buildPAG({
             entryModel: "arkMain",
             syntheticEntryMethods: withPluginMethod ? [withPluginMethod] : undefined,
         });
         withPlugin.setActiveReachableMethodSignatures(withPlugin.computeReachableMethodSignatures());
-        withPlugin.propagateWithSourceRules([sourceRule()]);
+        withPlugin.propagateWithSourceRules([sourceRule(pluginScene)]);
         const targetNodeId = findLocalNodeId(pluginScene, (withPlugin as any).pag as Pag, "manualFlowEntry", "this");
         assert(targetNodeId !== undefined, "expected manualFlowEntry this node");
         const facts = withPlugin.getObservedTaintFacts().get(targetNodeId) || [];
@@ -476,28 +541,28 @@ async function main(): Promise<void> {
                 });
             },
         });
-        const baseline = new TaintPropagationEngine(scene, 1);
+        const baseline = new TaintPropagationEngine(scene, 1, exactEngineOptions(scene));
         baseline.verbose = false;
         await baseline.buildPAG({
             entryModel: "arkMain",
             syntheticEntryMethods: [manualSyntheticMethod],
         });
         baseline.setActiveReachableMethodSignatures(baseline.computeReachableMethodSignatures());
-        baseline.propagateWithSourceRules([sourceRule()]);
+        baseline.propagateWithSourceRules([sourceRule(scene)]);
         const baselineTargetNodeId = findLocalNodeId(scene, (baseline as any).pag as Pag, "manualSyntheticEntry", "this");
         assert(baselineTargetNodeId !== undefined, "expected manualSyntheticEntry this node");
         const baselineFacts = baseline.getObservedTaintFacts().get(baselineTargetNodeId) || [];
         assert(baselineFacts.length === 0, "manualSyntheticEntry this node should be clean without plugin synthetic edge");
-        const engine = new TaintPropagationEngine(scene, 1, {
+        const engine = new TaintPropagationEngine(scene, 1, exactEngineOptions(scene, {
             enginePlugins: [syntheticPlugin],
-        });
+        }));
         engine.verbose = false;
         await engine.buildPAG({
             entryModel: "arkMain",
             syntheticEntryMethods: [manualSyntheticMethod],
         });
         engine.setActiveReachableMethodSignatures(engine.computeReachableMethodSignatures());
-        engine.propagateWithSourceRules([sourceRule()]);
+        engine.propagateWithSourceRules([sourceRule(scene)]);
         const targetNodeId = findLocalNodeId(scene, (engine as any).pag as Pag, "manualSyntheticEntry", "this");
         assert(targetNodeId !== undefined, "expected manualSyntheticEntry this node");
         const facts = engine.getObservedTaintFacts().get(targetNodeId) || [];
@@ -525,16 +590,16 @@ async function main(): Promise<void> {
                 });
             },
         });
-        const engine = new TaintPropagationEngine(scene, 1, {
+        const engine = new TaintPropagationEngine(scene, 1, exactEngineOptions(scene, {
             enginePlugins: [bridgePlugin],
-        });
+        }));
         engine.verbose = false;
         await engine.buildPAG({
             entryModel: "arkMain",
             syntheticEntryMethods: [manualBridgeMethod],
         });
         engine.setActiveReachableMethodSignatures(engine.computeReachableMethodSignatures());
-        engine.propagateWithSourceRules([sourceRule()]);
+        engine.propagateWithSourceRules([sourceRule(scene)]);
         const sinkNodeId = findSinkArgNodeId(scene, (engine as any).pag as Pag, "manualBridgeEntry");
         assert(sinkNodeId !== undefined, "expected manualBridgeEntry sink arg node");
         const facts = engine.getObservedTaintFacts().get(sinkNodeId) || [];
@@ -556,9 +621,9 @@ async function main(): Promise<void> {
                 api.replace(input => ({ visitedCount: input.visited.size }));
             },
         });
-        const engine = new TaintPropagationEngine(scene, 1, {
+        const engine = new TaintPropagationEngine(scene, 1, exactEngineOptions(scene, {
             enginePlugins: [replaceA, replaceB],
-        });
+        }));
         engine.verbose = false;
         await engine.buildPAG({
             entryModel: "arkMain",
@@ -567,7 +632,7 @@ async function main(): Promise<void> {
         engine.setActiveReachableMethodSignatures(engine.computeReachableMethodSignatures());
         let conflictCaught = false;
         try {
-            engine.propagateWithSourceRules([sourceRule()]);
+            engine.propagateWithSourceRules([sourceRule(scene)]);
         } catch (error) {
             conflictCaught = String(error).includes("engine plugin propagation replace conflict");
         }

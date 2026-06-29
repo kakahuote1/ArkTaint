@@ -1,15 +1,16 @@
 import { Scene } from "../../../../../arkanalyzer/out/src/Scene";
 import { createArkMainFactCollectionContext } from "./ArkMainFactContext";
+import { collectBuilderNodeBuildFacts } from "./ArkMainBuilderNodeBuildFactResolver";
 import { collectCallbackFacts } from "./ArkMainCallbackFactResolver";
 import { collectChannelHandoffFacts } from "./ArkMainChannelHandoffFactResolver";
 import { collectChannelFacts } from "./ArkMainChannelFactResolver";
+import { collectDecoratorQualifiedComponentFacts } from "./ArkMainDecoratorQualifiedComponentFactResolver";
 import { collectLifecycleFacts } from "./ArkMainLifecycleFactResolver";
 import { collectReactiveFacts } from "./ArkMainReactiveFactResolver";
 import { expandEntryMethodsByDirectCalls } from "../../shared/ExplicitEntryScopeResolver";
 import { collectSchedulerFacts } from "./ArkMainSchedulerFactResolver";
 import { ArkMainEntryFact, classifyArkMainFactOwnership } from "../ArkMainTypes";
 import { ArkMethod } from "../../../../../arkanalyzer/out/src/core/model/ArkMethod";
-import { collectProjectNavigationRegistryFacts } from "./ArkMainProjectNavigationRegistryResolver";
 
 export interface CollectArkMainEntryFactsOptions {
     externalFacts?: ArkMainEntryFact[];
@@ -27,16 +28,18 @@ export function collectArkMainEntryFacts(
     }
     const _t: Record<string, number> = {};
     let _s = Date.now();
+    collectDecoratorQualifiedComponentFacts(scene, context);
+    _t.decoratorComponent = Date.now() - _s; _s = Date.now();
     collectLifecycleFacts(scene, context);
     _t.lifecycle = Date.now() - _s; _s = Date.now();
     collectChannelHandoffFacts(scene, context);
     _t.handoff = Date.now() - _s; _s = Date.now();
     collectCallbackFacts(scene, context);
     _t.callback = Date.now() - _s; _s = Date.now();
+    collectBuilderNodeBuildFacts(scene, context);
+    _t.builderNodeBuild = Date.now() - _s; _s = Date.now();
     collectSchedulerFacts(scene, context);
     _t.scheduler = Date.now() - _s; _s = Date.now();
-    collectProjectNavigationRegistryFacts(scene, context);
-    _t.project_navigation_registry = Date.now() - _s; _s = Date.now();
     collectChannelFacts(scene, context);
     _t.channel = Date.now() - _s; _s = Date.now();
     collectReactiveFacts(scene, context);

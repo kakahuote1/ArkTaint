@@ -2,7 +2,6 @@ import type {
     AnalysisAssetLoadMode,
     AssetDocumentBase,
     AssetEndpoint,
-    CallbackLocator,
     AssetBinding,
     EndpointSelectorRef,
     RuleSourceTemplate,
@@ -10,9 +9,6 @@ import type {
     RuleSanitizerTemplate,
     RuleTransferTemplate,
     RuleValueRef,
-    RuntimeSelector,
-    RuntimeSelectorScope,
-    SelectorStringConstraint,
     SemanticEffectTemplate,
 } from "../assets/schema";
 import { isAnalysisLoadableAssetStatus } from "../assets/schema";
@@ -20,18 +16,21 @@ import type {
     RuleEndpoint,
     RuleEndpointRef,
     RuleEndpointOrRef,
-    RuleInvokeKind,
     RuleMatch,
-    RuleScopeConstraint,
-    RuleStringConstraint,
     SanitizerRule,
     SinkRule,
     SourceRule,
     TaintRuleSet,
     TransferRule,
 } from "./RuleSchema";
+import type { ApiEffectIdentity, ApiEffectRole } from "../api/ApiOccurrenceIdentity";
 
 type RuleTemplate = RuleSourceTemplate | RuleSinkTemplate | RuleSanitizerTemplate | RuleTransferTemplate;
+
+interface RuntimeApiGate {
+    kind: "canonical-api-id-equals";
+    value: string;
+}
 
 export interface RuleAssetLoweringResult {
     ruleSet: TaintRuleSet;
@@ -83,44 +82,34 @@ function lowerBindingTemplate(
     diagnostics: string[],
 ): void {
     if (!isRuleTemplate(template)) return;
-    const selector = resolveBindingSelector(asset, binding);
-    if (!selector) {
-        diagnostics.push(`${asset.id}:${binding.bindingId} has no runtime selector`);
+    const apiGate = resolveBindingApiGate(asset, binding);
+    if (!apiGate) {
+        diagnostics.push(`${asset.id}:${binding.bindingId} has no executable API gate`);
         return;
     }
-    const sourceCalleeScope = lowerScope(selector.calleeScope);
-    const nonSourceCalleeScope = lowerScope(selector.calleeScope);
-    const callerScope = lowerScope(selector.scope);
-    const transferScope = mergeScopes(callerScope, nonSourceCalleeScope);
     const common = {
         id: lowerRuleId(binding, template),
         enabled: binding.metadata?.enabled !== false,
         description: binding.metadata?.description,
         tags: binding.metadata?.tags,
-        layer: binding.metadata?.layer,
-        family: binding.metadata?.family,
-        tier: binding.metadata?.tier,
-        match: lowerSelector(selector),
+        family: binding.metadata?.family || binding.semanticsFamily,
+        match: lowerApiGate(apiGate),
         category: binding.metadata?.category || binding.semanticsFamily,
         severity: binding.metadata?.severity,
+        apiEffect: buildApiEffectIdentity(asset, binding, template),
     };
 
     switch (template.kind) {
         case "rule.source":
             ruleSet.sources.push({
                 ...common,
-                ...lowerSourceCallbackBinding(template.value, diagnostics, asset.id, binding.bindingId),
-                scope: callerScope,
                 sourceKind: template.sourceKind as SourceRule["sourceKind"],
                 target: lowerRuleValueRef(template.value),
-                calleeScope: sourceCalleeScope,
             });
             return;
         case "rule.sink":
             ruleSet.sinks.push({
                 ...common,
-                scope: callerScope,
-                calleeScope: nonSourceCalleeScope,
                 target: lowerOptionalRuleValueRef(template.value, binding.endpoint),
             });
             return;
@@ -128,72 +117,17 @@ function lowerBindingTemplate(
             ruleSet.sanitizers = ruleSet.sanitizers || [];
             ruleSet.sanitizers.push({
                 ...common,
-                scope: callerScope,
-                calleeScope: nonSourceCalleeScope,
                 target: lowerOptionalRuleValueRef(template.value, binding.endpoint),
             });
             return;
         case "rule.transfer":
             ruleSet.transfers.push({
                 ...common,
-                scope: transferScope,
                 from: lowerRuleValueRef(template.from),
                 to: lowerRuleValueRef(template.to),
             });
             return;
     }
-}
-
-function lowerSourceCallbackBinding(
-    value: RuleValueRef,
-    diagnostics: string[],
-    assetId: string,
-    bindingId: string,
-): Pick<SourceRule, "callbackArgIndexes" | "callbackFieldNames" | "callbackResolution"> {
-    const endpoint = endpointFromRuleValueRef(value);
-    if (!endpoint || endpoint.base.kind !== "callbackArg") {
-        return {};
-    }
-    const lowered = lowerCallbackLocator(endpoint.base.callback);
-    if (!lowered) {
-        diagnostics.push(`${assetId}:${bindingId} has unsupported callback locator for callback source`);
-        return {};
-    }
-    return lowered;
-}
-
-function endpointFromRuleValueRef(value: RuleValueRef): AssetEndpoint | undefined {
-    if (isEndpointSelectorRef(value)) {
-        return value.endpoint;
-    }
-    return value;
-}
-
-function lowerCallbackLocator(
-    locator: CallbackLocator,
-): Pick<SourceRule, "callbackArgIndexes" | "callbackFieldNames" | "callbackResolution"> | undefined {
-    if (locator.kind === "arg") {
-        return {
-            callbackArgIndexes: [locator.index],
-            callbackResolution: "direct_arg",
-        };
-    }
-    if (locator.kind === "option") {
-        const base = locator.base?.base;
-        if (base?.kind !== "arg") {
-            return undefined;
-        }
-        const callbackFieldName = locator.accessPath?.[locator.accessPath.length - 1];
-        if (!callbackFieldName) {
-            return undefined;
-        }
-        return {
-            callbackArgIndexes: [base.index],
-            callbackFieldNames: [callbackFieldName],
-            callbackResolution: "known_option",
-        };
-    }
-    return undefined;
 }
 
 function lowerRuleId(binding: AssetBinding, template: RuleTemplate): string {
@@ -214,6 +148,43 @@ function lowerRuleId(binding: AssetBinding, template: RuleTemplate): string {
     return `${binding.bindingId}:${template.id}`;
 }
 
+function buildApiEffectIdentity(
+    asset: AssetDocumentBase,
+    binding: AssetBinding,
+    template: SemanticEffectTemplate,
+): ApiEffectIdentity {
+    const surface = (asset.surfaces || []).find(item => item.surfaceId === binding.surfaceId);
+    if (!surface) {
+        throw new Error(`${asset.id}:${binding.bindingId} references missing surface ${binding.surfaceId}`);
+    }
+    if (!binding.canonicalApiId || binding.canonicalApiId !== surface.canonicalApiId) {
+        throw new Error(`${asset.id}:${binding.bindingId} canonicalApiId must exactly match surface ${binding.surfaceId}`);
+    }
+    return {
+        canonicalApiId: binding.canonicalApiId,
+        assetId: asset.id,
+        surfaceId: binding.surfaceId,
+        bindingId: binding.bindingId,
+        effectTemplateId: template.id,
+        role: apiEffectRoleFromBinding(binding),
+    };
+}
+
+function apiEffectRoleFromBinding(binding: AssetBinding): ApiEffectRole {
+    const role = binding.role;
+    if (
+        role === "source"
+        || role === "sink"
+        || role === "sanitizer"
+        || role === "transfer"
+    ) {
+        return role;
+    }
+    if (role === "entry") return "arkmain";
+    if (role === "handoff" || role === "callback-registration") return "module";
+    throw new Error(`${binding.bindingId} has unsupported API effect role ${String(role)}`);
+}
+
 function isRuleTemplate(template: SemanticEffectTemplate): template is RuleTemplate {
     return template.kind === "rule.source"
         || template.kind === "rule.sink"
@@ -228,310 +199,45 @@ function isAnalysisStatus(
     return isAnalysisLoadableAssetStatus(status, loadMode);
 }
 
-function resolveBindingSelector(asset: AssetDocumentBase, binding: AssetBinding): RuntimeSelector | undefined {
-    const surfaceSelector = selectorFromAssetSurface(asset, binding.surfaceId, binding.role);
-    if (!binding.selector) return surfaceSelector;
-    if (!surfaceSelector) return binding.selector;
-    if (!canMergeSelectorIdentity(binding.selector, surfaceSelector)) {
-        return binding.selector;
-    }
-    return mergeSelectorIdentity(binding.selector, surfaceSelector);
+function resolveBindingApiGate(asset: AssetDocumentBase, binding: AssetBinding): RuntimeApiGate | undefined {
+    return apiGateFromAssetSurface(asset, binding.surfaceId, binding.role, binding);
 }
 
-function canMergeSelectorIdentity(
-    selector: RuntimeSelector,
-    surfaceSelector: RuntimeSelector,
-): boolean {
-    if (selector.kind === "method-name-equals" && surfaceSelector.kind === "method-name-equals") {
-        return selector.value === surfaceSelector.value;
-    }
-    return false;
-}
-
-function mergeSelectorIdentity(
-    selector: RuntimeSelector,
-    surfaceSelector: RuntimeSelector,
-): RuntimeSelector {
-    const selectorInvokeKind = selector.invokeKind && selector.invokeKind !== "any"
-        ? selector.invokeKind
-        : undefined;
-    return {
-        ...selector,
-        calleeClass: selector.calleeClass || surfaceSelector.calleeClass,
-        invokeKind: selectorInvokeKind || surfaceSelector.invokeKind,
-        argCount: selector.argCount ?? surfaceSelector.argCount,
-        typeHint: selector.typeHint || surfaceSelector.typeHint,
-        scope: selector.scope || surfaceSelector.scope,
-        calleeScope: selector.calleeScope || surfaceSelector.calleeScope,
-    };
-}
-
-function selectorFromAssetSurface(
+function apiGateFromAssetSurface(
     asset: AssetDocumentBase,
     surfaceId: string,
     role?: AssetBinding["role"],
-): RuntimeSelector | undefined {
+    binding?: AssetBinding,
+): RuntimeApiGate | undefined {
+    void role;
     const surface = (asset.surfaces || []).find(item => item.surfaceId === surfaceId);
     if (!surface) return undefined;
-    if (surface.kind === "construct") {
-        return {
-            kind: "method-name-equals",
-            value: surface.className,
-            invokeKind: "any",
-            argCount: surface.argCount,
-            typeHint: surface.className,
-            calleeScope: {
-                className: { mode: "equals", value: surface.className },
-            },
-        };
+    const canonicalApiId = stableApiGateText(binding?.canonicalApiId);
+    if (!canonicalApiId || canonicalApiId !== surface.canonicalApiId) {
+        return undefined;
     }
-    if (surface.kind === "access") {
-        return {
-            kind: "field-name-equals",
-            value: surface.propertyName,
-            invokeKind: "any",
-            typeHint: surface.ownerName,
-            calleeScope: {
-                className: { mode: "equals", value: surface.ownerName },
-                methodName: { mode: "equals", value: surface.propertyName },
-            },
-        };
-    }
-    if (surface.kind !== "invoke") return undefined;
-    if (role === "source") {
-        const callerBackedFreeFunctionSelector = selectorFromCallerBackedFreeFunctionSurface(asset, surface, role);
-        if (callerBackedFreeFunctionSelector) {
-            return callerBackedFreeFunctionSelector;
-        }
-    }
-    const freeFunctionSelector = selectorFromSourceBackedFreeFunctionSurface(asset, surface, role);
-    if (freeFunctionSelector) {
-        return freeFunctionSelector;
-    }
-    if (surface.methodName) {
-        const calleeScope = calleeScopeFromInvokeSurface(asset, surface);
-        if (isRuntimeSelectorPlaceholderSurface(surface)) {
-            return {
-                kind: "method-name-equals",
-                value: surface.methodName,
-                invokeKind: runtimeInvokeKindFromInvokeSurface(surface, role),
-                argCount: runtimeArgCountFromInvokeSurface(asset, surface, role),
-            };
-        }
-        return {
-            kind: "method-name-equals",
-            value: surface.methodName,
-            invokeKind: runtimeInvokeKindFromInvokeSurface(surface, role),
-            argCount: runtimeArgCountFromInvokeSurface(asset, surface, role),
-            typeHint: surface.ownerName,
-            calleeScope,
-        };
-    }
-    if (surface.functionName) {
-        return {
-            kind: "method-name-equals",
-            value: surface.functionName,
-            invokeKind: runtimeInvokeKindFromInvokeSurface(surface, role),
-            argCount: runtimeArgCountFromInvokeSurface(asset, surface, role),
-            typeHint: surface.functionName,
-            calleeScope: calleeScopeFromFreeFunctionSurface(surface),
-        };
-    }
-    return undefined;
-}
-
-function isRuntimeSelectorPlaceholderSurface(surface: any): boolean {
-    return surface?.modulePath === "@arktaint/runtime-selector"
-        && surface?.ownerName === "RuntimeSelector";
-}
-
-function calleeScopeFromFreeFunctionSurface(surface: any): RuntimeSelectorScope | undefined {
-    const moduleText = runtimeModuleTextFromSurfaceModulePath(stableSelectorText(surface.modulePath));
-    if (!moduleText) return undefined;
     return {
-        module: {
-            mode: "contains",
-            value: moduleText.replace(/\\/g, "/"),
-        },
+        kind: "canonical-api-id-equals",
+        value: canonicalApiId,
     };
 }
 
-function runtimeModuleTextFromSurfaceModulePath(modulePath: string | undefined): string | undefined {
-    const raw = stableSelectorText(modulePath);
-    if (!raw) return undefined;
-    const normalized = raw.replace(/\\/g, "/");
-    if (normalized.startsWith("api/@") && normalized.endsWith(".d.ts")) {
-        return normalized.slice("api/".length, -".d.ts".length);
-    }
-    return normalized;
-}
-
-function runtimeArgCountFromInvokeSurface(
-    asset: AssetDocumentBase,
-    surface: any,
-    role?: AssetBinding["role"],
-): number | undefined {
-    if (isSemanticFlowGeneratedProjectAsset(asset, surface) && (role === "source" || role === "sink" || role === "sanitizer")) {
-        return undefined;
-    }
-    return surface.argCount;
-}
-
-function calleeScopeFromInvokeSurface(asset: AssetDocumentBase, surface: any): RuntimeSelectorScope | undefined {
-    const scope: RuntimeSelectorScope = {};
-    if (surface.ownerName) {
-        scope.className = { mode: "equals", value: surface.ownerName };
-    }
-    if (isSemanticFlowGeneratedProjectAsset(asset, surface)) {
-        const fileAnchor = normalizeSourceFileAnchor(stableSelectorText(surface.modulePath));
-        if (fileAnchor && fileAnchor.endsWith(".ets")) {
-            scope.file = { mode: "contains", value: fileAnchor };
-        }
-    }
-    return Object.keys(scope).length > 0 ? scope : undefined;
-}
-
-function isSemanticFlowGeneratedProjectAsset(asset: AssetDocumentBase, surface: any): boolean {
-    return asset.provenance?.source === "llm"
-        && (asset.status === "schema-valid" || asset.status === "llm-generated" || asset.status === "candidate")
-        && surface?.provenance?.source === "llm-proposal";
-}
-
-function selectorFromCallerBackedFreeFunctionSurface(
-    asset: AssetDocumentBase,
-    surface: any,
-    role?: AssetBinding["role"],
-): RuntimeSelector | undefined {
-    if (surface.invokeKind !== "free-function") {
-        return undefined;
-    }
-    const functionName = stableSelectorText(surface.functionName);
-    if (!functionName) {
-        return undefined;
-    }
-    const calleeFileAnchor = normalizeSourceFileAnchor(stableSelectorText(surface.modulePath));
-    const callerFileAnchor = normalizeSourceFileAnchor(stableSelectorText(surface.provenance?.location?.file));
-    if (!callerFileAnchor || !callerFileAnchor.endsWith(".ets")) {
-        return undefined;
-    }
-    if (calleeFileAnchor && callerFileAnchor === calleeFileAnchor) {
-        return undefined;
-    }
-        return {
-            kind: "method-name-equals",
-            value: functionName,
-            invokeKind: runtimeInvokeKindFromInvokeSurface(surface, role),
-            argCount: runtimeArgCountFromInvokeSurface(asset, surface, role),
-            typeHint: functionName,
-            scope: {
-            file: {
-                mode: "contains",
-                value: callerFileAnchor,
-            },
-        },
-    };
-}
-
-function selectorFromSourceBackedFreeFunctionSurface(
-    asset: AssetDocumentBase,
-    surface: any,
-    role?: AssetBinding["role"],
-): RuntimeSelector | undefined {
-    if (surface.invokeKind !== "free-function") {
-        return undefined;
-    }
-    const functionName = stableSelectorText(surface.functionName);
-    if (!functionName) {
-        return undefined;
-    }
-    const exactRuntimeSignature = runtimeMethodSignatureFromSurface(surface);
-    if (exactRuntimeSignature) {
-        return {
-            kind: "signature-equals",
-            value: exactRuntimeSignature,
-            invokeKind: runtimeInvokeKindFromInvokeSurface(surface, role),
-            argCount: runtimeArgCountFromInvokeSurface(asset, surface, role),
-            typeHint: functionName,
-        };
-    }
-    const fileAnchor = normalizeSourceFileAnchor(
-        stableSelectorText(surface.modulePath)
-            || stableSelectorText(surface.provenance?.location?.file)
-    );
-    if (!fileAnchor || !fileAnchor.endsWith(".ets")) {
-        return undefined;
-    }
-        return {
-            kind: "method-name-equals",
-            value: functionName,
-            invokeKind: runtimeInvokeKindFromInvokeSurface(surface, role),
-            argCount: runtimeArgCountFromInvokeSurface(asset, surface, role),
-            typeHint: functionName,
-            calleeScope: {
-            file: {
-                mode: "contains",
-                value: fileAnchor,
-            },
-        },
-    };
-}
-
-function runtimeMethodSignatureFromSurface(surface: any): string | undefined {
-    const signature = stableSelectorText(surface.signatureId);
-    if (!signature) {
-        return undefined;
-    }
-    return looksLikeRuntimeMethodSignature(signature) ? signature : undefined;
-}
-
-function looksLikeRuntimeMethodSignature(value: string): boolean {
-    return value.includes(":")
-        && value.includes(".")
-        && value.includes("(")
-        && value.includes(")");
-}
-
-function normalizeSourceFileAnchor(value: string | undefined): string | undefined {
-    const normalized = String(value || "").replace(/\\/g, "/").replace(/^@/, "").trim();
-    if (!normalized) {
-        return undefined;
-    }
-    const etsIndex = normalized.indexOf("/ets/");
-    if (etsIndex >= 0) {
-        return normalized.slice(etsIndex + 1);
-    }
-    if (normalized.startsWith("ets/")) {
-        return normalized;
-    }
-    return normalized;
-}
-
-function stableSelectorText(value: unknown): string | undefined {
+function stableApiGateText(value: unknown): string | undefined {
     const text = String(value || "").trim();
     return text.length > 0 && !text.includes("%unk") && !text.includes("@unk") ? text : undefined;
 }
 
-function lowerSelector(selector: RuntimeSelector): RuleMatch {
-    const kindMap: Record<RuntimeSelector["kind"], RuleMatch["kind"]> = {
-        "signature-equals": "signature_equals",
-        "declaring-class-equals": "declaring_class_equals",
-        "method-name-equals": "method_name_equals",
-        "field-name-equals": "field_name_equals",
-    };
+function lowerApiGate(apiGate: RuntimeApiGate): RuleMatch {
     return {
-        kind: kindMap[selector.kind],
-        value: selector.value,
-        calleeClass: lowerStringConstraint(selector.calleeClass),
-        invokeKind: selector.invokeKind ? lowerInvokeKind(selector.invokeKind) : undefined,
-        argCount: selector.argCount,
-        typeHint: selector.typeHint,
+        kind: "canonical_api_id_equals",
+        value: apiGate.value,
     };
 }
 
 function lowerRuleValueRef(ref: RuleValueRef): RuleEndpointOrRef {
     if (isEndpointSelectorRef(ref)) {
         const endpoint = lowerAssetEndpoint(ref.endpoint);
-        if (typeof endpoint !== "object" && !ref.pathFrom && !ref.slotKind && !ref.taintScope) {
+        if (typeof endpoint !== "object" && !ref.pathFrom && !ref.slotKind && !ref.slotWriteMode && !ref.taintScope) {
             return endpoint;
         }
         const out = typeof endpoint === "object" ? { ...endpoint } : { endpoint };
@@ -545,6 +251,9 @@ function lowerRuleValueRef(ref: RuleValueRef): RuleEndpointOrRef {
         }
         if (ref.slotKind) {
             out.slotKind = ref.slotKind;
+        }
+        if (ref.slotWriteMode) {
+            out.slotWriteMode = ref.slotWriteMode;
         }
         if (ref.taintScope) {
             out.taintScope = ref.taintScope;
@@ -578,12 +287,20 @@ function lowerAssetEndpoint(endpoint: AssetEndpoint): RuleEndpointOrRef {
             semanticEndpointKind = "promiseResult";
             lowered = "result";
             break;
+        case "promiseRejected":
+            semanticEndpointKind = "promiseRejected";
+            lowered = "result";
+            break;
         case "constructorResult":
             semanticEndpointKind = "constructorResult";
             lowered = "result";
             break;
         case "arg":
             lowered = `arg${base.index}` as RuleEndpoint;
+            break;
+        case "rest":
+            semanticEndpointKind = "rest";
+            lowered = `arg${base.startIndex}` as RuleEndpoint;
             break;
         case "callbackArg":
             lowered = `arg${base.argIndex}` as RuleEndpoint;
@@ -595,10 +312,11 @@ function lowerAssetEndpoint(endpoint: AssetEndpoint): RuleEndpointOrRef {
         default:
             lowered = "result";
     }
-    if ((endpoint.accessPath && endpoint.accessPath.length > 0) || semanticEndpointKind) {
+    if ((endpoint.accessPath && endpoint.accessPath.length > 0) || semanticEndpointKind || endpoint.taintScope) {
         return {
             endpoint: lowered,
             path: endpoint.accessPath && endpoint.accessPath.length > 0 ? [...endpoint.accessPath] : undefined,
+            taintScope: endpoint.taintScope,
             semanticEndpointKind,
         };
     }
@@ -607,70 +325,4 @@ function lowerAssetEndpoint(endpoint: AssetEndpoint): RuleEndpointOrRef {
 
 function isEndpointSelectorRef(ref: RuleValueRef): ref is EndpointSelectorRef {
     return typeof (ref as EndpointSelectorRef).endpoint === "object";
-}
-
-function lowerScope(scope: RuntimeSelectorScope | undefined): RuleScopeConstraint | undefined {
-    if (!scope) return undefined;
-    const lowered: RuleScopeConstraint = {
-        file: lowerStringConstraint(scope.file),
-        module: lowerStringConstraint(scope.module),
-        className: lowerStringConstraint(scope.className),
-        methodName: lowerStringConstraint(scope.methodName),
-        methodDecorators: scope.methodDecorators?.map(lowerStringConstraint).filter((item): item is RuleStringConstraint => !!item),
-    };
-    return Object.values(lowered).some(value => value !== undefined) ? lowered : undefined;
-}
-
-function mergeScopes(...scopes: Array<RuleScopeConstraint | undefined>): RuleScopeConstraint | undefined {
-    const merged: RuleScopeConstraint = {};
-    for (const scope of scopes) {
-        if (!scope) continue;
-        if (scope.file) merged.file = scope.file;
-        if (scope.module) merged.module = scope.module;
-        if (scope.className) merged.className = scope.className;
-        if (scope.methodName) merged.methodName = scope.methodName;
-        if (scope.methodDecorators && scope.methodDecorators.length > 0) {
-            merged.methodDecorators = scope.methodDecorators;
-        }
-    }
-    return Object.values(merged).some(value => value !== undefined) ? merged : undefined;
-}
-
-function lowerStringConstraint(value: SelectorStringConstraint | undefined): RuleStringConstraint | undefined {
-    if (!value) return undefined;
-    return {
-        mode: value.mode,
-        value: value.value,
-    };
-}
-
-function lowerInvokeKind(kind: RuntimeSelector["invokeKind"]): RuleInvokeKind | undefined {
-    if (!kind) return undefined;
-    return kind;
-}
-
-function toRuntimeInvokeKind(kind: string): RuntimeSelector["invokeKind"] {
-    if (kind === "instance" || kind === "static") return kind;
-    if (kind === "free-function" || kind === "namespace") return "static";
-    return "any";
-}
-
-function runtimeInvokeKindFromInvokeSurface(
-    surface: any,
-    role?: AssetBinding["role"],
-): RuntimeSelector["invokeKind"] {
-    if (
-        role === "source"
-        &&
-        surface?.invokeKind === "free-function"
-        && isOfficialSdkDeclarationModulePath(surface?.modulePath)
-    ) {
-        return "any";
-    }
-    return toRuntimeInvokeKind(surface?.invokeKind);
-}
-
-function isOfficialSdkDeclarationModulePath(modulePath: unknown): boolean {
-    const normalized = stableSelectorText(modulePath)?.replace(/\\/g, "/") || "";
-    return normalized.startsWith("api/@") && normalized.endsWith(".d.ts");
 }

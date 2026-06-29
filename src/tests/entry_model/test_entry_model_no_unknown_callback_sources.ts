@@ -5,6 +5,7 @@ import { SceneConfig } from "../../../arkanalyzer/out/src/Config";
 import { TaintPropagationEngine } from "../../core/orchestration/TaintPropagationEngine";
 import { SinkRule } from "../../core/rules/RuleSchema";
 import { registerMockSdkFiles } from "../helpers/TestSceneBuilder";
+import { projectApiEffectAssetFromMethod } from "../helpers/ApiEffectTestAssets";
 
 interface CaseSpec {
     caseName: string;
@@ -47,13 +48,26 @@ function buildScene(projectDir: string): Scene {
     return scene;
 }
 
+function findMethod(scene: Scene, methodName: string) {
+    const method = scene.getMethods().find(item => item.getName?.() === methodName);
+    assert(!!method, `method not found: ${methodName}`);
+    return method;
+}
+
 async function runCase(projectDir: string): Promise<{
     autoEntrySourceCount: number;
     seedCount: number;
     flowCount: number;
 }> {
     const scene = buildScene(projectDir);
-    const engine = new TaintPropagationEngine(scene, 1);
+    const sinkEffect = projectApiEffectAssetFromMethod({
+        id: "sink.unknown_callback.arg0",
+        role: "sink",
+        method: findMethod(scene, "Sink"),
+        endpoint: { base: { kind: "arg", index: 0 } },
+        sinkKind: "test",
+    });
+    const engine = new TaintPropagationEngine(scene, 1, { apiAssets: [sinkEffect.asset] });
     engine.verbose = false;
     await engine.buildPAG({ entryModel: "arkMain" });
 
@@ -61,7 +75,8 @@ async function runCase(projectDir: string): Promise<{
     const sinkRules: SinkRule[] = [{
         id: "sink.unknown_callback.arg0",
         target: { endpoint: "arg0" },
-        match: { kind: "method_name_equals", value: "Sink" },
+        match: { kind: "canonical_api_id_equals", value: sinkEffect.canonicalApiDescriptor.canonicalApiId },
+        apiEffect: sinkEffect.apiEffect,
     }];
     const flows = engine.detectSinksByRules(sinkRules);
     return {

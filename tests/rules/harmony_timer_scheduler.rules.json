@@ -6,40 +6,361 @@
     {
       "surfaceId": "surface.source.harmony.timer.mock_source_return",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "Source",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "harmony_timer_scheduler/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=harmony_timer_scheduler%2Ftaint_mock.ts:file=harmony_timer_scheduler%2Ftaint_mock.ts:export=namespace%3Ataint.%25dflt:decl=namespace%3Ataint.%25dflt:member=function%3ASource:invoke=call:params=none:ret=string",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_timer_scheduler/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "taint.%dflt",
+            "methodName": "Source",
+            "parameterTypes": [],
+            "returnType": "string",
+            "staticFlag": true
+          }
+        }
       }
     },
     {
-      "surfaceId": "surface.source.harmony.timer.entry_param",
-      "kind": "access",
-      "modulePath": "@arktaint/local",
-      "ownerName": "LocalBinding",
-      "propertyName": "source.harmony.timer.entry_param",
-      "accessKind": "read",
-      "receiverKind": "namespace",
-      "confidence": "likely",
+      "surfaceId": "surface.source.harmony.timer.entry_param.method.timer_microtask_build_009_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_timer_scheduler%2Ftimer_microtask_build_009_T.ets:file=harmony_timer_scheduler%2Ftimer_microtask_build_009_T.ets:export=entry%3Acomponent.timer_microtask_build_009_T:decl=entry%3Acomponent.timer_microtask_build_009_T:member=lifecycle%3Atest.case.timer_microtask_build_009_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "harmony_timer_scheduler/timer_microtask_build_009_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_timer_scheduler/timer_microtask_build_009_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "timer_microtask_build_009_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.timer.entry_param.for.harmony_timer_scheduler_timer_constant_sink_007_T_ets_TimerPage007_build",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_timer_scheduler%2Ftimer_constant_sink_007_T.ets:file=harmony_timer_scheduler%2Ftimer_constant_sink_007_T.ets:export=entry%3Acomponent.build:decl=entry%3Acomponent.build:member=lifecycle%3Atest.case.build:invoke=entry:params=none:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_timer_scheduler/timer_constant_sink_007_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_timer_scheduler/timer_constant_sink_007_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "TimerPage007",
+            "methodName": "build",
+            "parameterTypes": [],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.timer.entry_param.for.harmony_timer_scheduler_timer_interval_build_002_T_ets_TimerPage002_build",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_timer_scheduler%2Ftimer_interval_build_002_T.ets:file=harmony_timer_scheduler%2Ftimer_interval_build_002_T.ets:export=entry%3Acomponent.build:decl=entry%3Acomponent.build:member=lifecycle%3Atest.case.build:invoke=entry:params=none:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_timer_scheduler/timer_interval_build_002_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_timer_scheduler/timer_interval_build_002_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "TimerPage002",
+            "methodName": "build",
+            "parameterTypes": [],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.timer.entry_param.for.harmony_timer_scheduler_timer_interval_no_sink_008_T_ets_TimerPage008_build",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_timer_scheduler%2Ftimer_interval_no_sink_008_T.ets:file=harmony_timer_scheduler%2Ftimer_interval_no_sink_008_T.ets:export=entry%3Acomponent.build:decl=entry%3Acomponent.build:member=lifecycle%3Atest.case.build:invoke=entry:params=none:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_timer_scheduler/timer_interval_no_sink_008_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_timer_scheduler/timer_interval_no_sink_008_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "TimerPage008",
+            "methodName": "build",
+            "parameterTypes": [],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.timer.entry_param.for.harmony_timer_scheduler_timer_microtask_build_009_T_ets_TimerPage009_build_string",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_timer_scheduler%2Ftimer_microtask_build_009_T.ets:file=harmony_timer_scheduler%2Ftimer_microtask_build_009_T.ets:export=entry%3Acomponent.build:decl=entry%3Acomponent.build:member=lifecycle%3Atest.case.build:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_timer_scheduler/timer_microtask_build_009_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_timer_scheduler/timer_microtask_build_009_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "TimerPage009",
+            "methodName": "build",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.timer.entry_param.for.harmony_timer_scheduler_timer_microtask_safe_011_T_ets_TimerPage011_build",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_timer_scheduler%2Ftimer_microtask_safe_011_T.ets:file=harmony_timer_scheduler%2Ftimer_microtask_safe_011_T.ets:export=entry%3Acomponent.build:decl=entry%3Acomponent.build:member=lifecycle%3Atest.case.build:invoke=entry:params=none:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_timer_scheduler/timer_microtask_safe_011_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_timer_scheduler/timer_microtask_safe_011_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "TimerPage011",
+            "methodName": "build",
+            "parameterTypes": [],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.timer.entry_param.for.harmony_timer_scheduler_timer_promise_then_build_010_T_ets_TimerPage010_build_string",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_timer_scheduler%2Ftimer_promise_then_build_010_T.ets:file=harmony_timer_scheduler%2Ftimer_promise_then_build_010_T.ets:export=entry%3Acomponent.build:decl=entry%3Acomponent.build:member=lifecycle%3Atest.case.build:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_timer_scheduler/timer_promise_then_build_010_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_timer_scheduler/timer_promise_then_build_010_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "TimerPage010",
+            "methodName": "build",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.timer.entry_param.for.harmony_timer_scheduler_timer_raf_build_003_T_ets_TimerPage003_build",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_timer_scheduler%2Ftimer_raf_build_003_T.ets:file=harmony_timer_scheduler%2Ftimer_raf_build_003_T.ets:export=entry%3Acomponent.build:decl=entry%3Acomponent.build:member=lifecycle%3Atest.case.build:invoke=entry:params=none:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_timer_scheduler/timer_raf_build_003_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_timer_scheduler/timer_raf_build_003_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "TimerPage003",
+            "methodName": "build",
+            "parameterTypes": [],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.timer.entry_param.for.harmony_timer_scheduler_timer_timeout_build_001_T_ets_TimerPage001_build",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_timer_scheduler%2Ftimer_timeout_build_001_T.ets:file=harmony_timer_scheduler%2Ftimer_timeout_build_001_T.ets:export=entry%3Acomponent.build:decl=entry%3Acomponent.build:member=lifecycle%3Atest.case.build:invoke=entry:params=none:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_timer_scheduler/timer_timeout_build_001_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_timer_scheduler/timer_timeout_build_001_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "TimerPage001",
+            "methodName": "build",
+            "parameterTypes": [],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.timer.entry_param.for.harmony_timer_scheduler_timer_timeout_factory_005_T_ets_TimerPage005_build",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_timer_scheduler%2Ftimer_timeout_factory_005_T.ets:file=harmony_timer_scheduler%2Ftimer_timeout_factory_005_T.ets:export=entry%3Acomponent.build:decl=entry%3Acomponent.build:member=lifecycle%3Atest.case.build:invoke=entry:params=none:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_timer_scheduler/timer_timeout_factory_005_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_timer_scheduler/timer_timeout_factory_005_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "TimerPage005",
+            "methodName": "build",
+            "parameterTypes": [],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.timer.entry_param.for.harmony_timer_scheduler_timer_timeout_helper_004_T_ets_TimerPage004_build",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_timer_scheduler%2Ftimer_timeout_helper_004_T.ets:file=harmony_timer_scheduler%2Ftimer_timeout_helper_004_T.ets:export=entry%3Acomponent.build:decl=entry%3Acomponent.build:member=lifecycle%3Atest.case.build:invoke=entry:params=none:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_timer_scheduler/timer_timeout_helper_004_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_timer_scheduler/timer_timeout_helper_004_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "TimerPage004",
+            "methodName": "build",
+            "parameterTypes": [],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.timer.entry_param.method.timer_promise_then_build_010_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_timer_scheduler%2Ftimer_promise_then_build_010_T.ets:file=harmony_timer_scheduler%2Ftimer_promise_then_build_010_T.ets:export=entry%3Acomponent.timer_promise_then_build_010_T:decl=entry%3Acomponent.timer_promise_then_build_010_T:member=lifecycle%3Atest.case.timer_promise_then_build_010_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_timer_scheduler/timer_promise_then_build_010_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_timer_scheduler/timer_promise_then_build_010_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "timer_promise_then_build_010_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
       }
     },
     {
       "surfaceId": "surface.sink.harmony.timer.sink",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "Sink",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "harmony_timer_scheduler/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=harmony_timer_scheduler%2Ftaint_mock.ts:file=harmony_timer_scheduler%2Ftaint_mock.ts:export=namespace%3Ataint.%25dflt:decl=namespace%3Ataint.%25dflt:member=function%3ASink:invoke=call:params=0%3Aany:ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_timer_scheduler/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "taint.%dflt",
+            "methodName": "Sink",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "void",
+            "staticFlag": true
+          }
+        }
       }
     }
   ],
@@ -50,10 +371,6 @@
       "assetId": "asset.rule.test.harmony_timer_scheduler",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "Source"
-      },
       "endpoint": {
         "base": {
           "kind": "return"
@@ -63,26 +380,17 @@
         "template.source.harmony.timer.mock_source_return"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely",
-      "metadata": {}
+      "completeness": "complete",
+      "confidence": "certain",
+      "metadata": {},
+      "canonicalApiId": "api:project:local:module=harmony_timer_scheduler%2Ftaint_mock.ts:file=harmony_timer_scheduler%2Ftaint_mock.ts:export=namespace%3Ataint.%25dflt:decl=namespace%3Ataint.%25dflt:member=function%3ASource:invoke=call:params=none:ret=string"
     },
     {
       "bindingId": "binding.source.harmony.timer.entry_param.0.method.timer_microtask_build_009_T",
-      "surfaceId": "surface.source.harmony.timer.entry_param",
+      "surfaceId": "surface.source.harmony.timer.entry_param.method.timer_microtask_build_009_T",
       "assetId": "asset.rule.test.harmony_timer_scheduler",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "timer_microtask_build_009_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "timer_microtask_build_009_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -93,19 +401,16 @@
         "template.source.harmony.timer.entry_param.for.source.harmony.timer.entry_param.0.method.timer_microtask_build_009_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_timer_scheduler%2Ftimer_microtask_build_009_T.ets:file=harmony_timer_scheduler%2Ftimer_microtask_build_009_T.ets:export=entry%3Acomponent.timer_microtask_build_009_T:decl=entry%3Acomponent.timer_microtask_build_009_T:member=lifecycle%3Atest.case.timer_microtask_build_009_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
-      "bindingId": "binding.source.harmony.timer.entry_param.0.method.build",
-      "surfaceId": "surface.source.harmony.timer.entry_param",
+      "bindingId": "binding.source.harmony.timer.entry_param.0.method.build.for.harmony_timer_scheduler_timer_constant_sink_007_T_ets_TimerPage007_build",
+      "surfaceId": "surface.source.harmony.timer.entry_param.for.harmony_timer_scheduler_timer_constant_sink_007_T_ets_TimerPage007_build",
       "assetId": "asset.rule.test.harmony_timer_scheduler",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "build"
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -113,28 +418,199 @@
         }
       },
       "effectTemplateRefs": [
-        "template.source.harmony.timer.entry_param.for.source.harmony.timer.entry_param.0.method.build"
+        "template.source.harmony.timer.entry_param.for.source.harmony.timer.entry_param.0.method.build.for.harmony_timer_scheduler_timer_constant_sink_007_T_ets_TimerPage007_build"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_timer_scheduler%2Ftimer_constant_sink_007_T.ets:file=harmony_timer_scheduler%2Ftimer_constant_sink_007_T.ets:export=entry%3Acomponent.build:decl=entry%3Acomponent.build:member=lifecycle%3Atest.case.build:invoke=entry:params=none:ret=void"
     },
     {
-      "bindingId": "binding.source.harmony.timer.entry_param.0.method.timer_promise_then_build_010_T",
-      "surfaceId": "surface.source.harmony.timer.entry_param",
+      "bindingId": "binding.source.harmony.timer.entry_param.0.method.build.for.harmony_timer_scheduler_timer_interval_build_002_T_ets_TimerPage002_build",
+      "surfaceId": "surface.source.harmony.timer.entry_param.for.harmony_timer_scheduler_timer_interval_build_002_T_ets_TimerPage002_build",
       "assetId": "asset.rule.test.harmony_timer_scheduler",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "timer_promise_then_build_010_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "timer_promise_then_build_010_T.ets"
-          }
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
         }
       },
+      "effectTemplateRefs": [
+        "template.source.harmony.timer.entry_param.for.source.harmony.timer.entry_param.0.method.build.for.harmony_timer_scheduler_timer_interval_build_002_T_ets_TimerPage002_build"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_timer_scheduler%2Ftimer_interval_build_002_T.ets:file=harmony_timer_scheduler%2Ftimer_interval_build_002_T.ets:export=entry%3Acomponent.build:decl=entry%3Acomponent.build:member=lifecycle%3Atest.case.build:invoke=entry:params=none:ret=void"
+    },
+    {
+      "bindingId": "binding.source.harmony.timer.entry_param.0.method.build.for.harmony_timer_scheduler_timer_interval_no_sink_008_T_ets_TimerPage008_build",
+      "surfaceId": "surface.source.harmony.timer.entry_param.for.harmony_timer_scheduler_timer_interval_no_sink_008_T_ets_TimerPage008_build",
+      "assetId": "asset.rule.test.harmony_timer_scheduler",
+      "plane": "rule",
+      "role": "source",
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.timer.entry_param.for.source.harmony.timer.entry_param.0.method.build.for.harmony_timer_scheduler_timer_interval_no_sink_008_T_ets_TimerPage008_build"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_timer_scheduler%2Ftimer_interval_no_sink_008_T.ets:file=harmony_timer_scheduler%2Ftimer_interval_no_sink_008_T.ets:export=entry%3Acomponent.build:decl=entry%3Acomponent.build:member=lifecycle%3Atest.case.build:invoke=entry:params=none:ret=void"
+    },
+    {
+      "bindingId": "binding.source.harmony.timer.entry_param.0.method.build.for.harmony_timer_scheduler_timer_microtask_build_009_T_ets_TimerPage009_build_string",
+      "surfaceId": "surface.source.harmony.timer.entry_param.for.harmony_timer_scheduler_timer_microtask_build_009_T_ets_TimerPage009_build_string",
+      "assetId": "asset.rule.test.harmony_timer_scheduler",
+      "plane": "rule",
+      "role": "source",
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.timer.entry_param.for.source.harmony.timer.entry_param.0.method.build.for.harmony_timer_scheduler_timer_microtask_build_009_T_ets_TimerPage009_build_string"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_timer_scheduler%2Ftimer_microtask_build_009_T.ets:file=harmony_timer_scheduler%2Ftimer_microtask_build_009_T.ets:export=entry%3Acomponent.build:decl=entry%3Acomponent.build:member=lifecycle%3Atest.case.build:invoke=entry:params=0%3Astring:ret=void"
+    },
+    {
+      "bindingId": "binding.source.harmony.timer.entry_param.0.method.build.for.harmony_timer_scheduler_timer_microtask_safe_011_T_ets_TimerPage011_build",
+      "surfaceId": "surface.source.harmony.timer.entry_param.for.harmony_timer_scheduler_timer_microtask_safe_011_T_ets_TimerPage011_build",
+      "assetId": "asset.rule.test.harmony_timer_scheduler",
+      "plane": "rule",
+      "role": "source",
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.timer.entry_param.for.source.harmony.timer.entry_param.0.method.build.for.harmony_timer_scheduler_timer_microtask_safe_011_T_ets_TimerPage011_build"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_timer_scheduler%2Ftimer_microtask_safe_011_T.ets:file=harmony_timer_scheduler%2Ftimer_microtask_safe_011_T.ets:export=entry%3Acomponent.build:decl=entry%3Acomponent.build:member=lifecycle%3Atest.case.build:invoke=entry:params=none:ret=void"
+    },
+    {
+      "bindingId": "binding.source.harmony.timer.entry_param.0.method.build.for.harmony_timer_scheduler_timer_promise_then_build_010_T_ets_TimerPage010_build_string",
+      "surfaceId": "surface.source.harmony.timer.entry_param.for.harmony_timer_scheduler_timer_promise_then_build_010_T_ets_TimerPage010_build_string",
+      "assetId": "asset.rule.test.harmony_timer_scheduler",
+      "plane": "rule",
+      "role": "source",
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.timer.entry_param.for.source.harmony.timer.entry_param.0.method.build.for.harmony_timer_scheduler_timer_promise_then_build_010_T_ets_TimerPage010_build_string"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_timer_scheduler%2Ftimer_promise_then_build_010_T.ets:file=harmony_timer_scheduler%2Ftimer_promise_then_build_010_T.ets:export=entry%3Acomponent.build:decl=entry%3Acomponent.build:member=lifecycle%3Atest.case.build:invoke=entry:params=0%3Astring:ret=void"
+    },
+    {
+      "bindingId": "binding.source.harmony.timer.entry_param.0.method.build.for.harmony_timer_scheduler_timer_raf_build_003_T_ets_TimerPage003_build",
+      "surfaceId": "surface.source.harmony.timer.entry_param.for.harmony_timer_scheduler_timer_raf_build_003_T_ets_TimerPage003_build",
+      "assetId": "asset.rule.test.harmony_timer_scheduler",
+      "plane": "rule",
+      "role": "source",
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.timer.entry_param.for.source.harmony.timer.entry_param.0.method.build.for.harmony_timer_scheduler_timer_raf_build_003_T_ets_TimerPage003_build"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_timer_scheduler%2Ftimer_raf_build_003_T.ets:file=harmony_timer_scheduler%2Ftimer_raf_build_003_T.ets:export=entry%3Acomponent.build:decl=entry%3Acomponent.build:member=lifecycle%3Atest.case.build:invoke=entry:params=none:ret=void"
+    },
+    {
+      "bindingId": "binding.source.harmony.timer.entry_param.0.method.build.for.harmony_timer_scheduler_timer_timeout_build_001_T_ets_TimerPage001_build",
+      "surfaceId": "surface.source.harmony.timer.entry_param.for.harmony_timer_scheduler_timer_timeout_build_001_T_ets_TimerPage001_build",
+      "assetId": "asset.rule.test.harmony_timer_scheduler",
+      "plane": "rule",
+      "role": "source",
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.timer.entry_param.for.source.harmony.timer.entry_param.0.method.build.for.harmony_timer_scheduler_timer_timeout_build_001_T_ets_TimerPage001_build"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_timer_scheduler%2Ftimer_timeout_build_001_T.ets:file=harmony_timer_scheduler%2Ftimer_timeout_build_001_T.ets:export=entry%3Acomponent.build:decl=entry%3Acomponent.build:member=lifecycle%3Atest.case.build:invoke=entry:params=none:ret=void"
+    },
+    {
+      "bindingId": "binding.source.harmony.timer.entry_param.0.method.build.for.harmony_timer_scheduler_timer_timeout_factory_005_T_ets_TimerPage005_build",
+      "surfaceId": "surface.source.harmony.timer.entry_param.for.harmony_timer_scheduler_timer_timeout_factory_005_T_ets_TimerPage005_build",
+      "assetId": "asset.rule.test.harmony_timer_scheduler",
+      "plane": "rule",
+      "role": "source",
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.timer.entry_param.for.source.harmony.timer.entry_param.0.method.build.for.harmony_timer_scheduler_timer_timeout_factory_005_T_ets_TimerPage005_build"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_timer_scheduler%2Ftimer_timeout_factory_005_T.ets:file=harmony_timer_scheduler%2Ftimer_timeout_factory_005_T.ets:export=entry%3Acomponent.build:decl=entry%3Acomponent.build:member=lifecycle%3Atest.case.build:invoke=entry:params=none:ret=void"
+    },
+    {
+      "bindingId": "binding.source.harmony.timer.entry_param.0.method.build.for.harmony_timer_scheduler_timer_timeout_helper_004_T_ets_TimerPage004_build",
+      "surfaceId": "surface.source.harmony.timer.entry_param.for.harmony_timer_scheduler_timer_timeout_helper_004_T_ets_TimerPage004_build",
+      "assetId": "asset.rule.test.harmony_timer_scheduler",
+      "plane": "rule",
+      "role": "source",
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.timer.entry_param.for.source.harmony.timer.entry_param.0.method.build.for.harmony_timer_scheduler_timer_timeout_helper_004_T_ets_TimerPage004_build"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_timer_scheduler%2Ftimer_timeout_helper_004_T.ets:file=harmony_timer_scheduler%2Ftimer_timeout_helper_004_T.ets:export=entry%3Acomponent.build:decl=entry%3Acomponent.build:member=lifecycle%3Atest.case.build:invoke=entry:params=none:ret=void"
+    },
+    {
+      "bindingId": "binding.source.harmony.timer.entry_param.0.method.timer_promise_then_build_010_T",
+      "surfaceId": "surface.source.harmony.timer.entry_param.method.timer_promise_then_build_010_T",
+      "assetId": "asset.rule.test.harmony_timer_scheduler",
+      "plane": "rule",
+      "role": "source",
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -145,19 +621,16 @@
         "template.source.harmony.timer.entry_param.for.source.harmony.timer.entry_param.0.method.timer_promise_then_build_010_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_timer_scheduler%2Ftimer_promise_then_build_010_T.ets:file=harmony_timer_scheduler%2Ftimer_promise_then_build_010_T.ets:export=entry%3Acomponent.timer_promise_then_build_010_T:decl=entry%3Acomponent.timer_promise_then_build_010_T:member=lifecycle%3Atest.case.timer_promise_then_build_010_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
-      "bindingId": "binding.source.harmony.timer.entry_param.0.method.build",
-      "surfaceId": "surface.source.harmony.timer.entry_param",
+      "bindingId": "binding.source.harmony.timer.entry_param.0.method.build.for.harmony_timer_scheduler_timer_constant_sink_007_T_ets_TimerPage007_build",
+      "surfaceId": "surface.source.harmony.timer.entry_param.for.harmony_timer_scheduler_timer_constant_sink_007_T_ets_TimerPage007_build",
       "assetId": "asset.rule.test.harmony_timer_scheduler",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "build"
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -165,11 +638,192 @@
         }
       },
       "effectTemplateRefs": [
-        "template.source.harmony.timer.entry_param.for.source.harmony.timer.entry_param.0.method.build"
+        "template.source.harmony.timer.entry_param.for.source.harmony.timer.entry_param.0.method.build.for.harmony_timer_scheduler_timer_constant_sink_007_T_ets_TimerPage007_build"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_timer_scheduler%2Ftimer_constant_sink_007_T.ets:file=harmony_timer_scheduler%2Ftimer_constant_sink_007_T.ets:export=entry%3Acomponent.build:decl=entry%3Acomponent.build:member=lifecycle%3Atest.case.build:invoke=entry:params=none:ret=void"
+    },
+    {
+      "bindingId": "binding.source.harmony.timer.entry_param.0.method.build.for.harmony_timer_scheduler_timer_interval_build_002_T_ets_TimerPage002_build",
+      "surfaceId": "surface.source.harmony.timer.entry_param.for.harmony_timer_scheduler_timer_interval_build_002_T_ets_TimerPage002_build",
+      "assetId": "asset.rule.test.harmony_timer_scheduler",
+      "plane": "rule",
+      "role": "source",
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.timer.entry_param.for.source.harmony.timer.entry_param.0.method.build.for.harmony_timer_scheduler_timer_interval_build_002_T_ets_TimerPage002_build"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_timer_scheduler%2Ftimer_interval_build_002_T.ets:file=harmony_timer_scheduler%2Ftimer_interval_build_002_T.ets:export=entry%3Acomponent.build:decl=entry%3Acomponent.build:member=lifecycle%3Atest.case.build:invoke=entry:params=none:ret=void"
+    },
+    {
+      "bindingId": "binding.source.harmony.timer.entry_param.0.method.build.for.harmony_timer_scheduler_timer_interval_no_sink_008_T_ets_TimerPage008_build",
+      "surfaceId": "surface.source.harmony.timer.entry_param.for.harmony_timer_scheduler_timer_interval_no_sink_008_T_ets_TimerPage008_build",
+      "assetId": "asset.rule.test.harmony_timer_scheduler",
+      "plane": "rule",
+      "role": "source",
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.timer.entry_param.for.source.harmony.timer.entry_param.0.method.build.for.harmony_timer_scheduler_timer_interval_no_sink_008_T_ets_TimerPage008_build"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_timer_scheduler%2Ftimer_interval_no_sink_008_T.ets:file=harmony_timer_scheduler%2Ftimer_interval_no_sink_008_T.ets:export=entry%3Acomponent.build:decl=entry%3Acomponent.build:member=lifecycle%3Atest.case.build:invoke=entry:params=none:ret=void"
+    },
+    {
+      "bindingId": "binding.source.harmony.timer.entry_param.0.method.build.for.harmony_timer_scheduler_timer_microtask_build_009_T_ets_TimerPage009_build_string",
+      "surfaceId": "surface.source.harmony.timer.entry_param.for.harmony_timer_scheduler_timer_microtask_build_009_T_ets_TimerPage009_build_string",
+      "assetId": "asset.rule.test.harmony_timer_scheduler",
+      "plane": "rule",
+      "role": "source",
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.timer.entry_param.for.source.harmony.timer.entry_param.0.method.build.for.harmony_timer_scheduler_timer_microtask_build_009_T_ets_TimerPage009_build_string"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_timer_scheduler%2Ftimer_microtask_build_009_T.ets:file=harmony_timer_scheduler%2Ftimer_microtask_build_009_T.ets:export=entry%3Acomponent.build:decl=entry%3Acomponent.build:member=lifecycle%3Atest.case.build:invoke=entry:params=0%3Astring:ret=void"
+    },
+    {
+      "bindingId": "binding.source.harmony.timer.entry_param.0.method.build.for.harmony_timer_scheduler_timer_microtask_safe_011_T_ets_TimerPage011_build",
+      "surfaceId": "surface.source.harmony.timer.entry_param.for.harmony_timer_scheduler_timer_microtask_safe_011_T_ets_TimerPage011_build",
+      "assetId": "asset.rule.test.harmony_timer_scheduler",
+      "plane": "rule",
+      "role": "source",
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.timer.entry_param.for.source.harmony.timer.entry_param.0.method.build.for.harmony_timer_scheduler_timer_microtask_safe_011_T_ets_TimerPage011_build"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_timer_scheduler%2Ftimer_microtask_safe_011_T.ets:file=harmony_timer_scheduler%2Ftimer_microtask_safe_011_T.ets:export=entry%3Acomponent.build:decl=entry%3Acomponent.build:member=lifecycle%3Atest.case.build:invoke=entry:params=none:ret=void"
+    },
+    {
+      "bindingId": "binding.source.harmony.timer.entry_param.0.method.build.for.harmony_timer_scheduler_timer_promise_then_build_010_T_ets_TimerPage010_build_string",
+      "surfaceId": "surface.source.harmony.timer.entry_param.for.harmony_timer_scheduler_timer_promise_then_build_010_T_ets_TimerPage010_build_string",
+      "assetId": "asset.rule.test.harmony_timer_scheduler",
+      "plane": "rule",
+      "role": "source",
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.timer.entry_param.for.source.harmony.timer.entry_param.0.method.build.for.harmony_timer_scheduler_timer_promise_then_build_010_T_ets_TimerPage010_build_string"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_timer_scheduler%2Ftimer_promise_then_build_010_T.ets:file=harmony_timer_scheduler%2Ftimer_promise_then_build_010_T.ets:export=entry%3Acomponent.build:decl=entry%3Acomponent.build:member=lifecycle%3Atest.case.build:invoke=entry:params=0%3Astring:ret=void"
+    },
+    {
+      "bindingId": "binding.source.harmony.timer.entry_param.0.method.build.for.harmony_timer_scheduler_timer_raf_build_003_T_ets_TimerPage003_build",
+      "surfaceId": "surface.source.harmony.timer.entry_param.for.harmony_timer_scheduler_timer_raf_build_003_T_ets_TimerPage003_build",
+      "assetId": "asset.rule.test.harmony_timer_scheduler",
+      "plane": "rule",
+      "role": "source",
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.timer.entry_param.for.source.harmony.timer.entry_param.0.method.build.for.harmony_timer_scheduler_timer_raf_build_003_T_ets_TimerPage003_build"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_timer_scheduler%2Ftimer_raf_build_003_T.ets:file=harmony_timer_scheduler%2Ftimer_raf_build_003_T.ets:export=entry%3Acomponent.build:decl=entry%3Acomponent.build:member=lifecycle%3Atest.case.build:invoke=entry:params=none:ret=void"
+    },
+    {
+      "bindingId": "binding.source.harmony.timer.entry_param.0.method.build.for.harmony_timer_scheduler_timer_timeout_build_001_T_ets_TimerPage001_build",
+      "surfaceId": "surface.source.harmony.timer.entry_param.for.harmony_timer_scheduler_timer_timeout_build_001_T_ets_TimerPage001_build",
+      "assetId": "asset.rule.test.harmony_timer_scheduler",
+      "plane": "rule",
+      "role": "source",
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.timer.entry_param.for.source.harmony.timer.entry_param.0.method.build.for.harmony_timer_scheduler_timer_timeout_build_001_T_ets_TimerPage001_build"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_timer_scheduler%2Ftimer_timeout_build_001_T.ets:file=harmony_timer_scheduler%2Ftimer_timeout_build_001_T.ets:export=entry%3Acomponent.build:decl=entry%3Acomponent.build:member=lifecycle%3Atest.case.build:invoke=entry:params=none:ret=void"
+    },
+    {
+      "bindingId": "binding.source.harmony.timer.entry_param.0.method.build.for.harmony_timer_scheduler_timer_timeout_factory_005_T_ets_TimerPage005_build",
+      "surfaceId": "surface.source.harmony.timer.entry_param.for.harmony_timer_scheduler_timer_timeout_factory_005_T_ets_TimerPage005_build",
+      "assetId": "asset.rule.test.harmony_timer_scheduler",
+      "plane": "rule",
+      "role": "source",
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.timer.entry_param.for.source.harmony.timer.entry_param.0.method.build.for.harmony_timer_scheduler_timer_timeout_factory_005_T_ets_TimerPage005_build"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_timer_scheduler%2Ftimer_timeout_factory_005_T.ets:file=harmony_timer_scheduler%2Ftimer_timeout_factory_005_T.ets:export=entry%3Acomponent.build:decl=entry%3Acomponent.build:member=lifecycle%3Atest.case.build:invoke=entry:params=none:ret=void"
+    },
+    {
+      "bindingId": "binding.source.harmony.timer.entry_param.0.method.build.for.harmony_timer_scheduler_timer_timeout_helper_004_T_ets_TimerPage004_build",
+      "surfaceId": "surface.source.harmony.timer.entry_param.for.harmony_timer_scheduler_timer_timeout_helper_004_T_ets_TimerPage004_build",
+      "assetId": "asset.rule.test.harmony_timer_scheduler",
+      "plane": "rule",
+      "role": "source",
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.timer.entry_param.for.source.harmony.timer.entry_param.0.method.build.for.harmony_timer_scheduler_timer_timeout_helper_004_T_ets_TimerPage004_build"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_timer_scheduler%2Ftimer_timeout_helper_004_T.ets:file=harmony_timer_scheduler%2Ftimer_timeout_helper_004_T.ets:export=entry%3Acomponent.build:decl=entry%3Acomponent.build:member=lifecycle%3Atest.case.build:invoke=entry:params=none:ret=void"
     },
     {
       "bindingId": "binding.sink.harmony.timer.sink.0",
@@ -177,10 +831,6 @@
       "assetId": "asset.rule.test.harmony_timer_scheduler",
       "plane": "rule",
       "role": "sink",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "Sink"
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -191,9 +841,10 @@
         "template.sink.harmony.timer.sink"
       ],
       "semanticsFamily": "sink",
-      "completeness": "partial",
-      "confidence": "likely",
-      "metadata": {}
+      "completeness": "complete",
+      "confidence": "certain",
+      "metadata": {},
+      "canonicalApiId": "api:project:local:module=harmony_timer_scheduler%2Ftaint_mock.ts:file=harmony_timer_scheduler%2Ftaint_mock.ts:export=namespace%3Ataint.%25dflt:decl=namespace%3Ataint.%25dflt:member=function%3ASink:invoke=call:params=0%3Aany:ret=void"
     }
   ],
   "effectTemplates": [
@@ -209,18 +860,6 @@
       "sourceKind": "call_return"
     },
     {
-      "id": "template.sink.harmony.timer.sink",
-      "confidence": "certain",
-      "kind": "rule.sink",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sinkKind": "sink"
-    },
-    {
       "id": "template.source.harmony.timer.entry_param.for.source.harmony.timer.entry_param.0.method.timer_microtask_build_009_T",
       "confidence": "certain",
       "kind": "rule.source",
@@ -233,7 +872,115 @@
       "sourceKind": "entry_param"
     },
     {
-      "id": "template.source.harmony.timer.entry_param.for.source.harmony.timer.entry_param.0.method.build",
+      "id": "template.source.harmony.timer.entry_param.for.source.harmony.timer.entry_param.0.method.build.for.harmony_timer_scheduler_timer_constant_sink_007_T_ets_TimerPage007_build",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony.timer.entry_param.for.source.harmony.timer.entry_param.0.method.build.for.harmony_timer_scheduler_timer_interval_build_002_T_ets_TimerPage002_build",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony.timer.entry_param.for.source.harmony.timer.entry_param.0.method.build.for.harmony_timer_scheduler_timer_interval_no_sink_008_T_ets_TimerPage008_build",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony.timer.entry_param.for.source.harmony.timer.entry_param.0.method.build.for.harmony_timer_scheduler_timer_microtask_build_009_T_ets_TimerPage009_build_string",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony.timer.entry_param.for.source.harmony.timer.entry_param.0.method.build.for.harmony_timer_scheduler_timer_microtask_safe_011_T_ets_TimerPage011_build",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony.timer.entry_param.for.source.harmony.timer.entry_param.0.method.build.for.harmony_timer_scheduler_timer_promise_then_build_010_T_ets_TimerPage010_build_string",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony.timer.entry_param.for.source.harmony.timer.entry_param.0.method.build.for.harmony_timer_scheduler_timer_raf_build_003_T_ets_TimerPage003_build",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony.timer.entry_param.for.source.harmony.timer.entry_param.0.method.build.for.harmony_timer_scheduler_timer_timeout_build_001_T_ets_TimerPage001_build",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony.timer.entry_param.for.source.harmony.timer.entry_param.0.method.build.for.harmony_timer_scheduler_timer_timeout_factory_005_T_ets_TimerPage005_build",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony.timer.entry_param.for.source.harmony.timer.entry_param.0.method.build.for.harmony_timer_scheduler_timer_timeout_helper_004_T_ets_TimerPage004_build",
       "confidence": "certain",
       "kind": "rule.source",
       "value": {
@@ -255,6 +1002,18 @@
         }
       },
       "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.sink.harmony.timer.sink",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "sink"
     }
   ],
   "provenance": {

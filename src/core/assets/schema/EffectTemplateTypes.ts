@@ -2,7 +2,7 @@ import type { Confidence } from "./CommonTypes";
 import type { CellKindId } from "../../cellkind";
 import type { AssetEndpoint, AssetGuard } from "./EndpointTypes";
 import type { CallbackLocator } from "./EndpointTypes";
-import type { EndpointSelectorRef } from "./SelectorTypes";
+import type { EndpointSelectorRef } from "./EndpointSelectorTypes";
 
 export type RuleValueRef = AssetEndpoint | EndpointSelectorRef;
 
@@ -74,7 +74,7 @@ export interface HandoffHandleTemplate {
     key: HandleKeyPartTemplate[];
     owner?: HandleKeyPartTemplate[];
     index?: number;
-    precision?: "infer" | "exact" | "partial" | "unknown";
+    precision: "exact";
 }
 
 export interface HandoffHandle {
@@ -84,7 +84,7 @@ export interface HandoffHandle {
     key: string[];
     owner?: string[];
     index?: number;
-    precision: "exact" | "partial" | "unknown";
+    precision: "exact";
 }
 
 export interface HandoffPutTemplate {
@@ -92,7 +92,7 @@ export interface HandoffPutTemplate {
     kind: "handoff.put";
     handle: HandoffHandleTemplate;
     value: AssetEndpoint;
-    updateStrength?: "strong" | "weak" | "infer";
+    updateStrength?: "strong" | "weak";
     confidence?: Confidence;
 }
 
@@ -108,7 +108,7 @@ export interface HandoffKillTemplate {
     id: string;
     kind: "handoff.kill";
     handle: HandoffHandleTemplate;
-    updateStrength?: "strong" | "weak" | "infer";
+    updateStrength?: "strong" | "weak";
     confidence?: Confidence;
 }
 
@@ -125,7 +125,9 @@ export interface EntryLifecycleTemplate {
     id: string;
     kind: "entry.lifecycle";
     entryKind: string;
-    method?: string;
+    phase: string;
+    ownerKind?: string;
+    entryShape?: string;
     confidence?: Confidence;
 }
 
@@ -156,8 +158,8 @@ export interface EntryFrameworkInvokeTemplate {
 export interface ModuleEventEmitterTemplate {
     id: string;
     kind: "module.eventEmitter";
-    onMethods?: string[];
-    emitMethods?: string[];
+    onCanonicalApiIds: string[];
+    emitCanonicalApiIds: string[];
     channelArgIndexes?: number[];
     /** Use -1 for dispatch methods that activate callbacks without carrying a payload argument. */
     payloadArgIndex?: number;

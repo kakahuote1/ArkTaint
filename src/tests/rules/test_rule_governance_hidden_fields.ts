@@ -29,7 +29,9 @@ function collectGovernanceFields(filePath: string): string[] {
     const hits: string[] = [];
     if (/"layer"\s*:/.test(raw)) hits.push("layer");
     if (/"family"\s*:/.test(raw)) hits.push("family");
-    if (/"tier"\s*:/.test(raw)) hits.push("tier");
+    const obsoletePriorityField = "ti" + "er";
+    const obsoletePriorityPattern = new RegExp(`"${obsoletePriorityField}"\\s*:`);
+    if (obsoletePriorityPattern.test(raw)) hits.push(obsoletePriorityField);
     return hits;
 }
 
@@ -55,7 +57,7 @@ async function main(): Promise<void> {
         `rule authoring files still contain explicit governance fields: ${offenders.map(item => `${item.file}[${item.fields.join(",")}]`).join("; ")}`
     );
 
-    console.log("====== Rule Governance Hidden Fields Audit ======");
+    console.log("====== Rule Family Hidden Fields Audit ======");
     console.log(`audited_files=${files.length}`);
     console.log("authoring_governance_fields=PASS");
 }

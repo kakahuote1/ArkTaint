@@ -15,6 +15,10 @@ import {
     TestOutputMetadata,
     writeTestSummary,
 } from "../helpers/TestOutputContract";
+import {
+    collectHarmonyEntrySeedMethods,
+    engineOptionsFromLoadedRuleSet,
+} from "../helpers/SyntheticCaseHarness";
 
 interface CliOptions {
     benchmarkRoot: string;
@@ -254,6 +258,21 @@ function parseArgs(argv: string[]): CliOptions {
 
 function ensureDir(dir: string): void {
     fs.mkdirSync(dir, { recursive: true });
+}
+
+function clearStaleOutputArtifacts(outputLayout: ReturnType<typeof resolveTestOutputLayout>): void {
+    for (const filePath of [
+        outputLayout.runJsonPath,
+        outputLayout.summaryJsonPath,
+        outputLayout.reportJsonPath,
+        outputLayout.reportMarkdownPath,
+        outputLayout.progressJsonPath,
+        outputLayout.progressMarkdownPath,
+    ]) {
+        if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+        }
+    }
 }
 
 function readJsonFile<T>(filePath: string): T {
@@ -498,9 +517,13 @@ async function runCase(
         const scene = buildScene(caseInfo.caseRoot);
         const engine = new TaintPropagationEngine(scene, k, {
             transferRules: rules.ruleSet.transfers || [],
+            ...engineOptionsFromLoadedRuleSet(rules),
         });
         engine.verbose = false;
-        await engine.buildPAG({ entryModel: "arkMain" });
+        await engine.buildPAG({
+            entryModel: "arkMain",
+            syntheticEntryMethods: collectHarmonyEntrySeedMethods(scene),
+        });
         try {
             const reachable = engine.computeReachableMethodSignatures();
             engine.setActiveReachableMethodSignatures(reachable);
@@ -710,10 +733,11 @@ async function main(): Promise<void> {
         kernelRulePath: options.kernelRulePath,
         ruleCatalogPath: options.ruleCatalogPath,
         allowMissingProject: true,
-        autoDiscoverLayers: false,
+        autoDiscoverRuleSources: false,
     });
     const outputLayout = resolveTestOutputLayout(options.outputDir);
     ensureDir(outputLayout.rootDir);
+    clearStaleOutputArtifacts(outputLayout);
     const metadata: TestOutputMetadata = {
         suite: "hapbench",
         domain: "benchmark",

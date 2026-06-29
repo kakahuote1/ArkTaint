@@ -6,7 +6,6 @@ import {
     HandoffGetEffect,
     HandoffHandle,
     HandoffKillEffect,
-    HandoffMayCompatibilityPolicy,
     HandoffPutEffect,
     HandoffScopedLinkEffect,
     compatibleHandoffHandles,
@@ -26,11 +25,10 @@ interface HandoffPropagationIndexes {
     kills: Array<IndexedHandoffEffect<HandoffKillEffect>>;
     links: Array<IndexedHandoffEffect<HandoffScopedLinkEffect>>;
     linksByHandleKey: Map<string, Array<IndexedHandoffEffect<HandoffScopedLinkEffect>>>;
-    hasNonExactGetOrLinkHandles: boolean;
 }
 
 export interface HandoffPropagationOptions {
-    mayCompatibilityPolicy?: HandoffMayCompatibilityPolicy;
+    currentnessAnalysis?: "enabled" | "disabled";
 }
 
 export class HandoffPropagationSession {
@@ -38,11 +36,11 @@ export class HandoffPropagationSession {
     private readonly emittedStateKeys = new Set<string>();
     private readonly emittedEmissionKeys = new Set<string>();
     private readonly currentnessCache = new Map<string, CurrentnessCertificate | undefined>();
-    private readonly mayCompatibilityPolicy: HandoffMayCompatibilityPolicy;
+    private readonly currentnessAnalysis: "enabled" | "disabled";
 
     constructor(effects: readonly HandoffEffect[], options: HandoffPropagationOptions = {}) {
         this.indexes = buildIndexes(effects);
-        this.mayCompatibilityPolicy = options.mayCompatibilityPolicy || "conservative";
+        this.currentnessAnalysis = options.currentnessAnalysis || "enabled";
     }
 
     emitForFact(event: ModuleFactEvent): ModuleEmission[] | undefined {
@@ -57,8 +55,13 @@ export class HandoffPropagationSession {
 
             for (const get of this.resolveGetEffects(put)) {
                 if (isSelfFieldEcho(event, get.effect)) continue;
-                const certificate = this.evaluateCurrentness(event, put, get);
-                if (!certificateAllowsEmission(certificate, this.mayCompatibilityPolicy)) continue;
+                const certificate = this.currentnessAnalysis === "disabled"
+                    ? undefined
+                    : this.evaluateCurrentness(event, put, get);
+                if (this.currentnessAnalysis !== "disabled"
+                    && !certificateAllowsEmission(certificate)) {
+                    continue;
+                }
 
                 const targetFieldPath = resolveTargetFieldPath(event, get.effect);
                 if (targetFieldPath === false) continue;
@@ -66,20 +69,14 @@ export class HandoffPropagationSession {
                     ? { allowUnreachableTarget: true }
                     : undefined;
                 if (targetFieldPath && targetFieldPath.length > 0) {
-                    this.pushUniqueEmissions(emissions, withCurrentness(
-                        event.emit.toField(get.effect.target.nodeId, targetFieldPath, get.effect.reason, options),
-                        certificate,
-                    ));
+                    const next = event.emit.toField(get.effect.target.nodeId, targetFieldPath, get.effect.reason, options);
+                    this.pushUniqueEmissions(emissions, certificate ? withCurrentness(next, certificate) : next);
                 } else if (get.effect.target.preserveSourceField === false) {
-                    this.pushUniqueEmissions(emissions, withCurrentness(
-                        event.emit.toNode(get.effect.target.nodeId, get.effect.reason, options),
-                        certificate,
-                    ));
+                    const next = event.emit.toNode(get.effect.target.nodeId, get.effect.reason, options);
+                    this.pushUniqueEmissions(emissions, certificate ? withCurrentness(next, certificate) : next);
                 } else {
-                    this.pushUniqueEmissions(emissions, withCurrentness(
-                        event.emit.preserveToNode(get.effect.target.nodeId, get.effect.reason, options),
-                        certificate,
-                    ));
+                    const next = event.emit.preserveToNode(get.effect.target.nodeId, get.effect.reason, options);
+                    this.pushUniqueEmissions(emissions, certificate ? withCurrentness(next, certificate) : next);
                 }
             }
         }
@@ -102,23 +99,8 @@ export class HandoffPropagationSession {
     private resolveGetEffects(
         put: IndexedHandoffEffect<HandoffPutEffect>,
     ): Array<IndexedHandoffEffect<HandoffGetEffect>> {
-        if (canUseExactHandleIndex(put.effect.handle, this.indexes, this.mayCompatibilityPolicy)) {
-            return this.resolveExactIndexedGetEffects(put);
-        }
-
-        const out: Array<IndexedHandoffEffect<HandoffGetEffect>> = [];
-        const seen = new Set<string>();
-        for (const get of this.indexes.gets) {
-            if (isDefiniteReverseSameScope(put, get)) continue;
-            const compatibility = this.resolveCompatibility(put.effect.handle, get.effect.handle);
-            if (compatibility === "no") continue;
-            if (compatibility === "may" && this.mayCompatibilityPolicy === "block") continue;
-            const key = `${get.order}|${getEffectKey(get.effect)}`;
-            if (seen.has(key)) continue;
-            seen.add(key);
-            out.push(get);
-        }
-        return out;
+        if (!isExactHandoffHandle(put.effect.handle)) return [];
+        return this.resolveExactIndexedGetEffects(put);
     }
 
     private resolveExactIndexedGetEffects(
@@ -150,10 +132,9 @@ export class HandoffPropagationSession {
         return out;
     }
 
-    private resolveCompatibility(left: HandoffHandle, right: HandoffHandle): "exact" | "may" | "no" {
+    private resolveCompatibility(left: HandoffHandle, right: HandoffHandle): "exact" | "no" {
         const direct = compatibleHandoffHandles(left, right);
         if (direct !== "no") return direct;
-        let sawMay = false;
         for (const link of this.indexes.links) {
             const leftToLinkLeft = compatibleHandoffHandles(left, link.effect.left);
             const rightToLinkRight = compatibleHandoffHandles(right, link.effect.right);
@@ -162,11 +143,8 @@ export class HandoffPropagationSession {
             if (isExactPair(leftToLinkLeft, rightToLinkRight) || isExactPair(leftToLinkRight, rightToLinkLeft)) {
                 return "exact";
             }
-            if (isMayPair(leftToLinkLeft, rightToLinkRight) || isMayPair(leftToLinkRight, rightToLinkLeft)) {
-                sawMay = true;
-            }
         }
-        return sawMay ? "may" : "no";
+        return "no";
     }
 
     private evaluateCurrentness(
@@ -232,7 +210,7 @@ export class HandoffPropagationSession {
                 confidence: normalizeConfidence(get.effect.confidence),
             },
         ];
-        const result = new OclfsSolver({ conservativeMay: true }).solve(effects);
+        const result = new OclfsSolver({ conservativeMay: false }).solve(effects);
         const certificate = result.certificates.find(cert => cert.candidateFlow.consumerEffectId.startsWith("handoff-load"));
         this.currentnessCache.set(cacheKey, certificate);
         return certificate;
@@ -301,10 +279,10 @@ function buildIndexes(effects: readonly HandoffEffect[]): HandoffPropagationInde
     const kills: Array<IndexedHandoffEffect<HandoffKillEffect>> = [];
     const links: Array<IndexedHandoffEffect<HandoffScopedLinkEffect>> = [];
     const linksByHandleKey = new Map<string, Array<IndexedHandoffEffect<HandoffScopedLinkEffect>>>();
-    let hasNonExactGetOrLinkHandles = false;
 
     for (let index = 0; index < effects.length; index++) {
         const effect = effects[index];
+        if (!effectHasExactHandoffHandles(effect)) continue;
         const order = effect.sequence === undefined ? index : effect.sequence;
         if (effect.kind === "put") {
             const indexed: IndexedHandoffEffect<HandoffPutEffect> = { effect, order };
@@ -318,9 +296,6 @@ function buildIndexes(effects: readonly HandoffEffect[]): HandoffPropagationInde
             const indexed = { effect, order };
             gets.push(indexed);
             addToMap(getsByHandleKey, handoffHandleKey(effect.handle), indexed);
-            if (effect.handle.precision !== "exact") {
-                hasNonExactGetOrLinkHandles = true;
-            }
         } else if (effect.kind === "kill") {
             kills.push({ effect, order });
         } else if (effect.kind === "scoped-link") {
@@ -328,9 +303,6 @@ function buildIndexes(effects: readonly HandoffEffect[]): HandoffPropagationInde
             links.push(indexed);
             addToMap(linksByHandleKey, handoffHandleKey(effect.left), indexed);
             addToMap(linksByHandleKey, handoffHandleKey(effect.right), indexed);
-            if (effect.left.precision !== "exact" || effect.right.precision !== "exact") {
-                hasNonExactGetOrLinkHandles = true;
-            }
         }
     }
 
@@ -342,29 +314,14 @@ function buildIndexes(effects: readonly HandoffEffect[]): HandoffPropagationInde
         kills,
         links,
         linksByHandleKey,
-        hasNonExactGetOrLinkHandles,
     };
-}
-
-function canUseExactHandleIndex(
-    handle: HandoffHandle,
-    indexes: HandoffPropagationIndexes,
-    mayCompatibilityPolicy: HandoffMayCompatibilityPolicy,
-): boolean {
-    if (handle.precision !== "exact") return false;
-    if (mayCompatibilityPolicy !== "block" && indexes.hasNonExactGetOrLinkHandles) return false;
-    return true;
 }
 
 function certificateAllowsEmission(
     certificate: CurrentnessCertificate | undefined,
-    mayCompatibilityPolicy: HandoffMayCompatibilityPolicy,
 ): boolean {
     if (!certificate) return false;
-    if (certificate.verdict === "live") return true;
-    if (certificate.verdict === "may-live") return mayCompatibilityPolicy === "conservative";
-    if (certificate.verdict === "unknown") return mayCompatibilityPolicy === "conservative";
-    return false;
+    return certificate.verdict === "live" || certificate.verdict === "may-live";
 }
 
 function withCurrentness(
@@ -458,7 +415,7 @@ function cellForHandle(handle: HandoffHandle): StateCell {
 
 function fieldPathFromHandleKey(key: string): string[] {
     const trimmed = String(key || "").trim();
-    if (!trimmed) return ["__UNKNOWN__"];
+    if (!trimmed) return [];
     if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
         try {
             const parsed = JSON.parse(trimmed);
@@ -476,7 +433,7 @@ function fieldPathFromHandleKey(key: string): string[] {
 function cellForConsumerHandle(
     producerHandle: HandoffHandle,
     consumerHandle: HandoffHandle,
-    compatibility: "exact" | "may" | "no",
+    compatibility: "exact" | "no",
 ): StateCell {
     if (compatibility === "exact" && compatibleHandoffHandles(producerHandle, consumerHandle) === "no") {
         return cellForHandle(producerHandle);
@@ -529,12 +486,22 @@ function addToMap<K, V>(map: Map<K, V[]>, key: K, value: V): void {
     bucket.push(value);
 }
 
-function isExactPair(left: "exact" | "may" | "no", right: "exact" | "may" | "no"): boolean {
-    return left === "exact" && right === "exact";
+function effectHasExactHandoffHandles(effect: HandoffEffect): boolean {
+    if (effect.kind === "put" || effect.kind === "get" || effect.kind === "kill") {
+        return isExactHandoffHandle(effect.handle);
+    }
+    return isExactHandoffHandle(effect.left) && isExactHandoffHandle(effect.right);
 }
 
-function isMayPair(left: "exact" | "may" | "no", right: "exact" | "may" | "no"): boolean {
-    return left !== "no" && right !== "no" && (left === "may" || right === "may");
+function isExactHandoffHandle(handle: HandoffHandle): boolean {
+    return handle.precision === "exact"
+        && String(handle.cellKind || "").trim().length > 0
+        && String(handle.family || "").trim().length > 0
+        && String(handle.key || "").trim().length > 0;
+}
+
+function isExactPair(left: "exact" | "no", right: "exact" | "no"): boolean {
+    return left === "exact" && right === "exact";
 }
 
 function isDefiniteReverseSameScope(

@@ -7,17 +7,6 @@ import type {
 } from "../shared/FrameworkCallbackClassifier";
 
 export type ArkMainRuleEndpoint = "base" | "result" | "matched_param" | `arg${number}`;
-export type ArkMainSourceRuleKind = "seed_local_name" | "entry_param" | "call_return" | "call_arg" | "field_read" | "callback_param";
-
-export interface ArkMainRuleStringConstraint {
-    mode: "equals" | "contains" | "regex";
-    value: string;
-}
-
-export interface ArkMainRuleScopeConstraint {
-    className?: ArkMainRuleStringConstraint;
-    methodName?: ArkMainRuleStringConstraint;
-}
 
 export interface ArkMainRuleEndpointRef {
     endpoint: ArkMainRuleEndpoint;
@@ -27,25 +16,6 @@ export interface ArkMainRuleEndpointRef {
 }
 
 export type ArkMainRuleEndpointOrRef = ArkMainRuleEndpoint | ArkMainRuleEndpointRef;
-
-export interface ArkMainRuleMatch {
-    kind: "signature_equals";
-    value: string;
-}
-
-export interface ArkMainSourceRule {
-    id: string;
-    enabled?: boolean;
-    description?: string;
-    tags?: string[];
-    family?: string;
-    tier?: "A" | "B" | "C";
-    match: ArkMainRuleMatch;
-    scope?: ArkMainRuleScopeConstraint;
-    sourceKind: ArkMainSourceRuleKind;
-    target: ArkMainRuleEndpointOrRef;
-    callbackArgIndexes?: number[];
-}
 
 export type ArkMainPhaseName =
     | "bootstrap"
@@ -58,6 +28,7 @@ export type ArkMainFactKind =
     | "ability_lifecycle"
     | "stage_lifecycle"
     | "extension_lifecycle"
+    | "process_lifecycle"
     | "page_build"
     | "page_lifecycle"
     | "callback"
@@ -77,6 +48,7 @@ export type ArkMainOwnerKind =
     | "ability_owner"
     | "stage_owner"
     | "extension_owner"
+    | "child_process_owner"
     | "component_owner"
     | "builder_owner"
     | "unknown_owner";
@@ -97,20 +69,6 @@ export type ArkMainTriggerKind =
     | "navigation_channel"
     | "ability_handoff";
 
-export interface ArkMainContractSourceSchema {
-    id: string;
-    sourceKind: ArkMainSourceRuleKind;
-    family: string;
-    tier: "A" | "B" | "C";
-    description: string;
-    tags?: string[];
-    matchSignature: string;
-    target: ArkMainRuleEndpointOrRef;
-    scopeClassName?: string;
-    scopeMethodName?: string;
-    callbackArgIndexes?: number[];
-}
-
 export interface ArkMainContract {
     phase: ArkMainPhaseName;
     method: ArkMethod;
@@ -130,13 +88,13 @@ export interface ArkMainContract {
     callbackRecognitionLayer?: CallbackRegistrationRecognitionLayer;
     callbackRegistrationSignature?: string;
     callbackArgIndex?: number;
-    sourceSchemas: ArkMainContractSourceSchema[];
 }
 
 export const ARK_MAIN_LIFECYCLE_FACT_KINDS: ReadonlySet<ArkMainFactKind> = new Set([
     "ability_lifecycle",
     "stage_lifecycle",
     "extension_lifecycle",
+    "process_lifecycle",
     "page_build",
     "page_lifecycle",
 ]);
@@ -145,17 +103,18 @@ export const ARK_MAIN_ROOT_ENTRY_FACT_KINDS: ReadonlySet<ArkMainFactKind> = new 
     "ability_lifecycle",
     "stage_lifecycle",
     "extension_lifecycle",
+    "process_lifecycle",
     "page_build",
     "page_lifecycle",
 ]);
 
 export const ARK_MAIN_ACTIVATION_SUPPORT_FACT_KINDS: ReadonlySet<ArkMainFactKind> = new Set([
+    "callback",
+    "scheduler_callback",
 ]);
 
 export const ARK_MAIN_PROPAGATION_MODELING_FACT_KINDS: ReadonlySet<ArkMainFactKind> = new Set<ArkMainFactKind>([
     "want_handoff",
-    "callback",
-    "scheduler_callback",
     "watch_handler",
     "watch_source",
     "router_source",
@@ -168,6 +127,11 @@ export interface ArkMainEntryFact {
     method: ArkMethod;
     ownerKind?: ArkMainOwnerKind;
     reason: string;
+    canonicalApiId?: string;
+    semanticSurfaceId?: string;
+    semanticBindingId?: string;
+    semanticTemplateId?: string;
+    semanticGate?: "exact_arkanalyzer_method_key" | "exact_decorator_qualified_owner_slot";
     schedule?: boolean;
     sourceMethod?: ArkMethod;
     reactiveFieldNames?: string[];
@@ -197,7 +161,6 @@ export interface ArkMainPhasePlan {
 
 export interface ArkMainCorePlan {
     contracts: ArkMainContract[];
-    sourceRules: ArkMainSourceRule[];
     orderedMethods: ArkMethod[];
 }
 

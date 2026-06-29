@@ -3,18 +3,15 @@ import * as path from "path";
 import { readAnalyzeSummary, runAnalyzeCli } from "../helpers/AnalyzeCliRunner";
 import { stringifyRuleAssetFixture } from "../helpers/RuleAssetFixtureFactory";
 import { resolveTestRunDir, resolveTestRunPath } from "../helpers/TestWorkspaceLayout";
-
 function assert(condition: unknown, message: string): asserts condition {
     if (!condition) {
         throw new Error(message);
     }
 }
-
 function writeText(filePath: string, content: string): void {
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
     fs.writeFileSync(filePath, content, "utf-8");
 }
-
 interface AnalyzeReport {
     reportMode: "light" | "full";
     summary: {
@@ -43,78 +40,66 @@ interface AnalyzeReport {
         }>;
     }>;
 }
-
 interface CaseSpec {
     name: string;
     bodyLines: string[];
     expectedTotalFlows: number;
 }
-
 function runCase(caseRoot: string, spec: CaseSpec): AnalyzeReport {
     const repoRoot = path.join(caseRoot, "repo");
     const outputDir = path.join(caseRoot, "out");
     const sourceDir = path.join(repoRoot, "src", "main", "ets");
     const rulePath = path.join(caseRoot, "type_narrowing_guard.rules.json");
-
     fs.rmSync(caseRoot, { recursive: true, force: true });
-
-    writeText(
-        path.join(sourceDir, "EntryAbility.ets"),
-        [
-            "import { UIAbility } from '@kit.AbilityKit';",
-            "",
-            "function Source(): string {",
-            "  return \"taint\";",
-            "}",
-            "",
-            "function UnknownValue(): any {",
-            "  return globalThis;",
-            "}",
-            "",
-            "function Sink(v: string): void {}",
-            "",
-            "function Safe(): void {}",
-            "",
-            "export default class EntryAbility extends UIAbility {",
-            "  onCreate(): void {",
-            "    const source = Source();",
-            ...spec.bodyLines.map(line => `    ${line}`),
-            "  }",
-            "}",
-            "",
-        ].join("\n"),
-    );
-
-    writeText(
-        rulePath,
-        stringifyRuleAssetFixture({
-            id: "asset.rule.fixture.type_narrowing_guard",
-            sources: [
-                {
-                    id: "source.fixture.type_narrowing_guard",
-                    sourceKind: "call_return",
-                    match: {
-                        kind: "method_name_equals",
-                        value: "Source",
-                    },
-                    target: "result",
+    writeText(path.join(sourceDir, "EntryAbility.ets"), [
+        "import { UIAbility } from '@kit.AbilityKit';",
+        "",
+        "function Source(): string {",
+        "  return \"taint\";",
+        "}",
+        "",
+        "function UnknownValue(): any {",
+        "  return globalThis;",
+        "}",
+        "",
+        "function Sink(v: string): void {}",
+        "",
+        "function Safe(): void {}",
+        "",
+        "export default class EntryAbility extends UIAbility {",
+        "  onCreate(): void {",
+        "    const source = Source();",
+        ...spec.bodyLines.map(line => `    ${line}`),
+        "  }",
+        "}",
+        "",
+    ].join("\n"));
+    writeText(rulePath, stringifyRuleAssetFixture({
+        id: "asset.rule.fixture.type_narrowing_guard",
+        sources: [
+            {
+                id: "source.fixture.type_narrowing_guard",
+                sourceKind: "call_return",
+                surface: {
+                    kind: "invoke",
+                    methodName: "Source"
                 },
-            ],
-            sinks: [
-                {
-                    id: "sink.fixture.type_narrowing_guard",
-                    match: {
-                        kind: "method_name_equals",
-                        value: "Sink",
-                    },
-                    target: "arg0",
+                target: "result"
+            }
+        ],
+        sinks: [
+            {
+                id: "sink.fixture.type_narrowing_guard",
+                surface: {
+                    kind: "invoke",
+                    methodName: "Sink"
                 },
-            ],
-            sanitizers: [],
-            transfers: [],
-        }),
-    );
-
+                target: "arg0"
+            }
+        ],
+        sanitizers: [],
+        transfers: []
+    }));
     runAnalyzeCli([
         "--repo", repoRoot,
         "--sourceDir", ".",
@@ -125,15 +110,12 @@ function runCase(caseRoot: string, spec: CaseSpec): AnalyzeReport {
         "--k", "1",
         "--outputDir", outputDir,
     ]);
-
     return readAnalyzeSummary<AnalyzeReport>(outputDir);
 }
-
 async function main(): Promise<void> {
     const root = resolveTestRunDir("analyze", "type_narrowing_guard");
     fs.rmSync(root, { recursive: true, force: true });
     fs.mkdirSync(root, { recursive: true });
-
     const cases: CaseSpec[] = [
         {
             name: "true_branch_dead",
@@ -295,49 +277,30 @@ async function main(): Promise<void> {
             ],
         },
     ];
-
     for (const spec of cases) {
         const caseRoot = resolveTestRunPath("analyze", "type_narrowing_guard", spec.name);
         const report = runCase(caseRoot, spec);
         const entry = report.entries.find(item => item.entryName === "@arkMain") || report.entries[0];
-
         assert(report.reportMode === "full", `expected reportMode=full for ${spec.name}, got ${report.reportMode}`);
         assert(report.summary.withSeeds > 0, `expected withSeeds > 0 for ${spec.name}, got ${report.summary.withSeeds}`);
-        assert(
-            report.summary.totalFlows === spec.expectedTotalFlows,
-            `expected totalFlows=${spec.expectedTotalFlows} for ${spec.name}, got ${report.summary.totalFlows}`,
-        );
+        assert(report.summary.totalFlows === spec.expectedTotalFlows, `expected totalFlows=${spec.expectedTotalFlows} for ${spec.name}, got ${report.summary.totalFlows}`);
         assert(!!entry, `expected an entry result for ${spec.name}`);
         assert(entry.status === "ok", `expected ok entry status for ${spec.name}, got ${entry.status}`);
         assert(entry.seedCount > 0, `expected seedCount > 0 for ${spec.name}, got ${entry.seedCount}`);
-        assert(
-            entry.flowCount === spec.expectedTotalFlows,
-            `expected flowCount=${spec.expectedTotalFlows} for ${spec.name}, got ${entry.flowCount}`,
-        );
+        assert(entry.flowCount === spec.expectedTotalFlows, `expected flowCount=${spec.expectedTotalFlows} for ${spec.name}, got ${entry.flowCount}`);
         if (spec.expectedTotalFlows === 0) {
             if ((entry.postsolveResults || []).length > 0) {
-                assert(
-                    Array.isArray(entry.materializedTaintFlows) && entry.materializedTaintFlows.length > 0,
-                    `expected refuted materialized path details for ${spec.name}`,
-                );
+                assert(Array.isArray(entry.materializedTaintFlows) && entry.materializedTaintFlows.length > 0, `expected refuted materialized path details for ${spec.name}`);
             }
-        } else {
-            assert(
-                Array.isArray(entry.materializedTaintFlows) && entry.materializedTaintFlows.length > 0,
-                `expected materialized flows for ${spec.name}`,
-            );
-            assert(
-                entry.materializedTaintFlows!.some(item => (item.paths || []).length > 0),
-                `expected at least one materialized witness path for ${spec.name}`,
-            );
         }
-
+        else {
+            assert(Array.isArray(entry.materializedTaintFlows) && entry.materializedTaintFlows.length > 0, `expected materialized flows for ${spec.name}`);
+            assert(entry.materializedTaintFlows!.some(item => (item.paths || []).length > 0), `expected at least one materialized witness path for ${spec.name}`);
+        }
         console.log(`PASS ${spec.name}`);
     }
-
     console.log("PASS test_analyze_type_narrowing_guard");
 }
-
 main().catch(error => {
     console.error("FAIL test_analyze_type_narrowing_guard");
     console.error(error);

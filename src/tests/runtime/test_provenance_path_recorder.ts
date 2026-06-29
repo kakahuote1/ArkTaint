@@ -114,6 +114,66 @@ async function main(): Promise<void> {
     );
     assert(limitedByPaths!.paths.length === 1, `expected one materialized path under maxPaths=1, got ${limitedByPaths!.paths.length}`);
 
+    const zeroPathBudget = materializeTaintFlowPaths(flow, context, { maxPaths: 0, maxDepth: 8 });
+    assert(!!zeroPathBudget, "expected zero-path budget to preserve a materialization diagnostic");
+    assert(
+        zeroPathBudget!.status === "truncated",
+        `expected zero-path budget to be truncated, got ${zeroPathBudget!.status}`,
+    );
+    assert(
+        zeroPathBudget!.paths.length === 0,
+        `expected zero materialized paths under maxPaths=0, got ${zeroPathBudget!.paths.length}`,
+    );
+    assert(
+        zeroPathBudget!.incompleteReasons.includes("max_paths"),
+        `expected max_paths reason for zero-path budget, got ${JSON.stringify(zeroPathBudget!.incompleteReasons)}`,
+    );
+    assert(
+        (zeroPathBudget!.gaps || []).some(gap => gap.reason === "max_paths"),
+        "expected max_paths gap when no path can be emitted",
+    );
+
+    const cycleOnlyContext = buildContext([
+        { fromFactId: "tmp1", toFactId: "sink", reason: "to_sink" },
+        { fromFactId: "sink", toFactId: "tmp1", reason: "back_edge" },
+    ]);
+    const cycleOnly = materializeTaintFlowPaths(flow, cycleOnlyContext, { maxPaths: 8, maxDepth: 8 });
+    assert(!!cycleOnly, "expected cycle-only materialization to preserve a diagnostic");
+    assert(
+        cycleOnly!.status === "incomplete",
+        `expected cycle-only materialization to be incomplete, got ${cycleOnly!.status}`,
+    );
+    assert(
+        cycleOnly!.paths.length === 0,
+        `expected no complete paths for cycle-only materialization, got ${cycleOnly!.paths.length}`,
+    );
+    assert(
+        cycleOnly!.incompleteReasons.includes("cycle_skipped"),
+        `expected cycle_skipped reason, got ${JSON.stringify(cycleOnly!.incompleteReasons)}`,
+    );
+
+    const longFirstContext = buildContext([
+        { fromFactId: "tmp3", toFactId: "sink", reason: "long_to_sink" },
+        { fromFactId: "source", toFactId: "sink", reason: "short_to_sink" },
+        { fromFactId: "tmp2", toFactId: "tmp3", reason: "long_mid" },
+        { fromFactId: "tmp1", toFactId: "tmp2", reason: "long_left" },
+        { fromFactId: "source", toFactId: "tmp1", reason: "long_seed" },
+    ]);
+    const shortestUnderBudget = materializeTaintFlowPaths(flow, longFirstContext, { maxPaths: 1, maxDepth: 8 });
+    assert(!!shortestUnderBudget, "expected path-budgeted materialization");
+    assert(
+        shortestUnderBudget!.paths.length === 1,
+        `expected one path under maxPaths=1, got ${shortestUnderBudget!.paths.length}`,
+    );
+    assert(
+        shortestUnderBudget!.paths[0].factIds.join(" -> ") === "source -> sink",
+        `expected shortest path to survive maxPaths, got ${shortestUnderBudget!.paths[0].factIds.join(" -> ")}`,
+    );
+    assert(
+        shortestUnderBudget!.incompleteReasons.includes("max_paths"),
+        `expected max_paths ledger for omitted longer branch, got ${JSON.stringify(shortestUnderBudget!.incompleteReasons)}`,
+    );
+
     const limitedByDagFacts = materializeTaintFlowPaths(flow, context, { maxPaths: 8, maxDepth: 8, maxDagFacts: 2 });
     assert(!!limitedByDagFacts, "expected dag-fact-limited materialization");
     assert(

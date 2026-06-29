@@ -2,11 +2,10 @@ import type { CellKindId } from "../../cellkind";
 
 export type HandoffEffectKind = "put" | "get" | "kill" | "scoped-link";
 
-export type HandoffHandlePrecision = "exact" | "partial" | "unknown";
-export type HandoffCompatibility = "exact" | "may" | "no";
+export type HandoffHandlePrecision = "exact";
+export type HandoffCompatibility = "exact" | "no";
 export type HandoffUpdateStrength = "strong" | "weak";
 export type HandoffConfidence = "certain" | "likely" | "unknown";
-export type HandoffMayCompatibilityPolicy = "conservative" | "block";
 
 export interface HandoffHandle {
     cellKind: CellKindId;
@@ -155,12 +154,16 @@ export function createHandoffHandle(
         allocSite?: string;
     } = {},
 ): HandoffHandle {
+    const requestedPrecision = String((options as { precision?: string }).precision || "exact");
+    if (requestedPrecision !== "exact") {
+        throw new Error("handoff handle precision must be exact");
+    }
     return {
         cellKind,
         family,
         scope: options.scope || "",
         key,
-        precision: options.precision || "exact",
+        precision: "exact",
         owner: options.owner,
         index: options.index,
         allocSite: options.allocSite,
@@ -171,22 +174,5 @@ export function compatibleHandoffHandles(
     left: HandoffHandle,
     right: HandoffHandle,
 ): HandoffCompatibility {
-    if (handoffHandleKey(left) === handoffHandleKey(right)) {
-        return "exact";
-    }
-    if (left.cellKind !== right.cellKind) return "no";
-    if (left.family !== right.family) return "no";
-    if (left.scope !== right.scope) return "no";
-    if (left.owner !== right.owner) return "no";
-    if (left.index !== right.index) return "no";
-    if (left.key === right.key) {
-        return left.precision === "exact" && right.precision === "exact" ? "exact" : "may";
-    }
-    if (left.precision === "unknown" || right.precision === "unknown") {
-        return "may";
-    }
-    if (left.precision === "partial" || right.precision === "partial") {
-        return "may";
-    }
-    return "no";
+    return handoffHandleKey(left) === handoffHandleKey(right) ? "exact" : "no";
 }

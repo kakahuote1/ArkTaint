@@ -171,9 +171,9 @@ function hasProjectApiModelingEvidence(item: NormalizedCallsiteItem): boolean {
     return entries.some(entry =>
         entry === "coverageGapReason=coverage.role_endpoint_guard_gap"
         || entry.startsWith("coverageGapSource=")
-        || entry === "candidateTier=project-wrapper"
-        || entry === "candidateTier=declared-owner-wrapper"
-        || entry === "candidateTier=returned-value-wrapper"
+        || entry === "candidateKind=project-wrapper"
+        || entry === "candidateKind=declared-owner-wrapper"
+        || entry === "candidateKind=returned-value-wrapper"
         || entry === "candidateReason=network-boundary-effect"
         || entry === "candidateReason=payload-forwarding-boundary"
         || entry === "candidateBoundary=project_or_third_party_wrapper_evidence"

@@ -4,6 +4,7 @@ import {
     assertProjectAssetsArePromotedForModelRoot,
     promoteAssetThroughGate,
 } from "../../core/assets/schema";
+import { exactProjectInvokeSurface } from "../helpers/AssetIdentityTestUtils";
 
 function assert(condition: unknown, message: string): asserts condition {
     if (!condition) throw new Error(message);
@@ -21,22 +22,22 @@ function expectThrows(fn: () => unknown, contains: string): void {
 }
 
 function candidateAsset(): AssetDocumentBase {
-    return {
+    const asset = {
         id: "asset.project.token-cache",
         plane: "module",
         status: "llm-generated",
         surfaces: [
-            {
+            exactProjectInvokeSurface({
                 surfaceId: "surface.TokenCache.save",
-                kind: "invoke",
                 modulePath: "project/cache",
                 ownerName: "TokenCache",
                 methodName: "save",
                 invokeKind: "static",
-                argCount: 2,
+                parameterTypes: ["string", "Object"],
+                returnType: "void",
                 confidence: "likely",
-                provenance: { source: "llm-proposal", location: { file: "TokenCache.ets", line: 2 } },
-            },
+                provenanceSource: "llm-proposal",
+            }),
         ],
         bindings: [
             {
@@ -45,6 +46,7 @@ function candidateAsset(): AssetDocumentBase {
                 assetId: "asset.project.token-cache",
                 plane: "module",
                 role: "handoff",
+                canonicalApiId: undefined,
                 effectTemplateRefs: ["template.TokenCache.save.put"],
                 completeness: "partial",
                 confidence: "likely",
@@ -58,15 +60,17 @@ function candidateAsset(): AssetDocumentBase {
                     cellKind: "keyed-semantic-slot",
                     family: "project.token_cache",
                     key: [{ kind: "fromLiteralArg", index: 0 }],
-                    precision: "infer",
+                    precision: "exact",
                 },
                 value: { base: { kind: "arg", index: 1 } },
-                updateStrength: "infer",
+                updateStrength: "weak",
                 confidence: "likely",
             },
         ],
         provenance: { source: "llm", projectId: "demo", evidenceLocations: [{ file: "TokenCache.ets", line: 2 }] },
-    };
+    } as AssetDocumentBase;
+    asset.bindings[0].canonicalApiId = asset.surfaces[0].canonicalApiId;
+    return asset;
 }
 
 function main(): void {

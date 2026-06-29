@@ -13,7 +13,7 @@ import type {
     SemanticFlowDecider,
     SemanticFlowDecisionInput,
 } from "./SemanticFlowTypes";
-import { semanticFlowDeclaringClassFromSignature } from "./SemanticFlowRuleCompanions";
+import { parseCanonicalApiId } from "../api/identity";
 
 export interface SemanticFlowModelInvokerInput {
     system: string;
@@ -144,36 +144,107 @@ function validateSemanticFlowDecisionAgainstAnchor(
     }
     validateReceiverFieldCarrierAsset(decision, input);
     validateProjectStorageWrapperAsset(decision, input);
-    const expectedOwner = semanticFlowDeclaringClassFromSignature(input.anchor.methodSignature || "");
-    const expectedMethod = semanticFlowMethodNameFromSignature(input.anchor.methodSignature || "")
-        || String(input.anchor.surface || "").split(".").pop()
-        || "";
-    if (!expectedMethod) {
-        return;
+    validateDecisionSurfacesUseObservedCanonicalIds(decision, input);
+}
+
+function validateDecisionSurfacesUseObservedCanonicalIds(
+    decision: Extract<SemanticFlowDecision, { status: "done" }>,
+    input: SemanticFlowDecisionInput,
+): void {
+    const observedCanonicalApiIds = collectObservedCanonicalApiSurfaceIds(input);
+    const surfaces = decision.asset.surfaces || [];
+    if (surfaces.length > 0 && observedCanonicalApiIds.size === 0) {
+        throw new Error([
+            "asset surfaces require analyzer-backed canonicalApiSurface observations",
+            `anchor=${input.anchor.id}`,
+            "return need-more-evidence instead of inventing canonicalApiId",
+        ].join("; "));
     }
-    const expectsOwnerlessFunction = !expectedOwner
-        && semanticFlowSignatureLooksOwnerlessFunction(input.anchor.methodSignature || "", expectedMethod);
     for (const surface of decision.asset.surfaces || []) {
-        if (surface.kind !== "invoke") {
+        const canonicalApiId = String((surface as any).canonicalApiId || "").trim();
+        if (!canonicalApiId) {
             continue;
         }
-        const methodName = String((surface as any).methodName || (surface as any).functionName || "").trim();
-        if (methodName !== expectedMethod) {
-            continue;
-        }
-        const ownerName = String((surface as any).ownerName || "").trim();
-        if (expectedOwner && ownerName && ownerName !== expectedOwner) {
+        const expectedSurfaceId = `surface:${canonicalApiId}`;
+        if (surface.surfaceId !== expectedSurfaceId) {
             throw new Error([
-                `invoke surface ${surface.surfaceId} ownerName ${ownerName} does not match analyzer-backed declaring owner ${expectedOwner}`,
+                `surface ${surface.surfaceId} does not use canonical surfaceId`,
+                `expected=${expectedSurfaceId}`,
+                `canonicalApiId=${canonicalApiId}`,
                 `anchor=${input.anchor.id}`,
-                `methodSignature=${input.anchor.methodSignature || "-"}`,
             ].join("; "));
         }
-        if (expectsOwnerlessFunction) {
-            validateOwnerlessFunctionSurface(surface as any, input, expectedMethod);
-            validateOwnerlessCallbackSourceLocation(decision.asset as any, surface as any, input);
+        if (!observedCanonicalApiIds.has(canonicalApiId)) {
+            throw new Error([
+                `surface ${surface.surfaceId} canonicalApiId was not present in canonicalApiSurface observations`,
+                `canonicalApiId=${canonicalApiId}`,
+                `anchor=${input.anchor.id}`,
+                "return need-more-evidence for missing surface evidence",
+            ].join("; "));
         }
     }
+}
+
+function collectObservedCanonicalApiSurfaceIds(input: SemanticFlowDecisionInput): Set<string> {
+    const out = new Set<string>();
+    const visitText = (value: unknown): void => {
+        for (const surface of collectCanonicalApiSurfaceObservations(value)) {
+            out.add(surface.canonicalApiId);
+        }
+    };
+    visitText(input.anchor.surface);
+    visitText(input.anchor.methodSignature);
+    for (const observation of input.slice.observations || []) {
+        visitText(observation);
+    }
+    for (const note of input.slice.notes || []) {
+        visitText(note);
+    }
+    for (const snippet of input.slice.snippets || []) {
+        visitText(snippet?.label);
+        visitText(snippet?.code);
+    }
+    for (const companion of input.slice.companions || []) {
+        visitText(companion);
+    }
+    return out;
+}
+
+interface ObservedCanonicalApiSurface {
+    canonicalApiId: string;
+    memberName: string;
+}
+
+function collectCanonicalApiSurfaceObservations(value: unknown): ObservedCanonicalApiSurface[] {
+    const text = String(value || "");
+    if (!text.includes("canonicalApiSurface:")) {
+        return [];
+    }
+    const out: ObservedCanonicalApiSurface[] = [];
+    for (const line of text.split(/\r?\n/)) {
+        const markerIndex = line.indexOf("canonicalApiSurface:");
+        if (markerIndex < 0) continue;
+        const jsonText = line.slice(markerIndex + "canonicalApiSurface:".length).trim();
+        if (!jsonText.startsWith("{")) continue;
+        try {
+            const parsed = JSON.parse(jsonText);
+            const canonicalApiId = String(parsed?.canonicalApiId || "").trim();
+            const memberName = memberNameFromCanonicalApiId(canonicalApiId);
+            if (canonicalApiId && memberName) {
+                out.push({ canonicalApiId, memberName });
+            }
+        } catch {
+            continue;
+        }
+    }
+    return out;
+}
+
+function memberNameFromCanonicalApiId(canonicalApiId: string): string | undefined {
+    const parts = parseCanonicalApiId(canonicalApiId);
+    if (!parts) return undefined;
+    const memberParts = parts.member.split(":").map(part => part.trim()).filter(Boolean);
+    return memberParts[memberParts.length - 1] || undefined;
 }
 
 function validateReceiverFieldCarrierAsset(
@@ -331,14 +402,13 @@ function collectProjectStorageWrapperEvidence(
     hasMutatingStoreCall: boolean;
     hasSemanticStorageCall: boolean;
     methods: string[];
-    observedSurfaces: Array<{ ownerName?: string; methodName: string; argCount: number; evidence: string }>;
+    observedSurfaces: Array<{ canonicalApiId: string; memberName: string; evidence: string }>;
 } {
     const methods = new Set<string>();
-    const observedSurfaces = new Map<string, { ownerName?: string; methodName: string; argCount: number; evidence: string }>();
+    const observedSurfaces = new Map<string, { canonicalApiId: string; memberName: string; evidence: string }>();
     let storageBoundary = false;
     let hasMutatingStoreCall = false;
     let hasSemanticStorageCall = false;
-    const anchorOwner = input.anchor.owner || semanticFlowDeclaringClassFromSignature(input.anchor.methodSignature || "");
     const visitText = (value: unknown): void => {
         const text = String(value || "");
         if (!text) {
@@ -362,14 +432,13 @@ function collectProjectStorageWrapperEvidence(
                 hasMutatingStoreCall = true;
             }
         }
-        for (const observed of collectObservedProjectStorageSurfaceCalls(text, anchorOwner)) {
-            const key = [
-                observed.ownerName || "",
-                observed.methodName,
-                String(observed.argCount),
-            ].join("\u0000");
-            if (!observedSurfaces.has(key)) {
-                observedSurfaces.set(key, { ...observed, evidence: text.slice(0, 240) });
+        for (const observed of collectCanonicalApiSurfaceObservations(text)) {
+            methods.add(observed.memberName);
+            if (projectStorageMethodHasSemantic(observed.memberName)) {
+                hasSemanticStorageCall = true;
+                if (!observedSurfaces.has(observed.canonicalApiId)) {
+                    observedSurfaces.set(observed.canonicalApiId, { ...observed, evidence: text.slice(0, 240) });
+                }
             }
         }
     };
@@ -394,7 +463,7 @@ function collectProjectStorageWrapperEvidence(
         hasSemanticStorageCall,
         methods: [...methods.values()].sort((a, b) => a.localeCompare(b)),
         observedSurfaces: [...observedSurfaces.values()].sort((a, b) =>
-            `${a.ownerName || ""}.${a.methodName}/${a.argCount}`.localeCompare(`${b.ownerName || ""}.${b.methodName}/${b.argCount}`)),
+            a.canonicalApiId.localeCompare(b.canonicalApiId)),
     };
 }
 
@@ -421,250 +490,36 @@ function validateObservedProjectStorageSurfaces(
     evidence: ReturnType<typeof collectProjectStorageWrapperEvidence>,
 ): void {
     const required = evidence.observedSurfaces.filter(surface =>
-        projectStorageMethodHasSemantic(surface.methodName)
-        && surface.argCount >= 0);
+        projectStorageMethodHasSemantic(surface.memberName));
     if (required.length === 0) {
         return;
     }
-    const missing = required.filter(surface => !assetHasInvokeSurface(asset, surface));
+    const missing = required.filter(surface => !assetHasCanonicalInvokeSurface(asset, surface.canonicalApiId));
     if (missing.length === 0) {
         return;
     }
     throw new Error([
-        "project storage wrapper module asset must cover every observed companion surface arity or return need-more-evidence",
+        "project storage wrapper module asset must cover every observed companion canonicalApiId or return need-more-evidence",
         `anchor=${input.anchor.id}`,
-        `missing=${missing.map(surface => `${surface.ownerName ? `${surface.ownerName}.` : ""}${surface.methodName}/${surface.argCount}`).join(",")}`,
-        "do not cover only one overload when the evidence slice shows another observed call shape",
+        `missing=${missing.map(surface => `${surface.memberName}:${surface.canonicalApiId}`).join(",")}`,
+        "do not cover only one overload when the evidence slice shows another exact canonical identity",
     ].join("; "));
-}
-
-function collectObservedProjectStorageSurfaceCalls(
-    text: string,
-    anchorOwner?: string,
-): Array<{ ownerName?: string; methodName: string; argCount: number }> {
-    const out: Array<{ ownerName?: string; methodName: string; argCount: number }> = [];
-    const ownerPattern = anchorOwner
-        ? escapeRegExp(anchorOwner)
-        : "[A-Za-z_$][\\w$]*";
-    const callPattern = new RegExp(`\\b(${ownerPattern})\\.([A-Za-z_$][\\w$]*)\\s*\\(([^)]*)\\)`, "g");
-    for (const match of text.matchAll(callPattern)) {
-        const ownerName = match[1]?.trim();
-        const methodName = match[2]?.trim();
-        if (!methodName || !projectStorageMethodHasSemantic(methodName)) {
-            continue;
-        }
-        out.push({
-            ownerName: ownerName || undefined,
-            methodName,
-            argCount: countTopLevelArguments(match[3] || ""),
-        });
-    }
-    return out;
 }
 
 function projectStorageMethodHasSemantic(methodName: string): boolean {
     return /^(put|set|save|write|store|insert|update|load|get|read|query|fetch|delete|remove|clear)(data|value|item|record|secret|token|password|credential)?$/i.test(methodName);
 }
 
-function assetHasInvokeSurface(
+function assetHasCanonicalInvokeSurface(
     asset: any,
-    required: { ownerName?: string; methodName: string; argCount: number },
+    canonicalApiId: string,
 ): boolean {
     return (asset?.surfaces || []).some((surface: any) => {
         if (String(surface?.kind || "") !== "invoke") {
             return false;
         }
-        const methodName = String(surface?.methodName || surface?.functionName || "").trim();
-        if (methodName !== required.methodName) {
-            return false;
-        }
-        const argCount = Number(surface?.argCount);
-        if (!Number.isFinite(argCount) || argCount !== required.argCount) {
-            return false;
-        }
-        if (!required.ownerName) {
-            return true;
-        }
-        return String(surface?.ownerName || "").trim() === required.ownerName;
+        return String(surface?.canonicalApiId || "").trim() === canonicalApiId;
     });
-}
-
-function countTopLevelArguments(argsText: string): number {
-    const text = String(argsText || "").trim();
-    if (!text) {
-        return 0;
-    }
-    let count = 1;
-    let depth = 0;
-    let quote: string | undefined;
-    let escaped = false;
-    for (const ch of text) {
-        if (escaped) {
-            escaped = false;
-            continue;
-        }
-        if (quote) {
-            if (ch === "\\") {
-                escaped = true;
-                continue;
-            }
-            if (ch === quote) {
-                quote = undefined;
-            }
-            continue;
-        }
-        if (ch === "'" || ch === '"' || ch === "`") {
-            quote = ch;
-            continue;
-        }
-        if (ch === "(" || ch === "[" || ch === "{") {
-            depth++;
-            continue;
-        }
-        if (ch === ")" || ch === "]" || ch === "}") {
-            depth = Math.max(0, depth - 1);
-            continue;
-        }
-        if (ch === "," && depth === 0) {
-            count++;
-        }
-    }
-    return count;
-}
-
-function escapeRegExp(value: string): string {
-    return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function validateOwnerlessFunctionSurface(
-    surface: any,
-    input: SemanticFlowDecisionInput,
-    expectedFunctionName: string,
-): void {
-    const ownerName = String(surface.ownerName || "").trim();
-    const methodName = String(surface.methodName || "").trim();
-    const functionName = String(surface.functionName || "").trim();
-    const invokeKind = String(surface.invokeKind || "").trim();
-    if (ownerName || methodName || functionName !== expectedFunctionName || invokeKind !== "free-function") {
-        throw new Error([
-            `invoke surface ${surface.surfaceId} must use ownerless free-function identity for analyzer-backed function ${expectedFunctionName}`,
-            `expected=functionName:${expectedFunctionName},invokeKind:free-function,no ownerName,no methodName`,
-            `actual=ownerName:${ownerName || "-"},methodName:${methodName || "-"},functionName:${functionName || "-"},invokeKind:${invokeKind || "-"}`,
-            `anchor=${input.anchor.id}`,
-            `methodSignature=${input.anchor.methodSignature || "-"}`,
-        ].join("; "));
-    }
-}
-
-function validateOwnerlessCallbackSourceLocation(
-    asset: any,
-    surface: any,
-    input: SemanticFlowDecisionInput,
-): void {
-    if (!assetUsesSurfaceAsCallbackSource(asset, surface.surfaceId)) {
-        return;
-    }
-    const callerFiles = collectCallerFilesFromSlice(input);
-    if (callerFiles.length === 0) {
-        return;
-    }
-    const actualFile = normalizeSemanticFlowPath(surface.provenance?.location?.file);
-    if (actualFile && callerFiles.includes(actualFile)) {
-        return;
-    }
-    throw new Error([
-        `ownerless callback source surface ${surface.surfaceId} must use analyzer-backed registration callerFile as provenance.location.file`,
-        `expectedCallerFile=${callerFiles.join("|")}`,
-        `actual=${actualFile || "-"}`,
-        `anchor=${input.anchor.id}`,
-    ].join("; "));
-}
-
-function assetUsesSurfaceAsCallbackSource(asset: any, surfaceId: string): boolean {
-    const templates = new Map<string, any>();
-    for (const template of asset?.effectTemplates || []) {
-        if (template?.id) {
-            templates.set(String(template.id), template);
-        }
-    }
-    for (const binding of asset?.bindings || []) {
-        if (String(binding?.surfaceId || "") !== surfaceId || binding?.role !== "source") {
-            continue;
-        }
-        if (endpointIsCallbackArg(binding?.endpoint)) {
-            return true;
-        }
-        for (const ref of binding?.effectTemplateRefs || []) {
-            const template = templates.get(String(ref));
-            if (template?.kind === "rule.source" && template?.sourceKind === "callback_param") {
-                return true;
-            }
-            if (endpointIsCallbackArg(template?.value)) {
-                return true;
-            }
-        }
-    }
-    return false;
-}
-
-function endpointIsCallbackArg(value: any): boolean {
-    return value?.base?.kind === "callbackArg";
-}
-
-function collectCallerFilesFromSlice(input: SemanticFlowDecisionInput): string[] {
-    const out = new Set<string>();
-    const add = (value: unknown): void => {
-        const normalized = normalizeSemanticFlowPath(value);
-        if (normalized) {
-            out.add(normalized);
-        }
-    };
-    for (const snippet of input.slice.snippets || []) {
-        const code = String(snippet?.code || "");
-        for (const line of code.split(/\r?\n/)) {
-            const m = /^\s*callerFile\s*:\s*(.+?)\s*$/.exec(line);
-            if (m?.[1]) {
-                add(m[1]);
-            }
-        }
-    }
-    return [...out.values()].sort((a, b) => a.localeCompare(b));
-}
-
-function normalizeSemanticFlowPath(value: unknown): string | undefined {
-    const text = String(value || "").replace(/\\/g, "/").trim();
-    if (!text) {
-        return undefined;
-    }
-    const etsIndex = text.indexOf("/ets/");
-    if (etsIndex >= 0) {
-        return text.slice(etsIndex + 1);
-    }
-    return text.replace(/^@/, "");
-}
-
-function semanticFlowMethodNameFromSignature(signature: string): string | undefined {
-    const text = String(signature || "").trim();
-    const openParen = text.indexOf("(");
-    const searchEnd = openParen >= 0 ? openParen : text.length;
-    const methodDot = text.lastIndexOf(".", searchEnd);
-    const lastColon = text.lastIndexOf(":", searchEnd);
-    if (methodDot >= 0 && methodDot > lastColon) {
-        const method = text.slice(methodDot + 1, searchEnd).trim();
-        return method || undefined;
-    }
-    const methodStart = lastColon >= 0 ? lastColon + 1 : 0;
-    const method = text.slice(methodStart, searchEnd).trim().replace(/^\./, "").trim();
-    return method || undefined;
-}
-
-function semanticFlowSignatureLooksOwnerlessFunction(signature: string, functionName: string): boolean {
-    const text = String(signature || "").trim();
-    if (!text || !functionName) {
-        return false;
-    }
-    const escaped = functionName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    return new RegExp(`:\\s*\\.?${escaped}\\s*\\(`).test(text);
 }
 
 async function repairSemanticFlowDecisionRaw(
@@ -696,8 +551,6 @@ async function repairSemanticFlowDecisionRaw(
 
 function buildAnalyzerBackedSurfaceSet(input: SemanticFlowDecisionInput): Set<string> {
     const set = new Set<string>();
-    set.add(`surface.${input.anchor.id}`);
-    set.add(input.anchor.id);
     if (input.draft?.surfaces) {
         for (const surface of input.draft.surfaces) {
             if (surface?.surfaceId && surface.provenance?.source === "analyzer") {

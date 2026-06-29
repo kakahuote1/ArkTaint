@@ -3,6 +3,7 @@ import { SinkRule } from "../../core/rules/RuleSchema";
 import { loadRuleSet } from "../../core/rules/RuleLoader";
 import { TaintPropagationEngine } from "../../core/orchestration/TaintPropagationEngine";
 import { buildTestScene } from "../helpers/TestSceneBuilder";
+import { projectApiEffectAssetFromMethod } from "../helpers/ApiEffectTestAssets";
 
 function assert(condition: unknown, message: string): asserts condition {
     if (!condition) {
@@ -12,16 +13,32 @@ function assert(condition: unknown, message: string): asserts condition {
 
 const SOURCE_DIR = path.resolve("tests/demo/framework_api_source_appaccount_unknown_sdk");
 
-const SINK_RULES: SinkRule[] = [
-    {
-        id: "sink.framework.api.appaccount.unknown_sdk.arg0",
-        match: { kind: "method_name_equals", value: "Sink" },
-        target: { endpoint: "arg0" },
-    },
-];
-
 function findMethod(scene: ReturnType<typeof buildTestScene>, methodName: string): any {
     return scene.getMethods().find(method => method.getName() === methodName);
+}
+
+function buildSinkRules(scene: ReturnType<typeof buildTestScene>): {
+    rules: SinkRule[];
+    assets: ReturnType<typeof projectApiEffectAssetFromMethod>["asset"][];
+} {
+    const sinkMethod = findMethod(scene, "Sink");
+    assert(sinkMethod, "sink method not found: Sink");
+    const sinkEffect = projectApiEffectAssetFromMethod({
+        id: "sink.framework.api.appaccount.unknown_sdk.arg0",
+        role: "sink",
+        method: sinkMethod,
+        endpoint: { base: { kind: "arg", index: 0 } },
+        sinkKind: "test",
+    });
+    return {
+        assets: [sinkEffect.asset],
+        rules: [{
+        id: "sink.framework.api.appaccount.unknown_sdk.arg0",
+        match: { kind: "canonical_api_id_equals", value: sinkEffect.canonicalApiDescriptor.canonicalApiId },
+        apiEffect: sinkEffect.apiEffect,
+        target: { endpoint: "arg0" },
+        }],
+    };
 }
 
 function flowSinkInCaseMethod(scene: ReturnType<typeof buildTestScene>, sinkStmt: any, caseMethodName: string): boolean {
@@ -34,7 +51,7 @@ async function runCase(scene: ReturnType<typeof buildTestScene>, caseName: strin
     const loaded = loadRuleSet({
         kernelRulePath: path.resolve("tests/rules/minimal.rules.json"),
         ruleCatalogPath: path.resolve("src/models"),
-        autoDiscoverLayers: false,
+        autoDiscoverRuleSources: false,
         allowMissingProject: true,
     });
     const sourceRules = (loaded.ruleSet.sources || []).filter(
@@ -42,9 +59,12 @@ async function runCase(scene: ReturnType<typeof buildTestScene>, caseName: strin
     );
     assert(sourceRules.length > 0, "expected appAccount API source rules");
 
+    const sinkRules = buildSinkRules(scene);
     const entryMethod = findMethod(scene, caseName);
     assert(entryMethod, `entry method not found: ${caseName}`);
-    const engine = new TaintPropagationEngine(scene, 1);
+    const engine = new TaintPropagationEngine(scene, 1, {
+        apiAssets: [...loaded.assets, ...sinkRules.assets],
+    });
     engine.verbose = false;
     await engine.buildPAG({
         entryModel: "explicit",
@@ -52,7 +72,7 @@ async function runCase(scene: ReturnType<typeof buildTestScene>, caseName: strin
     });
     engine.setActiveReachableMethodSignatures(new Set([entryMethod.getSignature().toString()]));
     const seedInfo = engine.propagateWithSourceRules(sourceRules);
-    const flows = engine.detectSinksByRules(SINK_RULES);
+    const flows = engine.detectSinksByRules(sinkRules.rules);
     return {
         detected: flows.some(flow => flowSinkInCaseMethod(scene, flow.sink, caseName)),
         hits: seedInfo.sourceRuleHits["source.harmony.appAccount.getCredential.result"] || 0,

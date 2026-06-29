@@ -171,12 +171,12 @@ function isCandidateInCallerFile(candidate: ArkMainEntryCandidate, callerFiles: 
 }
 
 function compareRelatedArkMainCandidates(left: ArkMainEntryCandidate, right: ArkMainEntryCandidate): number {
-    return arkMainMethodTier(left) - arkMainMethodTier(right)
-        || arkMainSignalCompletenessTier(left) - arkMainSignalCompletenessTier(right)
+    return arkMainMethodRank(left) - arkMainMethodRank(right)
+        || arkMainSignalCompletenessRank(left) - arkMainSignalCompletenessRank(right)
         || left.methodSignature.localeCompare(right.methodSignature);
 }
 
-function arkMainMethodTier(candidate: ArkMainEntryCandidate): number {
+function arkMainMethodRank(candidate: ArkMainEntryCandidate): number {
     const methodName = String(candidate.methodName || "").toLowerCase();
     if (methodName === "build") return 0;
     if (methodName === "initialrender" || methodName === "rerender") return 1;
@@ -184,7 +184,7 @@ function arkMainMethodTier(candidate: ArkMainEntryCandidate): number {
     return 3;
 }
 
-function arkMainSignalCompletenessTier(candidate: ArkMainEntryCandidate): number {
+function arkMainSignalCompletenessRank(candidate: ArkMainEntryCandidate): number {
     if (candidate.ownerSignals.length > 0 && candidate.overrideSignals.length > 0 && candidate.frameworkSignals.length > 0) return 0;
     if (candidate.ownerSignals.length > 0 && candidate.frameworkSignals.length > 0) return 1;
     if (candidate.ownerSignals.length > 0 || candidate.frameworkSignals.length > 0) return 2;

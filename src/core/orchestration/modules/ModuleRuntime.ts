@@ -1,5 +1,6 @@
 import { PagNode } from "../../../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
 import { ArkParameterRef } from "../../../../arkanalyzer/out/src/core/base/Ref";
+import { Local } from "../../../../arkanalyzer/out/src/core/base/Local";
 import {
     ModuleAnalysisApi,
     emptyModuleAuditSnapshot,
@@ -36,6 +37,8 @@ import {
     ModuleScannedDecoratedField,
     ModuleScannedDecorator,
     ModuleScannedInvoke,
+    ModuleCanonicalApiOccurrence,
+    ModuleCanonicalDecoratorOccurrence,
     ModuleMethodsApi,
     ModuleRuntime,
     ModuleResolvedCallbackMethod,
@@ -68,6 +71,11 @@ import type {
 } from "../../kernel/model/DeferredBindingDeclaration";
 import { TaintFact } from "../../kernel/model/TaintFact";
 import { collectCarrierNodeIdsForValueAtStmt } from "../../kernel/ordinary/OrdinaryAliasPropagation";
+import {
+    isConsumableSemanticEndpointProjection,
+    materializeExactPagNodes,
+    projectSemanticEffectEndpoint,
+} from "../../kernel/contracts/PagNodeResolution";
 import {
     extractErrorLocation,
     getExtensionSourceModulePath,
@@ -294,8 +302,7 @@ function createAnalysisApi(raw: InternalRawModuleSetupContext): ModuleAnalysisAp
         if (direct.size > 0 || !anchorStmt || !shouldMaterializeExactModuleUseEndpoint(value)) {
             return [...direct.values()];
         }
-        raw.pag.getOrNewNode(0, value, anchorStmt);
-        return [...collectNodeIdsFromValue(raw.pag, value).values()];
+        return [...(materializeExactPagNodes(raw.pag, value, anchorStmt, 0)?.values() || [])];
     };
     const exactEndpointNodeIdsForValue = (value: any, anchorStmt?: any): number[] => {
         if (!raw.pag) return [];
@@ -303,8 +310,7 @@ function createAnalysisApi(raw: InternalRawModuleSetupContext): ModuleAnalysisAp
         if (direct.size > 0 || !anchorStmt || !shouldMaterializeExactModuleEndpointValue(value)) {
             return [...direct.values()];
         }
-        raw.pag.getOrNewNode(0, value, anchorStmt);
-        return [...collectNodeIdsFromValue(raw.pag, value).values()];
+        return [...(materializeExactPagNodes(raw.pag, value, anchorStmt, 0)?.values() || [])];
     };
     const resultNodeIdsForValue = (value: any, anchorStmt?: any): number[] => {
         if (!raw.pag) return [];
@@ -312,8 +318,7 @@ function createAnalysisApi(raw: InternalRawModuleSetupContext): ModuleAnalysisAp
         if (direct.size > 0 || !anchorStmt || !shouldMaterializeExactModuleResultEndpoint(value)) {
             return [...direct.values()];
         }
-        raw.pag.getOrNewNode(0, value, anchorStmt);
-        return [...collectNodeIdsFromValue(raw.pag, value).values()];
+        return [...(materializeExactPagNodes(raw.pag, value, anchorStmt, 0)?.values() || [])];
     };
     const objectNodeIdsForValue = (value: any): number[] => {
         if (!raw.pag) return [];
@@ -353,7 +358,188 @@ function createAnalysisApi(raw: InternalRawModuleSetupContext): ModuleAnalysisAp
             if (!raw.scene) return [];
             return raw.queries.collectFiniteStringCandidatesFromValue(raw.scene, value, maxDepth);
         },
+        projectEndpoint(input) {
+            return projectSemanticEffectEndpoint({
+                ...input,
+                pag: raw.pag,
+                resolveEndpointAccessPathNodeIds(values, accessPath) {
+                    return resolveExactModuleAccessPathCarrierNodeIds(
+                        raw.pag,
+                        values,
+                        accessPath,
+                        input.stmt,
+                        getClassBySignature(),
+                    );
+                },
+            });
+        },
     };
+}
+
+function collectConsumableSemanticEndpointNodeIds(input: {
+    analysis: ModuleAnalysisApi;
+    semanticEffectSites: readonly any[];
+    stmt: any;
+    invokeExpr: any;
+    selector: { kind: string; index?: number; nodeKind?: string; rest?: boolean };
+}): number[] {
+    const out = new Set<number>();
+    for (const semanticSite of input.semanticEffectSites || []) {
+        if (!semanticEndpointMatchesSelector(semanticSite?.endpointSpec, input.selector)) {
+            continue;
+        }
+        const projection = input.analysis.projectEndpoint({
+            semanticSite,
+            endpointSpec: semanticSite.endpointSpec,
+            stmt: input.stmt,
+            invokeExpr: input.invokeExpr,
+        });
+        if (!isConsumableSemanticEndpointProjection(projection)) {
+            continue;
+        }
+        for (const nodeId of projection.nodeIds || []) {
+            out.add(nodeId);
+        }
+        for (const nodeId of projection.carrierNodeIds || []) {
+            out.add(nodeId);
+        }
+    }
+    return [...out.values()];
+}
+
+function semanticEndpointMatchesSelector(
+    endpointSpec: any,
+    selector: { kind: string; index?: number; rest?: boolean },
+): boolean {
+    const base = endpointSpec?.base;
+    if (!base || typeof base !== "object") {
+        return false;
+    }
+    switch (selector.kind) {
+        case "arg":
+            if (selector.rest === true) {
+                return base.kind === "rest" && Number(base.startIndex) === Number(selector.index);
+            }
+            return base.kind === "arg" && Number(base.index) === Number(selector.index);
+        case "base":
+            return base.kind === "receiver";
+        case "result":
+            return base.kind === "return" || base.kind === "constructorResult";
+        default:
+            return false;
+    }
+}
+
+function resolveExactModuleAccessPathCarrierNodeIds(
+    pag: any,
+    values: readonly any[],
+    accessPath: readonly string[],
+    anchorStmt: any,
+    classBySignature: Map<string, any>,
+): number[] {
+    if (!pag || !anchorStmt || accessPath.length === 0) return [];
+    const out = new Set<number>();
+    for (const value of values) {
+        if (!value || !structuredAccessPathExistsForValue(value, accessPath, anchorStmt, classBySignature, 0, new Set<string>())) {
+            continue;
+        }
+        for (const nodeId of collectCarrierNodeIdsForValueAtStmt(pag, value, anchorStmt, classBySignature)) {
+            out.add(nodeId);
+        }
+        if (shouldMaterializeExactModuleUseEndpoint(value)) {
+            for (const nodeId of materializeExactPagNodes(pag, value, anchorStmt, 0)?.values() || []) {
+                out.add(nodeId);
+            }
+        }
+    }
+    return [...out.values()];
+}
+
+function structuredAccessPathExistsForValue(
+    value: any,
+    accessPath: readonly string[],
+    anchorStmt: any,
+    classBySignature: Map<string, any>,
+    depth: number,
+    visiting: Set<string>,
+): boolean {
+    if (!value || accessPath.length === 0) return true;
+    if (depth > 8) return false;
+    const classSignature = classSignatureFromValue(value);
+    if (classSignature) {
+        return structuredAccessPathExistsForClass(classSignature, accessPath, classBySignature, depth + 1, visiting);
+    }
+    if (value instanceof Local) {
+        const key = `${anchorStmt?.getCfg?.()?.getDeclaringMethod?.()?.getSignature?.()?.toString?.() || ""}:${value.getName?.() || ""}:${accessPath.join(".")}`;
+        if (visiting.has(key)) return false;
+        visiting.add(key);
+        const assigned = latestAssignedValueBefore(value, anchorStmt);
+        const result = assigned
+            ? structuredAccessPathExistsForValue(assigned, accessPath, anchorStmt, classBySignature, depth + 1, visiting)
+            : false;
+        visiting.delete(key);
+        return result;
+    }
+    return false;
+}
+
+function structuredAccessPathExistsForClass(
+    classSignature: string,
+    accessPath: readonly string[],
+    classBySignature: Map<string, any>,
+    depth: number,
+    visiting: Set<string>,
+): boolean {
+    if (accessPath.length === 0) return true;
+    if (depth > 8) return false;
+    const key = `${classSignature}:${accessPath.join(".")}`;
+    if (visiting.has(key)) return false;
+    visiting.add(key);
+    const cls = classBySignature.get(classSignature);
+    if (!cls) {
+        visiting.delete(key);
+        return false;
+    }
+    const field = (cls.getFields?.() || []).find((item: any) => {
+        const fieldName = item?.getSignature?.()?.getFieldName?.() || item?.getName?.();
+        return fieldName === accessPath[0];
+    });
+    if (!field) {
+        visiting.delete(key);
+        return false;
+    }
+    if (accessPath.length === 1) {
+        visiting.delete(key);
+        return true;
+    }
+    const fieldTypeSignature = classSignatureFromValue(field);
+    const result = fieldTypeSignature
+        ? structuredAccessPathExistsForClass(fieldTypeSignature, accessPath.slice(1), classBySignature, depth + 1, visiting)
+        : false;
+    visiting.delete(key);
+    return result;
+}
+
+function classSignatureFromValue(value: any): string | undefined {
+    const signature = value?.getType?.()?.getClassSignature?.()
+        || value?.getClassSignature?.()
+        || value?.getSignature?.()?.getType?.()?.getClassSignature?.();
+    const text = String(signature?.toString?.() || "").trim();
+    return text && !text.includes("%unk") && !text.includes("@unk") ? text : undefined;
+}
+
+function latestAssignedValueBefore(local: Local, anchorStmt: any): any | undefined {
+    const cfg = anchorStmt?.getCfg?.() || local.getDeclaringStmt?.()?.getCfg?.();
+    const stmts = cfg?.getStmts?.();
+    if (!stmts) return undefined;
+    let latest: any;
+    for (const stmt of stmts) {
+        if (stmt === anchorStmt) break;
+        if (stmt?.constructor?.name !== "ArkAssignStmt") continue;
+        if (!isSameLocalValue(stmt.getLeftOp?.(), local)) continue;
+        latest = stmt;
+    }
+    return latest?.getRightOp?.();
 }
 
 function collectModuleResultEndpointNodeIds(
@@ -592,14 +778,6 @@ function createMethodsApi(raw: InternalRawModuleSetupContext): ModuleMethodsApi 
         all(): any[] {
             return getActiveModuleMethodIndex(raw).methods;
         },
-        byName(methodName: string): any[] {
-            const methods = getActiveModuleMethodIndex(raw).byName.get(methodName);
-            return methods ? [...methods] : [];
-        },
-        byClassName(className: string): any[] {
-            const methods = getActiveModuleMethodIndex(raw).byClassName.get(className);
-            return methods ? [...methods] : [];
-        },
     };
 }
 
@@ -766,41 +944,12 @@ function matchesOwnerScanFilter(
         ownerMethodSignature?: string;
         ownerMethodName?: string;
         declaringClassName?: string;
-        declaringClassIncludes?: string;
     },
 ): boolean {
     if (!filter) return true;
     if (filter.ownerMethodSignature && filter.ownerMethodSignature !== ownerMethodSignature) return false;
     if (filter.ownerMethodName && filter.ownerMethodName !== ownerMethodName) return false;
     if (filter.declaringClassName && filter.declaringClassName !== declaringClassName) return false;
-    if (filter.declaringClassIncludes && !declaringClassName.includes(filter.declaringClassIncludes)) return false;
-    return true;
-}
-
-function matchesInvokeScanFilter(
-    isInstanceInvoke: boolean,
-    methodName: string,
-    declaringClassName: string,
-    baseLocalName: string | undefined,
-    signature: string,
-    argCount: number,
-    filter?: ModuleInvokeScanFilter,
-): boolean {
-    if (!filter) return true;
-    if (filter.instanceOnly && !isInstanceInvoke) return false;
-    if (filter.staticOnly && isInstanceInvoke) return false;
-    if (filter.methodName && filter.methodName !== methodName) return false;
-    if (filter.modulePath && !modulePathMatchesSignature(filter.modulePath, signature)) return false;
-    if (filter.declaringClassName && filter.declaringClassName !== declaringClassName) return false;
-    if (filter.declaringClassIncludes && !declaringClassName.includes(filter.declaringClassIncludes)) return false;
-    if (filter.baseLocalName && filter.baseLocalName !== baseLocalName) return false;
-    if (filter.baseLocalNames && filter.baseLocalNames.length > 0) {
-        if (!baseLocalName || !filter.baseLocalNames.includes(baseLocalName)) return false;
-    }
-    if (filter.signature && filter.signature !== signature) return false;
-    if (filter.signatureIncludes && !signature.includes(filter.signatureIncludes)) return false;
-    if (filter.argCount !== undefined && argCount !== filter.argCount) return false;
-    if (filter.minArgs !== undefined && argCount < filter.minArgs) return false;
     return true;
 }
 
@@ -810,66 +959,178 @@ function isConstructorInvokeSignature(methodName: string, signature: string): bo
 
 function matchesConstructScanFilter(
     methodName: string,
-    declaringClassName: string,
     signature: string,
-    argCount: number,
-    filter?: ModuleConstructScanFilter,
 ): boolean {
     if (!isConstructorInvokeSignature(methodName, signature)) return false;
-    if (!filter) return true;
-    if (filter.modulePath && !modulePathMatchesSignature(filter.modulePath, signature)) return false;
-    if (filter.className && filter.className !== declaringClassName) return false;
-    if (filter.classNameIncludes && !declaringClassName.includes(filter.classNameIncludes)) return false;
-    if (filter.signature && filter.signature !== signature) return false;
-    if (filter.signatureIncludes && !signature.includes(filter.signatureIncludes)) return false;
-    if (filter.argCount !== undefined && argCount !== filter.argCount) return false;
-    if (filter.minArgs !== undefined && argCount < filter.minArgs) return false;
     return true;
 }
 
-function modulePathMatchesSignature(modulePath: string, signature: string): boolean {
-    const expected = normalizeModulePathForSelector(modulePath);
-    const match = String(signature || "").match(/@([^:>]+):/);
-    const actual = normalizeModulePathForSelector(match?.[1] || "");
-    const expectedSource = normalizeArkTsSourceSuffix(expected);
-    const actualSource = normalizeArkTsSourceSuffix(actual);
-    return !!expected
-        && !!actual
-        && (
-            actual === expected
-            || actual.endsWith(`/${expected}`)
-            || expected.endsWith(`/${actual}`)
-            || (!!expectedSource && !!actualSource && expectedSource === actualSource)
+const CANONICAL_API_OCCURRENCE_INDEX = Symbol("moduleCanonicalApiOccurrenceIndex");
+const CANONICAL_DECORATED_FIELD_INDEX = Symbol("moduleCanonicalDecoratedFieldIndex");
+
+function canonicalApiIdsFromFilter(
+    filter: Pick<ModuleInvokeScanFilter, "canonicalApiId" | "canonicalApiIds">,
+    scanKind: "scan.invokes" | "scan.constructs",
+): Set<string> {
+    const values = [
+        filter.canonicalApiId,
+        ...(filter.canonicalApiIds || []),
+    ].map(item => String(item || "").trim()).filter(Boolean);
+    if (values.length === 0) {
+        throw new ModuleRuntimeDiagnosticError(
+            `${scanKind} requires at least one canonicalApiId from an accepted occurrence`,
+            "MODULE_CANONICAL_SCAN_FILTER_REQUIRED",
+            "Module scan APIs are canonical-only. Pass a non-empty canonicalApiId or canonicalApiIds selector and do not scan ordinary invokes by method name.",
         );
+    }
+    return new Set(values);
 }
 
-function normalizeModulePathForSelector(pathValue: string): string {
-    return String(pathValue || "")
-        .replace(/^@/, "")
-        .replace(/\\/g, "/")
-        .replace(/^\/+|\/+$/g, "")
-        .toLowerCase();
+function canonicalDecoratorApiIdsFromFilter(
+    filter: ModuleDecoratedFieldScanFilter | undefined,
+): Set<string> {
+    const values = [
+        filter?.decoratorCanonicalApiId,
+        ...(filter?.decoratorCanonicalApiIds || []),
+    ].map(item => String(item || "").trim()).filter(Boolean);
+    if (values.length === 0) {
+        throw new ModuleRuntimeDiagnosticError(
+            "scan.decoratedFields requires at least one decorator canonicalApiId from an accepted occurrence",
+            "MODULE_CANONICAL_DECORATOR_SCAN_FILTER_REQUIRED",
+            "Decorator module scan APIs are canonical-only. Pass non-empty decoratorCanonicalApiId or decoratorCanonicalApiIds and do not scan decorators by kind/name.",
+        );
+    }
+    return new Set(values);
 }
 
-function normalizeArkTsSourceSuffix(pathValue: string): string | undefined {
-    const normalized = normalizeModulePathForSelector(pathValue);
-    if (!normalized) return undefined;
-    const markers = [
-        "/src/main/ets/",
-        "/src/ohostest/ets/",
-        "/src/test/ets/",
-        "/ets/",
-    ];
-    for (const marker of markers) {
-        const index = normalized.lastIndexOf(marker);
-        if (index >= 0) {
-            return normalized.slice(index + marker.length);
+function canonicalApiOccurrencesByStmt(
+    raw: InternalRawModuleSetupContext,
+): WeakMap<object, ModuleCanonicalApiOccurrence[]> {
+    const cached = (raw as any)[CANONICAL_API_OCCURRENCE_INDEX] as WeakMap<object, ModuleCanonicalApiOccurrence[]> | undefined;
+    if (cached) return cached;
+    const index = new WeakMap<object, ModuleCanonicalApiOccurrence[]>();
+    const seen = new Set<string>();
+    for (const occurrence of raw.canonicalApiOccurrences || []) {
+        const stmt = occurrence.stmt;
+        if (!stmt || (typeof stmt !== "object" && typeof stmt !== "function")) continue;
+        if (!occurrence.canonicalApiId || !occurrence.occurrenceId || !occurrence.rawOccurrenceId) continue;
+        const key = `${occurrence.occurrenceId}|${occurrence.canonicalApiId}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const bucket = index.get(stmt) || [];
+        bucket.push(occurrence);
+        index.set(stmt, bucket);
+    }
+    (raw as any)[CANONICAL_API_OCCURRENCE_INDEX] = index;
+    return index;
+}
+
+function selectCanonicalApiOccurrence(
+    raw: InternalRawModuleSetupContext,
+    stmt: any,
+    expectedCanonicalApiIds: Set<string>,
+): ModuleCanonicalApiOccurrence | undefined {
+    if (!stmt || (typeof stmt !== "object" && typeof stmt !== "function")) return undefined;
+    const occurrences = canonicalApiOccurrencesByStmt(raw).get(stmt) || [];
+    return occurrences.find(item => expectedCanonicalApiIds.has(item.canonicalApiId));
+}
+
+interface CanonicalDecoratedFieldGroup {
+    className: string;
+    fieldName: string;
+    fieldSignature: string;
+    decorators: ModuleScannedDecorator[];
+}
+
+function canonicalDecoratedFieldsByApiId(
+    raw: InternalRawModuleSetupContext,
+): Map<string, CanonicalDecoratedFieldGroup[]> {
+    const cached = (raw as any)[CANONICAL_DECORATED_FIELD_INDEX] as Map<string, CanonicalDecoratedFieldGroup[]> | undefined;
+    if (cached) return cached;
+    const groupedByField = new Map<string, CanonicalDecoratedFieldGroup>();
+    const apiIdsByFieldKey = new Map<string, Set<string>>();
+    for (const occurrence of raw.canonicalDecoratorOccurrences || []) {
+        if (occurrence.ownerKind !== "field") continue;
+        if (!occurrence.canonicalApiId || !occurrence.occurrenceId || !occurrence.rawOccurrenceId) continue;
+        const meta = decoratedFieldMeta(occurrence.model);
+        if (!meta) continue;
+        const fieldKey = meta.fieldSignature || `${meta.className}#${meta.fieldName}`;
+        const group = groupedByField.get(fieldKey) || {
+            className: meta.className,
+            fieldName: meta.fieldName,
+            fieldSignature: meta.fieldSignature,
+            decorators: [],
+        };
+        if (!groupedByField.has(fieldKey)) {
+            groupedByField.set(fieldKey, group);
+        }
+        const decoratorKey = [
+            occurrence.canonicalApiId,
+            occurrence.decorator.kind,
+            occurrence.decorator.param || "",
+            occurrence.decorator.content || "",
+        ].join("\u001f");
+        if (!group.decorators.some(item => [
+            item.canonicalApiId || "",
+            item.kind,
+            item.param || "",
+            item.content || "",
+        ].join("\u001f") === decoratorKey)) {
+            group.decorators.push({
+                kind: occurrence.decorator.kind,
+                canonicalApiId: occurrence.canonicalApiId,
+                param: occurrence.decorator.param,
+                content: occurrence.decorator.content,
+            });
+        }
+        const ids = apiIdsByFieldKey.get(fieldKey) || new Set<string>();
+        ids.add(occurrence.canonicalApiId);
+        apiIdsByFieldKey.set(fieldKey, ids);
+    }
+    const byApiId = new Map<string, CanonicalDecoratedFieldGroup[]>();
+    for (const [fieldKey, apiIds] of apiIdsByFieldKey.entries()) {
+        const group = groupedByField.get(fieldKey);
+        if (!group) continue;
+        for (const apiId of apiIds) {
+            const bucket = byApiId.get(apiId) || [];
+            bucket.push(group);
+            byApiId.set(apiId, bucket);
         }
     }
-    if (normalized.startsWith("ets/")) {
-        return normalized.slice("ets/".length);
-    }
-    return undefined;
+    (raw as any)[CANONICAL_DECORATED_FIELD_INDEX] = byApiId;
+    return byApiId;
+}
+
+function decoratedFieldMeta(model: any): { className: string; fieldName: string; fieldSignature: string } | undefined {
+    const fieldName = String(
+        model?.getName?.()
+            || model?.getSignature?.()?.getFieldName?.()
+            || "",
+    ).trim();
+    const fieldSignature = String(model?.getSignature?.()?.toString?.() || "").trim();
+    const className = String(
+        model?.getDeclaringArkClass?.()?.getName?.()
+            || classNameFromFieldSignature(fieldSignature)
+            || "",
+    ).trim();
+    if (!fieldName || !className) return undefined;
+    return { className, fieldName, fieldSignature };
+}
+
+function classNameFromFieldSignature(signature: string): string | undefined {
+    const text = String(signature || "");
+    const match = text.match(/:\s*([^.\s>]+)\.[^.\s>]+>?$/);
+    return match?.[1];
+}
+
+function matchesDecoratedFieldFilter(
+    group: CanonicalDecoratedFieldGroup,
+    filter: ModuleDecoratedFieldScanFilter | undefined,
+): boolean {
+    if (filter?.className && filter.className !== group.className) return false;
+    if (filter?.fieldName && filter.fieldName !== group.fieldName) return false;
+    if (filter?.fieldSignature && filter.fieldSignature !== group.fieldSignature) return false;
+    return true;
 }
 
 function isInvokeExprLike(value: any): boolean {
@@ -1025,46 +1286,6 @@ function normalizeDecoratorEntry(decorator: any): ModuleScannedDecorator | undef
     };
 }
 
-function matchesDecoratedFieldScanFilter(
-    className: string,
-    fieldName: string,
-    fieldSignature: string,
-    decorators: ModuleScannedDecorator[],
-    filter?: ModuleDecoratedFieldScanFilter,
-): boolean {
-    if (!filter) return true;
-    if (filter.className && filter.className !== className) return false;
-    if (filter.classNameIncludes && !className.includes(filter.classNameIncludes)) return false;
-    if (filter.fieldName && filter.fieldName !== fieldName) return false;
-    if (filter.fieldSignature && filter.fieldSignature !== fieldSignature) return false;
-    if (filter.decoratorKind && !decorators.some(decorator => decorator.kind === filter.decoratorKind)) return false;
-    if (filter.decoratorKinds && filter.decoratorKinds.length > 0) {
-        const required = new Set(filter.decoratorKinds);
-        const observed = new Set(decorators.map(decorator => decorator.kind));
-        let hasAny = false;
-        for (const kind of required) {
-            if (observed.has(kind)) {
-                hasAny = true;
-                break;
-            }
-        }
-        if (!hasAny) return false;
-    }
-    if (filter.decoratorParam && !decorators.some(decorator => decorator.param === filter.decoratorParam)) return false;
-    if (filter.decoratorParams && filter.decoratorParams.length > 0) {
-        const requiredParams = new Set(filter.decoratorParams);
-        let hasAny = false;
-        for (const decorator of decorators) {
-            if (decorator.param && requiredParams.has(decorator.param)) {
-                hasAny = true;
-                break;
-            }
-        }
-        if (!hasAny) return false;
-    }
-    return true;
-}
-
 function createScanApi(raw: InternalRawModuleSetupContext): ModuleScanApi {
     let methods: any[] | undefined;
     const getMethods = (): any[] => {
@@ -1081,8 +1302,9 @@ function createScanApi(raw: InternalRawModuleSetupContext): ModuleScanApi {
         return analysis;
     };
     return {
-        invokes(filter?: ModuleInvokeScanFilter): ModuleScannedInvoke[] {
+        invokes(filter: ModuleInvokeScanFilter): ModuleScannedInvoke[] {
             const out: ModuleScannedInvoke[] = [];
+            const expectedCanonicalApiIds = canonicalApiIdsFromFilter(filter, "scan.invokes");
             for (const method of getMethods()) {
                 assertModuleSetupBudget(raw, "scan.invokes");
                 const ownerMethodSignature = method.getSignature?.().toString?.() || "";
@@ -1104,16 +1326,8 @@ function createScanApi(raw: InternalRawModuleSetupContext): ModuleScanApi {
                     const declaringClassName = methodSig?.getDeclaringClassSignature?.()?.getClassName?.() || "";
                     const args = invokeExpr.getArgs ? invokeExpr.getArgs() : [];
                     const isInstanceInvoke = isInstanceInvokeExprLike(invokeExpr);
-                    const baseLocalName = isInstanceInvoke ? resolveLocalName(invokeExpr.getBase?.()) : undefined;
-                    if (!matchesInvokeScanFilter(
-                        isInstanceInvoke,
-                        methodName,
-                        declaringClassName,
-                        baseLocalName,
-                        signature,
-                        args.length,
-                        filter,
-                    )) {
+                    const canonicalOccurrence = selectCanonicalApiOccurrence(raw, stmt, expectedCanonicalApiIds);
+                    if (!canonicalOccurrence) {
                         continue;
                     }
                     const resultValue = typeof stmt.getLeftOp === "function"
@@ -1129,15 +1343,10 @@ function createScanApi(raw: InternalRawModuleSetupContext): ModuleScanApi {
                             methodName,
                             declaringClassName,
                             argCount: args.length,
-                            matchesSignature(expected: string): boolean {
-                                return signature === expected;
-                            },
-                            matchesMethod(expected: string): boolean {
-                                return methodName === expected;
-                            },
-                            matchesClass(expected: string): boolean {
-                                return declaringClassName === expected;
-                            },
+                            canonicalApiId: canonicalOccurrence.canonicalApiId,
+                            occurrenceId: canonicalOccurrence.occurrenceId,
+                            rawOccurrenceId: canonicalOccurrence.rawOccurrenceId,
+                            semanticEffectSites: [...canonicalOccurrence.semanticEffectSites],
                         },
                         arg(index: number): any | undefined {
                             return index >= 0 && index < args.length ? args[index] : undefined;
@@ -1176,6 +1385,15 @@ function createScanApi(raw: InternalRawModuleSetupContext): ModuleScanApi {
                         baseCarrierNodeIds(): number[] {
                             if (!isInstanceInvoke) return [];
                             return getAnalysis().carrierNodeIdsForValue(invokeExpr.getBase(), stmt);
+                        },
+                        semanticEndpointNodeIds(selector: { kind: string; index?: number; nodeKind?: string; rest?: boolean }): number[] {
+                            return collectConsumableSemanticEndpointNodeIds({
+                                analysis: getAnalysis(),
+                                semanticEffectSites: canonicalOccurrence.semanticEffectSites,
+                                stmt,
+                                invokeExpr,
+                                selector,
+                            });
                         },
                         calleeReceiverEndpointNodeIds(accessPath: string[]): number[] {
                             if (!isInstanceInvoke) return [];
@@ -1217,8 +1435,9 @@ function createScanApi(raw: InternalRawModuleSetupContext): ModuleScanApi {
             }
             return out;
         },
-        constructs(filter?: ModuleConstructScanFilter): ModuleScannedInvoke[] {
+        constructs(filter: ModuleConstructScanFilter): ModuleScannedInvoke[] {
             const out: ModuleScannedInvoke[] = [];
+            const expectedCanonicalApiIds = canonicalApiIdsFromFilter(filter, "scan.constructs");
             for (const method of getMethods()) {
                 assertModuleSetupBudget(raw, "scan.constructs");
                 const ownerMethodSignature = method.getSignature?.().toString?.() || "";
@@ -1239,13 +1458,11 @@ function createScanApi(raw: InternalRawModuleSetupContext): ModuleScanApi {
                     const methodName = methodSig?.getMethodSubSignature?.()?.getMethodName?.() || "";
                     const declaringClassName = methodSig?.getDeclaringClassSignature?.()?.getClassName?.() || "";
                     const args = invokeExpr.getArgs ? invokeExpr.getArgs() : [];
-                    if (!matchesConstructScanFilter(
-                        methodName,
-                        declaringClassName,
-                        signature,
-                        args.length,
-                        filter,
-                    )) {
+                    const canonicalOccurrence = selectCanonicalApiOccurrence(raw, stmt, expectedCanonicalApiIds);
+                    if (!canonicalOccurrence) {
+                        continue;
+                    }
+                    if (!matchesConstructScanFilter(methodName, signature)) {
                         continue;
                     }
                     const isInstanceInvoke = isInstanceInvokeExprLike(invokeExpr);
@@ -1262,15 +1479,10 @@ function createScanApi(raw: InternalRawModuleSetupContext): ModuleScanApi {
                             methodName,
                             declaringClassName,
                             argCount: args.length,
-                            matchesSignature(expected: string): boolean {
-                                return signature === expected;
-                            },
-                            matchesMethod(expected: string): boolean {
-                                return methodName === expected;
-                            },
-                            matchesClass(expected: string): boolean {
-                                return declaringClassName === expected;
-                            },
+                            canonicalApiId: canonicalOccurrence.canonicalApiId,
+                            occurrenceId: canonicalOccurrence.occurrenceId,
+                            rawOccurrenceId: canonicalOccurrence.rawOccurrenceId,
+                            semanticEffectSites: [...canonicalOccurrence.semanticEffectSites],
                         },
                         arg(index: number): any | undefined {
                             return index >= 0 && index < args.length ? args[index] : undefined;
@@ -1309,6 +1521,15 @@ function createScanApi(raw: InternalRawModuleSetupContext): ModuleScanApi {
                         baseCarrierNodeIds(): number[] {
                             if (!isInstanceInvoke) return [];
                             return getAnalysis().carrierNodeIdsForValue(invokeExpr.getBase(), stmt);
+                        },
+                        semanticEndpointNodeIds(selector: { kind: string; index?: number; nodeKind?: string; rest?: boolean }): number[] {
+                            return collectConsumableSemanticEndpointNodeIds({
+                                analysis: getAnalysis(),
+                                semanticEffectSites: canonicalOccurrence.semanticEffectSites,
+                                stmt,
+                                invokeExpr,
+                                selector,
+                            });
                         },
                         calleeReceiverEndpointNodeIds(accessPath: string[]): number[] {
                             if (!isInstanceInvoke) return [];
@@ -1378,8 +1599,8 @@ function createScanApi(raw: InternalRawModuleSetupContext): ModuleScanApi {
                     const left = stmt.getLeftOp();
                     const localName = resolveLocalName(left);
                     if (filter?.paramIndex !== undefined && filter.paramIndex !== paramIndex) continue;
-                    if (filter?.paramNameIncludes && !paramName.includes(filter.paramNameIncludes)) continue;
-                    if (filter?.paramTypeIncludes && !paramType.includes(filter.paramTypeIncludes)) continue;
+                    if (filter?.paramName && filter.paramName !== paramName) continue;
+                    if (filter?.paramType && filter.paramType !== paramType) continue;
                     if (filter?.localName && filter.localName !== localName) continue;
                     out.push({
                         ...meta,
@@ -1610,42 +1831,24 @@ function createScanApi(raw: InternalRawModuleSetupContext): ModuleScanApi {
             return out;
         },
         decoratedFields(filter?: ModuleDecoratedFieldScanFilter): ModuleScannedDecoratedField[] {
-            const out: ModuleScannedDecoratedField[] = [];
-            for (const cls of raw.scene.getClasses?.() || []) {
-                assertModuleSetupBudget(raw, "scan.decoratedFields");
-                const className = cls.getName?.() || "";
-                for (const field of cls.getFields?.() || []) {
-                    assertModuleSetupBudget(raw, "scan.decoratedFields");
-                    const fieldName = field.getName?.() || "";
-                    const fieldSignature = field.getSignature?.()?.toString?.() || "";
-                    const decorators = (field.getDecorators?.() || [])
-                        .map((decorator: any) => normalizeDecoratorEntry(decorator))
-                        .filter((decorator: ModuleScannedDecorator | undefined): decorator is ModuleScannedDecorator => Boolean(decorator));
-                    if (decorators.length === 0) continue;
-                    if (!matchesDecoratedFieldScanFilter(className, fieldName, fieldSignature, decorators, filter)) continue;
-                    out.push({
-                        className,
-                        fieldName,
-                        fieldSignature,
-                        decorators(): ModuleScannedDecorator[] {
-                            return decorators.map(decorator => ({ ...decorator }));
-                        },
-                        decoratorKinds(): string[] {
-                            return decorators.map(decorator => decorator.kind);
-                        },
-                        hasDecorator(kind: string): boolean {
-                            return decorators.some(decorator => decorator.kind === kind);
-                        },
-                        decoratorParams(kind: string): string[] {
-                            return decorators
-                                .filter(decorator => decorator.kind === kind)
-                                .map(decorator => decorator.param)
-                                .filter((value: string | undefined): value is string => Boolean(value));
-                        },
-                    });
+            const canonicalApiIds = canonicalDecoratorApiIdsFromFilter(filter);
+            const groupsByKey = new Map<string, CanonicalDecoratedFieldGroup>();
+            const byApiId = canonicalDecoratedFieldsByApiId(raw);
+            for (const canonicalApiId of canonicalApiIds) {
+                for (const group of byApiId.get(canonicalApiId) || []) {
+                    if (!matchesDecoratedFieldFilter(group, filter)) continue;
+                    const key = group.fieldSignature || `${group.className}#${group.fieldName}`;
+                    if (!groupsByKey.has(key)) groupsByKey.set(key, group);
                 }
             }
-            return out;
+            return [...groupsByKey.values()].map(group => ({
+                className: group.className,
+                fieldName: group.fieldName,
+                fieldSignature: group.fieldSignature,
+                decorators(): ModuleScannedDecorator[] {
+                    return group.decorators.map(item => ({ ...item }));
+                },
+            }));
         },
     };
 }
@@ -2287,11 +2490,11 @@ function collectExactLocalUseNodeIds(pag: any, method: any, local: any, defining
     if (!pag || !method?.getCfg?.() || !local) return [];
     const out = new Set<number>();
     const addNodes = (value: any, anchorStmt?: any): void => {
-        const nodes = value ? pag.getNodesByValue(value) : undefined;
-        if ((!nodes || nodes.size === 0) && anchorStmt && shouldMaterializeExactModuleUseEndpoint(value)) {
-            pag.getOrNewNode(0, value, anchorStmt);
-        }
-        const effectiveNodes = value ? pag.getNodesByValue(value) : undefined;
+        const effectiveNodes = value && anchorStmt && shouldMaterializeExactModuleUseEndpoint(value)
+            ? materializeExactPagNodes(pag, value, anchorStmt, 0)
+            : value
+                ? pag.getNodesByValue(value)
+                : undefined;
         if (!effectiveNodes || effectiveNodes.size === 0) return;
         for (const nodeId of effectiveNodes.values()) {
             out.add(nodeId);
@@ -2422,6 +2625,8 @@ function toPublicRawSetupContext(raw: InternalRawModuleSetupContext): RawModuleS
         allowedMethodSignatures: raw.allowedMethodSignatures,
         fieldToVarIndex: raw.fieldToVarIndex,
         log: raw.log,
+        canonicalApiOccurrences: raw.canonicalApiOccurrences,
+        canonicalDecoratorOccurrences: raw.canonicalDecoratorOccurrences,
     };
 }
 
@@ -2441,6 +2646,10 @@ function toPublicRawInvokeEvent(raw: InternalRawModuleInvokeEvent) {
         callSignature: raw.callSignature,
         methodName: raw.methodName,
         declaringClassName: raw.declaringClassName,
+        canonicalApiId: raw.canonicalApiId,
+        occurrenceId: raw.occurrenceId,
+        rawOccurrenceId: raw.rawOccurrenceId,
+        semanticEffectSites: [...raw.semanticEffectSites],
         args: raw.args,
         baseValue: raw.baseValue,
         resultValue: raw.resultValue,
@@ -2744,15 +2953,10 @@ function createCallView(event: InternalRawModuleInvokeEvent) {
         methodName: event.methodName,
         declaringClassName: event.declaringClassName,
         argCount: event.args.length,
-        matchesSignature(expected: string): boolean {
-            return event.callSignature === expected;
-        },
-        matchesMethod(expected: string): boolean {
-            return event.methodName === expected;
-        },
-        matchesClass(expected: string): boolean {
-            return event.declaringClassName === expected;
-        },
+        canonicalApiId: event.canonicalApiId,
+        occurrenceId: event.occurrenceId,
+        rawOccurrenceId: event.rawOccurrenceId,
+        semanticEffectSites: [...event.semanticEffectSites],
     };
 }
 
@@ -3011,6 +3215,9 @@ class DefaultModuleRuntime implements ModuleRuntime {
     }
 
     emitForInvoke(event: ModuleRuntime["emitForInvoke"] extends (event: infer E) => any ? E : never): ModuleEmission[] {
+        if (!hasCanonicalInvokeIdentity(event)) {
+            return [];
+        }
         return this.collectEmissions("onInvoke", event);
     }
 
@@ -3136,6 +3343,14 @@ class DefaultModuleRuntime implements ModuleRuntime {
         });
         console.warn(`module ${moduleId} disabled after ${hook} failure${locationSuffix}: ${message}`);
     }
+}
+
+function hasCanonicalInvokeIdentity(
+    event: Pick<InternalRawModuleInvokeEvent, "canonicalApiId" | "occurrenceId" | "rawOccurrenceId" | "semanticEffectSites">,
+): boolean {
+    return !!String(event.canonicalApiId || "").trim()
+        && !!String(event.occurrenceId || "").trim()
+        && !!String(event.rawOccurrenceId || "").trim();
 }
 
 export function createModuleRuntime(

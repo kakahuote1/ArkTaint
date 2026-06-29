@@ -1,288 +1,107 @@
-import * as fs from "fs";
-import * as path from "path";
-import { loadArkMainCoreCapabilityPayload } from "../ArkMainAssetCatalog";
-import { ArkMainFactKind, ArkMainPhaseName } from "../ArkMainTypes";
+import type { ArkMainOfficialLifecycleDeclaration } from "../catalog/ArkMainOfficialDeclarationCatalog";
+import type {
+    ArkMainFactKind,
+    ArkMainOwnerKind,
+    ArkMainPhaseName,
+} from "../ArkMainTypes";
 
 export interface ArkMainLifecycleContractMatch {
     phase: ArkMainPhaseName;
-    kind: Extract<ArkMainFactKind, "ability_lifecycle" | "stage_lifecycle" | "extension_lifecycle" | "page_build" | "page_lifecycle">;
-    entryFamily: "ability_lifecycle" | "stage_lifecycle" | "extension_lifecycle" | "page_build" | "page_lifecycle";
-    entryShape: "override_slot" | "declaration_owner_slot";
+    kind: Extract<ArkMainFactKind, "ability_lifecycle" | "stage_lifecycle" | "extension_lifecycle" | "process_lifecycle" | "page_build" | "page_lifecycle">;
+    ownerKind: ArkMainOwnerKind;
+    entryFamily: string;
+    entryShape: string;
     reason: string;
 }
 
-interface ArkMainOverrideLifecycleCatalogEntry {
-    owner: "ability" | "stage" | "extension";
-    kind: Extract<ArkMainFactKind, "ability_lifecycle" | "stage_lifecycle" | "extension_lifecycle">;
-    entryFamily: ArkMainLifecycleContractMatch["entryFamily"];
-    entryShape: Extract<ArkMainLifecycleContractMatch["entryShape"], "override_slot">;
-    reasonPrefix: string;
-    phases: Record<ArkMainPhaseName, string[]>;
+export interface ArkMainHandoffContractMatch {
+    phase: Extract<ArkMainPhaseName, "reactive_handoff">;
+    kind: Extract<ArkMainFactKind, "want_handoff">;
+    ownerKind: ArkMainOwnerKind;
+    entryFamily: string;
+    entryShape: string;
+    reason: string;
 }
 
-interface ArkMainDeclarationLifecycleCatalogEntry {
-    owner: "component";
-    phase: ArkMainPhaseName;
-    kind: Extract<ArkMainFactKind, "page_build" | "page_lifecycle">;
-    entryFamily: Extract<ArkMainLifecycleContractMatch["entryFamily"], "page_build" | "page_lifecycle">;
-    entryShape: Extract<ArkMainLifecycleContractMatch["entryShape"], "declaration_owner_slot">;
-    reasonPrefix: string;
-    methodNames: string[];
-}
-
-interface ArkMainLifecycleCatalogDocument {
-    overrideContracts: ArkMainOverrideLifecycleCatalogEntry[];
-    declarationContracts: ArkMainDeclarationLifecycleCatalogEntry[];
-}
-
-interface ArkMainDeclarationLifecycleRule {
-    phase: ArkMainPhaseName;
-    kind: ArkMainLifecycleContractMatch["kind"];
-    entryFamily: ArkMainLifecycleContractMatch["entryFamily"];
-    entryShape: ArkMainLifecycleContractMatch["entryShape"];
-    reasonPrefix: string;
-    methodNames: ReadonlySet<string>;
-}
-
-const PHASES: ArkMainPhaseName[] = [
-    "bootstrap",
-    "composition",
-    "interaction",
-    "reactive_handoff",
-    "teardown",
-];
-
-let cachedCatalog: ArkMainLifecycleCatalogDocument | undefined;
-
-export function resolveAbilityLifecycleContractFromOverride(methodName: string): ArkMainLifecycleContractMatch | null {
-    return resolveOverrideLifecycleContract("ability", methodName);
-}
-
-export function resolveAbilityLifecycleContract(methodName: string): ArkMainLifecycleContractMatch | null {
-    return resolveOverrideLifecycleContract("ability", methodName);
-}
-
-export function resolveStageLifecycleContractFromOverride(methodName: string): ArkMainLifecycleContractMatch | null {
-    return resolveOverrideLifecycleContract("stage", methodName);
-}
-
-export function resolveStageLifecycleContract(methodName: string): ArkMainLifecycleContractMatch | null {
-    return resolveOverrideLifecycleContract("stage", methodName);
-}
-
-export function resolveExtensionLifecycleContractFromOverride(methodName: string): ArkMainLifecycleContractMatch | null {
-    return resolveOverrideLifecycleContract("extension", methodName);
-}
-
-export function resolveExtensionLifecycleContract(methodName: string): ArkMainLifecycleContractMatch | null {
-    return resolveOverrideLifecycleContract("extension", methodName);
-}
-
-export function resolveComponentLifecycleContract(methodName: string): ArkMainLifecycleContractMatch | null {
-    return resolveContractByMethodName(
-        getLifecycleCatalog().declarationContracts.map(entry => ({
-            phase: entry.phase,
-            kind: entry.kind,
-            entryFamily: entry.entryFamily,
-            entryShape: entry.entryShape,
-            reasonPrefix: entry.reasonPrefix,
-            methodNames: new Set(entry.methodNames),
-        })),
-        methodName,
-    );
-}
-
-function resolveOverrideLifecycleContract(
-    owner: ArkMainOverrideLifecycleCatalogEntry["owner"],
-    methodName: string,
+export function resolveOfficialLifecycleContract(
+    declaration: ArkMainOfficialLifecycleDeclaration,
 ): ArkMainLifecycleContractMatch | null {
-    const entry = getLifecycleCatalog().overrideContracts.find(item => item.owner === owner);
-    if (!entry) {
-        throw new Error(`missing arkmain lifecycle override contract catalog for owner=${owner}`);
-    }
-    const phase = resolveOverridePhase(entry, methodName);
-    if (!phase) {
+    const phase = normalizePhase(declaration.phase);
+    const ownerKind = normalizeOwnerKind(declaration.ownerKind);
+    const kind = normalizeLifecycleFactKind(declaration.entryKind);
+    if (!phase || !kind || !ownerKind) {
         return null;
     }
     return {
         phase,
-        kind: entry.kind,
-        entryFamily: entry.entryFamily,
-        entryShape: entry.entryShape,
-        reason: `${entry.reasonPrefix} ${methodName}`,
-    };
-}
-
-function resolveOverridePhase(
-    entry: ArkMainOverrideLifecycleCatalogEntry,
-    methodName: string,
-): ArkMainPhaseName | null {
-    for (const phase of PHASES) {
-        if (entry.phases[phase]?.includes(methodName)) {
-            return phase;
-        }
-    }
-    return null;
-}
-
-function resolveContractByMethodName(
-    rules: readonly ArkMainDeclarationLifecycleRule[],
-    methodName: string,
-): ArkMainLifecycleContractMatch | null {
-    for (const rule of rules) {
-        if (!rule.methodNames.has(methodName)) continue;
-        return {
-            phase: rule.phase,
-            kind: rule.kind,
-            entryFamily: rule.entryFamily,
-            entryShape: rule.entryShape,
-            reason: `${rule.reasonPrefix} ${methodName}`,
-        };
-    }
-    return null;
-}
-
-function getLifecycleCatalog(): ArkMainLifecycleCatalogDocument {
-    if (cachedCatalog) {
-        return cachedCatalog;
-    }
-    const catalogPath = resolveLifecycleCatalogPath();
-    if (!fs.existsSync(catalogPath) || !fs.statSync(catalogPath).isFile()) {
-        throw new Error(`arkmain lifecycle contract catalog not found: ${catalogPath}`);
-    }
-    cachedCatalog = validateLifecycleCatalog(
-        loadArkMainCoreCapabilityPayload(catalogPath, "arkmain.lifecycle-contracts"),
-        catalogPath,
-    );
-    return cachedCatalog;
-}
-
-function resolveLifecycleCatalogPath(): string {
-    const candidates = [
-        path.resolve(__dirname, "../../../../../src/models/kernel/arkmain/harmony/lifecycle.contracts.json"),
-        path.resolve(process.cwd(), "src/models/kernel/arkmain/harmony/lifecycle.contracts.json"),
-    ];
-    for (const candidate of candidates) {
-        if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
-            return candidate;
-        }
-    }
-    return candidates[0];
-}
-
-function validateLifecycleCatalog(value: unknown, catalogPath: string): ArkMainLifecycleCatalogDocument {
-    const doc = expectRecord(value, catalogPath);
-    if (!Array.isArray(doc.overrideContracts)) {
-        throw new Error(`${catalogPath}.overrideContracts must be an array`);
-    }
-    if (!Array.isArray(doc.declarationContracts)) {
-        throw new Error(`${catalogPath}.declarationContracts must be an array`);
-    }
-    return {
-        overrideContracts: doc.overrideContracts.map((item: unknown, index: number) =>
-            validateOverrideContract(item, `${catalogPath}.overrideContracts[${index}]`),
-        ),
-        declarationContracts: doc.declarationContracts.map((item: unknown, index: number) =>
-            validateDeclarationContract(item, `${catalogPath}.declarationContracts[${index}]`),
-        ),
-    };
-}
-
-function validateOverrideContract(value: unknown, pathText: string): ArkMainOverrideLifecycleCatalogEntry {
-    const entry = expectRecord(value, pathText);
-    const owner = expectEnum(entry.owner, `${pathText}.owner`, ["ability", "stage", "extension"]);
-    const kind = expectEnum(entry.kind, `${pathText}.kind`, [
-        "ability_lifecycle",
-        "stage_lifecycle",
-        "extension_lifecycle",
-    ]) as ArkMainOverrideLifecycleCatalogEntry["kind"];
-    const entryFamily = expectEnum(entry.entryFamily, `${pathText}.entryFamily`, [
-        "ability_lifecycle",
-        "stage_lifecycle",
-        "extension_lifecycle",
-    ]) as ArkMainOverrideLifecycleCatalogEntry["entryFamily"];
-    const entryShape = expectEnum(
-        entry.entryShape,
-        `${pathText}.entryShape`,
-        ["override_slot"],
-    ) as ArkMainOverrideLifecycleCatalogEntry["entryShape"];
-    const reasonPrefix = expectString(entry.reasonPrefix, `${pathText}.reasonPrefix`);
-    const phases = expectRecord(entry.phases, `${pathText}.phases`);
-    const normalizedPhases = {} as Record<ArkMainPhaseName, string[]>;
-    for (const phase of PHASES) {
-        const valueAtPhase = phases[phase];
-        if (!Array.isArray(valueAtPhase)) {
-            throw new Error(`${pathText}.phases.${phase} must be an array`);
-        }
-        normalizedPhases[phase] = valueAtPhase.map((item: unknown, index: number) =>
-            expectString(item, `${pathText}.phases.${phase}[${index}]`),
-        );
-    }
-    return {
-        owner: owner as ArkMainOverrideLifecycleCatalogEntry["owner"],
         kind,
-        entryFamily,
-        entryShape,
-        reasonPrefix,
-        phases: normalizedPhases,
+        ownerKind,
+        entryFamily: declaration.entryFamily || declaration.entryKind || kind,
+        entryShape: declaration.entryShape || "official_declaration_method",
+        reason: `Official arkmain declaration ${declaration.canonicalApiId}`,
     };
 }
 
-function validateDeclarationContract(value: unknown, pathText: string): ArkMainDeclarationLifecycleCatalogEntry {
-    const entry = expectRecord(value, pathText);
-    const owner = expectEnum(entry.owner, `${pathText}.owner`, ["component"]);
-    const phase = expectEnum(entry.phase, `${pathText}.phase`, PHASES) as ArkMainPhaseName;
-    const kind = expectEnum(
-        entry.kind,
-        `${pathText}.kind`,
-        ["page_build", "page_lifecycle"],
-    ) as ArkMainDeclarationLifecycleCatalogEntry["kind"];
-    const entryFamily = expectEnum(
-        entry.entryFamily,
-        `${pathText}.entryFamily`,
-        ["page_build", "page_lifecycle"],
-    ) as ArkMainDeclarationLifecycleCatalogEntry["entryFamily"];
-    const entryShape = expectEnum(
-        entry.entryShape,
-        `${pathText}.entryShape`,
-        ["declaration_owner_slot"],
-    ) as ArkMainDeclarationLifecycleCatalogEntry["entryShape"];
-    const reasonPrefix = expectString(entry.reasonPrefix, `${pathText}.reasonPrefix`);
-    if (!Array.isArray(entry.methodNames)) {
-        throw new Error(`${pathText}.methodNames must be an array`);
+export function resolveOfficialHandoffContract(
+    declaration: ArkMainOfficialLifecycleDeclaration,
+): ArkMainHandoffContractMatch | null {
+    const kind = declaration.entryKind === "want_handoff"
+        ? "want_handoff"
+        : undefined;
+    const ownerKind = normalizeOwnerKind(declaration.ownerKind);
+    if (!kind || !ownerKind) {
+        return null;
     }
-    const methodNames = entry.methodNames.map((item: unknown, index: number) =>
-        expectString(item, `${pathText}.methodNames[${index}]`),
-    );
     return {
-        owner: owner as "component",
-        phase,
+        phase: "reactive_handoff",
         kind,
-        entryFamily,
-        entryShape,
-        reasonPrefix,
-        methodNames,
+        ownerKind,
+        entryFamily: declaration.entryFamily || kind,
+        entryShape: declaration.entryShape || "lifecycle_slot",
+        reason: `Official arkmain handoff declaration ${declaration.canonicalApiId}`,
     };
 }
 
-function expectRecord(value: unknown, pathText: string): Record<string, unknown> {
-    if (!value || typeof value !== "object" || Array.isArray(value)) {
-        throw new Error(`${pathText} must be an object`);
+function normalizePhase(value: string): ArkMainPhaseName | undefined {
+    switch (value) {
+        case "bootstrap":
+        case "composition":
+        case "interaction":
+        case "reactive_handoff":
+        case "teardown":
+            return value;
+        default:
+            return undefined;
     }
-    return value as Record<string, unknown>;
 }
 
-function expectString(value: unknown, pathText: string): string {
-    if (typeof value !== "string" || value.trim().length === 0) {
-        throw new Error(`${pathText} must be a non-empty string`);
+function normalizeLifecycleFactKind(
+    value: string,
+): ArkMainLifecycleContractMatch["kind"] | undefined {
+    switch (value) {
+        case "ability_lifecycle":
+        case "stage_lifecycle":
+        case "extension_lifecycle":
+        case "process_lifecycle":
+        case "page_build":
+        case "page_lifecycle":
+            return value;
+        default:
+            return undefined;
     }
-    return value.trim();
 }
 
-function expectEnum<T extends string>(value: unknown, pathText: string, allowed: readonly T[]): T {
-    const text = expectString(value, pathText);
-    if (!allowed.includes(text as T)) {
-        throw new Error(`${pathText} invalid: ${text}`);
+function normalizeOwnerKind(value: string | undefined): ArkMainOwnerKind | undefined {
+    switch (String(value || "").trim()) {
+        case "ability_owner":
+        case "stage_owner":
+        case "extension_owner":
+        case "child_process_owner":
+        case "component_owner":
+        case "builder_owner":
+        case "unknown_owner":
+            return String(value || "").trim() as ArkMainOwnerKind;
+        default:
+            return undefined;
     }
-    return text as T;
 }

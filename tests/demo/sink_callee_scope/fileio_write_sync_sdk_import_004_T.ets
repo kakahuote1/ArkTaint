@@ -1,4 +1,4 @@
-import fileio from "@ohos.fileio";
+import fileio from "@ohos.file.fs";
 
 export function fileio_write_sync_sdk_import_004_T(taint_src: string): void {
     const fd = 1;

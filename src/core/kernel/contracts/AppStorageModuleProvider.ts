@@ -21,6 +21,8 @@ export interface AppStorageNodeOperation {
     stmtIndex: number;
     callSignature: string;
     apiName: string;
+    sequenceOffset?: number;
+    updateStrength?: "strong" | "weak";
 }
 
 export interface AppStorageSemanticModel {
@@ -35,6 +37,21 @@ export interface AppStorageSemanticModel {
     readFieldEndpointsByKey: Map<string, AppStorageFieldEndpoint[]>;
     readFieldNodeIdsByKey: Map<string, Set<number>>;
     dynamicKeyWarnings: AppStorageDynamicKeyWarning[];
+    debug?: {
+        propDecoratorStats?: AppStorageDecoratedFieldStats;
+        linkDecoratorStats?: AppStorageDecoratedFieldStats;
+    };
+}
+
+export interface AppStorageDecoratedFieldStats {
+    fields: number;
+    keyedFields: number;
+    loads: number;
+    stores: number;
+    readNodes: number;
+    readEndpoints: number;
+    writeNodes: number;
+    writeEndpoints: number;
 }
 
 export interface BuildAppStorageSemanticModelArgs {

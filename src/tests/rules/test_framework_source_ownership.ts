@@ -31,7 +31,7 @@ async function main(): Promise<void> {
     const loaded = loadRuleSet({
         kernelRulePath: path.resolve("tests/rules/minimal.rules.json"),
         ruleCatalogPath: path.resolve("src/models"),
-        autoDiscoverLayers: false,
+        autoDiscoverRuleSources: false,
         allowMissingProject: true,
     });
 
@@ -42,18 +42,17 @@ async function main(): Promise<void> {
 
     const scene = buildScene(path.resolve("tests/demo/harmony_lifecycle"));
     const plan = buildArkMainPlan(scene);
-    const planSourceIds = new Set((plan.sourceRules || []).map(rule => String(rule.id || "")));
     assert(
-        [...planSourceIds].some(id => id.startsWith("source.arkmain.contract.lifecycle.param.")),
-        "ArkMain plan should export lifecycle contract source rules.",
+        plan.facts.some(fact => fact.kind === "ability_lifecycle" || fact.kind === "extension_lifecycle"),
+        "ArkMain plan should own lifecycle official declaration facts.",
     );
     assert(
-        ![...planSourceIds].some(id => id.startsWith("source.arkmain.contract.router.trigger.")),
-        "ArkMain plan should not export router contract source rules.",
+        !plan.facts.some(fact => fact.kind === "router_trigger" || fact.kind === "router_source"),
+        "ArkMain plan should not own router source/trigger facts.",
     );
     assert(
-        ![...planSourceIds].some(id => id.startsWith("source.arkmain.contract.stage.context.")),
-        "ArkMain plan should not export stage context contract source rules.",
+        !plan.facts.some(fact => String(fact.entryFamily || "").includes("stage.context")),
+        "ArkMain plan should not own stage context compat facts.",
     );
 
     const engine = new TaintPropagationEngine(scene, 1);
@@ -62,9 +61,7 @@ async function main(): Promise<void> {
     for (const id of runtimeSourceIds) {
         assert(!isLegacyCompatSourceId(id), `ArkMain runtime auto sources should not contain legacy compat source: ${id}`);
     }
-    for (const id of planSourceIds) {
-        assert(runtimeSourceIds.has(id), `ArkMain runtime should consume contract source directly: missing ${id}`);
-    }
+    assert(runtimeSourceIds.size > 0, "ArkMain runtime should lower official declaration facts into auto source rules");
 
     console.log("PASS test_framework_source_ownership");
 }

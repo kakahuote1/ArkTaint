@@ -4,49 +4,94 @@
   "status": "official",
   "surfaces": [
     {
-      "surfaceId": "surface.source.harmony.callback_registration.onclick.arg0",
+      "surfaceId": "surface.source.harmony.callback_registration.onclick.arg0.for.harmony_callback_registration_taint_mock_ts_Button_onClick_harmony_callback_registration_taint_mock_ts_Button_AM0_any",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "onClick",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "harmony_callback_registration/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=harmony_callback_registration%2Ftaint_mock.ts:file=harmony_callback_registration%2Ftaint_mock.ts:export=namespace%3AButton:decl=class%3AButton:member=method%3Ainstance%3AonClick:invoke=call:params=0%3A%40harmony_callback_registration%2Ftaint_mock.ts%3A%20Button.%25AM0(any):ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_callback_registration/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "Button",
+            "methodName": "onClick",
+            "parameterTypes": [
+              "@harmony_callback_registration/taint_mock.ts: Button.%AM0(any)"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.callback_registration.onclick.arg0.for.harmony_callback_registration_taint_mock_ts_FakeButton_onClick_harmony_callback_registration_taint_mock_ts_FakeButton_AM",
+      "kind": "invoke",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_callback_registration/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=harmony_callback_registration%2Ftaint_mock.ts:file=harmony_callback_registration%2Ftaint_mock.ts:export=namespace%3AFakeButton:decl=class%3AFakeButton:member=method%3Ainstance%3AonClick:invoke=call:params=0%3A%40harmony_callback_registration%2Ftaint_mock.ts%3A%20FakeButton.%25AM0(any):ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_callback_registration/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "FakeButton",
+            "methodName": "onClick",
+            "parameterTypes": [
+              "@harmony_callback_registration/taint_mock.ts: FakeButton.%AM0(any)"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
       }
     },
     {
       "surfaceId": "surface.sink.harmony.callback_registration.sink",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "Sink",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "harmony_callback_registration/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=harmony_callback_registration%2Ftaint_mock.ts:file=harmony_callback_registration%2Ftaint_mock.ts:export=namespace%3Ataint.%25dflt:decl=namespace%3Ataint.%25dflt:member=function%3ASink:invoke=call:params=0%3Aany:ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_callback_registration/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "taint.%dflt",
+            "methodName": "Sink",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "void",
+            "staticFlag": true
+          }
+        }
       }
     }
   ],
   "bindings": [
     {
-      "bindingId": "binding.source.harmony.callback_registration.onclick.arg0.0",
-      "surfaceId": "surface.source.harmony.callback_registration.onclick.arg0",
+      "bindingId": "binding.source.harmony.callback_registration.onclick.arg0.0.for.harmony_callback_registration_taint_mock_ts_Button_onClick_harmony_callback_registration_taint_mock_ts_Button_AM0_any",
+      "surfaceId": "surface.source.harmony.callback_registration.onclick.arg0.for.harmony_callback_registration_taint_mock_ts_Button_onClick_harmony_callback_registration_taint_mock_ts_Button_AM0_any",
       "assetId": "asset.rule.test.harmony_callback_registration",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "onClick",
-        "scope": {
-          "methodName": {
-            "mode": "equals",
-            "value": "build"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -54,12 +99,34 @@
         }
       },
       "effectTemplateRefs": [
-        "template.source.harmony.callback_registration.onclick.arg0"
+        "template.source.harmony.callback_registration.onclick.arg0.for.harmony_callback_registration_taint_mock_ts_Button_onClick_harmony_callback_registration_taint_mock_ts_Button_AM0_any"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely",
-      "metadata": {}
+      "completeness": "complete",
+      "confidence": "certain",
+      "metadata": {},
+      "canonicalApiId": "api:project:local:module=harmony_callback_registration%2Ftaint_mock.ts:file=harmony_callback_registration%2Ftaint_mock.ts:export=namespace%3AButton:decl=class%3AButton:member=method%3Ainstance%3AonClick:invoke=call:params=0%3A%40harmony_callback_registration%2Ftaint_mock.ts%3A%20Button.%25AM0(any):ret=void"
+    },
+    {
+      "bindingId": "binding.source.harmony.callback_registration.onclick.arg0.0.for.harmony_callback_registration_taint_mock_ts_FakeButton_onClick_harmony_callback_registration_taint_mock_ts_FakeButton_AM",
+      "surfaceId": "surface.source.harmony.callback_registration.onclick.arg0.for.harmony_callback_registration_taint_mock_ts_FakeButton_onClick_harmony_callback_registration_taint_mock_ts_FakeButton_AM",
+      "assetId": "asset.rule.test.harmony_callback_registration",
+      "plane": "rule",
+      "role": "source",
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.callback_registration.onclick.arg0.for.harmony_callback_registration_taint_mock_ts_FakeButton_onClick_harmony_callback_registration_taint_mock_ts_FakeButton_AM"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "complete",
+      "confidence": "certain",
+      "metadata": {},
+      "canonicalApiId": "api:project:local:module=harmony_callback_registration%2Ftaint_mock.ts:file=harmony_callback_registration%2Ftaint_mock.ts:export=namespace%3AFakeButton:decl=class%3AFakeButton:member=method%3Ainstance%3AonClick:invoke=call:params=0%3A%40harmony_callback_registration%2Ftaint_mock.ts%3A%20FakeButton.%25AM0(any):ret=void"
     },
     {
       "bindingId": "binding.sink.harmony.callback_registration.sink.0",
@@ -67,10 +134,6 @@
       "assetId": "asset.rule.test.harmony_callback_registration",
       "plane": "rule",
       "role": "sink",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "Sink"
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -81,14 +144,27 @@
         "template.sink.harmony.callback_registration.sink"
       ],
       "semanticsFamily": "sink",
-      "completeness": "partial",
-      "confidence": "likely",
-      "metadata": {}
+      "completeness": "complete",
+      "confidence": "certain",
+      "metadata": {},
+      "canonicalApiId": "api:project:local:module=harmony_callback_registration%2Ftaint_mock.ts:file=harmony_callback_registration%2Ftaint_mock.ts:export=namespace%3Ataint.%25dflt:decl=namespace%3Ataint.%25dflt:member=function%3ASink:invoke=call:params=0%3Aany:ret=void"
     }
   ],
   "effectTemplates": [
     {
-      "id": "template.source.harmony.callback_registration.onclick.arg0",
+      "id": "template.source.harmony.callback_registration.onclick.arg0.for.harmony_callback_registration_taint_mock_ts_Button_onClick_harmony_callback_registration_taint_mock_ts_Button_AM0_any",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "callback_param"
+    },
+    {
+      "id": "template.source.harmony.callback_registration.onclick.arg0.for.harmony_callback_registration_taint_mock_ts_FakeButton_onClick_harmony_callback_registration_taint_mock_ts_FakeButton_AM",
       "confidence": "certain",
       "kind": "rule.source",
       "value": {

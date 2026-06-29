@@ -10,6 +10,7 @@ import {
     ResolvedCaseMethod,
 } from "../helpers/SyntheticCaseHarness";
 import { registerMockSdkFiles } from "../helpers/TestSceneBuilder";
+import { detectSinksByExactMethodsForTest, resolveUniqueMethodByExactNameForTest, resolveUniqueMethodByExactSignatureForTest } from "../helpers/ExactSinkDetectionTestUtils";
 
 interface SeniorFullManifest {
     targetDir: string;
@@ -74,7 +75,7 @@ async function detectWithFreshEngine(
     const seeds = collectCaseSeedNodes(engine, entryMethod);
     if (seeds.length === 0) return false;
     engine.propagateWithSeeds(seeds);
-    return engine.detectSinks("Sink").length > 0;
+    return detectSinksByExactMethodsForTest(engine, resolveUniqueMethodByExactNameForTest(engine, "Sink")).length > 0;
 }
 
 async function main(): Promise<void> {
@@ -135,7 +136,7 @@ async function main(): Promise<void> {
             const sharedDetected = sharedSeeds.length > 0
                 ? (() => {
                     sharedEngine.propagateWithSeeds(sharedSeeds);
-                    return sharedEngine.detectSinks("Sink").length > 0;
+                    return detectSinksByExactMethodsForTest(sharedEngine, resolveUniqueMethodByExactNameForTest(sharedEngine, "Sink")).length > 0;
                 })()
                 : false;
             const freshDetected = await detectWithFreshEngine(scene, item.entryMethod, allEntryMethods);

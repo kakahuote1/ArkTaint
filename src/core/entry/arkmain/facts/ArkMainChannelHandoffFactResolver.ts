@@ -1,40 +1,51 @@
 import { Scene } from "../../../../../arkanalyzer/out/src/Scene";
-import { dedupeMethods } from "./ArkMainFactResolverUtils";
 import { ArkMainFactCollectionContext } from "./ArkMainFactContext";
-import { ARK_MAIN_ABILITY_HANDOFF_TARGET_METHOD_NAMES } from "../catalog/ArkMainFrameworkCatalog";
-import { collectFrameworkManagedOwners } from "./ArkMainOwnerDiscovery";
+import { arkanalyzerMethodKeyFromArkMethod } from "./ArkMainArkanalyzerMethodKey";
+import { resolveArkMainOfficialLifecycleDeclarationsByMethodKey } from "../catalog/ArkMainOfficialDeclarationCatalog";
+import { resolveOfficialHandoffContract } from "./ArkMainLifecycleContracts";
+import { collectSdkOverrideCandidates } from "./ArkMainSdkDeclarationDiscovery";
 
 export function collectChannelHandoffFacts(scene: Scene, context: ArkMainFactCollectionContext): void {
-    const managedOwners = collectFrameworkManagedOwners(scene);
-    const candidateMethods = dedupeMethods(
-        scene.getClasses().flatMap(cls => {
-            if (
-                !managedOwners.isAbilityOwner(cls)
-                && !managedOwners.isStageOwner(cls)
-                && !managedOwners.isExtensionOwner(cls)
-            ) {
-                return [];
+    for (const candidate of collectSdkOverrideCandidates(scene)) {
+        const declarations = resolveOfficialDeclarationsForSdkOverrideCandidate(candidate);
+        for (const declaration of declarations) {
+            const contract = resolveOfficialHandoffContract(declaration);
+            if (!contract) {
+                continue;
             }
-            return cls.getMethods().filter(method =>
-                !method.isStatic()
-                && ARK_MAIN_ABILITY_HANDOFF_TARGET_METHOD_NAMES.has(method.getName?.() || ""),
-            );
-        }),
-    );
-
-    for (const method of candidateMethods) {
-        context.addFact({
-            phase: "reactive_handoff",
-            kind: "want_handoff",
-            method,
-            reason: `Ability handoff lifecycle ${method.getName()}`,
-            schedule: false,
-            sourceMethod: method,
-            entryFamily: "ability_handoff",
-            entryShape: "lifecycle_slot",
-            recognitionLayer: managedOwners.getPrimaryRecognitionLayer(method.getDeclaringArkClass?.()) || "owner_qualified_inheritance",
-        });
+            context.addFact({
+                phase: contract.phase,
+                kind: contract.kind,
+                method: candidate.method,
+                ownerKind: contract.ownerKind,
+                reason: `${contract.reason} overridden by ${candidate.method.getSignature?.()?.toString?.() || candidate.method.getName?.()}`,
+                canonicalApiId: declaration.canonicalApiId,
+                semanticSurfaceId: declaration.surfaceId,
+                semanticBindingId: declaration.bindingId,
+                semanticTemplateId: declaration.templateId,
+                semanticGate: "exact_arkanalyzer_method_key",
+                schedule: false,
+                sourceMethod: candidate.method,
+                entryFamily: contract.entryFamily,
+                entryShape: contract.entryShape,
+                recognitionLayer: candidate.discoveryLayer,
+            });
+        }
     }
+}
+
+function resolveOfficialDeclarationsForSdkOverrideCandidate(
+    candidate: ReturnType<typeof collectSdkOverrideCandidates>[number],
+) {
+    if (candidate.officialDeclarations?.length) {
+        return candidate.officialDeclarations;
+    }
+    const baseMethodKey = candidate.baseMethod
+        ? arkanalyzerMethodKeyFromArkMethod(candidate.baseMethod)
+        : undefined;
+    return baseMethodKey
+        ? resolveArkMainOfficialLifecycleDeclarationsByMethodKey(baseMethodKey)
+        : [];
 }
 
 

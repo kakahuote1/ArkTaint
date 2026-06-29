@@ -17,9 +17,18 @@ const observed: ObservedSurface[] = [
         rawKind: "call",
         location: { file: "Index.ets", line: 1 },
         analyzerEvidence: {
-            importPath: "@ohos.console",
-            receiverType: "console",
-            argCount: 1,
+            canonicalApiId: "api:official:openharmony:%40ohos.console:api%2F%40ohos.console.d.ts:export=namespace%3Aconsole:owner=namespace%3Aconsole:member=method%3Alog:invoke=call:params=0%3AObject:return=void",
+            arkanalyzer: {
+                methodKey: {
+                    declaringFileName: "api/@ohos.console.d.ts",
+                    declaringNamespacePath: [],
+                    declaringClassName: "console",
+                    methodName: "log",
+                    parameterTypes: ["Object"],
+                    returnType: "void",
+                    staticFlag: true,
+                },
+            },
         },
         resolutionStatus: "resolved",
     },
@@ -28,10 +37,19 @@ const observed: ObservedSurface[] = [
         rawKind: "call",
         location: { file: "Logger.ets", line: 7 },
         analyzerEvidence: {
-            receiverType: "Logger",
-            argCount: 1,
+            arkanalyzer: {
+                methodKey: {
+                    declaringFileName: "project/Logger.ets",
+                    declaringNamespacePath: [],
+                    declaringClassName: "Logger",
+                    methodName: "info",
+                    parameterTypes: ["Object"],
+                    returnType: "void",
+                    staticFlag: true,
+                },
+            },
         },
-        resolutionStatus: "partial",
+        resolutionStatus: "resolved",
     },
     {
         observedSurfaceId: "obs.unknown",
@@ -46,7 +64,7 @@ const observed: ObservedSurface[] = [
         rawKind: "access",
         location: { file: "Index.ets", line: 10 },
         analyzerEvidence: {
-            ownerName: "local",
+            canonicalApiId: "api:project:local:local:Index.ets:export=namespace%3Alocal:owner=namespace%3Alocal:member=property%3Avalue:invoke=property-read:params=:return=Object",
         },
         resolutionStatus: "ignored",
         ignoredReason: "ordinary local access with no asset surface",

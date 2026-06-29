@@ -2,6 +2,9 @@ export interface ExecutionHandoffBuildBudget {
     startedAtMs: number;
     maxElapsedMs?: number;
     phase?: string;
+    progress?: (msg: string) => void;
+    progressIntervalMs?: number;
+    lastProgressAtMs?: number;
 }
 
 export class ExecutionHandoffBudgetExceededError extends Error {

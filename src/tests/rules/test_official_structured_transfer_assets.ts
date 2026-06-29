@@ -1,8 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
 import { validateAssetDocument, type AssetDocumentBase } from "../../core/assets/schema";
-import { lowerRuleAssetsToRuleSet } from "../../core/rules/RuleAssetLowering";
-import type { TransferRule } from "../../core/rules/RuleSchema";
 
 function assert(condition: unknown, message: string): asserts condition {
     if (!condition) throw new Error(message);
@@ -13,8 +11,26 @@ function loadAsset(): AssetDocumentBase {
     return JSON.parse(fs.readFileSync(file, "utf-8").replace(/^\uFEFF/, ""));
 }
 
-function byId(rules: TransferRule[]): Map<string, TransferRule> {
-    return new Map(rules.map(rule => [rule.id, rule]));
+function findBinding(asset: AssetDocumentBase, text: string): AssetDocumentBase["bindings"][number] {
+    const binding = asset.bindings.find(item => item.canonicalApiId.includes(text));
+    assert(binding, `missing binding for ${text}`);
+    return binding;
+}
+
+function templateFor(asset: AssetDocumentBase, binding: AssetDocumentBase["bindings"][number]): any {
+    const ref = binding.effectTemplateRefs[0];
+    const template = asset.effectTemplates.find(item => item.id === ref);
+    assert(template, `missing template ${ref}`);
+    return template;
+}
+
+function endpointKey(endpoint: any): string {
+    if (endpoint?.endpoint) return endpointKey(endpoint.endpoint);
+    const base = endpoint?.base;
+    if (!base) return "<missing>";
+    const suffix = endpoint.accessPath?.length ? `.${endpoint.accessPath.join(".")}` : "";
+    if (base.kind === "arg") return `arg${base.index}${suffix}`;
+    return `${base.kind}${suffix}`;
 }
 
 function main(): void {
@@ -24,39 +40,63 @@ function main(): void {
     assert(asset.status === "official", "official structured transfer asset must be official");
     assert(asset.plane === "rule", "official structured transfer asset must be a rule asset");
 
-    const lowered = lowerRuleAssetsToRuleSet([asset]);
-    assert(lowered.diagnostics.length === 0, `lowering diagnostics should be empty: ${lowered.diagnostics.join("; ")}`);
-    assert(lowered.ruleSet.transfers.length >= 40, `expected broad official transfer coverage, got ${lowered.ruleSet.transfers.length}`);
+    assert(asset.surfaces.length === 29, `expected 29 structured official surfaces, got ${asset.surfaces.length}`);
+    assert(asset.bindings.length === 31, `expected 31 structured official bindings, got ${asset.bindings.length}`);
+    assert(asset.effectTemplates.length === 31, `expected 31 structured official templates, got ${asset.effectTemplates.length}`);
+    for (const surface of asset.surfaces) {
+        assert(surface.canonicalApiId.startsWith("api:official:"), `${surface.surfaceId} must bind an official canonical API`);
+    }
+    for (const binding of asset.bindings) {
+        assert(binding.role === "transfer", `${binding.bindingId} must be a transfer binding`);
+        assert(binding.canonicalApiId.startsWith("api:official:"), `${binding.bindingId} must bind an official canonical API`);
+        assert(binding.effectTemplateRefs.length > 0, `${binding.bindingId} must reference a template`);
+    }
 
-    const ids = lowered.ruleSet.transfers.map(rule => rule.id);
-    assert(new Set(ids).size === ids.length, "official structured transfers must lower to unique runtime rule ids");
-    assert(!ids.some(id => id.includes("verify")), "crypto verify must not be modeled as value-preserving transfer");
+    const urlSet = findBinding(asset, "URLSearchParams:member=method%3Ainstance%3Aset");
+    const urlSetTemplate = templateFor(asset, urlSet);
+    assert(endpointKey(urlSetTemplate.from) === "arg1", "URLSearchParams.set must transfer value arg1");
+    assert(endpointKey(urlSetTemplate.to) === "receiver", "URLSearchParams.set must write into receiver slot");
+    assert(urlSetTemplate.to?.slotKind === "url-search-param", "URLSearchParams.set must use url-search-param slot");
+    assert(!urlSetTemplate.to?.slotWriteMode, "URLSearchParams.set must keep default replace slot write mode");
 
-    const transfers = byId(lowered.ruleSet.transfers);
-    const urlSet = transfers.get("transfer.official.urlsearchparams.set");
-    assert(urlSet?.from === "arg1", "URLSearchParams.set must transfer value arg1");
-    assert(typeof urlSet.to === "object" && urlSet.to.endpoint === "base", "URLSearchParams.set must write into receiver slot");
-    assert(typeof urlSet.to === "object" && urlSet.to.pathFrom === "arg0", "URLSearchParams.set slot key must come from arg0");
-    assert(typeof urlSet.to === "object" && urlSet.to.slotKind === "url-search-param", "URLSearchParams.set must use url-search-param slot");
+    const urlAppend = findBinding(asset, "URLSearchParams:member=method%3Ainstance%3Aappend");
+    const urlAppendTemplate = templateFor(asset, urlAppend);
+    assert(urlAppendTemplate.to?.slotWriteMode === "append", "URLSearchParams.append must declare append slot write mode");
 
-    const formGet = transfers.get("transfer.official.formdata.get");
-    assert(typeof formGet?.from === "object" && formGet.from.endpoint === "base", "FormData.get must read receiver slot");
-    assert(typeof formGet?.from === "object" && formGet.from.pathFrom === "arg0", "FormData.get slot key must come from arg0");
-    assert(formGet?.to === "result", "FormData.get must transfer to result");
+    const urlStringify = findBinding(asset, "URLSearchParams:member=method%3Ainstance%3AtoString");
+    const urlStringifyTemplate = templateFor(asset, urlStringify);
+    assert(urlStringifyTemplate.from?.taintScope === "contained-values", "URLSearchParams.toString must consume contained slot values");
 
-    const resultGet = transfers.get("transfer.official.resultset.getString");
-    assert(typeof resultGet?.from === "object" && resultGet.from.slotKind === "rdb-column", "ResultSet.getString must read rdb-column slot");
-    assert(resultGet?.to === "result", "ResultSet.getString must transfer to result");
+    const formGet = findBinding(asset, "FormData:member=method%3Ainstance%3Aget");
+    const formGetTemplate = templateFor(asset, formGet);
+    assert(endpointKey(formGetTemplate.from) === "receiver", "FormData.get must read receiver form-data-field slot");
+    assert(formGetTemplate.from?.slotKind === "form-data-field", "FormData.get must read form-data-field slot");
+    assert(endpointKey(formGetTemplate.to) === "return", "FormData.get must transfer to return");
 
-    const between = lowered.ruleSet.transfers.filter(rule => rule.id.startsWith("transfer.official.rdbpredicates.between."));
-    assert(between.length === 2, "RdbPredicates.between must emit transfers for both bounds");
-    assert(new Set(between.map(rule => rule.from)).has("arg1"), "RdbPredicates.between must transfer lower bound");
-    assert(new Set(between.map(rule => rule.from)).has("arg2"), "RdbPredicates.between must transfer upper bound");
+    const formValues = findBinding(asset, "FormData:member=method%3Ainstance%3Avalues");
+    const formValuesTemplate = templateFor(asset, formValues);
+    assert(formValuesTemplate.from?.taintScope === "contained-values", "FormData.values must consume contained slot values");
 
-    const crypto = transfers.get("transfer.official.crypto.cipher.doFinal");
-    assert(crypto?.from === "arg0" && crypto.to === "result", "Cipher.doFinal must transfer data arg0 to result");
+    const resultGet = findBinding(asset, "relationalStore.ResultSet:member=method%3Ainstance%3AgetString");
+    const resultGetTemplate = templateFor(asset, resultGet);
+    assert(endpointKey(resultGetTemplate.from) === "receiver", "ResultSet.getString must read receiver slot");
+    assert(resultGetTemplate.from?.slotKind === "rdb-column", "ResultSet.getString must read rdb-column slot");
+    assert(endpointKey(resultGetTemplate.to) === "return", "ResultSet.getString must transfer to return");
 
-    console.log(`PASS test_official_structured_transfer_assets transfers=${lowered.ruleSet.transfers.length}`);
+    const headersAppend = findBinding(asset, "Headers:member=method%3Ainstance%3Aappend");
+    const headersAppendTemplate = templateFor(asset, headersAppend);
+    assert(headersAppendTemplate.to?.slotWriteMode === "append", "Headers.append must declare append slot write mode");
+
+    const headersValues = findBinding(asset, "Headers:member=method%3Ainstance%3Avalues");
+    const headersValuesTemplate = templateFor(asset, headersValues);
+    assert(headersValuesTemplate.from?.taintScope === "contained-values", "Headers.values must consume contained slot values");
+
+    const crypto = findBinding(asset, "cryptoFramework.Md:member=method%3Ainstance%3Aupdate");
+    const cryptoTemplate = templateFor(asset, crypto);
+    assert(endpointKey(cryptoTemplate.from) === "arg0", "Md.update must transfer data arg0");
+    assert(endpointKey(cryptoTemplate.to) === "receiver", "Md.update Promise<void> must transfer into receiver state");
+
+    console.log(`PASS test_official_structured_transfer_assets bindings=${asset.bindings.length}`);
 }
 
 main();

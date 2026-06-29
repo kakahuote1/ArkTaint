@@ -2,6 +2,7 @@ import { Scene } from "../../../../arkanalyzer/out/src/Scene";
 import { ArkMethod } from "../../../../arkanalyzer/out/src/core/model/ArkMethod";
 import { ArkInstanceInvokeExpr, ArkPtrInvokeExpr } from "../../../../arkanalyzer/out/src/core/base/Expr";
 import {
+    diagnoseUnresolvedVirtualDispatch,
     isCallableValue,
     resolveCalleeCandidates,
     resolveInvokeMethodName,
@@ -11,8 +12,12 @@ import { assertBuildStageBudget, BuildStageBudget } from "../../shared/BuildStag
 import {
     collectKnownKeyedDispatchKeysFromMethod,
     KeyedCallbackDispatchRegistration,
+    resolveKnownChannelCallbackRegistration,
+    resolveKnownFrameworkCallbackRegistrationWithPolicy,
     resolveKnownKeyedCallbackRegistrationsFromStmt,
 } from "./FrameworkCallbackClassifier";
+import { resolveCallbackRegistrationsFromStmt } from "../../substrate/queries/CallbackBindingQuery";
+import { resolveKnownOptionCallbackRegistrationsFromStmt } from "../../substrate/semantics/KnownOptionCallbackRegistration";
 
 interface DirectCallExpansionOptions {
     includeKeyedDispatchCallbacks?: boolean;
@@ -20,6 +25,9 @@ interface DirectCallExpansionOptions {
     budget?: BuildStageBudget;
     budgetLabel?: string;
 }
+
+const _directExpansionTargetCache = new WeakMap<Scene, Map<string, ArkMethod[]>>();
+const _sceneMethodNameCache = new WeakMap<Scene, Set<string>>();
 
 const KNOWN_ORDINARY_CALLBACK_ARG_INDEXES = new Map<string, number[]>([
     ["forEach", [0]],
@@ -114,6 +122,11 @@ export function collectDirectCallExpansionTargetMethods(
     method: ArkMethod,
     options: DirectCallExpansionOptions = {},
 ): ArkMethod[] {
+    const cacheKey = directExpansionCacheKey(method, options);
+    const sceneCache = cacheKey ? getDirectExpansionTargetCache(scene) : undefined;
+    const cached = cacheKey ? sceneCache?.get(cacheKey) : undefined;
+    if (cached) return cached;
+
     const out: ArkMethod[] = [];
     const seen = new Set<string>();
     const allowedDeclaringClassNames = options.allowedDeclaringClassNames;
@@ -135,24 +148,82 @@ export function collectDirectCallExpansionTargetMethods(
         if (!stmt.containsInvokeExpr?.()) continue;
         const invokeExpr = stmt.getInvokeExpr?.();
         if (!invokeExpr) continue;
-        assertBuildStageBudget(options.budget, `direct_expansion.resolve_callee.start(${methodLabel})`);
-        const callees = resolveCalleeCandidates(scene, invokeExpr, {
-            maxNameMatchCandidates: 8,
-            enableDirectCallableTargets: false,
-        });
-        assertBuildStageBudget(options.budget, `direct_expansion.resolve_callee.done(count=${callees.length},method=${methodLabel})`);
-        for (const callee of callees) {
-            addMethod(callee.method as ArkMethod);
+        if (shouldAttemptExactReachabilityCalleeResolution(scene, invokeExpr, options)) {
+            assertBuildStageBudget(options.budget, `direct_expansion.resolve_callee.start(${methodLabel})`);
+            const callees = resolveCalleeCandidates(scene, invokeExpr, {
+                maxNameMatchCandidates: 8,
+                enableDirectCallableTargets: false,
+                maxCallableResolveDepth: 16,
+            });
+            assertBuildStageBudget(options.budget, `direct_expansion.resolve_callee.done(count=${callees.length},method=${methodLabel})`);
+            for (const callee of callees) {
+                addMethod(callee.method as ArkMethod);
+            }
         }
 
         assertBuildStageBudget(options.budget, `direct_expansion.callable_targets.start(${methodLabel})`);
         for (const calleeMethod of collectCallableExpansionTargets(scene, invokeExpr, options)) {
             addMethod(calleeMethod);
         }
+        for (const calleeMethod of collectExactCallbackExpansionTargets(scene, method, stmt)) {
+            addMethod(calleeMethod);
+        }
         assertBuildStageBudget(options.budget, `direct_expansion.callable_targets.done(count=${out.length},method=${methodLabel})`);
     }
 
+    if (cacheKey) sceneCache?.set(cacheKey, out);
     return out;
+}
+
+function getDirectExpansionTargetCache(scene: Scene): Map<string, ArkMethod[]> {
+    let cache = _directExpansionTargetCache.get(scene);
+    if (!cache) {
+        cache = new Map<string, ArkMethod[]>();
+        _directExpansionTargetCache.set(scene, cache);
+    }
+    return cache;
+}
+
+function directExpansionCacheKey(method: ArkMethod, options: DirectCallExpansionOptions): string | undefined {
+    if (options.allowedDeclaringClassNames || options.budget?.maxElapsedMs) return undefined;
+    return method.getSignature?.()?.toString?.() || undefined;
+}
+
+function shouldAttemptExactReachabilityCalleeResolution(
+    scene: Scene,
+    invokeExpr: any,
+    options: DirectCallExpansionOptions = {},
+): boolean {
+    const invokeSignature = safeInvokeSignatureText(invokeExpr);
+    if (invokeSignature && !invokeSignature.includes("%unk")) return true;
+    const methodName = resolveInvokeMethodName(invokeExpr);
+    if (!methodName || !getSceneMethodNameSet(scene).has(methodName)) return false;
+    if (!(invokeExpr instanceof ArkInstanceInvokeExpr)) return true;
+
+    const diagnostic = diagnoseUnresolvedVirtualDispatch(scene, invokeExpr, {
+        maxNameMatchCandidates: 8,
+        enableDirectCallableTargets: false,
+        maxCallableResolveDepth: 16,
+    });
+    if (!diagnostic) return true;
+    const blockers = new Set([
+        "missing_concrete_receiver_owner",
+        "receiver_owner_candidates_not_unique",
+        "name_candidates_exceed_limit",
+    ]);
+    return !diagnostic.evidence.some(evidence => blockers.has(evidence));
+}
+
+function getSceneMethodNameSet(scene: Scene): Set<string> {
+    let cached = _sceneMethodNameCache.get(scene);
+    if (cached) return cached;
+    cached = new Set<string>();
+    for (const method of scene.getMethods()) {
+        const name = method.getName?.();
+        if (name) cached.add(String(name));
+    }
+    _sceneMethodNameCache.set(scene, cached);
+    return cached;
 }
 
 function collectCallableExpansionTargets(
@@ -198,6 +269,57 @@ function collectCallableExpansionTargets(
     return out;
 }
 
+function collectExactCallbackExpansionTargets(
+    scene: Scene,
+    sourceMethod: ArkMethod,
+    stmt: any,
+): ArkMethod[] {
+    const invokeExpr = stmt?.getInvokeExpr?.();
+    if (!invokeExpr || !hasCallbackExpansionEvidence(stmt, invokeExpr)) return [];
+
+    const out = new Map<string, ArkMethod>();
+    const addMethod = (method: any): void => {
+        const signature = method?.getSignature?.()?.toString?.();
+        if (!signature || out.has(signature)) return;
+        out.set(signature, method as ArkMethod);
+    };
+
+    for (const binding of resolveCallbackRegistrationsFromStmt(
+        stmt,
+        scene,
+        sourceMethod,
+        args =>
+            resolveKnownFrameworkCallbackRegistrationWithPolicy(args, { enableSdkProvenance: true })
+            || resolveKnownChannelCallbackRegistration(args),
+        { maxDepth: 2 },
+    )) {
+        addMethod(binding.callbackMethod);
+    }
+
+    for (const binding of resolveKnownOptionCallbackRegistrationsFromStmt(stmt, scene, sourceMethod)) {
+        addMethod(binding.callbackMethod);
+    }
+
+    return [...out.values()];
+}
+
+function hasCallbackExpansionEvidence(stmt: any, invokeExpr: any): boolean {
+    const stmtText = stmt?.toString?.() || "";
+    if (stmtText.includes("ptrinvoke this.")) return true;
+    const args = invokeExpr?.getArgs ? invokeExpr.getArgs() : [];
+    for (const arg of args) {
+        if (isPotentialCallableExpansionValue(arg)) return true;
+        const typeValue: any = arg?.getType?.();
+        const text = [
+            arg?.toString?.() || "",
+            typeValue?.getClassSignature?.()?.toString?.() || "",
+            typeValue?.toString?.() || "",
+        ].join(" ");
+        if (text.includes("%AM") || text.includes("%AC")) return true;
+    }
+    return false;
+}
+
 function shouldResolveReceiverAsCallable(invokeExpr: any): boolean {
     if (!(invokeExpr instanceof ArkInstanceInvokeExpr)) return false;
     const methodName = resolveInvokeMethodName(invokeExpr);
@@ -216,6 +338,14 @@ function shortMethodLabel(method: ArkMethod): string {
 function shortInvokeLabel(invokeExpr: any): string {
     const sig = invokeExpr?.getMethodSignature?.()?.toString?.() || resolveInvokeMethodName(invokeExpr) || "<unknown>";
     return sig.length <= 90 ? sig : `${sig.slice(0, 44)}...${sig.slice(-40)}`;
+}
+
+function safeInvokeSignatureText(invokeExpr: any): string {
+    try {
+        return invokeExpr?.getMethodSignature?.()?.toString?.() || "";
+    } catch {
+        return "";
+    }
 }
 
 function resolveKnownCallableArgIndexes(methodName: string): number[] {
@@ -240,7 +370,7 @@ function isAllowedDeclaringClass(
     return !!declaringClassName && allowedDeclaringClassNames.has(declaringClassName);
 }
 
-function collectKeyedDispatchCallbackMethods(scene: Scene, scopeMethods: ArkMethod[]): ArkMethod[] {
+export function collectKeyedDispatchCallbackMethods(scene: Scene, scopeMethods: ArkMethod[]): ArkMethod[] {
     const dispatchKeysByFamily = new Map<string, Set<string>>();
     const registrations: KeyedCallbackDispatchRegistration[] = [];
 

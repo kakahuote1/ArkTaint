@@ -3,6 +3,7 @@ import { Scene } from "../../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../../arkanalyzer/out/src/Config";
 import { TaintPropagationEngine } from "../../core/orchestration/TaintPropagationEngine";
 import * as path from 'path';
+import { detectSinksByExactMethodsForTest, resolveUniqueMethodByExactNameForTest, resolveUniqueMethodByExactSignatureForTest } from "../helpers/ExactSinkDetectionTestUtils";
 
 async function runTest() {
     let projectDir = "d:/cursor/workplace/ArkTaint/tests/demo";
@@ -25,7 +26,7 @@ async function runTest() {
     engine.propagate("source");
 
     console.log("Detecting Flows...");
-    let flows = engine.detectSinks("sink");
+    let flows = detectSinksByExactMethodsForTest(engine, resolveUniqueMethodByExactNameForTest(engine, "sink"));
 
     if (flows.length > 0) {
         console.log("鉁?SUCCESS: Detected Taint Flows:");

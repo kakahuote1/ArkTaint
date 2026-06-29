@@ -51,7 +51,7 @@ Use `plane="arkmain"` only for framework-managed execution facts:
 
 Entry effects create entry/callback/schedule candidates only. They do not propagate callback argument data; ordinary transfer or handoff effects handle data movement.
 
-For a project component or third-party UI wrapper, callback payload semantics and entry reachability are separate assets. If the slice proves that a component callback argument is a `rule.source`, but the registration site is inside a framework-managed project component `build()` method that may not already be an entry, also request or generate a companion `arkmain` asset for the exact component `EntrySurface` (`ownerName`, `methodName`, `phase`, `entryKind`). Do not widen the `rule.source` selector to compensate for a missing entry.
+For a project component or third-party UI wrapper, callback payload semantics and entry reachability are separate assets. If the slice proves that a component callback argument is a `rule.source`, but the registration site is inside a framework-managed project component `build()` method that may not already be an entry, also request or generate a companion `arkmain` asset only for the exact canonical entry surface supplied by analyzer-backed evidence. Do not widen the `rule.source` selector to compensate for a missing entry.
 
 For callback payload sources, derive the payload parameter index from the visible callback signature or invocation. A one-parameter callback such as `(content) => ...` or `onClickSend(content)` uses `argIndex: 0`; `argIndex: 1` is valid only when the evidence shows a second callback parameter and that second parameter is the payload. If the parameter position is not visible, request endpoint evidence instead of guessing.
 

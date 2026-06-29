@@ -4,62 +4,414 @@
   "status": "official",
   "surfaces": [
     {
-      "surfaceId": "surface.source.router_bridge.entry_param",
-      "kind": "access",
-      "modulePath": "@arktaint/local",
-      "ownerName": "LocalBinding",
-      "propertyName": "source.router_bridge.entry_param",
-      "accessKind": "read",
-      "receiverKind": "namespace",
-      "confidence": "likely",
+      "surfaceId": "surface.source.router_bridge.entry_param.navigation_destination_callback_010_T.method.navigation_destination_callback_010_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_router_bridge%2Fnavigation_destination_callback_010_T.ets:file=harmony_router_bridge%2Fnavigation_destination_callback_010_T.ets:export=entry%3Acomponent.navigation_destination_callback_010_T:decl=entry%3Acomponent.navigation_destination_callback_010_T:member=lifecycle%3Atest.case.navigation_destination_callback_010_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "harmony_router_bridge/navigation_destination_callback_010_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_router_bridge/navigation_destination_callback_010_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "navigation_destination_callback_010_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.router_bridge.entry_param.navigation_destination_callback_011_T.method.navigation_destination_callback_011_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_router_bridge%2Fnavigation_destination_callback_011_T.ets:file=harmony_router_bridge%2Fnavigation_destination_callback_011_T.ets:export=entry%3Acomponent.navigation_destination_callback_011_T:decl=entry%3Acomponent.navigation_destination_callback_011_T:member=lifecycle%3Atest.case.navigation_destination_callback_011_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_router_bridge/navigation_destination_callback_011_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_router_bridge/navigation_destination_callback_011_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "navigation_destination_callback_011_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.router_bridge.entry_param.navigation_pushPathByName_008_T.method.navigation_pushPathByName_008_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_router_bridge%2Fnavigation_pushPathByName_008_T.ets:file=harmony_router_bridge%2Fnavigation_pushPathByName_008_T.ets:export=entry%3Acomponent.navigation_pushPathByName_008_T:decl=entry%3Acomponent.navigation_pushPathByName_008_T:member=lifecycle%3Atest.case.navigation_pushPathByName_008_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_router_bridge/navigation_pushPathByName_008_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_router_bridge/navigation_pushPathByName_008_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "navigation_pushPathByName_008_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.router_bridge.entry_param.navigation_pushPath_007_T.method.navigation_pushPath_007_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_router_bridge%2Fnavigation_pushPath_007_T.ets:file=harmony_router_bridge%2Fnavigation_pushPath_007_T.ets:export=entry%3Acomponent.navigation_pushPath_007_T:decl=entry%3Acomponent.navigation_pushPath_007_T:member=lifecycle%3Atest.case.navigation_pushPath_007_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_router_bridge/navigation_pushPath_007_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_router_bridge/navigation_pushPath_007_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "navigation_pushPath_007_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.router_bridge.entry_param.navigation_pushPath_009_T.method.navigation_pushPath_009_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_router_bridge%2Fnavigation_pushPath_009_T.ets:file=harmony_router_bridge%2Fnavigation_pushPath_009_T.ets:export=entry%3Acomponent.navigation_pushPath_009_T:decl=entry%3Acomponent.navigation_pushPath_009_T:member=lifecycle%3Atest.case.navigation_pushPath_009_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_router_bridge/navigation_pushPath_009_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_router_bridge/navigation_pushPath_009_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "navigation_pushPath_009_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.router_bridge.entry_param.router_bridge_001_T.method.router_bridge_001_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_router_bridge%2Frouter_bridge_001_T.ets:file=harmony_router_bridge%2Frouter_bridge_001_T.ets:export=entry%3Acomponent.router_bridge_001_T:decl=entry%3Acomponent.router_bridge_001_T:member=lifecycle%3Atest.case.router_bridge_001_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_router_bridge/router_bridge_001_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_router_bridge/router_bridge_001_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "router_bridge_001_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.router_bridge.entry_param.router_bridge_002_T.method.router_bridge_002_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_router_bridge%2Frouter_bridge_002_T.ets:file=harmony_router_bridge%2Frouter_bridge_002_T.ets:export=entry%3Acomponent.router_bridge_002_T:decl=entry%3Acomponent.router_bridge_002_T:member=lifecycle%3Atest.case.router_bridge_002_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_router_bridge/router_bridge_002_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_router_bridge/router_bridge_002_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "router_bridge_002_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.router_bridge.entry_param.router_callback_field_015_F.method.router_callback_field_015_F",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_router_bridge%2Frouter_callback_field_015_F.ets:file=harmony_router_bridge%2Frouter_callback_field_015_F.ets:export=entry%3Acomponent.router_callback_field_015_F:decl=entry%3Acomponent.router_callback_field_015_F:member=lifecycle%3Atest.case.router_callback_field_015_F:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_router_bridge/router_callback_field_015_F.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_router_bridge/router_callback_field_015_F.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "router_callback_field_015_F",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.router_bridge.entry_param.router_component_field_014_T.method.router_component_field_014_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_router_bridge%2Frouter_component_field_014_T.ets:file=harmony_router_bridge%2Frouter_component_field_014_T.ets:export=entry%3Acomponent.router_component_field_014_T:decl=entry%3Acomponent.router_component_field_014_T:member=lifecycle%3Atest.case.router_component_field_014_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_router_bridge/router_component_field_014_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_router_bridge/router_component_field_014_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "router_component_field_014_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.router_bridge.entry_param.router_lowercase_field_013_T.method.router_lowercase_field_013_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_router_bridge%2Frouter_lowercase_field_013_T.ets:file=harmony_router_bridge%2Frouter_lowercase_field_013_T.ets:export=entry%3Acomponent.router_lowercase_field_013_T:decl=entry%3Acomponent.router_lowercase_field_013_T:member=lifecycle%3Atest.case.router_lowercase_field_013_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_router_bridge/router_lowercase_field_013_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_router_bridge/router_lowercase_field_013_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "router_lowercase_field_013_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.router_bridge.entry_param.router_params_field_012_T.method.router_params_field_012_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_router_bridge%2Frouter_params_field_012_T.ets:file=harmony_router_bridge%2Frouter_params_field_012_T.ets:export=entry%3Acomponent.router_params_field_012_T:decl=entry%3Acomponent.router_params_field_012_T:member=lifecycle%3Atest.case.router_params_field_012_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_router_bridge/router_params_field_012_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_router_bridge/router_params_field_012_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "router_params_field_012_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.router_bridge.entry_param.router_pushNamedRoute_006_T.method.router_pushNamedRoute_006_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_router_bridge%2Frouter_pushNamedRoute_006_T.ets:file=harmony_router_bridge%2Frouter_pushNamedRoute_006_T.ets:export=entry%3Acomponent.router_pushNamedRoute_006_T:decl=entry%3Acomponent.router_pushNamedRoute_006_T:member=lifecycle%3Atest.case.router_pushNamedRoute_006_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_router_bridge/router_pushNamedRoute_006_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_router_bridge/router_pushNamedRoute_006_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "router_pushNamedRoute_006_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.router_bridge.entry_param.router_replaceUrl_005_T.method.router_replaceUrl_005_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_router_bridge%2Frouter_replaceUrl_005_T.ets:file=harmony_router_bridge%2Frouter_replaceUrl_005_T.ets:export=entry%3Acomponent.router_replaceUrl_005_T:decl=entry%3Acomponent.router_replaceUrl_005_T:member=lifecycle%3Atest.case.router_replaceUrl_005_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_router_bridge/router_replaceUrl_005_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_router_bridge/router_replaceUrl_005_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "router_replaceUrl_005_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
       }
     },
     {
       "surfaceId": "surface.source.router_bridge.static_init_source",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "Source",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
         "source": "manual"
+      },
+      "canonicalApiId": "api:project:local:module=harmony_router_bridge%2Ftaint_mock.ts:file=harmony_router_bridge%2Ftaint_mock.ts:export=namespace%3Ataint:decl=namespace%3Ataint:member=function%3ASource:invoke=call:params=none:ret=string",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_router_bridge/taint_mock.ts",
+            "declaringNamespacePath": [
+              "taint"
+            ],
+            "declaringClassName": "%dflt",
+            "methodName": "Source",
+            "parameterTypes": [],
+            "returnType": "string",
+            "staticFlag": true
+          }
+        }
       }
     },
     {
       "surfaceId": "surface.sink.router_bridge.mock_sink",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "Sink",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
         "source": "manual"
+      },
+      "canonicalApiId": "api:project:local:module=harmony_router_bridge%2Ftaint_mock.ts:file=harmony_router_bridge%2Ftaint_mock.ts:export=namespace%3Ataint:decl=namespace%3Ataint:member=function%3ASink:invoke=call:params=0%3Aany:ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_router_bridge/taint_mock.ts",
+            "declaringNamespacePath": [
+              "taint"
+            ],
+            "declaringClassName": "%dflt",
+            "methodName": "Sink",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "void",
+            "staticFlag": true
+          }
+        }
       }
     }
   ],
   "bindings": [
     {
       "bindingId": "binding.source.router_bridge.entry_param.0.method.navigation_destination_callback_010_T",
-      "surfaceId": "surface.source.router_bridge.entry_param",
+      "surfaceId": "surface.source.router_bridge.entry_param.navigation_destination_callback_010_T.method.navigation_destination_callback_010_T",
       "assetId": "asset.rule.test.harmony_router_bridge",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "navigation_destination_callback_010_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "navigation_destination_callback_010_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -70,25 +422,19 @@
         "template.source.router_bridge.entry_param.for.source.router_bridge.entry_param.0.method.navigation_destination_callback_010_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_router_bridge%2Fnavigation_destination_callback_010_T.ets:file=harmony_router_bridge%2Fnavigation_destination_callback_010_T.ets:export=entry%3Acomponent.navigation_destination_callback_010_T:decl=entry%3Acomponent.navigation_destination_callback_010_T:member=lifecycle%3Atest.case.navigation_destination_callback_010_T:invoke=entry:params=0%3Astring:ret=void",
+      "metadata": {
+        "entryMethod": "navigation_destination_callback_010_T"
+      }
     },
     {
       "bindingId": "binding.source.router_bridge.entry_param.0.method.navigation_destination_callback_011_T",
-      "surfaceId": "surface.source.router_bridge.entry_param",
+      "surfaceId": "surface.source.router_bridge.entry_param.navigation_destination_callback_011_T.method.navigation_destination_callback_011_T",
       "assetId": "asset.rule.test.harmony_router_bridge",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "navigation_destination_callback_011_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "navigation_destination_callback_011_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -99,25 +445,19 @@
         "template.source.router_bridge.entry_param.for.source.router_bridge.entry_param.0.method.navigation_destination_callback_011_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_router_bridge%2Fnavigation_destination_callback_011_T.ets:file=harmony_router_bridge%2Fnavigation_destination_callback_011_T.ets:export=entry%3Acomponent.navigation_destination_callback_011_T:decl=entry%3Acomponent.navigation_destination_callback_011_T:member=lifecycle%3Atest.case.navigation_destination_callback_011_T:invoke=entry:params=0%3Astring:ret=void",
+      "metadata": {
+        "entryMethod": "navigation_destination_callback_011_T"
+      }
     },
     {
       "bindingId": "binding.source.router_bridge.entry_param.0.method.navigation_pushPathByName_008_T",
-      "surfaceId": "surface.source.router_bridge.entry_param",
+      "surfaceId": "surface.source.router_bridge.entry_param.navigation_pushPathByName_008_T.method.navigation_pushPathByName_008_T",
       "assetId": "asset.rule.test.harmony_router_bridge",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "navigation_pushPathByName_008_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "navigation_pushPathByName_008_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -128,25 +468,19 @@
         "template.source.router_bridge.entry_param.for.source.router_bridge.entry_param.0.method.navigation_pushPathByName_008_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_router_bridge%2Fnavigation_pushPathByName_008_T.ets:file=harmony_router_bridge%2Fnavigation_pushPathByName_008_T.ets:export=entry%3Acomponent.navigation_pushPathByName_008_T:decl=entry%3Acomponent.navigation_pushPathByName_008_T:member=lifecycle%3Atest.case.navigation_pushPathByName_008_T:invoke=entry:params=0%3Astring:ret=void",
+      "metadata": {
+        "entryMethod": "navigation_pushPathByName_008_T"
+      }
     },
     {
       "bindingId": "binding.source.router_bridge.entry_param.0.method.navigation_pushPath_007_T",
-      "surfaceId": "surface.source.router_bridge.entry_param",
+      "surfaceId": "surface.source.router_bridge.entry_param.navigation_pushPath_007_T.method.navigation_pushPath_007_T",
       "assetId": "asset.rule.test.harmony_router_bridge",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "navigation_pushPath_007_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "navigation_pushPath_007_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -157,25 +491,19 @@
         "template.source.router_bridge.entry_param.for.source.router_bridge.entry_param.0.method.navigation_pushPath_007_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_router_bridge%2Fnavigation_pushPath_007_T.ets:file=harmony_router_bridge%2Fnavigation_pushPath_007_T.ets:export=entry%3Acomponent.navigation_pushPath_007_T:decl=entry%3Acomponent.navigation_pushPath_007_T:member=lifecycle%3Atest.case.navigation_pushPath_007_T:invoke=entry:params=0%3Astring:ret=void",
+      "metadata": {
+        "entryMethod": "navigation_pushPath_007_T"
+      }
     },
     {
       "bindingId": "binding.source.router_bridge.entry_param.0.method.navigation_pushPath_009_T",
-      "surfaceId": "surface.source.router_bridge.entry_param",
+      "surfaceId": "surface.source.router_bridge.entry_param.navigation_pushPath_009_T.method.navigation_pushPath_009_T",
       "assetId": "asset.rule.test.harmony_router_bridge",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "navigation_pushPath_009_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "navigation_pushPath_009_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -186,25 +514,19 @@
         "template.source.router_bridge.entry_param.for.source.router_bridge.entry_param.0.method.navigation_pushPath_009_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_router_bridge%2Fnavigation_pushPath_009_T.ets:file=harmony_router_bridge%2Fnavigation_pushPath_009_T.ets:export=entry%3Acomponent.navigation_pushPath_009_T:decl=entry%3Acomponent.navigation_pushPath_009_T:member=lifecycle%3Atest.case.navigation_pushPath_009_T:invoke=entry:params=0%3Astring:ret=void",
+      "metadata": {
+        "entryMethod": "navigation_pushPath_009_T"
+      }
     },
     {
       "bindingId": "binding.source.router_bridge.entry_param.0.method.router_bridge_001_T",
-      "surfaceId": "surface.source.router_bridge.entry_param",
+      "surfaceId": "surface.source.router_bridge.entry_param.router_bridge_001_T.method.router_bridge_001_T",
       "assetId": "asset.rule.test.harmony_router_bridge",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "router_bridge_001_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "router_bridge_001_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -215,25 +537,19 @@
         "template.source.router_bridge.entry_param.for.source.router_bridge.entry_param.0.method.router_bridge_001_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_router_bridge%2Frouter_bridge_001_T.ets:file=harmony_router_bridge%2Frouter_bridge_001_T.ets:export=entry%3Acomponent.router_bridge_001_T:decl=entry%3Acomponent.router_bridge_001_T:member=lifecycle%3Atest.case.router_bridge_001_T:invoke=entry:params=0%3Astring:ret=void",
+      "metadata": {
+        "entryMethod": "router_bridge_001_T"
+      }
     },
     {
       "bindingId": "binding.source.router_bridge.entry_param.0.method.router_bridge_002_T",
-      "surfaceId": "surface.source.router_bridge.entry_param",
+      "surfaceId": "surface.source.router_bridge.entry_param.router_bridge_002_T.method.router_bridge_002_T",
       "assetId": "asset.rule.test.harmony_router_bridge",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "router_bridge_002_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "router_bridge_002_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -244,25 +560,19 @@
         "template.source.router_bridge.entry_param.for.source.router_bridge.entry_param.0.method.router_bridge_002_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_router_bridge%2Frouter_bridge_002_T.ets:file=harmony_router_bridge%2Frouter_bridge_002_T.ets:export=entry%3Acomponent.router_bridge_002_T:decl=entry%3Acomponent.router_bridge_002_T:member=lifecycle%3Atest.case.router_bridge_002_T:invoke=entry:params=0%3Astring:ret=void",
+      "metadata": {
+        "entryMethod": "router_bridge_002_T"
+      }
     },
     {
       "bindingId": "binding.source.router_bridge.entry_param.0.method.router_callback_field_015_F",
-      "surfaceId": "surface.source.router_bridge.entry_param",
+      "surfaceId": "surface.source.router_bridge.entry_param.router_callback_field_015_F.method.router_callback_field_015_F",
       "assetId": "asset.rule.test.harmony_router_bridge",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "router_callback_field_015_F",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "router_callback_field_015_F.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -273,25 +583,19 @@
         "template.source.router_bridge.entry_param.for.source.router_bridge.entry_param.0.method.router_callback_field_015_F"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_router_bridge%2Frouter_callback_field_015_F.ets:file=harmony_router_bridge%2Frouter_callback_field_015_F.ets:export=entry%3Acomponent.router_callback_field_015_F:decl=entry%3Acomponent.router_callback_field_015_F:member=lifecycle%3Atest.case.router_callback_field_015_F:invoke=entry:params=0%3Astring:ret=void",
+      "metadata": {
+        "entryMethod": "router_callback_field_015_F"
+      }
     },
     {
       "bindingId": "binding.source.router_bridge.entry_param.0.method.router_component_field_014_T",
-      "surfaceId": "surface.source.router_bridge.entry_param",
+      "surfaceId": "surface.source.router_bridge.entry_param.router_component_field_014_T.method.router_component_field_014_T",
       "assetId": "asset.rule.test.harmony_router_bridge",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "router_component_field_014_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "router_component_field_014_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -302,25 +606,19 @@
         "template.source.router_bridge.entry_param.for.source.router_bridge.entry_param.0.method.router_component_field_014_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_router_bridge%2Frouter_component_field_014_T.ets:file=harmony_router_bridge%2Frouter_component_field_014_T.ets:export=entry%3Acomponent.router_component_field_014_T:decl=entry%3Acomponent.router_component_field_014_T:member=lifecycle%3Atest.case.router_component_field_014_T:invoke=entry:params=0%3Astring:ret=void",
+      "metadata": {
+        "entryMethod": "router_component_field_014_T"
+      }
     },
     {
       "bindingId": "binding.source.router_bridge.entry_param.0.method.router_lowercase_field_013_T",
-      "surfaceId": "surface.source.router_bridge.entry_param",
+      "surfaceId": "surface.source.router_bridge.entry_param.router_lowercase_field_013_T.method.router_lowercase_field_013_T",
       "assetId": "asset.rule.test.harmony_router_bridge",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "router_lowercase_field_013_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "router_lowercase_field_013_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -331,25 +629,19 @@
         "template.source.router_bridge.entry_param.for.source.router_bridge.entry_param.0.method.router_lowercase_field_013_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_router_bridge%2Frouter_lowercase_field_013_T.ets:file=harmony_router_bridge%2Frouter_lowercase_field_013_T.ets:export=entry%3Acomponent.router_lowercase_field_013_T:decl=entry%3Acomponent.router_lowercase_field_013_T:member=lifecycle%3Atest.case.router_lowercase_field_013_T:invoke=entry:params=0%3Astring:ret=void",
+      "metadata": {
+        "entryMethod": "router_lowercase_field_013_T"
+      }
     },
     {
       "bindingId": "binding.source.router_bridge.entry_param.0.method.router_params_field_012_T",
-      "surfaceId": "surface.source.router_bridge.entry_param",
+      "surfaceId": "surface.source.router_bridge.entry_param.router_params_field_012_T.method.router_params_field_012_T",
       "assetId": "asset.rule.test.harmony_router_bridge",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "router_params_field_012_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "router_params_field_012_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -360,25 +652,19 @@
         "template.source.router_bridge.entry_param.for.source.router_bridge.entry_param.0.method.router_params_field_012_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_router_bridge%2Frouter_params_field_012_T.ets:file=harmony_router_bridge%2Frouter_params_field_012_T.ets:export=entry%3Acomponent.router_params_field_012_T:decl=entry%3Acomponent.router_params_field_012_T:member=lifecycle%3Atest.case.router_params_field_012_T:invoke=entry:params=0%3Astring:ret=void",
+      "metadata": {
+        "entryMethod": "router_params_field_012_T"
+      }
     },
     {
       "bindingId": "binding.source.router_bridge.entry_param.0.method.router_pushNamedRoute_006_T",
-      "surfaceId": "surface.source.router_bridge.entry_param",
+      "surfaceId": "surface.source.router_bridge.entry_param.router_pushNamedRoute_006_T.method.router_pushNamedRoute_006_T",
       "assetId": "asset.rule.test.harmony_router_bridge",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "router_pushNamedRoute_006_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "router_pushNamedRoute_006_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -389,25 +675,19 @@
         "template.source.router_bridge.entry_param.for.source.router_bridge.entry_param.0.method.router_pushNamedRoute_006_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_router_bridge%2Frouter_pushNamedRoute_006_T.ets:file=harmony_router_bridge%2Frouter_pushNamedRoute_006_T.ets:export=entry%3Acomponent.router_pushNamedRoute_006_T:decl=entry%3Acomponent.router_pushNamedRoute_006_T:member=lifecycle%3Atest.case.router_pushNamedRoute_006_T:invoke=entry:params=0%3Astring:ret=void",
+      "metadata": {
+        "entryMethod": "router_pushNamedRoute_006_T"
+      }
     },
     {
       "bindingId": "binding.source.router_bridge.entry_param.0.method.router_replaceUrl_005_T",
-      "surfaceId": "surface.source.router_bridge.entry_param",
+      "surfaceId": "surface.source.router_bridge.entry_param.router_replaceUrl_005_T.method.router_replaceUrl_005_T",
       "assetId": "asset.rule.test.harmony_router_bridge",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "router_replaceUrl_005_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "router_replaceUrl_005_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -418,8 +698,12 @@
         "template.source.router_bridge.entry_param.for.source.router_bridge.entry_param.0.method.router_replaceUrl_005_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_router_bridge%2Frouter_replaceUrl_005_T.ets:file=harmony_router_bridge%2Frouter_replaceUrl_005_T.ets:export=entry%3Acomponent.router_replaceUrl_005_T:decl=entry%3Acomponent.router_replaceUrl_005_T:member=lifecycle%3Atest.case.router_replaceUrl_005_T:invoke=entry:params=0%3Astring:ret=void",
+      "metadata": {
+        "entryMethod": "router_replaceUrl_005_T"
+      }
     },
     {
       "bindingId": "binding.source.router_bridge.static_init_source.0",
@@ -427,18 +711,6 @@
       "assetId": "asset.rule.test.harmony_router_bridge",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "Source",
-        "invokeKind": "static",
-        "argCount": 0,
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "harmony_router_bridge"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "return"
@@ -448,9 +720,10 @@
         "template.source.router_bridge.static_init_source"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely",
-      "metadata": {}
+      "completeness": "complete",
+      "confidence": "certain",
+      "metadata": {},
+      "canonicalApiId": "api:project:local:module=harmony_router_bridge%2Ftaint_mock.ts:file=harmony_router_bridge%2Ftaint_mock.ts:export=namespace%3Ataint:decl=namespace%3Ataint:member=function%3ASource:invoke=call:params=none:ret=string"
     },
     {
       "bindingId": "binding.sink.router_bridge.mock_sink.0",
@@ -458,18 +731,6 @@
       "assetId": "asset.rule.test.harmony_router_bridge",
       "plane": "rule",
       "role": "sink",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "Sink",
-        "invokeKind": "static",
-        "argCount": 1,
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "harmony_router_bridge"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -480,35 +741,13 @@
         "template.sink.router_bridge.mock_sink"
       ],
       "semanticsFamily": "sink",
-      "completeness": "partial",
-      "confidence": "likely",
-      "metadata": {}
+      "completeness": "complete",
+      "confidence": "certain",
+      "metadata": {},
+      "canonicalApiId": "api:project:local:module=harmony_router_bridge%2Ftaint_mock.ts:file=harmony_router_bridge%2Ftaint_mock.ts:export=namespace%3Ataint:decl=namespace%3Ataint:member=function%3ASink:invoke=call:params=0%3Aany:ret=void"
     }
   ],
   "effectTemplates": [
-    {
-      "id": "template.source.router_bridge.static_init_source",
-      "confidence": "certain",
-      "kind": "rule.source",
-      "value": {
-        "base": {
-          "kind": "return"
-        }
-      },
-      "sourceKind": "call_return"
-    },
-    {
-      "id": "template.sink.router_bridge.mock_sink",
-      "confidence": "certain",
-      "kind": "rule.sink",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sinkKind": "sink"
-    },
     {
       "id": "template.source.router_bridge.entry_param.for.source.router_bridge.entry_param.0.method.navigation_destination_callback_010_T",
       "confidence": "certain",
@@ -664,6 +903,29 @@
         }
       },
       "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.router_bridge.static_init_source",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "sourceKind": "call_return"
+    },
+    {
+      "id": "template.sink.router_bridge.mock_sink",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "sink"
     }
   ],
   "provenance": {

@@ -2,6 +2,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { SinkRule } from "../../core/rules/RuleSchema";
 import { TaintPropagationEngine } from "../../core/orchestration/TaintPropagationEngine";
+import { projectApiEffectAssetFromMethod } from "../helpers/ApiEffectTestAssets";
 import {
     assert,
     createIsolatedCaseView,
@@ -55,13 +56,31 @@ const CASES: NecessityCaseSpec[] = [
     },
 ];
 
-const SINK_RULES: SinkRule[] = [
-    {
+function buildSinkRules(scene: ReturnType<typeof buildTestScene>): {
+    rules: SinkRule[];
+    apiAssets: ReturnType<typeof projectApiEffectAssetFromMethod>["asset"][];
+} {
+    const sinkMethod = scene.getMethods().find(method => method.getName?.() === "Sink");
+    assert(!!sinkMethod, "failed to resolve Sink method");
+    const sinkEffect = projectApiEffectAssetFromMethod({
         id: "sink.arkmain.necessity.arg0",
-        target: { endpoint: "arg0" },
-        match: { kind: "method_name_equals", value: "Sink" },
-    },
-];
+        role: "sink",
+        method: sinkMethod,
+        endpoint: { base: { kind: "arg", index: 0 } },
+        sinkKind: "test",
+    });
+    return {
+        apiAssets: [sinkEffect.asset],
+        rules: [
+        {
+            id: "sink.arkmain.necessity.arg0",
+            target: { endpoint: "arg0" },
+            match: { kind: "canonical_api_id_equals", value: sinkEffect.canonicalApiDescriptor.canonicalApiId },
+            apiEffect: sinkEffect.apiEffect,
+        },
+        ],
+    };
+}
 
 async function runMode(
     projectDir: string,
@@ -73,7 +92,8 @@ async function runMode(
     const entryMethod = findCaseMethod(scene, resolvedEntry);
     assert(!!entryMethod, `failed to resolve entry method for ${spec.caseName}`);
 
-    const engine = new TaintPropagationEngine(scene, 1);
+    const sinkRules = buildSinkRules(scene);
+    const engine = new TaintPropagationEngine(scene, 1, { apiAssets: sinkRules.apiAssets });
     engine.verbose = false;
     await engine.buildPAG({
         entryModel,
@@ -84,7 +104,7 @@ async function runMode(
     engine.setActiveReachableMethodSignatures(reachable);
 
     const seedInfo = engine.propagateWithSourceRules([]);
-    const flows = engine.detectSinksByRules(SINK_RULES);
+    const flows = engine.detectSinksByRules(sinkRules.rules);
     return {
         entryModel,
         autoEntrySourceCount: engine.getAutoEntrySourceRules().length,

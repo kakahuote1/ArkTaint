@@ -1,13 +1,7 @@
 import { Scene } from "../../../../../arkanalyzer/out/src/Scene";
 import { ArkClass } from "../../../../../arkanalyzer/out/src/core/model/ArkClass";
-import { ArkMethod } from "../../../../../arkanalyzer/out/src/core/model/ArkMethod";
-import {
-    ARK_MAIN_BUILDER_DECORATOR,
-    ARK_MAIN_OWNER_DECORATORS,
-} from "../catalog/ArkMainFrameworkCatalog";
 import {
     getArkMainClassIdentity,
-    normalizeDecoratorKind,
     resolveAbilityLikeOwnerKind,
 } from "./ArkMainFactResolverUtils";
 
@@ -15,6 +9,7 @@ export type ArkMainManagedOwnerKind =
     | "ability_owner"
     | "stage_owner"
     | "extension_owner"
+    | "child_process_owner"
     | "component_owner"
     | "builder_owner";
 
@@ -39,6 +34,7 @@ export interface ArkMainManagedOwnerDiscovery {
     isAbilityOwner: (cls: ArkClass | null | undefined) => boolean;
     isStageOwner: (cls: ArkClass | null | undefined) => boolean;
     isExtensionOwner: (cls: ArkClass | null | undefined) => boolean;
+    isChildProcessOwner: (cls: ArkClass | null | undefined) => boolean;
     isComponentOwner: (cls: ArkClass | null | undefined) => boolean;
     isBuilderOwner: (cls: ArkClass | null | undefined) => boolean;
     getEvidences: (cls: ArkClass | null | undefined) => ArkMainManagedOwnerEvidence[];
@@ -56,20 +52,12 @@ export function collectFrameworkManagedOwners(
         if (!classIdentity) continue;
 
         const record = ensureRecord(ownerMap, ownerOrder, classIdentity, cls);
-        const inheritedOwnerKind = resolveAbilityLikeOwnerKind(cls);
+        const inheritedOwnerKind = resolveAbilityLikeOwnerKind(cls, scene);
         if (inheritedOwnerKind) {
             pushEvidence(record, {
                 ownerKind: inheritedOwnerKind,
                 recognitionLayer: "owner_qualified_inheritance",
                 reason: "inherits sdk managed owner base class",
-            });
-        }
-
-        if (implementsOfficialFlutterPlugin(cls)) {
-            pushEvidence(record, {
-                ownerKind: "extension_owner",
-                recognitionLayer: "official_plugin_interface",
-                reason: "implements official FlutterPlugin interface",
             });
         }
 
@@ -81,13 +69,6 @@ export function collectFrameworkManagedOwners(
             });
         }
 
-        if (hasBuilderDecorator(cls)) {
-            pushEvidence(record, {
-                ownerKind: "builder_owner",
-                recognitionLayer: "qualified_decorator_first_layer",
-                reason: "class/method carries @Builder decorator",
-            });
-        }
     }
 
     const records = ownerOrder
@@ -119,6 +100,7 @@ export function collectFrameworkManagedOwners(
         isAbilityOwner: (cls: ArkClass | null | undefined): boolean => hasKind(cls, "ability_owner"),
         isStageOwner: (cls: ArkClass | null | undefined): boolean => hasKind(cls, "stage_owner"),
         isExtensionOwner: (cls: ArkClass | null | undefined): boolean => hasKind(cls, "extension_owner"),
+        isChildProcessOwner: (cls: ArkClass | null | undefined): boolean => hasKind(cls, "child_process_owner"),
         isComponentOwner: (cls: ArkClass | null | undefined): boolean => hasKind(cls, "component_owner"),
         isBuilderOwner: (cls: ArkClass | null | undefined): boolean => hasKind(cls, "builder_owner"),
         getEvidences: (cls: ArkClass | null | undefined): ArkMainManagedOwnerEvidence[] => {
@@ -172,101 +154,5 @@ function pushEvidence(record: ArkMainManagedOwnerRecord, evidence: ArkMainManage
 }
 
 function hasOwnerDecorator(cls: ArkClass): boolean {
-    const decorators = cls.getDecorators?.() || [];
-    return decorators.some(decorator =>
-        ARK_MAIN_OWNER_DECORATORS.has(normalizeDecoratorKind(decorator?.getKind?.()) || ""),
-    );
-}
-
-function hasBuilderDecorator(cls: ArkClass): boolean {
-    const classHasBuilder = (cls.getDecorators?.() || [])
-        .some(decorator => normalizeDecoratorKind(decorator?.getKind?.()) === ARK_MAIN_BUILDER_DECORATOR);
-    if (classHasBuilder) {
-        return true;
-    }
-    return cls.getMethods().some((method: ArkMethod) =>
-        !method.isStatic()
-        && (method.getDecorators?.() || []).some(decorator =>
-            normalizeDecoratorKind(decorator?.getKind?.()) === ARK_MAIN_BUILDER_DECORATOR,
-        ),
-    );
-}
-
-const FLUTTER_PLUGIN_MODULE_PATTERN = /^@ohos\/flutter_ohos(?:\/|$)/;
-
-function implementsOfficialFlutterPlugin(cls: ArkClass): boolean {
-    const interfaceNames = safeGetImplementedInterfaceNames(cls);
-    if (interfaceNames.length === 0) {
-        return false;
-    }
-    const declaringFile = safeGetDeclaringArkFile(cls);
-    if (!declaringFile) {
-        return false;
-    }
-    for (const rawName of interfaceNames) {
-        const localName = extractLocalHeritageName(rawName);
-        if (!localName) continue;
-        const namespaceName = extractNamespaceHeritageName(rawName);
-        const candidates = namespaceName ? [namespaceName, localName] : [localName];
-        for (const candidate of candidates) {
-            const importInfo = safeGetImportInfoBy(declaringFile, candidate);
-            const importFrom = importInfo?.getFrom?.() || "";
-            if (!FLUTTER_PLUGIN_MODULE_PATTERN.test(importFrom)) {
-                continue;
-            }
-            const originName = importInfo?.getOriginName?.() || importInfo?.getImportClauseName?.() || "";
-            const importType = importInfo?.getImportType?.() || "";
-            if (
-                originName === "FlutterPlugin"
-                || (importType === "NamespaceImport" && localName === "FlutterPlugin")
-            ) {
-                return true;
-            }
-        }
-    }
-    return false;
-}
-
-function safeGetImplementedInterfaceNames(cls: ArkClass): string[] {
-    try {
-        return cls.getImplementedInterfaceNames?.() || [];
-    } catch {
-        return [];
-    }
-}
-
-function safeGetDeclaringArkFile(cls: ArkClass): any | undefined {
-    try {
-        return cls.getDeclaringArkFile?.() || undefined;
-    } catch {
-        return undefined;
-    }
-}
-
-function safeGetImportInfoBy(arkFile: any, symbolName: string): any | undefined {
-    try {
-        return arkFile?.getImportInfoBy?.(symbolName) || undefined;
-    } catch {
-        return undefined;
-    }
-}
-
-function extractLocalHeritageName(rawName: string): string | undefined {
-    const normalized = normalizeHeritageName(rawName);
-    if (!normalized) return undefined;
-    const parts = normalized.split(".");
-    return parts[parts.length - 1] || undefined;
-}
-
-function extractNamespaceHeritageName(rawName: string): string | undefined {
-    const normalized = normalizeHeritageName(rawName);
-    const parts = normalized.split(".");
-    return parts.length > 1 ? parts[0] : undefined;
-}
-
-function normalizeHeritageName(rawName: string): string {
-    return String(rawName || "")
-        .replace(/<.*$/, "")
-        .replace(/^@/, "")
-        .trim();
+    return cls.hasEntryDecorator?.() || cls.hasComponentDecorator?.() || false;
 }

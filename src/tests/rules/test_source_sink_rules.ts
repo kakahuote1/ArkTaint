@@ -3,7 +3,12 @@ import { SceneConfig } from "../../../arkanalyzer/out/src/Config";
 import { TaintPropagationEngine } from "../../core/orchestration/TaintPropagationEngine";
 import { loadRuleSet } from "../../core/rules/RuleLoader";
 import { SinkRule, SourceRule } from "../../core/rules/RuleSchema";
-import { buildEngineForCase, findCaseMethod, resolveCaseMethod } from "../helpers/SyntheticCaseHarness";
+import {
+    buildEngineForCase,
+    engineOptionsFromLoadedRuleSet,
+    findCaseMethod,
+    resolveCaseMethod,
+} from "../helpers/SyntheticCaseHarness";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -99,7 +104,7 @@ async function main(): Promise<void> {
         kernelRulePath: options.kernelRulePath,
         projectRulePath: options.projectRulePath,
         allowMissingProject: false,
-        autoDiscoverLayers: false,
+        autoDiscoverRuleSources: false,
     });
     const sourceRules: SourceRule[] = loaded.ruleSet.sources || [];
     const sinkRules: SinkRule[] = loaded.ruleSet.sinks || [];
@@ -134,6 +139,7 @@ async function main(): Promise<void> {
             continue;
         }
         const engine = await buildEngineForCase(scene, options.k, entryMethod, {
+            engineOptions: engineOptionsFromLoadedRuleSet(loaded),
             verbose: false,
         });
         try {

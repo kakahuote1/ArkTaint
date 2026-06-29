@@ -1,4 +1,5 @@
-import { UnknownAsync, taint } from "./taint_mock";
+import { taint } from "./taint_mock";
+import { UnknownAsync } from "./unknown_async";
 
 export function module_declared_binding_001_T(taint_src: string): void {
     const asyncObj = new UnknownAsync();

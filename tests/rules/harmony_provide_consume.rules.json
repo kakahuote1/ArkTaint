@@ -4,49 +4,202 @@
   "status": "official",
   "surfaces": [
     {
-      "surfaceId": "surface.source.harmony.provide_consume.entry_param",
-      "kind": "access",
-      "modulePath": "@arktaint/local",
-      "ownerName": "LocalBinding",
-      "propertyName": "source.harmony.provide_consume.entry_param",
-      "accessKind": "read",
-      "receiverKind": "namespace",
-      "confidence": "likely",
+      "surfaceId": "surface.source.harmony.provide_consume.entry_param.method.provide_consume_alias_003_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_provide_consume%2Fprovide_consume_alias_003_T.ets:file=harmony_provide_consume%2Fprovide_consume_alias_003_T.ets:export=entry%3Acomponent.provide_consume_alias_003_T:decl=entry%3Acomponent.provide_consume_alias_003_T:member=lifecycle%3Atest.case.provide_consume_alias_003_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "harmony_provide_consume/provide_consume_alias_003_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_provide_consume/provide_consume_alias_003_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "provide_consume_alias_003_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.provide_consume.entry_param.method.provide_consume_deep_chain_004_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_provide_consume%2Fprovide_consume_deep_chain_004_T.ets:file=harmony_provide_consume%2Fprovide_consume_deep_chain_004_T.ets:export=entry%3Acomponent.provide_consume_deep_chain_004_T:decl=entry%3Acomponent.provide_consume_deep_chain_004_T:member=lifecycle%3Atest.case.provide_consume_deep_chain_004_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_provide_consume/provide_consume_deep_chain_004_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_provide_consume/provide_consume_deep_chain_004_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "provide_consume_deep_chain_004_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.provide_consume.entry_param.method.provide_consume_mismatch_key_002_F",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_provide_consume%2Fprovide_consume_mismatch_key_002_F.ets:file=harmony_provide_consume%2Fprovide_consume_mismatch_key_002_F.ets:export=entry%3Acomponent.provide_consume_mismatch_key_002_F:decl=entry%3Acomponent.provide_consume_mismatch_key_002_F:member=lifecycle%3Atest.case.provide_consume_mismatch_key_002_F:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_provide_consume/provide_consume_mismatch_key_002_F.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_provide_consume/provide_consume_mismatch_key_002_F.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "provide_consume_mismatch_key_002_F",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.provide_consume.entry_param.method.provide_consume_noarg_key_006_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_provide_consume%2Fprovide_consume_noarg_key_006_T.ets:file=harmony_provide_consume%2Fprovide_consume_noarg_key_006_T.ets:export=entry%3Acomponent.provide_consume_noarg_key_006_T:decl=entry%3Acomponent.provide_consume_noarg_key_006_T:member=lifecycle%3Atest.case.provide_consume_noarg_key_006_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_provide_consume/provide_consume_noarg_key_006_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_provide_consume/provide_consume_noarg_key_006_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "provide_consume_noarg_key_006_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.provide_consume.entry_param.method.provide_consume_same_key_001_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_provide_consume%2Fprovide_consume_same_key_001_T.ets:file=harmony_provide_consume%2Fprovide_consume_same_key_001_T.ets:export=entry%3Acomponent.provide_consume_same_key_001_T:decl=entry%3Acomponent.provide_consume_same_key_001_T:member=lifecycle%3Atest.case.provide_consume_same_key_001_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_provide_consume/provide_consume_same_key_001_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_provide_consume/provide_consume_same_key_001_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "provide_consume_same_key_001_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.provide_consume.entry_param.method.provide_consume_scope_isolation_005_F",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_provide_consume%2Fprovide_consume_scope_isolation_005_F.ets:file=harmony_provide_consume%2Fprovide_consume_scope_isolation_005_F.ets:export=entry%3Acomponent.provide_consume_scope_isolation_005_F:decl=entry%3Acomponent.provide_consume_scope_isolation_005_F:member=lifecycle%3Atest.case.provide_consume_scope_isolation_005_F:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_provide_consume/provide_consume_scope_isolation_005_F.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_provide_consume/provide_consume_scope_isolation_005_F.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "provide_consume_scope_isolation_005_F",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
       }
     },
     {
       "surfaceId": "surface.sink.harmony.provide_consume.mock_sink",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "Sink",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "harmony_provide_consume/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=harmony_provide_consume%2Ftaint_mock.ts:file=harmony_provide_consume%2Ftaint_mock.ts:export=namespace%3Ataint.%25dflt:decl=namespace%3Ataint.%25dflt:member=function%3ASink:invoke=call:params=0%3Aany:ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_provide_consume/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "taint.%dflt",
+            "methodName": "Sink",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "void",
+            "staticFlag": true
+          }
+        }
       }
     }
   ],
   "bindings": [
     {
       "bindingId": "binding.source.harmony.provide_consume.entry_param.0.method.provide_consume_alias_003_T",
-      "surfaceId": "surface.source.harmony.provide_consume.entry_param",
+      "surfaceId": "surface.source.harmony.provide_consume.entry_param.method.provide_consume_alias_003_T",
       "assetId": "asset.rule.test.harmony_provide_consume",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "provide_consume_alias_003_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "provide_consume_alias_003_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -57,25 +210,16 @@
         "template.source.harmony.provide_consume.entry_param.for.source.harmony.provide_consume.entry_param.0.method.provide_consume_alias_003_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_provide_consume%2Fprovide_consume_alias_003_T.ets:file=harmony_provide_consume%2Fprovide_consume_alias_003_T.ets:export=entry%3Acomponent.provide_consume_alias_003_T:decl=entry%3Acomponent.provide_consume_alias_003_T:member=lifecycle%3Atest.case.provide_consume_alias_003_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony.provide_consume.entry_param.0.method.provide_consume_deep_chain_004_T",
-      "surfaceId": "surface.source.harmony.provide_consume.entry_param",
+      "surfaceId": "surface.source.harmony.provide_consume.entry_param.method.provide_consume_deep_chain_004_T",
       "assetId": "asset.rule.test.harmony_provide_consume",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "provide_consume_deep_chain_004_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "provide_consume_deep_chain_004_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -86,25 +230,16 @@
         "template.source.harmony.provide_consume.entry_param.for.source.harmony.provide_consume.entry_param.0.method.provide_consume_deep_chain_004_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_provide_consume%2Fprovide_consume_deep_chain_004_T.ets:file=harmony_provide_consume%2Fprovide_consume_deep_chain_004_T.ets:export=entry%3Acomponent.provide_consume_deep_chain_004_T:decl=entry%3Acomponent.provide_consume_deep_chain_004_T:member=lifecycle%3Atest.case.provide_consume_deep_chain_004_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony.provide_consume.entry_param.0.method.provide_consume_mismatch_key_002_F",
-      "surfaceId": "surface.source.harmony.provide_consume.entry_param",
+      "surfaceId": "surface.source.harmony.provide_consume.entry_param.method.provide_consume_mismatch_key_002_F",
       "assetId": "asset.rule.test.harmony_provide_consume",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "provide_consume_mismatch_key_002_F",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "provide_consume_mismatch_key_002_F.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -115,25 +250,16 @@
         "template.source.harmony.provide_consume.entry_param.for.source.harmony.provide_consume.entry_param.0.method.provide_consume_mismatch_key_002_F"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_provide_consume%2Fprovide_consume_mismatch_key_002_F.ets:file=harmony_provide_consume%2Fprovide_consume_mismatch_key_002_F.ets:export=entry%3Acomponent.provide_consume_mismatch_key_002_F:decl=entry%3Acomponent.provide_consume_mismatch_key_002_F:member=lifecycle%3Atest.case.provide_consume_mismatch_key_002_F:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony.provide_consume.entry_param.0.method.provide_consume_noarg_key_006_T",
-      "surfaceId": "surface.source.harmony.provide_consume.entry_param",
+      "surfaceId": "surface.source.harmony.provide_consume.entry_param.method.provide_consume_noarg_key_006_T",
       "assetId": "asset.rule.test.harmony_provide_consume",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "provide_consume_noarg_key_006_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "provide_consume_noarg_key_006_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -144,25 +270,16 @@
         "template.source.harmony.provide_consume.entry_param.for.source.harmony.provide_consume.entry_param.0.method.provide_consume_noarg_key_006_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_provide_consume%2Fprovide_consume_noarg_key_006_T.ets:file=harmony_provide_consume%2Fprovide_consume_noarg_key_006_T.ets:export=entry%3Acomponent.provide_consume_noarg_key_006_T:decl=entry%3Acomponent.provide_consume_noarg_key_006_T:member=lifecycle%3Atest.case.provide_consume_noarg_key_006_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony.provide_consume.entry_param.0.method.provide_consume_same_key_001_T",
-      "surfaceId": "surface.source.harmony.provide_consume.entry_param",
+      "surfaceId": "surface.source.harmony.provide_consume.entry_param.method.provide_consume_same_key_001_T",
       "assetId": "asset.rule.test.harmony_provide_consume",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "provide_consume_same_key_001_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "provide_consume_same_key_001_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -173,25 +290,16 @@
         "template.source.harmony.provide_consume.entry_param.for.source.harmony.provide_consume.entry_param.0.method.provide_consume_same_key_001_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_provide_consume%2Fprovide_consume_same_key_001_T.ets:file=harmony_provide_consume%2Fprovide_consume_same_key_001_T.ets:export=entry%3Acomponent.provide_consume_same_key_001_T:decl=entry%3Acomponent.provide_consume_same_key_001_T:member=lifecycle%3Atest.case.provide_consume_same_key_001_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony.provide_consume.entry_param.0.method.provide_consume_scope_isolation_005_F",
-      "surfaceId": "surface.source.harmony.provide_consume.entry_param",
+      "surfaceId": "surface.source.harmony.provide_consume.entry_param.method.provide_consume_scope_isolation_005_F",
       "assetId": "asset.rule.test.harmony_provide_consume",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "provide_consume_scope_isolation_005_F",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "provide_consume_scope_isolation_005_F.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -202,8 +310,9 @@
         "template.source.harmony.provide_consume.entry_param.for.source.harmony.provide_consume.entry_param.0.method.provide_consume_scope_isolation_005_F"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_provide_consume%2Fprovide_consume_scope_isolation_005_F.ets:file=harmony_provide_consume%2Fprovide_consume_scope_isolation_005_F.ets:export=entry%3Acomponent.provide_consume_scope_isolation_005_F:decl=entry%3Acomponent.provide_consume_scope_isolation_005_F:member=lifecycle%3Atest.case.provide_consume_scope_isolation_005_F:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.sink.harmony.provide_consume.mock_sink.0",
@@ -211,10 +320,6 @@
       "assetId": "asset.rule.test.harmony_provide_consume",
       "plane": "rule",
       "role": "sink",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "Sink"
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -225,24 +330,13 @@
         "template.sink.harmony.provide_consume.mock_sink"
       ],
       "semanticsFamily": "sink",
-      "completeness": "partial",
-      "confidence": "likely",
-      "metadata": {}
+      "completeness": "complete",
+      "confidence": "certain",
+      "metadata": {},
+      "canonicalApiId": "api:project:local:module=harmony_provide_consume%2Ftaint_mock.ts:file=harmony_provide_consume%2Ftaint_mock.ts:export=namespace%3Ataint.%25dflt:decl=namespace%3Ataint.%25dflt:member=function%3ASink:invoke=call:params=0%3Aany:ret=void"
     }
   ],
   "effectTemplates": [
-    {
-      "id": "template.sink.harmony.provide_consume.mock_sink",
-      "confidence": "certain",
-      "kind": "rule.sink",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sinkKind": "sink"
-    },
     {
       "id": "template.source.harmony.provide_consume.entry_param.for.source.harmony.provide_consume.entry_param.0.method.provide_consume_alias_003_T",
       "confidence": "certain",
@@ -314,6 +408,18 @@
         }
       },
       "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.sink.harmony.provide_consume.mock_sink",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "sink"
     }
   ],
   "provenance": {

@@ -1,8 +1,18 @@
 ﻿import { Scene } from "../../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../../arkanalyzer/out/src/Config";
+import { PagNode } from "../../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
 import { TaintPropagationEngine } from "../../core/orchestration/TaintPropagationEngine";
-import { SinkRule, SourceRule, TransferRule } from "../../core/rules/RuleSchema";
+import { SinkRule, TransferRule } from "../../core/rules/RuleSchema";
 import { validateRuleSet } from "../../core/rules/RuleValidator";
+import {
+    exactSinkRule,
+    exactTransferRule,
+    type ExactRuleRuntime,
+} from "../rules/ExactRuleTestUtils";
+import {
+    assertCanonicalExactRules,
+    exactTransferRuntimeFromFixtures,
+} from "./ExactTransferTestUtils";
 import * as path from "path";
 
 interface CaseSpec {
@@ -25,32 +35,53 @@ function flowSinkInCaseMethod(scene: Scene, sinkStmt: any, caseMethodName: strin
 async function runCase(
     scene: Scene,
     caseName: string,
-    sourceRules: SourceRule[],
     sinkRules: SinkRule[],
-    transferRules: TransferRule[]
+    transferRules: TransferRule[],
+    runtime: ExactRuleRuntime,
 ): Promise<boolean> {
     const caseMethod = scene.getMethods().find(m => m.getName() === caseName);
     assert(caseMethod, `case method not found: ${caseName}`);
-    const engine = new TaintPropagationEngine(scene, 1, { transferRules });
+    const engine = new TaintPropagationEngine(scene, 1, { ...runtime, transferRules, includeBuiltinModules: false });
     engine.verbose = false;
     await engine.buildPAG({
         entryModel: "explicit",
         syntheticEntryMethods: [caseMethod],
     });
-    engine.propagateWithSourceRules(sourceRules);
+    engine.setActiveReachableMethodSignatures(undefined, { mergeExplicitEntryScope: false });
+    const seedNodes = findSeedNodes(engine, scene, caseName, "taint_src");
+    assert(seedNodes.length > 0, `${caseName}: expected taint_src seed nodes`);
+    engine.propagateWithSeeds(seedNodes);
     const flows = engine.detectSinksByRules(sinkRules);
     const scopedFlows = flows.filter(flow => flowSinkInCaseMethod(scene, flow.sink, caseName));
     return scopedFlows.length > 0;
 }
 
-function findMethodSignature(scene: Scene, methodName: string, fileHint: string): string {
+function findMethod(scene: Scene, methodName: string, fileHint?: string) {
     const method = scene.getMethods().find(m => {
         if (m.getName() !== methodName) return false;
         const sig = m.getSignature?.().toString?.() || "";
-        return sig.includes(fileHint);
+        return !fileHint || sig.includes(fileHint);
     });
-    assert(method, `method not found: ${methodName} in ${fileHint}`);
-    return method.getSignature().toString();
+    assert(method, `method not found: ${methodName}${fileHint ? ` in ${fileHint}` : ""}`);
+    return method;
+}
+
+function findSeedNodes(engine: TaintPropagationEngine, scene: Scene, methodName: string, localName: string): PagNode[] {
+    const method = findMethod(scene, methodName);
+    const local = method.getBody?.()?.getLocals?.()?.get(localName);
+    if (local) {
+        const nodeIds = engine.pag.getNodesByValue(local);
+        if (nodeIds) return [...nodeIds.values()].map(id => engine.pag.getNode(id) as PagNode);
+    }
+    const cfg = method.getCfg();
+    assert(cfg, `cfg not found: ${methodName}`);
+    for (const stmt of cfg.getStmts()) {
+        const left = (stmt as any).getLeftOp?.();
+        if (!left || left.getName?.() !== localName) continue;
+        const nodeIds = engine.pag.getNodesByValue(left);
+        return nodeIds ? [...nodeIds.values()].map(id => engine.pag.getNode(id) as PagNode) : [];
+    }
+    return [];
 }
 
 async function main(): Promise<void> {
@@ -61,36 +92,33 @@ async function main(): Promise<void> {
     scene.buildSceneFromProjectDir(sceneConfig);
     scene.inferTypes();
 
-    const bridgePtrSig = findMethodSignature(scene, "BridgePtr", "/taint_mock.ts");
+    const bridgePtrMethod = findMethod(scene, "BridgePtr", "/taint_mock.ts");
     const cases: CaseSpec[] = [
         { name: "transfer_ptr_signature_001_T", expected: true },
         { name: "transfer_ptr_signature_002_F", expected: false },
     ];
 
-    const sourceRules: SourceRule[] = cases.map(c => ({
-        id: `source.ptr.entry.${c.name}`,
-        sourceKind: "entry_param",
-        target: "arg0",
-        match: { kind: "method_name_equals", value: c.name },
-    }));
-    const sinkRules: SinkRule[] = [
-        {
-            id: "sink.ptr.arg0",
-            target: { endpoint: "arg0" },
-            match: { kind: "method_name_equals", value: "Sink" },
-        },
-    ];
-    const transferRules: TransferRule[] = [
-        {
-            id: "transfer.ptr.signature_equals.bridge",
-            match: { kind: "signature_equals", value: bridgePtrSig },
-            from: "arg0",
-            to: "result",
-        },
-    ];
+    const sinkEffect = exactSinkRule({
+        id: "sink.ptr.arg0",
+        method: findMethod(scene, "Sink"),
+        target: { endpoint: "arg0" },
+    });
+    const transferEffect = exactTransferRule({
+        id: "transfer.ptr.canonical.bridge",
+        method: bridgePtrMethod,
+        from: "arg0",
+        to: "result",
+    });
+    const exactRuntime = exactTransferRuntimeFromFixtures([
+        sinkEffect,
+        transferEffect,
+    ]);
+    const sinkRules: SinkRule[] = [sinkEffect.rule];
+    const transferRules: TransferRule[] = [transferEffect.rule];
+    assertCanonicalExactRules([...sinkRules, ...transferRules]);
 
     const validation = validateRuleSet({
-        sources: sourceRules,
+        sources: [],
         sinks: sinkRules,
         transfers: transferRules,
     });
@@ -98,8 +126,8 @@ async function main(): Promise<void> {
 
     let passCount = 0;
     for (const c of cases) {
-        const detectedWithRules = await runCase(scene, c.name, sourceRules, sinkRules, transferRules);
-        const detectedWithoutRules = await runCase(scene, c.name, sourceRules, sinkRules, []);
+        const detectedWithRules = await runCase(scene, c.name, sinkRules, transferRules, exactRuntime);
+        const detectedWithoutRules = await runCase(scene, c.name, sinkRules, [], exactRuntime);
         const pass = c.expected
             ? (detectedWithRules && !detectedWithoutRules)
             : !detectedWithRules;

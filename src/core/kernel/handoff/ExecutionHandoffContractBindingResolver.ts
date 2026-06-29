@@ -4,9 +4,9 @@ import { Pag } from "../../../../arkanalyzer/out/src/callgraph/pointerAnalysis/P
 import { ArkAssignStmt, ArkReturnStmt } from "../../../../arkanalyzer/out/src/core/base/Stmt";
 import { Local } from "../../../../arkanalyzer/out/src/core/base/Local";
 import { ArkInstanceFieldRef, ArkParameterRef, ArkThisRef, ClosureFieldRef } from "../../../../arkanalyzer/out/src/core/base/Ref";
-import { ArkInstanceInvokeExpr, ArkPtrInvokeExpr, ArkStaticInvokeExpr } from "../../../../arkanalyzer/out/src/core/base/Expr";
+import { ArkAwaitExpr, ArkInstanceInvokeExpr, ArkPtrInvokeExpr, ArkStaticInvokeExpr } from "../../../../arkanalyzer/out/src/core/base/Expr";
 import { CallEdgeType } from "../context/TaintContext";
-import { resolveExistingPagNodes } from "../contracts/PagNodeResolution";
+import { materializeExactPagNodes, resolveExistingPagNodes } from "../contracts/PagNodeResolution";
 import {
     collectParameterAssignStmts,
     resolveCalleeCandidates,
@@ -117,15 +117,9 @@ function collectPayloadTargetNodeIds(
     if (existingNodeIds.length > 0) {
         return existingNodeIds;
     }
-    const getOrNewNode = (pag as any).getOrNewNode;
-    if (typeof getOrNewNode !== "function") {
-        return [];
-    }
     // The handoff contract has already proven this callback unit and payload parameter.
     // Materialize only that exact parameter endpoint; do not create a generic recovery node.
-    const node = getOrNewNode.call(pag, 0, paramLocal, paramStmt);
-    const nodeId = node?.getID?.();
-    return typeof nodeId === "number" ? [nodeId] : [];
+    return collectNodeIds(materializeExactPagNodes(pag, paramLocal, paramStmt, 0));
 }
 
 function collectPayloadSourceNodeIds(
@@ -288,6 +282,20 @@ export function resolvePromiseFulfillmentSourceNodeIdsFromInvoke(
     );
 }
 
+export function resolvePromiseRejectionSourceNodeIdsFromInvoke(
+    scene: Scene,
+    pag: Pag,
+    invokeExpr: any,
+): number[] {
+    return resolvePromiseSettlementSourceNodeIdsFromInvoke(
+        scene,
+        pag,
+        invokeExpr,
+        "settle(rejected)",
+        new Set<string>(),
+    );
+}
+
 function collectPromiseSettlementSourceNodeIdsFromMethod(
     scene: Scene,
     pag: Pag,
@@ -305,7 +313,7 @@ function collectPromiseSettlementSourceNodeIdsFromMethod(
     }
     visited.add(methodKey);
     const sourceNodeIds: number[] = [];
-    for (const retStmt of method.getReturnStmt?.() || []) {
+    for (const retStmt of collectMethodReturnStmts(method)) {
         if (!(retStmt instanceof ArkReturnStmt)) continue;
         const retValue = retStmt.getOp?.();
         if (!(retValue instanceof Local)) continue;
@@ -461,8 +469,7 @@ function isPromiseConstructorInvoke(invokeExpr: any): boolean {
     if (methodName !== "constructor") return false;
     const sigText = safeInvokeSignatureText(invokeExpr);
     const baseValue = invokeExpr instanceof ArkInstanceInvokeExpr ? invokeExpr.getBase?.() : undefined;
-    const baseText = safeValueTypeText(baseValue) || safeValueText(baseValue);
-    return sigText.includes("Promise.constructor") || baseText.includes("Promise");
+    return sigText.includes("Promise.constructor") || isPromiseReceiverText(baseValue);
 }
 
 function isPromiseProducingInvoke(invokeExpr: any): boolean {
@@ -494,11 +501,18 @@ function isPromiseSettlementActivation(
 function isPromiseLikeInvokeText(invokeExpr: any): boolean {
     const sigText = safeInvokeSignatureText(invokeExpr);
     const baseValue = invokeExpr?.getBase?.();
-    const baseText = safeValueTypeText(baseValue) || safeValueText(baseValue);
     return sigText.includes("Promise.resolve")
         || sigText.includes("Promise.reject")
-        || baseText.includes("Promise")
-        || String(baseText).toLowerCase() === "promise";
+        || isPromiseReceiverText(baseValue);
+}
+
+function isPromiseReceiverText(value: any): boolean {
+    const typeText = safeValueTypeText(value);
+    const valueText = safeValueText(value);
+    return [typeText, valueText].some(text => {
+        const normalized = String(text || "").trim();
+        return normalized === "Promise" || normalized.toLowerCase() === "promise";
+    });
 }
 
 function collectInvokeArgNodeIds(
@@ -670,7 +684,12 @@ function normalizeDeclarativeTriggerLabel(label: string | undefined): string | u
     const text = String(label).trim();
     if (!text) return undefined;
     const field = text.includes("#") ? text.slice(text.lastIndexOf("#") + 1) : text;
-    return normalizeDeclarativeFieldTriggerToken(field);
+    const normalized = normalizeDeclarativeFieldTriggerToken(field);
+    return isDeclarativeFieldNameToken(normalized) ? normalized : undefined;
+}
+
+function isDeclarativeFieldNameToken(value: string | undefined): value is string {
+    return /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(String(value || ""));
 }
 
 function collectClosureFieldReadMappingsCached(
@@ -899,12 +918,7 @@ function collectExactHandoffEndpointNodeIds(
     if (!(value instanceof Local) && !(value instanceof ArkInstanceFieldRef) && !(value instanceof ClosureFieldRef)) {
         return [];
     }
-    try {
-        pag.getOrNewNode(0, value, anchorStmt);
-    } catch {
-        return [];
-    }
-    return collectNodeIds(resolveExistingPagNodes(pag, value, anchorStmt));
+    return collectNodeIds(materializeExactPagNodes(pag, value, anchorStmt, 0));
 }
 
 function isClosureCarrierFieldRead(
@@ -944,21 +958,17 @@ function resolveCompletionBindings(
     }
 
     const bindings: ExecutionHandoffResolvedEdgeBinding[] = [];
-    const resultNodeIds = collectNodeIds(
-        resolveExistingPagNodes(pag, contract.stmt.getLeftOp(), contract.stmt),
-    );
+    const resultNodeIds = collectCompletionResultNodeIds(pag, contract);
     if (resultNodeIds.length === 0) {
         return bindings;
     }
 
     if (contract.semantics.continuationRole !== "observe") {
-        for (const retStmt of contract.unit.getReturnStmt?.() || []) {
+        for (const retStmt of collectMethodReturnStmts(contract.unit)) {
             if (!(retStmt instanceof ArkReturnStmt)) continue;
             const retValue = retStmt.getOp?.();
             if (!(retValue instanceof Local)) continue;
-            const sourceNodeIds = collectNodeIds(
-                resolveExistingPagNodes(pag, retValue, retStmt),
-            );
+            const sourceNodeIds = collectOrMaterializeExactLocalNodeIds(pag, retValue, retStmt);
             if (sourceNodeIds.length === 0) continue;
             bindings.push({
                 edgeType: CallEdgeType.RETURN,
@@ -993,6 +1003,58 @@ function resolveCompletionBindings(
     return bindings;
 }
 
+function collectCompletionResultNodeIds(
+    pag: Pag,
+    contract: ExecutionHandoffContractRecord,
+): number[] {
+    if (!(contract.stmt instanceof ArkAssignStmt)) {
+        return [];
+    }
+    const invokeResult = contract.stmt.getLeftOp();
+    const resultNodeIds = invokeResult instanceof Local
+        ? collectOrMaterializeExactLocalNodeIds(pag, invokeResult, contract.stmt)
+        : collectNodeIds(resolveExistingPagNodes(pag, invokeResult, contract.stmt));
+    if (contract.ports.completion !== "await_site") {
+        return resultNodeIds;
+    }
+
+    const awaitResumeNodeIds: number[] = [];
+    const sourceMethods = contract.sourceMethods.length > 0 ? contract.sourceMethods : [contract.caller];
+    for (const method of sourceMethods) {
+        const cfg = method.getCfg?.();
+        if (!cfg) continue;
+        for (const stmt of cfg.getStmts?.() || []) {
+            if (!(stmt instanceof ArkAssignStmt)) continue;
+            const right = stmt.getRightOp?.();
+            if (!(right instanceof ArkAwaitExpr)) continue;
+            const promiseValue = right.getPromise?.();
+            if (safeValueText(promiseValue) !== safeValueText(invokeResult)) continue;
+            const left = stmt.getLeftOp?.();
+            awaitResumeNodeIds.push(
+                ...(left instanceof Local
+                    ? collectOrMaterializeExactLocalNodeIds(pag, left, stmt)
+                    : collectNodeIds(resolveExistingPagNodes(pag, left, stmt))),
+            );
+        }
+    }
+
+    return dedupeNodeIds([...resultNodeIds, ...awaitResumeNodeIds]);
+}
+
+function collectOrMaterializeExactLocalNodeIds(
+    pag: Pag,
+    local: Local,
+    anchorStmt: any,
+): number[] {
+    const existingNodeIds = collectNodeIds(resolveExistingPagNodes(pag, local, anchorStmt));
+    if (existingNodeIds.length > 0) {
+        return existingNodeIds;
+    }
+    // The caller has already identified an exact callback-return or await-result
+    // endpoint from the concrete contract; materialize only that local endpoint.
+    return collectNodeIds(materializeExactPagNodes(pag, local, anchorStmt, 0));
+}
+
 function collectInvokeBaseNodeIds(
     pag: Pag,
     contract: ExecutionHandoffContractRecord,
@@ -1002,6 +1064,20 @@ function collectInvokeBaseNodeIds(
         return [];
     }
     return collectNodeIds(resolveExistingPagNodes(pag, baseValue, contract.stmt));
+}
+
+function collectMethodReturnStmts(method: any): ArkReturnStmt[] {
+    const directReturns = (method.getReturnStmt?.() || [])
+        .filter((stmt: any): stmt is ArkReturnStmt => stmt instanceof ArkReturnStmt);
+    if (directReturns.length > 0) {
+        return directReturns;
+    }
+    const cfg = method.getCfg?.();
+    if (!cfg) {
+        return [];
+    }
+    return (cfg.getStmts?.() || [])
+        .filter((stmt: any): stmt is ArkReturnStmt => stmt instanceof ArkReturnStmt);
 }
 
 function collectActivationSourceNodeIds(
@@ -1311,14 +1387,7 @@ function collectThisCarrierNodeIds(
         resolveExistingPagNodes(pag, thisLocal, resolvedAnchor),
     );
     if (localNodeIds.length === 0 && options.materializeExact && resolvedAnchor) {
-        const getOrNewNode = (pag as any).getOrNewNode;
-        if (typeof getOrNewNode === "function") {
-            const node = getOrNewNode.call(pag, 0, thisLocal, resolvedAnchor);
-            const nodeId = node?.getID?.();
-            if (typeof nodeId === "number") {
-                localNodeIds = [nodeId];
-            }
-        }
+        localNodeIds = collectNodeIds(materializeExactPagNodes(pag, thisLocal, resolvedAnchor, 0));
     }
     const objectNodeIds: number[] = [];
     for (const nodeId of localNodeIds) {

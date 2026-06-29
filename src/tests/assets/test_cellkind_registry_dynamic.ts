@@ -5,6 +5,7 @@ import {
     DEFAULT_CELL_KIND_REGISTRY,
     type CellKindSpec,
 } from "../../core/cellkind";
+import { exactProjectInvokeSurface } from "../helpers/AssetIdentityTestUtils";
 
 function assert(condition: unknown, message: string): asserts condition {
     if (!condition) throw new Error(message);
@@ -39,25 +40,22 @@ function dynamicModelAsset(
     methodName: string,
     templateId: string,
 ): AssetDocumentBase {
-    return {
+    const asset = {
         id,
         plane: "module",
         status: "llm-generated",
         surfaces: [
-            {
+            exactProjectInvokeSurface({
                 surfaceId,
-                kind: "invoke",
                 modulePath: "project/secure-cache",
                 ownerName: "SecureCache",
                 methodName,
                 invokeKind: "static",
-                argCount: 2,
+                parameterTypes: ["string", "Object"],
+                returnType: "void",
                 confidence: "likely",
-                provenance: {
-                    source: "llm-proposal",
-                    location: { file: "SecureCache.ets", line: 10 },
-                },
-            },
+                provenanceSource: "llm-proposal",
+            }),
         ],
         bindings: [
             {
@@ -66,6 +64,7 @@ function dynamicModelAsset(
                 assetId: id,
                 plane: "module",
                 role: "handoff",
+                canonicalApiId: undefined,
                 effectTemplateRefs: [templateId],
                 semanticsFamily: "project-secure-cache",
                 completeness: "partial",
@@ -81,10 +80,10 @@ function dynamicModelAsset(
                     family: "project.secure_cache",
                     owner: [{ kind: "const", value: "SecureCache" }],
                     key: [{ kind: "fromLiteralArg", index: 0 }],
-                    precision: "infer",
+                    precision: "exact",
                 },
                 value: { base: { kind: "arg", index: 1 } },
-                updateStrength: "infer",
+                updateStrength: "weak",
                 confidence: "likely",
             },
         ],
@@ -93,7 +92,9 @@ function dynamicModelAsset(
             projectId: "dynamic-cellkind-demo",
             evidenceLocations: [{ file: "SecureCache.ets", line: 10 }],
         },
-    };
+    } as AssetDocumentBase;
+    asset.bindings[0].canonicalApiId = asset.surfaces[0].canonicalApiId;
+    return asset;
 }
 
 function main(): void {

@@ -2,6 +2,7 @@ import { Scene } from "../../../../arkanalyzer/out/src/Scene";
 import { CallGraph } from "../../../../arkanalyzer/out/src/callgraph/model/CallGraph";
 import { Pag } from "../../../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
 import { ArkAssignStmt, ArkReturnStmt } from "../../../../arkanalyzer/out/src/core/base/Stmt";
+import { ArkPtrInvokeExpr } from "../../../../arkanalyzer/out/src/core/base/Expr";
 import {
     ArkParameterRef,
     ArkInstanceFieldRef,
@@ -21,13 +22,20 @@ import {
     resolveInvokeMethodName,
     resolveMethodsFromAnonymousObjectCarrier,
     resolveMethodsFromAnonymousObjectCarrierByField,
-    resolveMethodsFromCallable
+    resolveMethodsFromCallable,
+    type CalleeResolveOptions,
 } from "../../substrate/queries/CalleeResolver";
-import { resolveKnownOptionCallbackRegistrationsFromStmt } from "../../substrate/semantics/KnownOptionCallbackRegistration";
+import {
+    resolveKnownControllerOptionCallbackRegistrationsFromStmt,
+    type FrameworkResolvedCallbackRegistration,
+} from "../../entry/shared/FrameworkCallbackClassifier";
 import { isSdkBackedMethodSignature } from "../../substrate/queries/SdkProvenance";
-import { resolveExistingPagNodes } from "../contracts/PagNodeResolution";
+import { materializeExactPagNodes, resolveExistingPagNodes } from "../contracts/PagNodeResolution";
 import { collectCarrierNodeIdsForValueAtStmt } from "../ordinary/OrdinaryAliasPropagation";
-import type { SyntheticInvokeEdgeInfo } from "./SyntheticInvokeEdgeBuilder";
+import type {
+    CallEdgeMaterializationLedgerRecord,
+    SyntheticInvokeEdgeInfo,
+} from "./SyntheticInvokeEdgeBuilder";
 
 export interface SyntheticInvokeLookupStats {
     incomingLookupCalls: number;
@@ -36,12 +44,26 @@ export interface SyntheticInvokeLookupStats {
     incomingIndexBuilt: boolean;
     methodLookupCalls: number;
     methodLookupCacheHits: number;
+    resolvedInvokeTargetCalls: number;
+    resolvedInvokeTargetCacheHits: number;
+    controllerOptionRegistrationCalls: number;
+    controllerOptionRegistrationCacheHits: number;
+    storedReceiverFieldCallbackCalls: number;
+    storedReceiverFieldCallbackCacheHits: number;
+    callbackArgMethodCalls: number;
+    callbackArgMethodCacheHits: number;
 }
 
 export interface SyntheticInvokeLookupContext {
     incomingCallsiteIndexByCalleeSig?: Map<string, any[]>;
+    thisOwnerNamesByMethodSignature?: Map<string, Set<string>>;
     methodLookupCacheByFileAndProperty: Map<string, any[]>;
     methodsByFileCache: Map<string, any[]>;
+    resolvedInvokeTargetsByStmt: WeakMap<object, any[]>;
+    controllerOptionRegistrationsByStmt: WeakMap<object, FrameworkResolvedCallbackRegistration[]>;
+    storedReceiverFieldCallbackBindingsByStmt: WeakMap<object, AsyncCallbackBinding[]>;
+    callbackMethodsByArgCallable: WeakMap<object, any[]>;
+    callbackMethodsByArgSdk: WeakMap<object, any[]>;
     stats: SyntheticInvokeLookupStats;
 }
 
@@ -75,7 +97,8 @@ export function collectResolvedCallbackBindingsForStmt(
     caller: any,
     stmt: any,
     invokeExpr: any,
-    invokedParamCache: Map<string, Set<number>>
+    invokedParamCache: Map<string, Set<number>>,
+    lookupContext?: SyntheticInvokeLookupContext,
 ): AsyncCallbackBinding[] {
     const out: AsyncCallbackBinding[] = [];
     const seen = new Set<string>();
@@ -92,14 +115,14 @@ export function collectResolvedCallbackBindingsForStmt(
         });
     };
 
-    for (const reg of resolveKnownOptionCallbackRegistrationsFromStmt(stmt, scene, caller)) {
+    for (const reg of collectControllerOptionRegistrationsCached(stmt, scene, caller, lookupContext)) {
         addBinding(reg.callbackMethod, reg.sourceMethod || caller, "direct");
     }
-    for (const binding of collectStoredReceiverFieldCallbackBindingsForStmt(scene, cg, caller, stmt, invokeExpr)) {
+    for (const binding of collectStoredReceiverFieldCallbackBindingsForStmt(scene, cg, caller, stmt, invokeExpr, lookupContext)) {
         addBinding(binding.method, binding.sourceMethod || caller, binding.reason);
     }
 
-    const resolvedCallees = collectResolvedInvokeTargets(scene, cg, stmt, invokeExpr);
+    const resolvedCallees = collectResolvedInvokeTargetsCached(scene, cg, stmt, invokeExpr, lookupContext);
     for (const callee of resolvedCallees) {
         const isSdk = isSdkBackedMethodSignature(scene, callee.getSignature?.(), {
             sourceMethod: caller,
@@ -113,7 +136,7 @@ export function collectResolvedCallbackBindingsForStmt(
             const invokedParams = isSdk ? undefined : getCachedInvokedParams(callee, invokedParamCache);
 
             for (const pair of pairs) {
-                const callbackMethods = resolveSyntheticCallbackMethodsForArg(scene, pair.arg, isSdk)
+                const callbackMethods = resolveSyntheticCallbackMethodsForArg(scene, pair.arg, isSdk, lookupContext)
                     .filter(method => !!method?.getCfg?.());
                 if (callbackMethods.length === 0) continue;
                 if (!isSdk && (!invokedParams || !invokedParams.has(pair.paramIndex))) continue;
@@ -124,7 +147,7 @@ export function collectResolvedCallbackBindingsForStmt(
             }
         } else if (isSdk) {
             for (const arg of explicitArgs) {
-                const callbackMethods = resolveSyntheticCallbackMethodsForArg(scene, arg, true)
+                const callbackMethods = resolveSyntheticCallbackMethodsForArg(scene, arg, true, lookupContext)
                     .filter(method => !!method?.getCfg?.());
                 for (const callbackMethod of callbackMethods) {
                     addBinding(callbackMethod, caller, "direct");
@@ -177,14 +200,16 @@ export function injectResolvedCallbackParameterEdges(
     stmt: any,
     invokeExpr: any,
     edgeMap: Map<number, SyntheticInvokeEdgeInfo[]>,
-    invokedParamCache: Map<string, Set<number>>
+    invokedParamCache: Map<string, Set<number>>,
+    materializationLedger?: CallEdgeMaterializationLedgerRecord[],
+    lookupContext?: SyntheticInvokeLookupContext,
 ): number {
-    const resolvedCallees = collectResolvedInvokeTargets(scene, cg, stmt, invokeExpr);
+    const resolvedCallees = collectResolvedInvokeTargetsCached(scene, cg, stmt, invokeExpr, lookupContext);
     let count = 0;
     const seenBindings = new Set<string>();
 
     const injectKnownOptionCallbacks = (): void => {
-        const optionRegs = resolveKnownOptionCallbackRegistrationsFromStmt(stmt, scene, caller);
+        const optionRegs = collectControllerOptionRegistrationsCached(stmt, scene, caller, lookupContext);
         for (const reg of optionRegs) {
             const callbackSig = reg.callbackMethod.getSignature?.().toString?.() || "";
             if (!callbackSig) {
@@ -197,19 +222,24 @@ export function injectResolvedCallbackParameterEdges(
             seenBindings.add(bindingKey);
             count += injectCallbackBindingEdges(pag, caller, stmt, edgeMap, reg.callbackMethod, reg.sourceMethod || caller, {
                 explicitParamSourceValuesByIndex: collectInvokeArgsByCallbackParamIndex(invokeExpr, reg.callbackMethod),
+                materializationLedger,
+                registrationKind: "known_option_callback",
             });
         }
     };
 
     const injectStoredReceiverFieldCallbacks = (): void => {
-        const bindings = collectStoredReceiverFieldCallbackBindingsForStmt(scene, cg, caller, stmt, invokeExpr);
+        const bindings = collectStoredReceiverFieldCallbackBindingsForStmt(scene, cg, caller, stmt, invokeExpr, lookupContext);
         for (const binding of bindings) {
             const callbackSig = binding.method?.getSignature?.().toString?.() || "";
             if (!callbackSig) continue;
             const bindingKey = `receiver-field#${stmt.getOriginPositionInfo?.()?.getLineNo?.() || 0}#${callbackSig}`;
             if (seenBindings.has(bindingKey)) continue;
             seenBindings.add(bindingKey);
-            count += injectCallbackBindingEdges(pag, caller, stmt, edgeMap, binding.method, binding.sourceMethod || caller);
+            count += injectCallbackBindingEdges(pag, caller, stmt, edgeMap, binding.method, binding.sourceMethod || caller, {
+                materializationLedger,
+                registrationKind: "stored_receiver_field_callback",
+            });
         }
     };
 
@@ -232,7 +262,7 @@ export function injectResolvedCallbackParameterEdges(
             const invokedParams = isSdk ? undefined : getCachedInvokedParams(callee, invokedParamCache);
 
             for (const pair of pairs) {
-                const callbackMethods = resolveSyntheticCallbackMethodsForArg(scene, pair.arg, isSdk)
+                const callbackMethods = resolveSyntheticCallbackMethodsForArg(scene, pair.arg, isSdk, lookupContext)
                     .filter(method => !!method?.getCfg?.());
                 if (callbackMethods.length === 0) continue;
                 if (!isSdk && (!invokedParams || !invokedParams.has(pair.paramIndex))) continue;
@@ -246,12 +276,21 @@ export function injectResolvedCallbackParameterEdges(
                         + `#${callbackSig}`;
                     if (seenBindings.has(bindingKey)) continue;
                     seenBindings.add(bindingKey);
-                    count += injectCallbackBindingEdges(pag, caller, stmt, edgeMap, callbackMethod, caller);
+                    const wrapperSources = isSdk
+                        ? emptyCallbackParamSourceBindings()
+                        : collectCallbackInvocationParamSourceBindings(callee, pair.paramStmt, callbackMethod);
+                    count += injectCallbackBindingEdges(pag, caller, stmt, edgeMap, callbackMethod, isSdk ? caller : callee, {
+                        explicitParamSourceValuesByIndex: wrapperSources.valuesByIndex,
+                        explicitParamSourceAnchorStmtByIndex: wrapperSources.anchorStmtByIndex,
+                        captureSourceMethod: caller,
+                        materializationLedger,
+                        registrationKind: isSdk ? "sdk_callback_arg" : "wrapper_callback_arg",
+                    });
                 }
             }
         } else if (isSdk) {
             for (let argIdx = 0; argIdx < explicitArgs.length; argIdx++) {
-                const callbackMethods = resolveSyntheticCallbackMethodsForArg(scene, explicitArgs[argIdx], true)
+                const callbackMethods = resolveSyntheticCallbackMethodsForArg(scene, explicitArgs[argIdx], true, lookupContext)
                     .filter(method => !!method?.getCfg?.());
                 for (const callbackMethod of callbackMethods) {
                     const callbackSig = callbackMethod.getSignature?.().toString?.() || "";
@@ -262,7 +301,10 @@ export function injectResolvedCallbackParameterEdges(
                         + `#${callbackSig}`;
                     if (seenBindings.has(bindingKey)) continue;
                     seenBindings.add(bindingKey);
-                    count += injectCallbackBindingEdges(pag, caller, stmt, edgeMap, callbackMethod, caller);
+                    count += injectCallbackBindingEdges(pag, caller, stmt, edgeMap, callbackMethod, caller, {
+                        materializationLedger,
+                        registrationKind: "sdk_callback_arg",
+                    });
                 }
             }
         }
@@ -279,11 +321,34 @@ export function collectStoredReceiverFieldCallbackBindingsForStmt(
     caller: any,
     stmt: any,
     invokeExpr: any,
+    lookupContext?: SyntheticInvokeLookupContext,
+): AsyncCallbackBinding[] {
+    if (lookupContext && isWeakMapKey(stmt)) {
+        lookupContext.stats.storedReceiverFieldCallbackCalls++;
+        const cached = lookupContext.storedReceiverFieldCallbackBindingsByStmt.get(stmt);
+        if (cached) {
+            lookupContext.stats.storedReceiverFieldCallbackCacheHits++;
+            return [...cached];
+        }
+        const computed = collectStoredReceiverFieldCallbackBindingsForStmtUncached(scene, cg, caller, stmt, invokeExpr, lookupContext);
+        lookupContext.storedReceiverFieldCallbackBindingsByStmt.set(stmt, [...computed]);
+        return computed;
+    }
+    return collectStoredReceiverFieldCallbackBindingsForStmtUncached(scene, cg, caller, stmt, invokeExpr, lookupContext);
+}
+
+function collectStoredReceiverFieldCallbackBindingsForStmtUncached(
+    scene: Scene,
+    cg: CallGraph,
+    caller: any,
+    stmt: any,
+    invokeExpr: any,
+    lookupContext?: SyntheticInvokeLookupContext,
 ): AsyncCallbackBinding[] {
     const dispatchBase = invokeExpr?.getBase?.();
     if (!(dispatchBase instanceof Local)) return [];
 
-    const resolvedDispatchMethods = collectResolvedInvokeTargets(scene, cg, stmt, invokeExpr);
+    const resolvedDispatchMethods = collectResolvedInvokeTargetsCached(scene, cg, stmt, invokeExpr, lookupContext);
     const dispatchedFieldNames = new Set<string>();
     for (const method of resolvedDispatchMethods) {
         for (const fieldName of collectInvokedThisFieldCallbackNames(method)) {
@@ -309,7 +374,7 @@ export function collectStoredReceiverFieldCallbackBindingsForStmt(
         if (candidateBase.getName?.() !== dispatchBase.getName?.()) continue;
 
         const candidateArgs = candidateInvoke.getArgs?.() || [];
-        for (const registrationMethod of collectResolvedInvokeTargets(scene, cg, candidateStmt, candidateInvoke)) {
+            for (const registrationMethod of collectResolvedInvokeTargetsCached(scene, cg, candidateStmt, candidateInvoke, lookupContext)) {
             for (const fieldName of dispatchedFieldNames) {
                 const callbackParamIndexes = collectThisFieldCallbackStoreParamIndexes(registrationMethod, fieldName);
                 for (const paramIndex of callbackParamIndexes) {
@@ -367,7 +432,8 @@ export function collectResolvedInvokeTargets(
     scene: Scene,
     cg: CallGraph,
     stmt: any,
-    invokeExpr: any
+    invokeExpr: any,
+    options: CalleeResolveOptions = {},
 ): any[] {
     const out: any[] = [];
     const seen = new Set<string>();
@@ -390,10 +456,31 @@ export function collectResolvedInvokeTargets(
         return out;
     }
 
-    for (const resolved of resolveCalleeCandidates(scene, invokeExpr)) {
+    for (const resolved of resolveCalleeCandidates(scene, invokeExpr, options)) {
         add(resolved.method);
     }
     return out;
+}
+
+export function collectResolvedInvokeTargetsCached(
+    scene: Scene,
+    cg: CallGraph,
+    stmt: any,
+    invokeExpr: any,
+    context?: SyntheticInvokeLookupContext,
+): any[] {
+    if (!context || !isWeakMapKey(stmt)) {
+        return collectResolvedInvokeTargets(scene, cg, stmt, invokeExpr);
+    }
+    context.stats.resolvedInvokeTargetCalls++;
+    const cached = context.resolvedInvokeTargetsByStmt.get(stmt);
+    if (cached) {
+        context.stats.resolvedInvokeTargetCacheHits++;
+        return [...cached];
+    }
+    const resolved = collectResolvedInvokeTargets(scene, cg, stmt, invokeExpr);
+    context.resolvedInvokeTargetsByStmt.set(stmt, [...resolved]);
+    return resolved;
 }
 
 function getCachedInvokedParams(
@@ -411,7 +498,28 @@ function getCachedInvokedParams(
 function resolveSyntheticCallbackMethodsForArg(
     scene: Scene,
     arg: any,
-    isSdk: boolean
+    isSdk: boolean,
+    context?: SyntheticInvokeLookupContext,
+): any[] {
+    const cache = isSdk ? context?.callbackMethodsByArgSdk : context?.callbackMethodsByArgCallable;
+    if (cache && isWeakMapKey(arg)) {
+        context!.stats.callbackArgMethodCalls++;
+        const cached = cache.get(arg);
+        if (cached) {
+            context!.stats.callbackArgMethodCacheHits++;
+            return [...cached];
+        }
+        const resolved = resolveSyntheticCallbackMethodsForArgUncached(scene, arg, isSdk);
+        cache.set(arg, [...resolved]);
+        return resolved;
+    }
+    return resolveSyntheticCallbackMethodsForArgUncached(scene, arg, isSdk);
+}
+
+function resolveSyntheticCallbackMethodsForArgUncached(
+    scene: Scene,
+    arg: any,
+    isSdk: boolean,
 ): any[] {
     const out: any[] = [];
     const seen = new Set<string>();
@@ -438,6 +546,30 @@ function resolveSyntheticCallbackMethodsForArg(
     return out;
 }
 
+function collectControllerOptionRegistrationsCached(
+    stmt: any,
+    scene: Scene,
+    caller: any,
+    context?: SyntheticInvokeLookupContext,
+): FrameworkResolvedCallbackRegistration[] {
+    if (!context || !isWeakMapKey(stmt)) {
+        return resolveKnownControllerOptionCallbackRegistrationsFromStmt(stmt, scene, caller);
+    }
+    context.stats.controllerOptionRegistrationCalls++;
+    const cached = context.controllerOptionRegistrationsByStmt.get(stmt);
+    if (cached) {
+        context.stats.controllerOptionRegistrationCacheHits++;
+        return [...cached];
+    }
+    const resolved = resolveKnownControllerOptionCallbackRegistrationsFromStmt(stmt, scene, caller);
+    context.controllerOptionRegistrationsByStmt.set(stmt, [...resolved]);
+    return resolved;
+}
+
+function isWeakMapKey(value: any): value is object {
+    return value !== null && (typeof value === "object" || typeof value === "function");
+}
+
 function collectInvokeArgsByCallbackParamIndex(invokeExpr: any, callbackMethod: any): Map<number, any> {
     const explicitArgs = invokeExpr?.getArgs ? invokeExpr.getArgs() : [];
     const paramStmts = collectParameterAssignStmts(callbackMethod);
@@ -448,6 +580,90 @@ function collectInvokeArgsByCallbackParamIndex(invokeExpr: any, callbackMethod: 
         }
     }
     return out;
+}
+
+function emptyCallbackParamSourceBindings(): {
+    valuesByIndex: Map<number, any>;
+    anchorStmtByIndex: Map<number, any>;
+} {
+    return {
+        valuesByIndex: new Map<number, any>(),
+        anchorStmtByIndex: new Map<number, any>(),
+    };
+}
+
+function collectCallbackInvocationParamSourceBindings(
+    sourceMethod: any,
+    callbackParamStmt: ArkAssignStmt,
+    callbackMethod: any,
+): {
+    valuesByIndex: Map<number, any>;
+    anchorStmtByIndex: Map<number, any>;
+} {
+    const out = emptyCallbackParamSourceBindings();
+    const callbackParamLocal = callbackParamStmt.getLeftOp?.();
+    if (!(callbackParamLocal instanceof Local)) return out;
+
+    const callbackLocalNames = collectCallbackCallableLocalNames(sourceMethod, callbackParamLocal.getName?.() || "");
+    if (callbackLocalNames.size === 0) return out;
+
+    const callbackParamStmts = collectParameterAssignStmts(callbackMethod);
+    if (callbackParamStmts.length === 0) return out;
+
+    for (const stmt of sourceMethod?.getCfg?.()?.getStmts?.() || []) {
+        if (!stmt?.containsInvokeExpr?.()) continue;
+        const invokeExpr = stmt.getInvokeExpr?.();
+        const callable = getCallbackInvokeCallableValue(invokeExpr);
+        if (!(callable instanceof Local)) continue;
+        if (!callbackLocalNames.has(callable.getName?.() || "")) continue;
+
+        const explicitArgs = invokeExpr.getArgs ? invokeExpr.getArgs() : [];
+        for (const pair of mapInvokeArgsToParamAssigns(invokeExpr, explicitArgs, callbackParamStmts)) {
+            if (!out.valuesByIndex.has(pair.paramIndex)) {
+                out.valuesByIndex.set(pair.paramIndex, pair.arg);
+                out.anchorStmtByIndex.set(pair.paramIndex, stmt);
+            }
+        }
+    }
+
+    return out;
+}
+
+function collectCallbackCallableLocalNames(sourceMethod: any, callbackParamName: string): Set<string> {
+    const names = new Set<string>();
+    if (!callbackParamName) return names;
+    names.add(callbackParamName);
+
+    let changed = true;
+    let rounds = 0;
+    while (changed && rounds < 4) {
+        changed = false;
+        rounds++;
+        for (const stmt of sourceMethod?.getCfg?.()?.getStmts?.() || []) {
+            if (!(stmt instanceof ArkAssignStmt)) continue;
+            const left = stmt.getLeftOp();
+            const right = stmt.getRightOp();
+            if (!(left instanceof Local) || !(right instanceof Local)) continue;
+            if (!names.has(right.getName?.() || "")) continue;
+            const leftName = left.getName?.() || "";
+            if (!leftName || names.has(leftName)) continue;
+            names.add(leftName);
+            changed = true;
+        }
+    }
+
+    return names;
+}
+
+function getCallbackInvokeCallableValue(invokeExpr: any): any {
+    if (!invokeExpr) return undefined;
+    if (invokeExpr instanceof ArkPtrInvokeExpr && typeof invokeExpr.getFuncPtrLocal === "function") {
+        return invokeExpr.getFuncPtrLocal();
+    }
+    if (typeof invokeExpr.getBase === "function") {
+        return invokeExpr.getBase();
+    }
+    return undefined;
 }
 
 function resolveParamIndexFromAssignStmt(stmt: any): number | undefined {
@@ -467,16 +683,25 @@ export function injectCallbackBindingEdges(
     sourceMethod: any,
     options?: {
         explicitParamSourceValuesByIndex?: Map<number, any>;
+        explicitParamSourceAnchorStmtByIndex?: Map<number, any>;
+        captureSourceMethod?: any;
+        materializationLedger?: CallEdgeMaterializationLedgerRecord[];
+        registrationKind?: string;
     },
 ): number {
     const sourceBody = sourceMethod?.getBody?.();
     const sourceLocals = sourceBody?.getLocals?.();
-    if (!sourceLocals) return 0;
+    if (!sourceLocals) {
+        pushCallbackMaterializationRecord(options?.materializationLedger, caller, sourceMethod, stmt, cbMethod, 0, "missing_callback_source_body", options?.registrationKind);
+        return 0;
+    }
 
     const paramStmts = collectParameterAssignStmts(cbMethod);
     const calleeSig = cbMethod.getSignature().toString();
     const callSiteId = stmt.getOriginPositionInfo().getLineNo() * 10000 + simpleHash(calleeSig);
     const capturedLocalMappings = collectCallbackCapturedLocalMappings(cbMethod, paramStmts);
+    const captureSourceMethod = options?.captureSourceMethod || sourceMethod;
+    const captureSourceLocals = captureSourceMethod?.getBody?.()?.getLocals?.();
 
     let count = 0;
     if (paramStmts.length > 0) {
@@ -487,9 +712,15 @@ export function injectCallbackBindingEdges(
             const explicitSource = paramIndex !== undefined
                 ? options?.explicitParamSourceValuesByIndex?.get(paramIndex)
                 : undefined;
-            let srcNodes = explicitSource !== undefined
-                ? resolveExistingPagNodes(pag, explicitSource, stmt)
+            const explicitSourceAnchor = paramIndex !== undefined
+                ? options?.explicitParamSourceAnchorStmtByIndex?.get(paramIndex)
                 : undefined;
+            let srcNodes = explicitSource !== undefined
+                ? resolveExistingPagNodes(pag, explicitSource, explicitSourceAnchor || stmt)
+                : undefined;
+            if ((!srcNodes || srcNodes.size === 0) && explicitSource !== undefined) {
+                srcNodes = materializeExactPagNodes(pag, explicitSource, explicitSourceAnchor || stmt, 0);
+            }
             let callerLocalForCarrier: Local | undefined;
             if (!srcNodes || srcNodes.size === 0) {
                 const callerLocal = sourceLocals.get(paramLocal.getName());
@@ -502,6 +733,9 @@ export function injectCallbackBindingEdges(
             let dstNodes = resolveExistingPagNodes(pag, paramLocal, paramStmt);
             if ((!dstNodes || dstNodes.size === 0) && paramStmt.getRightOp() instanceof ArkParameterRef) {
                 dstNodes = resolveExistingPagNodes(pag, paramStmt.getRightOp(), paramStmt);
+            }
+            if ((!dstNodes || dstNodes.size === 0) && srcNodes && srcNodes.size > 0) {
+                dstNodes = materializeExactNodesForSourceContexts(pag, paramLocal, paramStmt, srcNodes);
             }
             if (!srcNodes || !dstNodes) continue;
 
@@ -560,18 +794,14 @@ export function injectCallbackBindingEdges(
     }
 
     for (const mapping of capturedLocalMappings) {
-        const callerLocal = sourceLocals.get(mapping.callerLocalName);
+        const callerLocal = captureSourceLocals?.get?.(mapping.callerLocalName);
         if (!(callerLocal instanceof Local)) continue;
 
         const srcNodes = resolveExistingPagNodes(pag, callerLocal, stmt);
-        const dstNodes = mapping.anchorStmt
-            ? resolveExistingPagNodes(pag, mapping.callbackValue, mapping.anchorStmt)
-            : pag.getNodesByValue(mapping.callbackValue);
-        if ((!dstNodes || dstNodes.size === 0) && mapping.anchorStmt && shouldMaterializeExactCallbackUseEndpoint(mapping.callbackValue, mapping.anchorStmt)) {
-            pag.getOrNewNode(0, mapping.callbackValue, mapping.anchorStmt);
-        }
         const effectiveDstNodes = mapping.anchorStmt
-            ? resolveExistingPagNodes(pag, mapping.callbackValue, mapping.anchorStmt)
+            ? shouldMaterializeExactCallbackUseEndpoint(mapping.callbackValue, mapping.anchorStmt)
+                ? materializeExactPagNodes(pag, mapping.callbackValue, mapping.anchorStmt, 0)
+                : resolveExistingPagNodes(pag, mapping.callbackValue, mapping.anchorStmt)
             : pag.getNodesByValue(mapping.callbackValue);
         if (!srcNodes || !effectiveDstNodes) continue;
 
@@ -582,9 +812,9 @@ export function injectCallbackBindingEdges(
                     srcNodeId,
                     dstNodeId,
                     callSiteId,
-                    callerMethodName: sourceMethod.getName?.() || caller.getName(),
+                    callerMethodName: captureSourceMethod.getName?.() || sourceMethod.getName?.() || caller.getName(),
                     calleeMethodName: cbMethod.getName(),
-                    callerSignature: sourceMethod.getSignature?.().toString?.() || caller.getSignature?.().toString?.(),
+                    callerSignature: captureSourceMethod.getSignature?.().toString?.() || sourceMethod.getSignature?.().toString?.() || caller.getSignature?.().toString?.(),
                     calleeSignature: calleeSig,
                 });
                 count++;
@@ -592,7 +822,48 @@ export function injectCallbackBindingEdges(
         }
     }
 
+    pushCallbackMaterializationRecord(
+        options?.materializationLedger,
+        caller,
+        sourceMethod,
+        stmt,
+        cbMethod,
+        count,
+        count > 0 ? undefined : "callback_binding_nodes_not_resolved",
+        options?.registrationKind,
+    );
     return count;
+}
+
+function pushCallbackMaterializationRecord(
+    ledger: CallEdgeMaterializationLedgerRecord[] | undefined,
+    caller: any,
+    sourceMethod: any,
+    stmt: any,
+    cbMethod: any,
+    builtEdgeCount: number,
+    reason?: string,
+    registrationKind?: string,
+): void {
+    if (!ledger) return;
+    ledger.push({
+        recordKind: "call_edge_materialization",
+        builder: "synthetic_invoke",
+        edgeKind: "callback_registration",
+        status: builtEdgeCount > 0 ? "built" : "not_built",
+        reason,
+        callerMethodName: sourceMethod?.getName?.() || caller?.getName?.() || "",
+        calleeMethodName: cbMethod?.getName?.() || "",
+        callerSignature: sourceMethod?.getSignature?.()?.toString?.() || caller?.getSignature?.()?.toString?.(),
+        calleeSignature: cbMethod?.getSignature?.()?.toString?.(),
+        callbackSignature: cbMethod?.getSignature?.()?.toString?.(),
+        callbackSourceSignature: sourceMethod?.getSignature?.()?.toString?.(),
+        line: stmt?.getOriginPositionInfo?.()?.getLineNo?.() ?? -1,
+        stmtText: stmt?.toString?.() || "",
+        builtEdgeCount,
+        syntheticEdgeBuilt: builtEdgeCount > 0,
+        evidence: registrationKind ? [registrationKind] : undefined,
+    });
 }
 
 function shouldMaterializeExactCallbackUseEndpoint(value: any, anchorStmt: any): boolean {
@@ -618,6 +889,30 @@ function shouldMaterializeExactCallbackUseEndpoint(value: any, anchorStmt: any):
 function pushEdge(map: Map<number, SyntheticInvokeEdgeInfo[]>, key: number, edge: SyntheticInvokeEdgeInfo): void {
     if (!map.has(key)) map.set(key, []);
     map.get(key)!.push(edge);
+}
+
+function materializeExactNodesForSourceContexts(
+    pag: Pag,
+    value: any,
+    anchorStmt: any,
+    sourceNodes: Map<number, number>,
+): Map<number, number> | undefined {
+    const out = new Map<number, number>();
+    for (const sourceNodeId of sourceNodes.values()) {
+        const sourceNode = pag.getNode(Number(sourceNodeId)) as any;
+        let cid = 0;
+        try {
+            cid = Number(sourceNode?.getCid?.() ?? 0);
+        } catch {
+            cid = 0;
+        }
+        const nodes = materializeExactPagNodes(pag, value, anchorStmt, cid);
+        const nodeId = nodes?.values?.().next?.().value;
+        if (typeof nodeId === "number") {
+            out.set(cid, nodeId);
+        }
+    }
+    return out.size > 0 ? out : undefined;
 }
 
 function collectPointToNodeIds(pag: Pag, nodeIds: Iterable<number>): Set<number> {

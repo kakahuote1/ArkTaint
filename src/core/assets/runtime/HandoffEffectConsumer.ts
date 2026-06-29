@@ -37,9 +37,7 @@ export function instantiateHandoffHandleTemplate(
     const scope = instantiateParts(template.scope || [], resolveEndpoint);
     const key = instantiateParts(template.key, resolveEndpoint);
     const owner = template.owner ? instantiateParts(template.owner, resolveEndpoint) : undefined;
-    const precision = template.precision && template.precision !== "infer"
-        ? template.precision
-        : inferPrecision([...scope, ...key, ...(owner || [])]);
+    assertExactResolvedParts([...scope, ...key, ...(owner || [])]);
     return {
         cellKind: template.cellKind,
         family: template.family,
@@ -47,7 +45,7 @@ export function instantiateHandoffHandleTemplate(
         key,
         owner,
         index: template.index,
-        precision,
+        precision: "exact",
     };
 }
 
@@ -84,9 +82,9 @@ function instantiatePart(
     }
 }
 
-function inferPrecision(parts: string[]): "exact" | "partial" | "unknown" {
-    if (parts.length === 0 || parts.every(part => part === "<unknown>")) {
-        return "unknown";
+function assertExactResolvedParts(parts: string[]): void {
+    const unknown = parts.find(part => part === "<unknown>");
+    if (unknown !== undefined) {
+        throw new Error("handoff handle template could not be resolved exactly");
     }
-    return parts.some(part => part === "<unknown>") ? "partial" : "exact";
 }

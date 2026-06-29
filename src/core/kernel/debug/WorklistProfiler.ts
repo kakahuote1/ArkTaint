@@ -1,6 +1,7 @@
 import type {
     TransferExecutionStats,
     TransferNoCandidateCallsite,
+    TransferSemanticSiteConsumption,
 } from "../rules/ConfigBasedTransferExecutor";
 
 export interface TransferProfileSnapshot {
@@ -15,6 +16,7 @@ export interface TransferProfileSnapshot {
     elapsedMs: number;
     elapsedShare: number;
     noCandidateCallsites: TransferNoCandidateCallsite[];
+    siteConsumptions: TransferSemanticSiteConsumption[];
 }
 
 export interface WorklistProfileSnapshot {
@@ -64,6 +66,7 @@ export class WorklistProfiler {
     private transferResultCount = 0;
     private transferElapsedMs = 0;
     private readonly transferNoCandidateCallsiteMap = new Map<string, TransferNoCandidateCallsite>();
+    private readonly transferSiteConsumptionMap = new Map<string, TransferSemanticSiteConsumption>();
 
     public onQueueSize(queueSize: number): void {
         if (queueSize > this.maxQueueSize) {
@@ -114,6 +117,16 @@ export class WorklistProfiler {
                 this.transferNoCandidateCallsiteMap.set(key, { ...site });
             }
         }
+        for (const consumption of stats.siteConsumptions || []) {
+            const key = this.transferSiteConsumptionKey(consumption);
+            const existing = this.transferSiteConsumptionMap.get(key);
+            if (existing) {
+                existing.count = (existing.count || 1) + (consumption.count || 1);
+                existing.resultCount += consumption.resultCount;
+            } else {
+                this.transferSiteConsumptionMap.set(key, this.cloneTransferSiteConsumption(consumption));
+            }
+        }
     }
 
     public measure<T>(section: string, fn: () => T): T {
@@ -153,6 +166,13 @@ export class WorklistProfiler {
         const noCandidateCallsites = [...this.transferNoCandidateCallsiteMap.values()]
             .sort((a, b) => b.count - a.count || a.calleeSignature.localeCompare(b.calleeSignature))
             .slice(0, 200);
+        const siteConsumptions = [...this.transferSiteConsumptionMap.values()]
+            .sort((a, b) =>
+                (b.count || 1) - (a.count || 1)
+                || a.ruleId.localeCompare(b.ruleId)
+                || (a.callSignature || "").localeCompare(b.callSignature || ""))
+            .slice(0, 500)
+            .map(item => this.cloneTransferSiteConsumption(item));
         const bySection = [...this.sectionCounters.entries()]
             .map(([section, counter]) => ({
                 section,
@@ -183,7 +203,50 @@ export class WorklistProfiler {
                 elapsedMs: this.transferElapsedMs,
                 elapsedShare,
                 noCandidateCallsites,
+                siteConsumptions,
             },
+        };
+    }
+
+    private transferSiteConsumptionKey(consumption: TransferSemanticSiteConsumption): string {
+        return [
+            consumption.ruleId,
+            consumption.canonicalApiId,
+            consumption.effectSiteId || "",
+            consumption.callSignature || "",
+            consumption.scheduled ? "scheduled" : "not_scheduled",
+            consumption.fromMatched ? "from_matched" : "from_unmatched",
+            consumption.toProjected ? "to_projected" : "to_unprojected",
+            consumption.blockedReason || "",
+            consumption.fromEndpoint?.status || "",
+            consumption.fromEndpoint?.reason || "",
+            consumption.toEndpoint?.status || "",
+            consumption.toEndpoint?.reason || "",
+        ].join("|");
+    }
+
+    private cloneTransferSiteConsumption(
+        consumption: TransferSemanticSiteConsumption,
+    ): TransferSemanticSiteConsumption {
+        return {
+            ...consumption,
+            fromEndpoint: consumption.fromEndpoint
+                ? {
+                    ...consumption.fromEndpoint,
+                    nodeIds: [...consumption.fromEndpoint.nodeIds],
+                    carrierNodeIds: [...consumption.fromEndpoint.carrierNodeIds],
+                    fieldPath: consumption.fromEndpoint.fieldPath ? [...consumption.fromEndpoint.fieldPath] : undefined,
+                }
+                : undefined,
+            toEndpoint: consumption.toEndpoint
+                ? {
+                    ...consumption.toEndpoint,
+                    nodeIds: [...consumption.toEndpoint.nodeIds],
+                    carrierNodeIds: [...consumption.toEndpoint.carrierNodeIds],
+                    fieldPath: consumption.toEndpoint.fieldPath ? [...consumption.toEndpoint.fieldPath] : undefined,
+                }
+                : undefined,
+            count: consumption.count || 1,
         };
     }
 

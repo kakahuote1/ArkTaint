@@ -2,7 +2,15 @@ import { Scene } from "../../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../../arkanalyzer/out/src/Config";
 import { PagNode } from "../../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
 import { TaintPropagationEngine } from "../../core/orchestration/TaintPropagationEngine";
-import { SinkRule, SourceRule, TransferRule } from "../../core/rules/RuleSchema";
+import { SinkRule, TransferRule } from "../../core/rules/RuleSchema";
+import type { AssetDocumentBase, SemanticEffectTemplate } from "../../core/assets/schema";
+import type { ApiEffectIdentity } from "../../core/api/ApiOccurrenceIdentity";
+import { canonicalApiDescriptorFromTestDeclaration, indexedTestParameters } from "../helpers/CanonicalApiTestDeclarations";
+import type { CanonicalApiDescriptor } from "../../core/api/identity";
+import { exactRuleRuntimeFromAssets, exactSinkRule, type ExactRuleRuntime } from "../rules/ExactRuleTestUtils";
+import {
+    assertCanonicalExactRules,
+} from "./ExactTransferTestUtils";
 import * as path from "path";
 
 interface CaseSpec {
@@ -34,17 +42,114 @@ function flowSinkInMethod(scene: Scene, sinkStmt: any, methodName: string): bool
     return !!cfg && cfg.getStmts().includes(sinkStmt);
 }
 
+function findMethod(scene: Scene, methodName: string, signatureHint?: string) {
+    const method = scene.getMethods().find(m =>
+        m.getName?.() === methodName
+        && (!signatureHint || m.getSignature?.().toString?.().includes(signatureHint))
+    );
+    assert(method, `method not found: ${methodName}${signatureHint ? ` (${signatureHint})` : ""}`);
+    return method;
+}
+
+function axiosGetTransferAsset(): {
+    asset: AssetDocumentBase;
+    descriptor: CanonicalApiDescriptor;
+    rule: TransferRule;
+} {
+    const id = "transfer.test.ohos_axios_get.arg0_to_result";
+    const descriptor = canonicalApiDescriptorFromTestDeclaration({
+        authority: "third_party",
+        domain: "npm",
+        moduleSpecifier: "@ohos/axios",
+        logicalDeclarationFile: "node_modules/@ohos/axios/index.d.ts",
+        exportPath: [{ kind: "default", name: "axios" }],
+        declarationOwner: {
+            kind: "namespace",
+            path: ["axios"],
+            normalizedName: "axios",
+        },
+        member: {
+            kind: "function",
+            name: "get",
+        },
+        invoke: { kind: "call" },
+        signature: {
+            parameters: indexedTestParameters(["string"]),
+            returnType: { text: "Promise<AxiosResponse>" },
+        },
+        declarationLocations: [{ file: "node_modules/@ohos/axios/index.d.ts" }],
+    });
+    const assetId = `asset.test.${id}`;
+    const surfaceId = `surface.test.${id}`;
+    const bindingId = `binding.test.${id}`;
+    const effectTemplateId = `template.test.${id}`;
+    const apiEffect: ApiEffectIdentity = {
+        canonicalApiId: descriptor.canonicalApiId,
+        assetId,
+        surfaceId,
+        bindingId,
+        effectTemplateId,
+        role: "transfer",
+    };
+    const template: SemanticEffectTemplate = {
+        id: effectTemplateId,
+        kind: "rule.transfer",
+        from: { base: { kind: "arg", index: 0 } },
+        to: { base: { kind: "return" } },
+        transferKind: "test",
+        confidence: "certain",
+    };
+    const asset: AssetDocumentBase = {
+        id: assetId,
+        plane: "rule",
+        status: "reviewed",
+        surfaces: [{
+            surfaceId,
+            kind: "invoke",
+            canonicalApiId: descriptor.canonicalApiId,
+            confidence: "certain",
+            provenance: { source: "manual" },
+        }],
+        bindings: [{
+            bindingId,
+            surfaceId,
+            assetId,
+            plane: "rule",
+            role: "transfer",
+            canonicalApiId: descriptor.canonicalApiId,
+            endpoint: { base: { kind: "return" } },
+            effectTemplateRefs: [effectTemplateId],
+            semanticsFamily: "test-transfer",
+            completeness: "complete",
+            confidence: "certain",
+        }],
+        effectTemplates: [template],
+        provenance: { source: "project" },
+    };
+    return {
+        asset,
+        descriptor,
+        rule: {
+            id,
+            match: { kind: "canonical_api_id_equals", value: descriptor.canonicalApiId },
+            apiEffect,
+            from: "arg0",
+            to: "result",
+        },
+    };
+}
+
 async function runCase(
     scene: Scene,
     methodName: string,
-    sourceRules: SourceRule[],
     sinkRules: SinkRule[],
-    transferRules: TransferRule[]
+    transferRules: TransferRule[],
+    runtime: ExactRuleRuntime,
 ): Promise<boolean> {
     const entryMethod = scene.getMethods().find(m => m.getName() === methodName);
     assert(entryMethod, `entry method not found: ${methodName}`);
 
-    const engine = new TaintPropagationEngine(scene, 1, { transferRules });
+    const engine = new TaintPropagationEngine(scene, 1, { ...runtime, transferRules, includeBuiltinModules: false });
     engine.verbose = false;
     await engine.buildPAG({
         entryModel: "explicit",
@@ -68,32 +173,19 @@ async function main(): Promise<void> {
     scene.buildSceneFromProjectDir(sceneConfig);
     scene.inferTypes();
 
-    const sourceRules: SourceRule[] = [{
-        id: "source.test.entry_param.taint_src",
-        match: { kind: "method_name_equals", value: "transfer_import_scope_001_T" },
-        sourceKind: "entry_param",
-        target: { endpoint: "arg0" },
-    }];
-    const sinkRules: SinkRule[] = [{
+    const sinkEffect = exactSinkRule({
         id: "sink.test.arg0",
-        match: { kind: "method_name_equals", value: "Sink" },
+        method: findMethod(scene, "Sink"),
         target: { endpoint: "arg0" },
-    }];
-    const transferRules: TransferRule[] = [{
-        id: "transfer.test.ohos_axios_get.arg0_to_result",
-        match: {
-            kind: "method_name_equals",
-            value: "get",
-            invokeKind: "instance",
-            argCount: 1,
-            typeHint: "axios",
-        },
-        scope: {
-            module: { mode: "contains", value: "@ohos/axios" },
-        },
-        from: "arg0",
-        to: "result",
-    }];
+    });
+    const transferEffect = axiosGetTransferAsset();
+    const sinkRules: SinkRule[] = [sinkEffect.rule];
+    const transferRules: TransferRule[] = [transferEffect.rule];
+    assertCanonicalExactRules([...sinkRules, ...transferRules]);
+    const exactRuntime = exactRuleRuntimeFromAssets(
+        [sinkEffect.asset, transferEffect.asset],
+        [sinkEffect.exact.canonicalApiDescriptor, transferEffect.descriptor],
+    );
 
     const cases: CaseSpec[] = [
         { methodName: "transfer_import_scope_001_T", expected: true },
@@ -102,7 +194,7 @@ async function main(): Promise<void> {
 
     let passCount = 0;
     for (const item of cases) {
-        const detected = await runCase(scene, item.methodName, sourceRules, sinkRules, transferRules);
+        const detected = await runCase(scene, item.methodName, sinkRules, transferRules, exactRuntime);
         const pass = detected === item.expected;
         if (pass) passCount++;
         console.log(`${pass ? "PASS" : "FAIL"} ${item.methodName} expected=${item.expected} detected=${detected}`);

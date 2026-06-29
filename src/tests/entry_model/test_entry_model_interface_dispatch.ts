@@ -3,6 +3,7 @@ import { Scene } from "../../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../../arkanalyzer/out/src/Config";
 import { TaintPropagationEngine } from "../../core/orchestration/TaintPropagationEngine";
 import { SinkRule, SourceRule } from "../../core/rules/RuleSchema";
+import { projectApiEffectAssetFromMethod } from "../helpers/ApiEffectTestAssets";
 
 function assert(condition: unknown, message: string): asserts condition {
     if (!condition) {
@@ -19,11 +20,34 @@ function buildScene(sourceDir: string): Scene {
     return scene;
 }
 
+function findMethod(scene: Scene, methodName: string) {
+    const method = scene.getMethods().find(item => item.getName?.() === methodName);
+    assert(!!method, `method not found: ${methodName}`);
+    return method;
+}
+
 async function main(): Promise<void> {
     const sourceDir = path.resolve("tests/demo/interface_dispatch");
     const scene = buildScene(sourceDir);
 
-    const engine = new TaintPropagationEngine(scene, 1);
+    const inputEffect = projectApiEffectAssetFromMethod({
+        id: "source.fixture.input",
+        role: "source",
+        method: findMethod(scene, "input"),
+        endpoint: { base: { kind: "return" } },
+        sourceKind: "call_return",
+    });
+    const sinkEffect = projectApiEffectAssetFromMethod({
+        id: "sink.fixture.sink",
+        role: "sink",
+        method: findMethod(scene, "sink"),
+        endpoint: { base: { kind: "arg", index: 0 } },
+        sinkKind: "test",
+    });
+
+    const engine = new TaintPropagationEngine(scene, 1, {
+        apiAssets: [inputEffect.asset, sinkEffect.asset],
+    });
     engine.verbose = false;
     await engine.buildPAG({ entryModel: "arkMain" });
 
@@ -37,7 +61,8 @@ async function main(): Promise<void> {
         {
             id: "source.fixture.input",
             enabled: true,
-            match: { kind: "method_name_equals", value: "input" },
+            match: { kind: "canonical_api_id_equals", value: inputEffect.canonicalApiDescriptor.canonicalApiId },
+            apiEffect: inputEffect.apiEffect,
             sourceKind: "call_return",
             target: "result",
         },
@@ -46,7 +71,8 @@ async function main(): Promise<void> {
         {
             id: "sink.fixture.sink",
             enabled: true,
-            match: { kind: "method_name_equals", value: "sink" },
+            match: { kind: "canonical_api_id_equals", value: sinkEffect.canonicalApiDescriptor.canonicalApiId },
+            apiEffect: sinkEffect.apiEffect,
             target: { endpoint: "arg0" },
         },
     ];

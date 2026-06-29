@@ -30,13 +30,15 @@ import {
     buildSyntheticStaticInitStoreMap,
     materializeEagerSyntheticInvokeSites,
     materializeSyntheticInvokeSitesForNode,
+    materializeSyntheticInvokeSitesForCaller,
     materializeAllSyntheticInvokeSites,
     EXCLUDE_ALL_DEFERRED_SYNTHETIC_INVOKE_SITES,
     SyntheticInvokeEdgeInfo,
     SyntheticConstructorStoreInfo,
     SyntheticFieldBridgeInfo,
     SyntheticStaticInitStoreInfo,
-    SyntheticInvokeLazyMaterializer
+    SyntheticInvokeLazyMaterializer,
+    type CallEdgeMaterializationLedgerRecord,
 } from "../kernel/builders/SyntheticInvokeEdgeBuilder";
 import {
     FactRuleChain,
@@ -46,7 +48,7 @@ import {
 } from "../kernel/propagation/WorklistSolver";
 import {
     createEmptySinkDetectProfile,
-    detectSinks as runSinkDetector,
+    detectSinkEffects as runSinkDetector,
     mergeSinkDetectProfiles,
     SinkDetectAuditEntry,
     SinkDetectProfile,
@@ -56,24 +58,26 @@ import {
     SourceRuleSeedAuditEntry,
     SourceRuleZeroHitAuditEntry,
 } from "../kernel/rules/SourceRuleSeedCollector";
-import { resolveSinkRuleSignatures as resolveSinkRuleSignaturesByRule } from "../kernel/rules/SinkRuleSignatureResolver";
 import { createDebugCollectors, dumpDebugArtifactsToDir } from "../kernel/debug/DebugArtifactUtils";
 import { WorklistProfiler, WorklistProfileSnapshot } from "../kernel/debug/WorklistProfiler";
 import { TraceGraph, TraceGraphRecorder } from "../trace/TraceGraph";
 import {
     expandEntryMethodsByDirectCalls,
     collectDirectCallExpansionTargetMethods,
+    collectKeyedDispatchCallbackMethods,
 } from "../entry/shared/ExplicitEntryScopeResolver";
 import {
+    buildMethodThisOwnerContextIndex,
     collectParameterAssignStmts,
     isCallableValue,
+    resolveCalleeCandidates,
     resolveMethodsFromCallable,
 } from "../substrate/queries/CalleeResolver";
 import { resolveCallbackRegistrationsFromStmt } from "../substrate/queries/CallbackBindingQuery";
 import { collectFiniteStringCandidatesFromValue } from "../substrate/queries/FiniteStringCandidateResolver";
-import { resolveKnownOptionCallbackRegistrationsFromStmt } from "../substrate/semantics/KnownOptionCallbackRegistration";
 import {
     isKnownFrameworkCallbackMethodName,
+    resolveKnownControllerOptionCallbackRegistrationsFromStmt,
     resolveKnownFrameworkCallbackRegistration,
 } from "../entry/shared/FrameworkCallbackClassifier";
 import { collectOrdinaryHigherOrderCallbackMethodSignaturesFromMethod } from "../kernel/ordinary/OrdinaryArrayPropagation";
@@ -90,6 +94,7 @@ import {
 } from "../kernel/contracts/ModuleContract";
 import type { InternalModuleQueryApi } from "../kernel/contracts/ModuleInternal";
 import {
+    emptyPagNodeResolutionAuditSnapshot,
     getPagNodeResolutionAuditSnapshot,
     PagNodeResolutionAuditSnapshot,
     resetPagNodeResolutionAudit,
@@ -117,23 +122,47 @@ import {
     EnginePluginRuntime,
 } from "./plugins/EnginePluginRuntime";
 import {
+    AssetDocumentBase,
+    AssetIdentityIndex,
+    createAssetIdentityIndex,
+} from "../assets/schema";
+import { extendCanonicalApiRegistryWithAssetDeclarations } from "../assets/registry/AssetDeclaredCanonicalApiRegistry";
+import {
+    ApiEffectRuntimeIndex,
+    cloneEndpointResolutionLedgerItem,
+    summarizeSemanticEffectLedger,
+    type EndpointResolutionLedgerItem,
+    type EndpointResolutionStatus,
+    type SemanticEffectLedgerRecord,
+    type SemanticEffectLedgerSummary,
+} from "../api/effects";
+import type { SemanticEffectSite } from "../api/effects/SemanticEffectSite";
+import {
+    emptyOfficialOccurrenceCoverageSnapshot,
+    type OfficialOccurrenceCoverageSnapshot,
+    type OfficialOccurrenceRecord,
+} from "../api/occurrence";
+import {
+    createDefaultCanonicalApiRegistry,
+    mergeCanonicalApiRegistries,
+    type CanonicalApiRegistry,
+} from "../api/identity";
+import { hasApiEffectIdentity } from "../api/ApiOccurrenceIdentity";
+import {
     BaseRule,
     RuleEndpoint,
     RuleEndpointOrRef,
-    RuleInvokeKind,
-    RuleScopeConstraint,
+    RuleEndpointTaintScope,
     SanitizerRule,
     SinkRule,
     SourceRule,
     TransferRule,
     normalizeEndpoint,
 } from "../rules/RuleSchema";
-import { normalizeRuleGovernance } from "../rules/RuleGovernance";
+import { normalizeRuleFamily } from "../rules/RuleFamily";
 import {
-    orderRulesByFamilyTier,
-    resolveRuleFamily,
-    resolveRuleTierWeight,
-} from "../rules/RulePriority";
+    orderRulesByFamilyAndId,
+} from "../rules/RuleOrdering";
 import { extractFilePathFromSignature } from "./postsolve/PostsolveSharedEvidence";
 import {
     PostsolveContext,
@@ -144,6 +173,7 @@ import {
     PathMaterializationOptions,
 } from "../provenance/ProvenancePathTypes";
 import { FactPredecessorRecord } from "../kernel/propagation/PropagationTypes";
+import { buildClassSignatureIndex } from "../kernel/propagation/WorklistReachabilitySupport";
 import { materializeTaintFlowPaths } from "../provenance/ProvenancePathRecorder";
 import { currentnessEvidenceFromCertificate } from "../provenance/CurrentnessEvidenceAdapter";
 import { CurrentnessEvidence } from "../provenance/ProvenancePathTypes";
@@ -179,8 +209,20 @@ export interface ArkMainSeedReport {
 export interface TaintEngineOptions {
     contextStrategy?: "fixed" | "adaptive";
     executionHandoff?: "enabled" | "disabled";
+    currentness?: "enabled" | "disabled";
+    provenanceRecording?: "enabled" | "disabled";
+    factIdTracking?: "enabled" | "disabled";
+    flowRuleChainTracking?: "enabled" | "disabled";
+    progressOutput?: "enabled" | "disabled";
+    arkMainEntryClosure?: "full" | "scheduledOnly";
+    reachabilityDirectExpansion?: "enabled" | "disabled";
+    receiverFieldBridgeMap?: "enabled" | "disabled";
+    syntheticInvokeMaterialization?: "enabled" | "disabled";
     adaptiveContext?: AdaptiveContextSelectorOptions;
     transferRules?: TransferRule[];
+    apiAssets?: AssetDocumentBase[];
+    assetIdentityIndex?: AssetIdentityIndex;
+    canonicalApiRegistry?: CanonicalApiRegistry;
     modules?: TaintModule[];
     moduleRoots?: string[];
     moduleFiles?: string[];
@@ -228,6 +270,71 @@ const SYNTHETIC_ROOTS: Record<EntryModel, SyntheticRootDescriptor> = {
     },
 };
 
+function mergeAssetDocumentsById(assets: AssetDocumentBase[]): AssetDocumentBase[] {
+    const byId = new Map<string, AssetDocumentBase>();
+    for (const asset of assets) {
+        if (!asset?.id || byId.has(asset.id)) continue;
+        byId.set(asset.id, asset);
+    }
+    return [...byId.values()];
+}
+
+function buildEffectiveAssetIdentityIndex(
+    assets: AssetDocumentBase[],
+    canonicalApiRegistry: CanonicalApiRegistry,
+): AssetIdentityIndex {
+    const index = createAssetIdentityIndex({
+        canonicalApiRegistry,
+    });
+    for (const asset of assets) {
+        index.addAsset(asset);
+    }
+    const conflicts = index.listConflicts();
+    if (conflicts.length > 0) {
+        throw new Error(`asset identity conflicts: ${conflicts.map(item => item.message).join("; ")}`);
+    }
+    const unmigrated = index.listUnmigratedAssets();
+    if (unmigrated.length > 0) {
+        throw new Error(`unmigrated asset identities: ${unmigrated.map(item => `${item.assetId}:${item.reason}`).join("; ")}`);
+    }
+    return index;
+}
+
+function resolveEngineCanonicalApiRegistry(
+    options: TaintEngineOptions,
+    assets: readonly AssetDocumentBase[],
+): CanonicalApiRegistry {
+    const baseRegistry = options.canonicalApiRegistry
+        ? mergeCanonicalApiRegistries([createDefaultCanonicalApiRegistry(), options.canonicalApiRegistry])
+        : createDefaultCanonicalApiRegistry();
+    return extendCanonicalApiRegistryWithAssetDeclarations({
+        baseRegistry,
+        assets,
+    });
+}
+
+function assertCanonicalApiRegistryCoversAssets(
+    assets: readonly AssetDocumentBase[],
+    canonicalApiRegistry: CanonicalApiRegistry,
+): void {
+    const missing: string[] = [];
+    for (const asset of assets) {
+        for (const surface of asset.surfaces || []) {
+            if (surface.canonicalApiId && !canonicalApiRegistry.has(surface.canonicalApiId)) {
+                missing.push(`${asset.id}:${surface.canonicalApiId}`);
+            }
+        }
+        for (const binding of asset.bindings || []) {
+            if (binding.canonicalApiId && !canonicalApiRegistry.has(binding.canonicalApiId)) {
+                missing.push(`${asset.id}:${binding.canonicalApiId}`);
+            }
+        }
+    }
+    if (missing.length > 0) {
+        throw new Error(`canonical API registry missing asset identities: ${missing.slice(0, 20).join("; ")}${missing.length > 20 ? `; ... ${missing.length - 20} more` : ""}`);
+    }
+}
+
 export interface RuleHitCounters {
     source: Record<string, number>;
     sink: Record<string, number>;
@@ -254,6 +361,7 @@ interface PagBuildCacheEntry {
     syntheticConstructorStoreMap: Map<number, SyntheticConstructorStoreInfo[]>;
     syntheticStaticInitStoreMap: Map<number, SyntheticStaticInitStoreInfo[]>;
     syntheticFieldBridgeMap: Map<string, SyntheticFieldBridgeInfo[]>;
+    callEdgeMaterializationLedger?: CallEdgeMaterializationLedgerRecord[];
     captureLazyMaterializer?: CaptureLazyMaterializer;
     syntheticInvokeLazyMaterializer?: SyntheticInvokeLazyMaterializer;
     captureEdgeMapReady: boolean;
@@ -282,6 +390,7 @@ export class TaintPropagationEngine {
     private syntheticConstructorStoreMap: Map<number, SyntheticConstructorStoreInfo[]> = new Map();
     private syntheticStaticInitStoreMap: Map<number, SyntheticStaticInitStoreInfo[]> = new Map();
     private syntheticFieldBridgeMap: Map<string, SyntheticFieldBridgeInfo[]> = new Map();
+    private callEdgeMaterializationLedger: CallEdgeMaterializationLedgerRecord[] = [];
     private captureLazyMaterializer?: CaptureLazyMaterializer;
     private syntheticInvokeLazyMaterializer?: SyntheticInvokeLazyMaterializer;
     private adaptiveContextSelector?: AdaptiveContextSelector;
@@ -289,6 +398,7 @@ export class TaintPropagationEngine {
     private traceGraph?: TraceGraphRecorder;
     private options: TaintEngineOptions;
     private modules: TaintModule[];
+    private moduleAssets: AssetDocumentBase[] = [];
     private moduleRuntime?: ModuleRuntime;
     private moduleRuntimeKey?: string;
     private moduleRuntimePag?: Pag;
@@ -321,6 +431,8 @@ export class TaintPropagationEngine {
     private lastWorklistTruncation?: WorklistBudgetTruncation;
     private activePagCacheEntry?: PagBuildCacheEntry;
     private interproceduralTaintTargetNodeIdsCache?: Set<number>;
+    private classBySignatureCache?: Map<string, any>;
+    private methodsBySignatureCache?: Map<string, ArkMethod>;
     private executionHandoffSnapshot?: ExecutionHandoffContractSnapshot;
     private executionHandoffDeferredSiteKeys?: Set<string>;
     private currentEntryModel: EntryModel = "arkMain";
@@ -328,15 +440,37 @@ export class TaintPropagationEngine {
     private lastPagBuildProfile: StageTimingProfile = {};
     private lastSourceRulePropagationProfile: StageTimingProfile = {};
     private lastReachableProfile: StageTimingProfile = {};
+    private apiEffectRuntimeIndex?: ApiEffectRuntimeIndex;
+    private assetIdentityIndex?: AssetIdentityIndex;
 
     public verbose: boolean = true;
 
     constructor(scene: Scene, k: number = 1, options: TaintEngineOptions = {}) {
         this.scene = scene;
-        this.tracker = new TaintTracker();
+        this.tracker = new TaintTracker({
+            trackFactIds: options.factIdTracking !== "disabled",
+        });
         this.ctxManager = new TaintContextManager(k);
         this.options = options;
         this.modules = this.initializeModules(options);
+        const effectiveAssets = mergeAssetDocumentsById([
+            ...(options.apiAssets || []),
+            ...this.moduleAssets,
+        ]);
+        const canonicalApiRegistry = resolveEngineCanonicalApiRegistry(options, effectiveAssets);
+        assertCanonicalApiRegistryCoversAssets(effectiveAssets, canonicalApiRegistry);
+        const effectiveAssetIdentityIndex = effectiveAssets.length > 0
+            ? (options.assetIdentityIndex || buildEffectiveAssetIdentityIndex(effectiveAssets, canonicalApiRegistry))
+            : options.assetIdentityIndex;
+        this.assetIdentityIndex = effectiveAssetIdentityIndex;
+        if (effectiveAssets.length > 0 && effectiveAssetIdentityIndex) {
+            this.apiEffectRuntimeIndex = ApiEffectRuntimeIndex.build({
+                scene: this.scene,
+                assets: effectiveAssets,
+                assetIdentityIndex: effectiveAssetIdentityIndex,
+                canonicalApiRegistry,
+            });
+        }
         const enginePluginState = this.initializeEnginePlugins(k, options, this.modules);
         this.enginePlugins = enginePluginState.plugins;
         this.enginePluginWarnings = enginePluginState.warnings;
@@ -359,6 +493,7 @@ export class TaintPropagationEngine {
             disabledModuleProjects: options.disabledModuleProjects,
             onWarning: (warning) => this.log(`module warning: ${warning}`),
         });
+        this.moduleAssets = loadedModules.assets;
         return loadedModules.modules;
     }
 
@@ -403,8 +538,108 @@ export class TaintPropagationEngine {
         ]).values()];
     }
 
+    private buildModuleCanonicalApiOccurrences() {
+        const canonicalOccurrenceSites = this.apiEffectRuntimeIndex?.listCanonicalOccurrenceSites() || [];
+        const effectSites = this.apiEffectRuntimeIndex?.listEffectSites() || [];
+        const seen = new Set<string>();
+        const semanticSitesByOccurrenceKey = new Map<string, SemanticEffectSite[]>();
+        const outByKey = new Map<string, {
+            stmt: any;
+            canonicalApiId: string;
+            occurrenceId: string;
+            rawOccurrenceId: string;
+            semanticEffectSites: SemanticEffectSite[];
+        }>();
+
+        for (const site of effectSites) {
+            if (site.effect.identity.role !== "module") continue;
+            const canonicalApiId = site.resolvedOccurrence.canonicalApiId;
+            if (!canonicalApiId) continue;
+            const key = `${site.resolvedOccurrence.occurrenceId}|${canonicalApiId}`;
+            const current = semanticSitesByOccurrenceKey.get(key) || [];
+            for (const semanticSite of site.semanticEffectSites) {
+                if (current.some(existing => existing.effectSiteId === semanticSite.effectSiteId)) continue;
+                current.push(semanticSite);
+            }
+            semanticSitesByOccurrenceKey.set(key, current);
+        }
+
+        for (const site of canonicalOccurrenceSites) {
+            if (site.resolvedOccurrence.status !== "accepted") continue;
+            const canonicalApiId = site.resolvedOccurrence.canonicalApiId;
+            if (!canonicalApiId || !site.stmt) continue;
+            const key = `${site.resolvedOccurrence.occurrenceId}|${canonicalApiId}`;
+            const semanticEffectSites = semanticSitesByOccurrenceKey.get(key) || [];
+            const existing = outByKey.get(key);
+            if (!existing) {
+                outByKey.set(key, {
+                    stmt: site.stmt,
+                    canonicalApiId,
+                    occurrenceId: site.resolvedOccurrence.occurrenceId,
+                    rawOccurrenceId: site.resolvedOccurrence.rawOccurrenceId,
+                    semanticEffectSites: [...semanticEffectSites],
+                });
+                seen.add(key);
+                for (const semanticSite of semanticEffectSites) {
+                    seen.add(`${key}|${semanticSite.effectSiteId}`);
+                }
+                continue;
+            }
+            for (const semanticSite of semanticEffectSites) {
+                if (seen.has(`${key}|${semanticSite.effectSiteId}`)) continue;
+                existing.semanticEffectSites.push(semanticSite);
+                seen.add(`${key}|${semanticSite.effectSiteId}`);
+            }
+        }
+        return [...outByKey.values()];
+    }
+
+    private buildModuleCanonicalDecoratorOccurrences() {
+        const decoratorSites = this.apiEffectRuntimeIndex?.listCanonicalDecoratorOccurrenceSites() || [];
+        const outByKey = new Map<string, {
+            ownerKind: "namespace" | "class" | "method" | "field";
+            model: any;
+            canonicalApiId: string;
+            occurrenceId: string;
+            rawOccurrenceId: string;
+            semanticEffectSites: SemanticEffectSite[];
+            decorator: {
+                kind: string;
+                param?: string;
+                content?: string;
+            };
+        }>();
+        for (const site of decoratorSites) {
+            if (site.resolvedOccurrence.status !== "accepted") continue;
+            const canonicalApiId = site.resolvedOccurrence.canonicalApiId;
+            if (!canonicalApiId) continue;
+            const key = `${site.resolvedOccurrence.occurrenceId}|${canonicalApiId}`;
+            if (outByKey.has(key)) continue;
+            outByKey.set(key, {
+                ownerKind: site.ownerKind,
+                model: site.model,
+                canonicalApiId,
+                occurrenceId: site.resolvedOccurrence.occurrenceId,
+                rawOccurrenceId: site.resolvedOccurrence.rawOccurrenceId,
+                semanticEffectSites: [...site.semanticEffectSites],
+                decorator: {
+                    kind: site.decorator.kind,
+                    param: site.decorator.param,
+                    content: site.decorator.content,
+                },
+            });
+        }
+        return [...outByKey.values()];
+    }
+
     private log(msg: string): void {
         if (this.verbose) console.log(msg);
+    }
+
+    private progress(msg: string): void {
+        if (this.options.progressOutput === "enabled" || this.verbose) {
+            console.log(msg);
+        }
     }
 
     private clearRuleHits(kind?: keyof RuleHitCounters): void {
@@ -475,6 +710,36 @@ export class TaintPropagationEngine {
         };
     }
 
+    public getOfficialOccurrenceLedger(): OfficialOccurrenceRecord[] {
+        return this.apiEffectRuntimeIndex?.listOfficialOccurrenceRecords() || [];
+    }
+
+    public getCallEdgeMaterializationLedger(): CallEdgeMaterializationLedgerRecord[] {
+        return this.callEdgeMaterializationLedger.map(record => ({
+            ...record,
+            srcNodeIds: record.srcNodeIds ? [...record.srcNodeIds] : undefined,
+            dstNodeIds: record.dstNodeIds ? [...record.dstNodeIds] : undefined,
+            evidence: record.evidence ? [...record.evidence] : undefined,
+        }));
+    }
+
+    public getOfficialOccurrenceCoverageSnapshot(): OfficialOccurrenceCoverageSnapshot {
+        return this.apiEffectRuntimeIndex?.getOfficialOccurrenceCoverage()
+            || emptyOfficialOccurrenceCoverageSnapshot();
+    }
+
+    public getSemanticEffectLedger(): SemanticEffectLedgerRecord[] {
+        if (!this.apiEffectRuntimeIndex) return [];
+        const endpointRecords = this.getPagNodeResolutionAuditSnapshot().endpointResolutionRecords || [];
+        return this.apiEffectRuntimeIndex.listSemanticEffectLedger(endpointRecords);
+    }
+
+    public getSemanticEffectLedgerSummary(): SemanticEffectLedgerSummary {
+        if (!this.apiEffectRuntimeIndex) return summarizeSemanticEffectLedger([]);
+        const endpointRecords = this.getPagNodeResolutionAuditSnapshot().endpointResolutionRecords || [];
+        return this.apiEffectRuntimeIndex.getSemanticEffectLedgerSummary(endpointRecords);
+    }
+
     public getPagBuildProfileSnapshot(): StageTimingProfile {
         return { ...this.lastPagBuildProfile };
     }
@@ -513,17 +778,19 @@ export class TaintPropagationEngine {
 
     private refreshModuleRuntime(): void {
         if (!this.pag) return;
-        const reachableKey = this.activeReachableMethodSignatures
-            ? [...this.activeReachableMethodSignatures].sort().join("||")
-            : "*";
-        const nextKey = reachableKey;
-        if (this.moduleRuntime && this.moduleRuntimePag === this.pag && this.moduleRuntimeKey === nextKey) {
+        const currentnessKey = `currentness|${this.options.currentness || "enabled"}`;
+        const allowedMethodSignatures = this.activeReachableMethodSignatures;
+        const scopeKey = allowedMethodSignatures && allowedMethodSignatures.size > 0
+            ? `scope|${[...allowedMethodSignatures].sort().join("\u001f")}`
+            : "scope|all_methods";
+        const runtimeKey = `${scopeKey}|${currentnessKey}`;
+        if (this.moduleRuntime && this.moduleRuntimePag === this.pag && this.moduleRuntimeKey === runtimeKey) {
             return;
         }
         this.moduleRuntime = createModuleRuntime(this.modules, {
             scene: this.scene,
             pag: this.pag,
-            allowedMethodSignatures: this.activeReachableMethodSignatures,
+            allowedMethodSignatures,
             fieldToVarIndex: this.fieldToVarIndex,
             queries: {
                 resolveMethodsFromCallable,
@@ -532,8 +799,11 @@ export class TaintPropagationEngine {
             },
             log: this.log.bind(this),
             moduleSetupDeadlineMs: this.options.debug?.moduleSetupMaxElapsedMs,
+            currentnessAnalysis: this.options.currentness || "enabled",
+            canonicalApiOccurrences: this.buildModuleCanonicalApiOccurrences(),
+            canonicalDecoratorOccurrences: this.buildModuleCanonicalDecoratorOccurrences(),
         });
-        this.moduleRuntimeKey = nextKey;
+        this.moduleRuntimeKey = runtimeKey;
         this.moduleRuntimePag = this.pag;
         if (this.activePagCacheEntry && this.cg && this.pag) {
             this.rebuildExecutionHandoffLayer(
@@ -545,20 +815,24 @@ export class TaintPropagationEngine {
 
     public getPagNodeResolutionAuditSnapshot(): PagNodeResolutionAuditSnapshot {
         if (!this.pag) {
-            return {
-                requestCount: 0,
-                directHitCount: 0,
-                substitutedValueCount: 0,
-                awaitUnwrapCount: 0,
-                expressionUseResolveCount: 0,
-                anchorLeftResolveCount: 0,
-                addAttemptCount: 0,
-                addFailureCount: 0,
-                unresolvedCount: 0,
-                unsupportedValueKinds: {},
-            };
+            return emptyPagNodeResolutionAuditSnapshot();
         }
-        return getPagNodeResolutionAuditSnapshot(this.pag);
+        return this.completeEndpointResolutionAuditSnapshot(getPagNodeResolutionAuditSnapshot(this.pag));
+    }
+
+    private completeEndpointResolutionAuditSnapshot(
+        snapshot: PagNodeResolutionAuditSnapshot,
+    ): PagNodeResolutionAuditSnapshot {
+        const projectedRecords = snapshot.endpointResolutionRecords || [];
+        const records = this.apiEffectRuntimeIndex
+            ? this.apiEffectRuntimeIndex.completeEndpointResolutionLedger(projectedRecords)
+            : projectedRecords.map(record => cloneEndpointResolutionLedgerItem(record));
+        return {
+            ...snapshot,
+            endpointResolutionRecordCount: records.length,
+            endpointResolutionStatusCounts: summarizeEndpointResolutionStatuses(records),
+            endpointResolutionRecords: records,
+        };
     }
 
     private cloneExecutionHandoffSnapshot(
@@ -575,13 +849,19 @@ export class TaintPropagationEngine {
     }
 
     private configureExecutionHandoffLayer(cacheEntry: PagBuildCacheEntry, emitEdges: boolean = true): void {
+        this.log("[ExecutionHandoff] module runtime refresh start");
         this.refreshModuleRuntime();
+        this.log("[ExecutionHandoff] module runtime refresh done");
         this.rebuildExecutionHandoffLayer(cacheEntry, emitEdges);
     }
 
     private rebuildExecutionHandoffLayer(cacheEntry: PagBuildCacheEntry, emitEdges: boolean = true): void {
+        this.log("[ExecutionHandoff] deferred bindings collect start");
         const deferredBindings = this.moduleRuntime?.getDeferredBindingDeclarations() || [];
+        this.log(`[ExecutionHandoff] deferred bindings collect done count=${deferredBindings.length}`);
+        this.log("[ExecutionHandoff] deferred bindings key start");
         const deferredBindingsKey = this.buildDeferredBindingKey(deferredBindings);
+        this.log("[ExecutionHandoff] deferred bindings key done");
         if (
             cacheEntry.executionHandoffSnapshot
             && cacheEntry.executionHandoffDeferredSiteKeys
@@ -595,6 +875,7 @@ export class TaintPropagationEngine {
             return;
         }
 
+        this.log("[ExecutionHandoff] contract build start");
         const contracts = buildExecutionHandoffContracts(
             this.scene,
             this.cg,
@@ -603,8 +884,11 @@ export class TaintPropagationEngine {
             {
                 startedAtMs: Date.now(),
                 maxElapsedMs: this.options.debug?.executionHandoffMaxElapsedMs,
+                progress: msg => this.progress(msg),
+                progressIntervalMs: 5000,
             },
         );
+        this.log(`[ExecutionHandoff] contract build done count=${contracts.length}`);
         const deferredSiteKeys = new Set<string>();
         for (const contract of contracts) {
             const siteKey = buildExecutionHandoffSiteKeyFromRecord(contract);
@@ -629,6 +913,7 @@ export class TaintPropagationEngine {
             return;
         }
 
+        this.log("[ExecutionHandoff] contract edge emission start");
         const contractEdges = buildExecutionHandoffSyntheticInvokeEdges(
             contracts,
         );
@@ -708,8 +993,8 @@ export class TaintPropagationEngine {
         return id.length > 0 ? id : undefined;
     }
 
-    private orderRulesByFamilyTier<T extends BaseRule>(rules: T[]): T[] {
-        return orderRulesByFamilyTier(rules);
+    private orderRulesByFamily<T extends BaseRule>(rules: T[]): T[] {
+        return orderRulesByFamilyAndId(rules);
     }
 
     private cloneFlowRuleChain(chain?: FlowRuleChain): FlowRuleChain {
@@ -777,7 +1062,7 @@ export class TaintPropagationEngine {
             stage: "sink_candidate",
             producer: "sink",
             gateKind: "sink_candidate",
-            scope: entry.ruleId ? `sink_rule:${entry.ruleId}` : `sink:${entry.signatureQuery || "unknown"}`,
+            scope: entry.ruleId ? `sink_rule:${entry.ruleId}` : `sink_effect:${entry.effectIdentity || "unknown"}`,
             attempted: true,
             matched: entry.kind !== "callsite",
             emitted,
@@ -786,7 +1071,7 @@ export class TaintPropagationEngine {
             evidence: {
                 kind: entry.kind,
                 ruleId: entry.ruleId,
-                signatureQuery: entry.signatureQuery,
+                effectIdentity: entry.effectIdentity,
                 calleeSignature: entry.calleeSignature,
                 sinkText: entry.sinkText,
                 endpoint: entry.endpoint,
@@ -855,7 +1140,7 @@ export class TaintPropagationEngine {
     }
 
     public async buildPAG(options: BuildPAGOptions = {}): Promise<void> {
-        this.log("[buildPAG] start");
+        this.progress("[buildPAG] start");
         this.lastPagBuildProfile = {};
         const buildProfileStart = process.hrtime.bigint();
         const recordBuildProfile = (key: string, startedAt: bigint): void => {
@@ -866,12 +1151,15 @@ export class TaintPropagationEngine {
         this.moduleRuntimeKey = undefined;
         this.moduleRuntimePag = undefined;
         this.executionHandoffSnapshot = undefined;
+        this.activeReachableMethodSignatures = undefined;
+        this.activeOrderedMethodSignatures = undefined;
+        this.callEdgeMaterializationLedger = [];
 
         const entryModel: EntryModel = options.entryModel || "arkMain";
         this.currentEntryModel = entryModel;
         const explicitSyntheticEntries = this.normalizeSyntheticEntryMethods(options.syntheticEntryMethods);
         this.explicitEntryScopeMethodSignatures = this.resolveExplicitEntryScope(explicitSyntheticEntries);
-        this.log("[buildPAG] arkmain plan start");
+        this.progress("[buildPAG] arkmain plan start");
         const arkMainPlanT0 = process.hrtime.bigint();
         const arkMainPlan = entryModel === "arkMain"
             ? buildArkMainPlan(this.scene, {
@@ -881,7 +1169,7 @@ export class TaintPropagationEngine {
             })
             : undefined;
         recordBuildProfile("arkMainPlanMs", arkMainPlanT0);
-        this.log("[buildPAG] arkmain plan done");
+        this.progress("[buildPAG] arkmain plan done");
         this.arkMainSeedReport = entryModel === "arkMain"
             ? {
                 enabled: Boolean(
@@ -892,8 +1180,11 @@ export class TaintPropagationEngine {
                 factCount: this.options.arkMainSeeds?.facts?.length || 0,
             }
             : undefined;
+        const arkMainEntryClosureMethods = entryModel === "arkMain"
+            ? this.resolveArkMainScheduledEntryMethods(arkMainPlan?.orderedMethods || [])
+            : [];
         this.activeOrderedMethodSignatures = entryModel === "arkMain"
-            ? (arkMainPlan?.orderedMethods || []).map(method => safeMethodSignatureText(method)).filter((sig): sig is string => !!sig)
+            ? arkMainEntryClosureMethods.map(method => safeMethodSignatureText(method)).filter((sig): sig is string => !!sig)
             : undefined;
         this.autoEntrySourceRules = entryModel === "arkMain"
             ? this.buildAutoEntrySourceRules(arkMainPlan)
@@ -911,6 +1202,7 @@ export class TaintPropagationEngine {
                 explicitSyntheticEntries,
                 entryModel,
                 arkMainPlan,
+                arkMainEntryClosureMethods,
             )
             : explicitSyntheticEntries;
         const executionHandoffEnabled = this.options.executionHandoff !== "disabled";
@@ -934,6 +1226,7 @@ export class TaintPropagationEngine {
             this.syntheticConstructorStoreMap = cached.syntheticConstructorStoreMap;
             this.syntheticStaticInitStoreMap = cached.syntheticStaticInitStoreMap;
             this.syntheticFieldBridgeMap = cached.syntheticFieldBridgeMap;
+            this.callEdgeMaterializationLedger = cached.callEdgeMaterializationLedger || [];
             this.captureLazyMaterializer = cached.captureLazyMaterializer;
             this.syntheticInvokeLazyMaterializer = cached.syntheticInvokeLazyMaterializer;
             this.executionHandoffSnapshot = cached.executionHandoffSnapshot
@@ -944,8 +1237,8 @@ export class TaintPropagationEngine {
                 : undefined;
             resetPagNodeResolutionAudit(this.pag);
             this.log(`PAG cache hit: ${entryModel}(${syntheticKey})`);
-            this.log(`PAG nodes: ${this.pag.getNodeNum()}, edges: ${this.pag.getEdgeNum()}`);
-            this.log(`CG nodes: ${this.cg.getNodeNum()}, edges: ${this.cg.getEdgeNum()}`);
+            this.progress(`PAG nodes: ${this.pag.getNodeNum()}, edges: ${this.pag.getEdgeNum()}`);
+            this.progress(`CG nodes: ${this.cg.getNodeNum()}, edges: ${this.cg.getEdgeNum()}`);
             this.configureContextStrategy();
             recordBuildProfile("cacheRestoreMs", cacheRestoreT0);
             const computeReachableT0 = process.hrtime.bigint();
@@ -963,35 +1256,35 @@ export class TaintPropagationEngine {
             return;
         }
 
-        this.log("[buildPAG] callgraph scene start");
+        this.progress("[buildPAG] callgraph scene start");
         const sceneCallGraphT0 = process.hrtime.bigint();
         const cg = new CallGraph(this.scene);
         const cgBuilder = new CallGraphBuilder(cg, this.scene);
         cgBuilder.buildDirectCallGraphForScene();
         recordBuildProfile("directCallGraphSceneMs", sceneCallGraphT0);
-        this.log("[buildPAG] callgraph scene done");
+        this.progress("[buildPAG] callgraph scene done");
         const pag = new Pag();
         resetPagNodeResolutionAudit(pag);
         const config = PointerAnalysisConfig.create(0, "./out", false, false, false);
         this.pta = new PointerAnalysis(pag, cg, this.scene, config);
-        this.log("[buildPAG] synthetic root start");
+        this.progress("[buildPAG] synthetic root start");
         const syntheticRootT0 = process.hrtime.bigint();
         const { syntheticRootMethod, cleanup } = this.createSyntheticEntry(entryModel, syntheticEntryMethods);
         recordBuildProfile("syntheticRootCreateMs", syntheticRootT0);
         try {
-            this.log("[buildPAG] direct callgraph root start");
+            this.progress("[buildPAG] direct callgraph root start");
             const rootCallGraphT0 = process.hrtime.bigint();
             cgBuilder.buildDirectCallGraph([syntheticRootMethod]);
             recordBuildProfile("directCallGraphRootMs", rootCallGraphT0);
-            this.log("[buildPAG] direct callgraph root done");
+            this.progress("[buildPAG] direct callgraph root done");
             const syntheticRootMethodId = cg.getCallGraphNodeByMethod(syntheticRootMethod.getSignature()).getID();
             cg.setDummyMainFuncID(syntheticRootMethodId);
             this.pta.setEntries([syntheticRootMethodId]);
-            this.log("[buildPAG] pointer analysis start");
+            this.progress("[buildPAG] pointer analysis start");
             const pointerAnalysisT0 = process.hrtime.bigint();
             this.pta.start();
             recordBuildProfile("pointerAnalysisMs", pointerAnalysisT0);
-            this.log("[buildPAG] pointer analysis done");
+            this.progress("[buildPAG] pointer analysis done");
         } finally {
             const cleanupT0 = process.hrtime.bigint();
             cleanup();
@@ -1000,27 +1293,50 @@ export class TaintPropagationEngine {
         this.pag = this.pta.getPag();
         this.cg = cg;
 
-        this.log(`PAG nodes: ${this.pag.getNodeNum()}, edges: ${this.pag.getEdgeNum()}`);
-        this.log(`CG nodes: ${this.cg.getNodeNum()}, edges: ${this.cg.getEdgeNum()}`);
+        this.progress(`PAG nodes: ${this.pag.getNodeNum()}, edges: ${this.pag.getEdgeNum()}`);
+        this.progress(`CG nodes: ${this.cg.getNodeNum()}, edges: ${this.cg.getEdgeNum()}`);
+        const pagMethodScope = this.collectPagMethodScope();
+        this.lastPagBuildProfile.pagMethodScopeCount = pagMethodScope.length;
+        this.progress(`[buildPAG] pag method scope methods=${pagMethodScope.length}`);
 
-        this.log("[buildPAG] indexes start");
+        this.progress("[buildPAG] indexes start");
         const fieldIndexT0 = process.hrtime.bigint();
+        this.progress("[buildPAG] field index start");
         this.fieldToVarIndex = buildFieldToVarIndex(this.pag, this.log.bind(this));
         recordBuildProfile("fieldToVarIndexMs", fieldIndexT0);
+        this.progress(`[buildPAG] field index done elapsed_ms=${Math.round(this.lastPagBuildProfile.fieldToVarIndexMs || 0)}`);
         const callEdgeMapT0 = process.hrtime.bigint();
-        this.callEdgeMap = buildCallEdgeMap(this.scene, this.cg, this.pag, this.log.bind(this));
-        recordBuildProfile("callEdgeMapMs", callEdgeMapT0);
-        const receiverFieldBridgeT0 = process.hrtime.bigint();
-        this.receiverFieldBridgeMap = buildReceiverFieldBridgeMap(this.scene, this.cg, this.pag, this.log.bind(this), {
-            startedAtMs: Date.now(),
-            maxElapsedMs: this.options.debug?.pagIndexMaxElapsedMs,
-            label: "receiver_field_bridge_map",
+        this.progress("[buildPAG] call edge map start");
+        this.callEdgeMap = buildCallEdgeMap(this.scene, this.cg, this.pag, this.log.bind(this), {
+            diagnostics: this.options.progressOutput === "enabled" ? "disabled" : "enabled",
+            progress: this.progress.bind(this),
+            progressEveryMethods: 100,
+            methods: pagMethodScope,
         });
-        recordBuildProfile("receiverFieldBridgeMapMs", receiverFieldBridgeT0);
-        this.log("[buildPAG] indexes done");
+        recordBuildProfile("callEdgeMapMs", callEdgeMapT0);
+        this.progress(`[buildPAG] call edge map done elapsed_ms=${Math.round(this.lastPagBuildProfile.callEdgeMapMs || 0)}`);
+        const receiverFieldBridgeT0 = process.hrtime.bigint();
+        if (this.options.receiverFieldBridgeMap === "disabled") {
+            this.receiverFieldBridgeMap = new Map();
+            this.lastPagBuildProfile.receiverFieldBridgeMapSkipped = 1;
+            recordBuildProfile("receiverFieldBridgeMapMs", receiverFieldBridgeT0);
+            this.progress("[buildPAG] receiver field bridge map skipped mode=candidate_fast");
+        } else {
+            this.progress("[buildPAG] receiver field bridge map start");
+            this.receiverFieldBridgeMap = buildReceiverFieldBridgeMap(this.scene, this.cg, this.pag, this.log.bind(this), {
+                startedAtMs: Date.now(),
+                maxElapsedMs: this.options.debug?.pagIndexMaxElapsedMs,
+                label: "receiver_field_bridge_map",
+            }, {
+                methods: pagMethodScope,
+            });
+            recordBuildProfile("receiverFieldBridgeMapMs", receiverFieldBridgeT0);
+            this.progress(`[buildPAG] receiver field bridge map done elapsed_ms=${Math.round(this.lastPagBuildProfile.receiverFieldBridgeMapMs || 0)}`);
+        }
+        this.progress("[buildPAG] indexes done");
         this.captureEdgeMap = new Map<number, CaptureEdgeInfo[]>();
         this.syntheticInvokeEdgeMap = new Map<number, SyntheticInvokeEdgeInfo[]>();
-        this.log("[buildPAG] synthetic summaries start");
+        this.progress("[buildPAG] synthetic summaries start");
         const syntheticConstructorStoreT0 = process.hrtime.bigint();
         this.syntheticConstructorStoreMap = buildSyntheticConstructorStoreMap(this.scene, this.cg, this.pag, this.log.bind(this));
         recordBuildProfile("syntheticConstructorStoreMapMs", syntheticConstructorStoreT0);
@@ -1030,7 +1346,7 @@ export class TaintPropagationEngine {
         const syntheticFieldBridgeT0 = process.hrtime.bigint();
         this.syntheticFieldBridgeMap = buildSyntheticFieldBridgeMap(this.scene, this.cg, this.pag, this.log.bind(this));
         recordBuildProfile("syntheticFieldBridgeMapMs", syntheticFieldBridgeT0);
-        this.log("[buildPAG] synthetic summaries done");
+        this.progress("[buildPAG] synthetic summaries done");
         const cacheEntry: PagBuildCacheEntry = {
             pag: this.pag,
             cg: this.cg,
@@ -1042,6 +1358,7 @@ export class TaintPropagationEngine {
             syntheticConstructorStoreMap: this.syntheticConstructorStoreMap,
             syntheticStaticInitStoreMap: this.syntheticStaticInitStoreMap,
             syntheticFieldBridgeMap: this.syntheticFieldBridgeMap,
+            callEdgeMaterializationLedger: this.callEdgeMaterializationLedger,
             captureLazyMaterializer: undefined,
             syntheticInvokeLazyMaterializer: undefined,
             captureEdgeMapReady: false,
@@ -1050,13 +1367,14 @@ export class TaintPropagationEngine {
             executionHandoffDeferredSiteKeys: undefined,
         };
         this.activePagCacheEntry = cacheEntry;
-        this.log("[buildPAG] execution handoff start");
+        this.progress("[buildPAG] execution handoff start");
         const executionHandoffT0 = process.hrtime.bigint();
         this.configureExecutionHandoffLayer(cacheEntry, executionHandoffEnabled);
         recordBuildProfile("executionHandoffMs", executionHandoffT0);
-        this.log("[buildPAG] execution handoff done");
-        this.log("[buildPAG] lazy materializers start");
+        this.progress("[buildPAG] execution handoff done");
+        this.progress("[buildPAG] lazy materializers start");
         const captureLazyT0 = process.hrtime.bigint();
+        this.progress("[buildPAG] capture lazy materializer start");
         this.captureLazyMaterializer = buildCaptureLazyMaterializer(
             this.scene,
             this.cg,
@@ -1067,21 +1385,44 @@ export class TaintPropagationEngine {
                 maxElapsedMs: this.options.debug?.lazyMaterializerMaxElapsedMs,
                 label: "capture_lazy_materializer",
             },
+            {
+                progress: msg => this.progress(`[buildPAG] ${msg}`),
+                progressInterval: 100,
+            },
         );
         recordBuildProfile("captureLazyMaterializerMs", captureLazyT0);
+        this.progress("[buildPAG] capture lazy materializer done");
         const syntheticInvokeLazyT0 = process.hrtime.bigint();
-        this.syntheticInvokeLazyMaterializer = buildSyntheticInvokeLazyMaterializer(this.scene, this.cg, this.pag, this.log.bind(this), {
-            startedAtMs: Date.now(),
-            maxElapsedMs: this.options.debug?.lazyMaterializerMaxElapsedMs,
-            label: "synthetic_invoke_lazy_materializer",
-        });
+        if (this.options.syntheticInvokeMaterialization === "disabled") {
+            this.syntheticInvokeLazyMaterializer = undefined;
+            cacheEntry.syntheticInvokeEdgeMapReady = true;
+            this.lastPagBuildProfile.syntheticInvokeMaterializerSkipped = 1;
+            this.progress("[buildPAG] synthetic invoke lazy materializer skipped mode=candidate_fast");
+        } else {
+            this.progress("[buildPAG] synthetic invoke lazy materializer start");
+            this.syntheticInvokeLazyMaterializer = buildSyntheticInvokeLazyMaterializer(
+                this.scene,
+                this.cg,
+                this.pag,
+                this.log.bind(this),
+                {
+                    startedAtMs: Date.now(),
+                    maxElapsedMs: this.options.debug?.lazyMaterializerMaxElapsedMs,
+                    label: "synthetic_invoke_lazy_materializer",
+                },
+                this.callEdgeMaterializationLedger,
+            );
+        }
         recordBuildProfile("syntheticInvokeLazyMaterializerMs", syntheticInvokeLazyT0);
-        this.log("[buildPAG] lazy materializers done");
+        if (this.options.syntheticInvokeMaterialization !== "disabled") {
+            this.progress("[buildPAG] synthetic invoke lazy materializer done");
+        }
+        this.progress("[buildPAG] lazy materializers done");
         cacheEntry.captureLazyMaterializer = this.captureLazyMaterializer;
         cacheEntry.syntheticInvokeLazyMaterializer = this.syntheticInvokeLazyMaterializer;
         sceneCache.set(cacheKey, cacheEntry);
         this.configureContextStrategy();
-        this.log("[buildPAG] reachable start");
+        this.progress("[buildPAG] reachable start");
         const computeReachableT0 = process.hrtime.bigint();
         const reachable = this.computeReachableMethodSignatures();
         recordBuildProfile("computeReachableMs", computeReachableT0);
@@ -1092,7 +1433,7 @@ export class TaintPropagationEngine {
         this.lastPagBuildProfile.reachableMs =
             (this.lastPagBuildProfile.computeReachableMs || 0)
             + (this.lastPagBuildProfile.setActiveReachableMs || 0);
-        this.log("[buildPAG] reachable done");
+        this.progress("[buildPAG] reachable done");
         this.lastPagBuildProfile.totalMs = this.elapsedMsSince(buildProfileStart);
         this.lastPagBuildProfile.cacheHit = 0;
     }
@@ -1107,16 +1448,202 @@ export class TaintPropagationEngine {
         explicitSyntheticEntries: ArkMethod[],
         entryModel: EntryModel,
         arkMainPlan?: ReturnType<typeof buildArkMainPlan>,
+        arkMainEntryClosureMethods?: ArkMethod[],
     ): ArkMethod[] {
+        const arkMainMethods = arkMainEntryClosureMethods && arkMainEntryClosureMethods.length > 0
+            ? arkMainEntryClosureMethods
+            : (arkMainPlan || buildArkMainPlan(this.scene, { seedMethods: explicitSyntheticEntries })).orderedMethods;
         const defaultEntries = this.mergeSyntheticEntryMethods(
             explicitSyntheticEntries,
-            (arkMainPlan || buildArkMainPlan(this.scene, { seedMethods: explicitSyntheticEntries })).orderedMethods,
+            arkMainMethods,
         );
         return this.enginePluginRuntime.resolveEntries(defaultEntries, {
             discover: () => ({
                 orderedMethods: [...defaultEntries],
             }),
         });
+    }
+
+    private expandArkMainScheduledEntryClosure(methods: ArkMethod[]): ArkMethod[] {
+        if (methods.length === 0) return [];
+        const startedAt = process.hrtime.bigint();
+        let componentIndexMs = 0;
+        const componentEntrypointIndex = new Map<string, string[]>();
+        const componentIndexScanned = new Set<string>();
+        const methodsBySig = this.getMethodsBySignature();
+        const selected = new Map<string, ArkMethod>();
+        const directTargetCache = new Map<string, ArkMethod[]>();
+        const directQueue: ArkMethod[] = [];
+        const directQueued = new Set<string>();
+        const directExpanded = new Set<string>();
+        let directExpansionMs = 0;
+        let directExpansionAttemptCount = 0;
+        let keyedCallbackMs = 0;
+        let keyedCallbackPassCount = 0;
+        let keyedCallbackAddedCount = 0;
+        let componentExpansionMs = 0;
+        const mergeMethod = (method: ArkMethod | undefined): boolean => {
+            const signature = method ? safeMethodSignatureText(method) : undefined;
+            if (!signature || selected.has(signature)) return false;
+            selected.set(signature, method!);
+            if (!directQueued.has(signature) && !directExpanded.has(signature)) {
+                directQueued.add(signature);
+                directQueue.push(method!);
+            }
+            return true;
+        };
+        const mergeMethods = (incoming: Iterable<ArkMethod>): boolean => {
+            let changed = false;
+            for (const method of incoming) {
+                if (mergeMethod(method)) changed = true;
+            }
+            return changed;
+        };
+
+        const collectCachedDirectTargets = (method: ArkMethod): ArkMethod[] => {
+            const signature = safeMethodSignatureText(method);
+            if (!signature) return [];
+            const cached = directTargetCache.get(signature);
+            if (cached) return cached;
+            directExpansionAttemptCount++;
+            const directStartedAt = process.hrtime.bigint();
+            const targets = collectDirectCallExpansionTargetMethods(this.scene, method, {
+                includeKeyedDispatchCallbacks: false,
+            });
+            const elapsedMs = this.elapsedMsSince(directStartedAt);
+            directExpansionMs += elapsedMs;
+            if (elapsedMs > 5000 || directExpansionAttemptCount === 1 || directExpansionAttemptCount % 100 === 0) {
+                this.progress(
+                    `[ArkMain] entry closure direct #${directExpansionAttemptCount} `
+                    + `targets=${targets.length} elapsed_ms=${Math.round(elapsedMs)} `
+                    + `selected=${selected.size} queue=${directQueue.length} current=${this.shortReachableSignature(signature)}`,
+                );
+            }
+            directTargetCache.set(signature, targets);
+            return targets;
+        };
+
+        const drainDirectClosure = (): void => {
+            let keyedCallbackPassExpandedCount = 0;
+            while (directQueue.length > 0 || keyedCallbackPassExpandedCount !== selected.size) {
+                if (directQueue.length > 0) {
+                    this.progress(
+                        `[ArkMain] entry closure direct drain start queue=${directQueue.length} `
+                        + `selected=${selected.size} expanded=${directExpanded.size}`,
+                    );
+                }
+                while (directQueue.length > 0) {
+                    const method = directQueue.shift()!;
+                    const signature = safeMethodSignatureText(method);
+                    if (!signature || directExpanded.has(signature)) continue;
+                    directExpanded.add(signature);
+                    mergeMethods(collectCachedDirectTargets(method));
+                }
+
+                keyedCallbackPassExpandedCount = selected.size;
+                keyedCallbackPassCount++;
+                const keyedStartedAt = process.hrtime.bigint();
+                const callbacks = collectKeyedDispatchCallbackMethods(this.scene, [...selected.values()]);
+                const keyedElapsedMs = this.elapsedMsSince(keyedStartedAt);
+                keyedCallbackMs += keyedElapsedMs;
+                const before = selected.size;
+                const changed = mergeMethods(callbacks);
+                const added = selected.size - before;
+                keyedCallbackAddedCount += added;
+                if (keyedElapsedMs > 5000 || keyedCallbackPassCount === 1 || added > 0) {
+                    this.progress(
+                        `[ArkMain] entry closure keyed pass #${keyedCallbackPassCount} `
+                        + `callbacks=${callbacks.length} added=${added} elapsed_ms=${Math.round(keyedElapsedMs)} `
+                        + `selected=${selected.size}`,
+                    );
+                }
+                if (!changed) break;
+            }
+        };
+
+        const indexPendingComponentTargets = (): void => {
+            const pending: ArkMethod[] = [];
+            for (const [signature, method] of selected.entries()) {
+                if (componentIndexScanned.has(signature)) continue;
+                componentIndexScanned.add(signature);
+                pending.push(method);
+            }
+            if (pending.length === 0) return;
+            const componentIndexStartedAt = process.hrtime.bigint();
+            const partialIndex = buildComponentEntrypointExpansionIndex(this.scene, {
+                methods: pending,
+            });
+            componentIndexMs += this.elapsedMsSince(componentIndexStartedAt);
+            for (const [signature, targets] of partialIndex.entries()) {
+                componentEntrypointIndex.set(signature, targets);
+            }
+            if (pending.length > 100 || partialIndex.size > 0) {
+                this.progress(
+                    `[ArkMain] entry closure component index pending=${pending.length} `
+                    + `indexed=${partialIndex.size} scanned_total=${componentIndexScanned.size}`,
+                );
+            }
+        };
+
+        mergeMethods(methods);
+        drainDirectClosure();
+        let componentAddedCount = 0;
+        const maxRounds = 4;
+        for (let round = 0; round < maxRounds; round++) {
+            let changed = false;
+            indexPendingComponentTargets();
+            const componentStartedAt = process.hrtime.bigint();
+            for (const signature of [...selected.keys()]) {
+                const componentTargets = componentEntrypointIndex.get(signature) || [];
+                for (const targetSignature of componentTargets) {
+                    if (mergeMethod(methodsBySig.get(targetSignature))) {
+                        componentAddedCount++;
+                        changed = true;
+                    }
+                }
+            }
+            componentExpansionMs += this.elapsedMsSince(componentStartedAt);
+            this.progress(
+                `[ArkMain] entry closure component round=${round + 1}/${maxRounds} `
+                + `changed=${changed ? 1 : 0} selected=${selected.size} component_added=${componentAddedCount}`,
+            );
+            if (!changed) break;
+            drainDirectClosure();
+        }
+        const expanded = [...selected.values()];
+        this.lastPagBuildProfile.arkMainEntryClosureMs = this.elapsedMsSince(startedAt);
+        this.lastPagBuildProfile.arkMainEntryClosureComponentIndexMs = componentIndexMs;
+        this.lastPagBuildProfile.arkMainEntryClosureDirectExpansionMs = directExpansionMs;
+        this.lastPagBuildProfile.arkMainEntryClosureDirectExpansionAttemptCount = directExpansionAttemptCount;
+        this.lastPagBuildProfile.arkMainEntryClosureKeyedCallbackMs = keyedCallbackMs;
+        this.lastPagBuildProfile.arkMainEntryClosureKeyedCallbackPassCount = keyedCallbackPassCount;
+        this.lastPagBuildProfile.arkMainEntryClosureKeyedCallbackAddedCount = keyedCallbackAddedCount;
+        this.lastPagBuildProfile.arkMainEntryClosureComponentExpansionMs = componentExpansionMs;
+        this.lastPagBuildProfile.arkMainScheduledMethodCount = methods.length;
+        this.lastPagBuildProfile.arkMainEntryClosureMethodCount = expanded.length;
+        this.lastPagBuildProfile.arkMainEntryClosureComponentAddedCount = componentAddedCount;
+        if (this.lastPagBuildProfile.arkMainEntryClosureMs > 500 || expanded.length > methods.length) {
+            this.progress(
+                `[ArkMain] entry closure scheduled=${methods.length} expanded=${expanded.length} `
+                + `component_added=${componentAddedCount} `
+                + `elapsed_ms=${Math.round(this.lastPagBuildProfile.arkMainEntryClosureMs)}`,
+            );
+        }
+        return expanded;
+    }
+
+    private resolveArkMainScheduledEntryMethods(methods: ArkMethod[]): ArkMethod[] {
+        if (this.options.arkMainEntryClosure === "scheduledOnly") {
+            const scheduled = this.normalizeSyntheticEntryMethods(methods);
+            this.lastPagBuildProfile.arkMainEntryClosureMs = 0;
+            this.lastPagBuildProfile.arkMainEntryClosureComponentIndexMs = 0;
+            this.lastPagBuildProfile.arkMainScheduledMethodCount = methods.length;
+            this.lastPagBuildProfile.arkMainEntryClosureMethodCount = scheduled.length;
+            this.lastPagBuildProfile.arkMainEntryClosureComponentAddedCount = 0;
+            this.lastPagBuildProfile.arkMainEntryClosureSkipped = 1;
+            return scheduled;
+        }
+        return this.expandArkMainScheduledEntryClosure(methods);
     }
 
     private normalizeSyntheticEntryMethods(methods?: ArkMethod[]): ArkMethod[] {
@@ -1192,6 +1719,39 @@ export class TaintPropagationEngine {
         return `${signature.slice(0, 48)}...${signature.slice(-40)}`;
     }
 
+    private collectContextualDirectCallExpansionTargetSignatures(
+        method: ArkMethod,
+        thisOwnerContextIndex: Map<string, Set<string>>,
+        budget?: BuildStageBudget,
+    ): string[] {
+        const methodSignature = safeMethodSignatureText(method);
+        if (!methodSignature) return [];
+        const ownerNames = [...(thisOwnerContextIndex.get(methodSignature) || [])].sort();
+        if (ownerNames.length === 0) return [];
+        const cfg = method.getCfg?.();
+        if (!cfg) return [];
+
+        const out = new Set<string>();
+        for (const stmt of cfg.getStmts()) {
+            assertBuildStageBudget(budget, `contextual_direct_targets.stmt(${this.shortReachableSignature(methodSignature)})`);
+            if (!stmt.containsInvokeExpr?.()) continue;
+            const invokeExpr = stmt.getInvokeExpr?.();
+            if (!invokeExpr) continue;
+            if (!isThisReceiverInvokeForReachability(invokeExpr)) continue;
+            for (const ownerName of ownerNames) {
+                for (const resolved of resolveCalleeCandidates(this.scene, invokeExpr, {
+                    maxNameMatchCandidates: 8,
+                    enableDirectCallableTargets: false,
+                    thisOwnerNames: [ownerName],
+                })) {
+                    const targetSignature = safeMethodSignatureText(resolved.method);
+                    if (targetSignature) out.add(targetSignature);
+                }
+            }
+        }
+        return [...out].sort();
+    }
+
     public computeReachableMethodSignatures(): Set<string> {
         this.lastReachableProfile = {};
         const reachableProfileStart = process.hrtime.bigint();
@@ -1221,6 +1781,7 @@ export class TaintPropagationEngine {
         );
 
         const directCgBfsT0 = process.hrtime.bigint();
+        this.progress("[reachable] direct cg bfs start");
         for (let head = 0; head < queue.length; head++) {
             assertBuildStageBudget(reachableBudget, `direct_cg_bfs(head=${head},queue=${queue.length})`);
             const nodeId = queue[head];
@@ -1247,32 +1808,85 @@ export class TaintPropagationEngine {
         }
         recordReachableProfile("directCgBfsMs", directCgBfsT0);
         this.lastReachableProfile.directCgVisitedCount = visited.size;
+        this.progress(`[reachable] direct cg bfs done visited=${visited.size} reachable=${reachable.size}`);
+
+        const syntheticAdj = new Map<string, Set<string>>();
+        const syntheticMaterializedCallers = new Set<string>();
+        const syntheticEdgeMergeCursors = new Map<number, number>();
+        let syntheticInvokeMaterializeMs = 0;
+        let syntheticAdjRefreshMs = 0;
+        let syntheticMaterializedCallerCount = 0;
+
+        const materializeSyntheticCaller = (signature: string): boolean => {
+            if (!signature || syntheticMaterializedCallers.has(signature)) return false;
+            syntheticMaterializedCallers.add(signature);
+            if (!this.activePagCacheEntry?.syntheticInvokeLazyMaterializer) return false;
+            const startedAt = process.hrtime.bigint();
+            materializeSyntheticInvokeSitesForCaller(
+                this.scene,
+                this.cg,
+                this.pag,
+                this.syntheticInvokeEdgeMap,
+                this.activePagCacheEntry.syntheticInvokeLazyMaterializer,
+                signature,
+                this.executionHandoffDeferredSiteKeys,
+                undefined,
+                reachableBudget,
+            );
+            syntheticInvokeMaterializeMs += this.elapsedMsSince(startedAt);
+            syntheticMaterializedCallerCount++;
+            return true;
+        };
+
+        const mergeSyntheticAdjFromEdges = (mode: "all" | "new" = "new"): void => {
+            const startedAt = process.hrtime.bigint();
+            for (const [nodeId, edges] of this.syntheticInvokeEdgeMap.entries()) {
+                assertBuildStageBudget(reachableBudget, "synthetic_adj.edges");
+                const startIndex = mode === "all" ? 0 : (syntheticEdgeMergeCursors.get(nodeId) || 0);
+                for (let edgeIndex = startIndex; edgeIndex < edges.length; edgeIndex += 1) {
+                    const edge = edges[edgeIndex];
+                    if (edge.type !== CallEdgeType.CALL) continue;
+                    if (!edge.callerSignature || !edge.calleeSignature) continue;
+                    if (!syntheticAdj.has(edge.callerSignature)) {
+                        syntheticAdj.set(edge.callerSignature, new Set());
+                    }
+                    syntheticAdj.get(edge.callerSignature)!.add(edge.calleeSignature);
+                }
+                syntheticEdgeMergeCursors.set(nodeId, edges.length);
+            }
+            syntheticAdjRefreshMs += this.elapsedMsSince(startedAt);
+        };
+
+        const ensureSyntheticAdjForCaller = (signature: string): void => {
+            const materializedNow = materializeSyntheticCaller(signature);
+            if (!materializedNow) return;
+            mergeSyntheticAdjFromEdges("new");
+        };
 
         const syntheticMaterializeT0 = process.hrtime.bigint();
+        this.progress("[reachable] synthetic materialize start");
         assertBuildStageBudget(reachableBudget, "synthetic_materialize.start");
-        this.ensureAllSyntheticInvokeEdgesMaterialized(reachableBudget);
+        for (const signature of reachable) {
+            materializeSyntheticCaller(signature);
+        }
         assertBuildStageBudget(reachableBudget, "synthetic_materialize.done");
         recordReachableProfile("syntheticInvokeMaterializeMs", syntheticMaterializeT0);
+        this.lastReachableProfile.syntheticInvokeMaterializeCallerCount = syntheticMaterializedCallerCount;
+        this.progress(`[reachable] synthetic materialize done callers=${syntheticMaterializedCallerCount}`);
+        this.progress("[reachable] synthetic adjacency build start");
         const syntheticAdjT0 = process.hrtime.bigint();
-        const syntheticAdj = new Map<string, Set<string>>();
-        for (const edges of this.syntheticInvokeEdgeMap.values()) {
-            assertBuildStageBudget(reachableBudget, "synthetic_adj.edges");
-            for (const edge of edges) {
-                if (edge.type !== CallEdgeType.CALL) continue;
-                if (!edge.callerSignature || !edge.calleeSignature) continue;
-                if (!syntheticAdj.has(edge.callerSignature)) {
-                    syntheticAdj.set(edge.callerSignature, new Set());
-                }
-                syntheticAdj.get(edge.callerSignature)!.add(edge.calleeSignature);
-            }
-        }
+        mergeSyntheticAdjFromEdges("all");
         recordReachableProfile("syntheticAdjBuildMs", syntheticAdjT0);
+        this.lastReachableProfile.syntheticAdjRefreshMs = syntheticAdjRefreshMs;
+        this.progress(`[reachable] synthetic adjacency build done callers=${syntheticAdj.size}`);
         const syntheticQueue = [...reachable];
         const syntheticVisited = new Set<string>(reachable);
         const syntheticBfsT0 = process.hrtime.bigint();
+        this.progress(`[reachable] synthetic bfs start initial=${syntheticQueue.length}`);
         for (let head = 0; head < syntheticQueue.length; head++) {
             assertBuildStageBudget(reachableBudget, `synthetic_bfs(head=${head},queue=${syntheticQueue.length})`);
             const sig = syntheticQueue[head];
+            ensureSyntheticAdjForCaller(sig);
             const callees = syntheticAdj.get(sig);
             if (!callees) continue;
             for (const callee of callees) {
@@ -1280,35 +1894,79 @@ export class TaintPropagationEngine {
                 syntheticVisited.add(callee);
                 reachable.add(callee);
                 syntheticQueue.push(callee);
+                ensureSyntheticAdjForCaller(callee);
             }
         }
         recordReachableProfile("syntheticBfsMs", syntheticBfsT0);
+        this.progress(`[reachable] synthetic bfs done visited=${syntheticVisited.size} reachable=${reachable.size}`);
 
         const methodsBySigT0 = process.hrtime.bigint();
-        const methodsBySig = new Map<string, ArkMethod>();
-        for (const method of this.scene.getMethods()) {
-            assertBuildStageBudget(reachableBudget, "methods_by_sig");
-            const signature = safeMethodSignatureText(method);
-            if (!signature) continue;
-            methodsBySig.set(signature, method);
-        }
+        this.progress("[reachable] methods by signature start");
+        assertBuildStageBudget(reachableBudget, "methods_by_sig");
+        const methodsBySig = this.getMethodsBySignature();
         recordReachableProfile("methodsBySigMs", methodsBySigT0);
+        this.progress(`[reachable] methods by signature done count=${methodsBySig.size}`);
 
+        const directReachabilityExpansionEnabled = this.options.reachabilityDirectExpansion !== "disabled";
+        this.progress(
+            `[reachable] direct expansion ${directReachabilityExpansionEnabled ? "enabled" : "disabled"} `
+            + `mode=${this.options.arkMainEntryClosure === "scheduledOnly" ? "candidate_scheduled_entry" : "full"}`,
+        );
         const fixedPointT0 = process.hrtime.bigint();
         const componentIndexT0 = process.hrtime.bigint();
+        this.progress("[reachable] component entrypoint index start");
         assertBuildStageBudget(reachableBudget, "component_entrypoint_index.start");
-        const componentEntrypointIndex = buildComponentEntrypointExpansionIndex(this.scene);
+        const componentSeedMethods = directReachabilityExpansionEnabled
+            ? [...reachable]
+                .map(signature => methodsBySig.get(signature))
+                .filter((method): method is ArkMethod => !!method)
+            : [];
+        const componentEntrypointIndex = buildComponentEntrypointExpansionIndex(this.scene, {
+            methods: componentSeedMethods,
+            progress: msg => this.progress(`[reachable] ${msg}`),
+            progressInterval: 100,
+        });
         assertBuildStageBudget(reachableBudget, "component_entrypoint_index.done");
         recordReachableProfile("componentEntrypointIndexMs", componentIndexT0);
+        this.progress(`[reachable] component entrypoint index done seeds=${componentSeedMethods.length} owners=${componentEntrypointIndex.size}`);
+        const thisOwnerContextIndexT0 = process.hrtime.bigint();
+        const reusedThisOwnerContextIndex = directReachabilityExpansionEnabled
+            ? this.syntheticInvokeLazyMaterializer?.lookupContext.thisOwnerNamesByMethodSignature
+            : undefined;
+        const thisOwnerSeedMethods = directReachabilityExpansionEnabled
+            ? [...reachable]
+                .map(signature => methodsBySig.get(signature))
+                .filter((method): method is ArkMethod => !!method)
+            : [];
+        if (directReachabilityExpansionEnabled && !reusedThisOwnerContextIndex) {
+            this.progress(`[reachable] this owner context index build start seeds=${thisOwnerSeedMethods.length}`);
+        }
+        const thisOwnerContextIndex = directReachabilityExpansionEnabled
+            ? (reusedThisOwnerContextIndex || buildMethodThisOwnerContextIndex(this.scene, thisOwnerSeedMethods, {
+                budget: reachableBudget,
+                log: msg => this.progress(`[reachable] ${msg}`),
+                progressInterval: 200,
+            }))
+            : new Map<string, Set<string>>();
+        recordReachableProfile("thisOwnerContextIndexMs", thisOwnerContextIndexT0);
+        this.lastReachableProfile.directExpansionDisabled = directReachabilityExpansionEnabled ? 0 : 1;
+        this.progress(
+            directReachabilityExpansionEnabled
+                ? `[reachable] this owner context index ${reusedThisOwnerContextIndex ? "reused" : "built"} methods=${thisOwnerContextIndex.size}`
+                : "[reachable] this owner context index skipped because direct expansion is disabled",
+        );
 
         const directTargetsCache = new Map<string, string[]>();
         const frameworkCallbackCache = new Map<string, string[]>();
         const ordinaryCallbackCache = new Map<string, string[]>();
         let directExpansionMs = 0;
         let componentExpansionMs = 0;
+        let syntheticFixedPointExpansionMs = 0;
         let frameworkCallbackMs = 0;
         let ordinaryCallbackMs = 0;
         let expansionAddedCount = 0;
+        let syntheticFixedPointExpansionAddedCount = 0;
+        let directExpansionAttemptCount = 0;
 
         const getDirectTargets = (signature: string): string[] => {
             const cached = directTargetsCache.get(signature);
@@ -1318,19 +1976,38 @@ export class TaintPropagationEngine {
                 directTargetsCache.set(signature, []);
                 return [];
             }
+            directExpansionAttemptCount++;
+            const shortSignature = this.shortReachableSignature(signature);
+            if (directExpansionAttemptCount === 1 || directExpansionAttemptCount % 100 === 0) {
+                this.progress(
+                    `[reachable] direct expansion resolving method #${directExpansionAttemptCount} `
+                    + `current=${shortSignature}`,
+                );
+            }
             const startedAt = process.hrtime.bigint();
-            assertBuildStageBudget(reachableBudget, `direct_targets.start(${this.shortReachableSignature(signature)})`);
-            const targets = collectDirectCallExpansionTargetMethods(this.scene, method, {
+            assertBuildStageBudget(reachableBudget, `direct_targets.start(${shortSignature})`);
+            const targets = new Set(collectDirectCallExpansionTargetMethods(this.scene, method, {
                 includeKeyedDispatchCallbacks: false,
                 budget: reachableBudget,
-                budgetLabel: this.shortReachableSignature(signature),
+                budgetLabel: shortSignature,
             })
                 .map(target => safeMethodSignatureText(target))
-                .filter((target): target is string => !!target);
-            assertBuildStageBudget(reachableBudget, `direct_targets.done(count=${targets.length},sig=${this.shortReachableSignature(signature)})`);
-            directExpansionMs += this.elapsedMsSince(startedAt);
-            directTargetsCache.set(signature, targets);
-            return targets;
+                .filter((target): target is string => !!target));
+            for (const target of this.collectContextualDirectCallExpansionTargetSignatures(method, thisOwnerContextIndex, reachableBudget)) {
+                targets.add(target);
+            }
+            const sortedTargets = [...targets].sort();
+            assertBuildStageBudget(reachableBudget, `direct_targets.done(count=${sortedTargets.length},sig=${shortSignature})`);
+            const elapsedMs = this.elapsedMsSince(startedAt);
+            directExpansionMs += elapsedMs;
+            if (elapsedMs > 5000 || directExpansionAttemptCount % 100 === 0) {
+                this.progress(
+                    `[reachable] direct expansion resolved method #${directExpansionAttemptCount} `
+                    + `targets=${sortedTargets.length} elapsed_ms=${Math.round(elapsedMs)} current=${shortSignature}`,
+                );
+            }
+            directTargetsCache.set(signature, sortedTargets);
+            return sortedTargets;
         };
 
         const getFrameworkCallbackTargets = (signature: string): string[] => {
@@ -1369,21 +2046,44 @@ export class TaintPropagationEngine {
 
         const expansionQueue = [...reachable];
         const expanded = new Set<string>();
-        const enqueueReachable = (signature: string): void => {
-            if (!signature || reachable.has(signature)) return;
+        const enqueueReachable = (signature: string): boolean => {
+            if (!signature || reachable.has(signature)) return false;
             reachable.add(signature);
             expansionQueue.push(signature);
             expansionAddedCount++;
+            return true;
         };
 
+        this.progress(`[reachable] fixed point start queue=${expansionQueue.length} reachable=${reachable.size}`);
         for (let head = 0; head < expansionQueue.length; head++) {
             assertBuildStageBudget(reachableBudget, `fixed_point(head=${head},queue=${expansionQueue.length},reachable=${reachable.size})`);
+            if (head > 0 && head % 100 === 0) {
+                this.progress(
+                    `[reachable] fixed point progress head=${head} queue=${expansionQueue.length} reachable=${reachable.size} `
+                    + `expanded=${expanded.size} synthetic_ms=${syntheticFixedPointExpansionMs.toFixed(1)} `
+                    + `direct_ms=${directExpansionMs.toFixed(1)} `
+                    + `callback_ms=${(frameworkCallbackMs + ordinaryCallbackMs).toFixed(1)}`,
+                );
+            }
             const signature = expansionQueue[head];
             if (expanded.has(signature)) continue;
             expanded.add(signature);
 
-            for (const target of getDirectTargets(signature)) {
-                enqueueReachable(target);
+            const syntheticStartedAt = process.hrtime.bigint();
+            ensureSyntheticAdjForCaller(signature);
+            const syntheticTargets = syntheticAdj.get(signature) || [];
+            for (const target of syntheticTargets) {
+                if (enqueueReachable(target)) {
+                    syntheticFixedPointExpansionAddedCount++;
+                    ensureSyntheticAdjForCaller(target);
+                }
+            }
+            syntheticFixedPointExpansionMs += this.elapsedMsSince(syntheticStartedAt);
+
+            if (directReachabilityExpansionEnabled) {
+                for (const target of getDirectTargets(signature)) {
+                    enqueueReachable(target);
+                }
             }
 
             const componentStartedAt = process.hrtime.bigint();
@@ -1401,11 +2101,18 @@ export class TaintPropagationEngine {
                 enqueueReachable(callbackSignature);
             }
         }
+        this.progress(`[reachable] fixed point done expanded=${expanded.size} reachable=${reachable.size} added=${expansionAddedCount}`);
+        this.lastReachableProfile.syntheticInvokeMaterializeTotalMs = syntheticInvokeMaterializeMs;
+        this.lastReachableProfile.syntheticInvokeMaterializeCallerCount = syntheticMaterializedCallerCount;
+        this.lastReachableProfile.syntheticAdjRefreshMs = syntheticAdjRefreshMs;
+        this.lastReachableProfile.syntheticAdjRefreshedCallerCount = syntheticAdj.size;
         this.lastReachableProfile.directExpansionFirstPassMs = directExpansionMs;
         this.lastReachableProfile.frameworkCallbackIndexMs = 0;
         this.lastReachableProfile.frameworkCallbackBfsMs = frameworkCallbackMs;
         this.lastReachableProfile.ordinaryCallbackBfsMs = ordinaryCallbackMs;
         this.lastReachableProfile.componentEntrypointExpansionMs = componentExpansionMs;
+        this.lastReachableProfile.syntheticFixedPointExpansionMs = syntheticFixedPointExpansionMs;
+        this.lastReachableProfile.syntheticFixedPointExpansionAddedCount = syntheticFixedPointExpansionAddedCount;
         this.lastReachableProfile.incrementalExpandedMethodCount = expanded.size;
         this.lastReachableProfile.incrementalExpansionAddedCount = expansionAddedCount;
         recordReachableProfile("fixedPointExpansionMs", fixedPointT0);
@@ -1519,6 +2226,7 @@ export class TaintPropagationEngine {
         sourceRuleHits: Record<string, number>;
         sourceSeedAudit: SourceRuleSeedAuditEntry[];
         sourceRuleZeroHitAudit: SourceRuleZeroHitAuditEntry[];
+        endpointResolutionAudit: EndpointResolutionLedgerItem[];
     } {
         this.lastSourceRulePropagationProfile = {};
         const profileStart = process.hrtime.bigint();
@@ -1527,13 +2235,8 @@ export class TaintPropagationEngine {
         };
         this.clearRuleHits("source");
         const normalizeT0 = process.hrtime.bigint();
-        const pluginSourceRules = this.normalizeRuntimeSourceRules(
-            this.enginePluginRuntime.getAdditionalSourceRules(),
-            "plugin_runtime",
-        );
         const effectiveSourceRules = this.mergeAutoEntrySourceRules([
             ...this.normalizeRuntimeSourceRules(sourceRules || [], "runtime_project"),
-            ...pluginSourceRules,
         ]);
         recordProfile("normalizeAndMergeMs", normalizeT0);
         this.lastSourceRulePropagationProfile.effectiveRuleCount = effectiveSourceRules.length;
@@ -1608,14 +2311,17 @@ export class TaintPropagationEngine {
                 sourceRuleHits: this.toRecord(this.ruleHits.source),
                 sourceSeedAudit: [],
                 sourceRuleZeroHitAudit: ruleSeeds.sourceRuleZeroHitAudit,
+                endpointResolutionAudit: ruleSeeds.endpointResolutionAudit,
             };
         }
 
         this.log(`Initialized WorkList with ${mergedFacts.size} source-rule seeds.`);
+        this.progress(`[source-seed] worklist propagation start seeds=${mergedFacts.size}`);
         const sourceHitEntries = Object.entries(ruleSeeds.sourceRuleHits);
         const initialPropagationT0 = process.hrtime.bigint();
         this.propagateWithFacts(Array.from(mergedFacts.values()));
         recordProfile("initialPropagationMs", initialPropagationT0);
+        this.progress(`[source-seed] worklist propagation done elapsed_ms=${Math.round(this.lastSourceRulePropagationProfile.initialPropagationMs || 0)}`);
         const finalHitMarkT0 = process.hrtime.bigint();
         for (const [ruleId, hitCount] of sourceHitEntries) {
             this.markRuleHit("source", ruleId, Number(hitCount) || 0);
@@ -1629,6 +2335,7 @@ export class TaintPropagationEngine {
             sourceRuleHits: this.toRecord(this.ruleHits.source),
             sourceSeedAudit: ruleSeeds.sourceSeedAudit,
             sourceRuleZeroHitAudit: ruleSeeds.sourceRuleZeroHitAudit,
+            endpointResolutionAudit: ruleSeeds.endpointResolutionAudit,
         };
     }
 
@@ -1694,11 +2401,8 @@ export class TaintPropagationEngine {
                     ruleId,
                     sourceKind: rule.sourceKind,
                     match: rule.match,
-                    scope: rule.scope,
                     target: rule.target,
                     endpoint: (rule as any).endpoint,
-                    calleeScope: (rule as any).calleeScope,
-                    typeHint: (rule as any).typeHint,
                     effectiveRuleCount: sourceRules.length,
                     activatedMethodCount,
                     passCount,
@@ -1807,8 +2511,6 @@ export class TaintPropagationEngine {
             return {
                 ...rule,
                 tags: rule.tags ? [...rule.tags] : undefined,
-                scope: rule.scope ? { ...rule.scope } : undefined,
-                calleeScope: rule.calleeScope ? { ...rule.calleeScope } : undefined,
                 target,
             };
         });
@@ -1823,13 +2525,11 @@ export class TaintPropagationEngine {
         }
     ): TaintFlow[] {
         this.clearRuleHits("sink");
-        const effectiveSinkRules = this.orderRulesByFamilyTier([
+        const effectiveSinkRules = this.orderRulesByFamily([
             ...this.normalizeRuntimeSinkRules(sinkRules || [], "runtime_project"),
-            ...this.normalizeRuntimeSinkRules(this.enginePluginRuntime.getAdditionalSinkRules(), "plugin_runtime"),
         ]);
-        const effectiveSanitizerRules = this.orderRulesByFamilyTier([
+        const effectiveSanitizerRules = this.orderRulesByFamily([
             ...this.normalizeRuntimeSanitizerRules(options?.sanitizerRules || [], "runtime_project"),
-            ...this.normalizeRuntimeSanitizerRules(this.enginePluginRuntime.getAdditionalSanitizerRules(), "plugin_runtime"),
         ]);
         const detectionInput = {
             sinkRules: effectiveSinkRules,
@@ -2037,27 +2737,29 @@ export class TaintPropagationEngine {
             });
         };
         const buildDetectCacheKey = (
-            signature: string,
+            rule: SinkRule,
             target: {
                 targetEndpoint?: RuleEndpoint;
                 targetPath?: string[];
-                invokeKind?: RuleInvokeKind;
-                argCount?: number;
-                typeHint?: string;
+                targetTaintScope?: RuleEndpointTaintScope;
             },
-            effectiveCalleeScope?: RuleScopeConstraint,
-            effectiveCallerScope?: RuleScopeConstraint,
         ): string => {
             const endpoint = target.targetEndpoint || "";
             const path = target.targetPath && target.targetPath.length > 0
                 ? target.targetPath.join(".")
                 : "";
-            const invokeKind = target.invokeKind || "";
-            const argCount = target.argCount === undefined ? "" : String(target.argCount);
-            const typeHint = target.typeHint || "";
-            const calleeScope = stringifyRuleScope(effectiveCalleeScope);
-            const callerScope = stringifyRuleScope(effectiveCallerScope);
-            return `${signature}|${endpoint}|${path}|${invokeKind}|${argCount}|${typeHint}|${calleeScope}|${callerScope}`;
+            const taintScope = target.targetTaintScope || "";
+            const identity = rule.apiEffect;
+            return [
+                identity?.canonicalApiId || "",
+                identity?.assetId || "",
+                identity?.surfaceId || "",
+                identity?.bindingId || "",
+                identity?.effectTemplateId || "",
+                endpoint,
+                path,
+                taintScope,
+            ].join("|");
         };
         const buildFlowDedupKey = (flow: TaintFlow): string => {
             const sinkMethodSig = flow.sink?.getCfg?.()?.getDeclaringMethod?.()?.getSignature?.()?.toString?.() || "";
@@ -2086,101 +2788,80 @@ export class TaintPropagationEngine {
             return maxFlowLimit !== undefined && flowMap.size >= maxFlowLimit;
         };
 
-        const orderedSinkRules = this.orderRulesByFamilyTier(sinkRules);
-        const bestTierBySignatureFamily = new Map<string, number>();
+        const orderedSinkRules = this.orderRulesByFamily(sinkRules);
+        const detectStartedAt = Date.now();
+        this.progress(`[detect] sink rules start count=${orderedSinkRules.length}`);
+        let processedSinkRules = 0;
         for (const rule of orderedSinkRules) {
+            processedSinkRules++;
+            if (processedSinkRules === 1 || processedSinkRules % 20 === 0) {
+                this.progress(`[detect] sink rules progress processed=${processedSinkRules}/${orderedSinkRules.length} flows=${flowMap.size} elapsed_ms=${Date.now() - detectStartedAt}`);
+            }
             if (reachedFlowLimit()) break;
-            const signatures = resolveSinkRuleSignaturesByRule(this.scene, rule);
+            if (!hasApiEffectIdentity(rule)) continue;
             const target = this.resolveSinkRuleTarget(rule);
             const sinkEndpoint = target.targetEndpoint || "any_arg";
             const sinkPathSuffix = target.targetPath && target.targetPath.length > 0
                 ? `.${target.targetPath.join(".")}`
                 : "";
-            const family = resolveRuleFamily(rule);
-            const tier = resolveRuleTierWeight(rule);
-            const effectiveCalleeScope = rule.calleeScope
-                ? { ...rule.calleeScope }
-                : (rule.scope ? { ...rule.scope } : undefined);
-            const effectiveCallerScope = rule.calleeScope && rule.scope
-                ? { ...rule.scope }
-                : undefined;
-            for (const signature of signatures) {
-                const cacheKey = buildDetectCacheKey(signature, target, effectiveCalleeScope, effectiveCallerScope);
-                let flows: TaintFlow[];
-                const cached = detectCache.get(cacheKey);
-                if (cached) {
-                    flows = cached.map(cloneFlow);
-                } else {
-                    const computed = this.detectSinks(signature, {
-                        ...target,
-                        callerScope: effectiveCallerScope,
-                        calleeScope: effectiveCalleeScope,
-                        sinkRuleId: rule.id,
-                        sanitizerRules: options?.sanitizerRules || [],
-                    });
-                    detectCache.set(cacheKey, computed.map(cloneFlow));
-                    flows = computed.map(cloneFlow);
-                }
-                for (const flow of flows) {
-                    flow.sinkRuleId = rule.id;
-                    flow.sinkEndpoint = `${sinkEndpoint}${sinkPathSuffix}`;
-                    if (!flow.sourceRuleId) {
-                        flow.sourceRuleId = this.parseSourceRuleId(flow.source);
-                    }
-                    if (flow.sinkNodeId !== undefined) {
-                        const chains = this.getRuleChainsForNodeAnyContext(flow.sinkNodeId, flow.sinkFieldPath);
-                        const transferSet = new Set<string>(flow.transferRuleIds || []);
-                        for (const chain of chains) {
-                            if (!flow.sourceRuleId && chain.sourceRuleId) {
-                                flow.sourceRuleId = chain.sourceRuleId;
-                            }
-                            for (const rid of chain.transferRuleIds) {
-                                transferSet.add(rid);
-                            }
-                        }
-                        flow.transferRuleIds = [...transferSet].sort();
-                        flow.sinkFactId = this.resolveBestSinkFactId(flow.sinkNodeId, flow.sinkFieldPath, flow.source, flow.sourceRuleId);
-                    }
-                }
-                if (family) {
-                    flows = flows.filter(flow => {
-                        const actualSignature = this.resolveSinkFlowCalleeSignature(flow);
-                        if (!actualSignature) return true;
-                        const actualSignatureFamilyKey = `${actualSignature}|${family}`;
-                        const bestActualTier = bestTierBySignatureFamily.get(actualSignatureFamilyKey) || 0;
-                        return tier >= bestActualTier;
-                    });
-                }
-                if (family && flows.length > 0) {
-                    for (const flow of flows) {
-                        const actualSignature = this.resolveSinkFlowCalleeSignature(flow);
-                        if (!actualSignature) continue;
-                        const actualSignatureFamilyKey = `${actualSignature}|${family}`;
-                        const bestActualTier = bestTierBySignatureFamily.get(actualSignatureFamilyKey) || 0;
-                        if (tier > bestActualTier) {
-                            bestTierBySignatureFamily.set(actualSignatureFamilyKey, tier);
-                        }
-                    }
-                }
-                addFlows(rule.id, flows);
-                if (reachedFlowLimit()) break;
+            const cacheKey = buildDetectCacheKey(rule, target);
+            let flows: TaintFlow[];
+            const cached = detectCache.get(cacheKey);
+            if (cached) {
+                flows = cached.map(cloneFlow);
+            } else {
+                const computed = this.detectSinkEffects(rule, {
+                    ...target,
+                    sinkRuleId: rule.id,
+                    sanitizerRules: options?.sanitizerRules || [],
+                    apiEffectRuntimeIndex: this.apiEffectRuntimeIndex,
+                });
+                detectCache.set(cacheKey, computed.map(cloneFlow));
+                flows = computed.map(cloneFlow);
             }
+            for (const flow of flows) {
+                flow.sinkRuleId = rule.id;
+                flow.sinkEndpoint = `${sinkEndpoint}${sinkPathSuffix}`;
+                if (!flow.sourceRuleId) {
+                    flow.sourceRuleId = this.parseSourceRuleId(flow.source);
+                }
+                if (flow.sinkNodeId !== undefined) {
+                    const chains = this.getRuleChainsForNodeAnyContext(flow.sinkNodeId, flow.sinkFieldPath);
+                    const transferSet = new Set<string>(flow.transferRuleIds || []);
+                    for (const chain of chains) {
+                        if (!flow.sourceRuleId && chain.sourceRuleId) {
+                            flow.sourceRuleId = chain.sourceRuleId;
+                        }
+                        for (const rid of chain.transferRuleIds) {
+                            transferSet.add(rid);
+                        }
+                    }
+                    flow.transferRuleIds = [...transferSet].sort();
+                    flow.sinkFactId = this.resolveBestSinkFactId(flow.sinkNodeId, flow.sinkFieldPath, flow.source, flow.sourceRuleId);
+                }
+            }
+            addFlows(rule.id, flows);
         }
+        this.progress(`[detect] sink rules done processed=${processedSinkRules}/${orderedSinkRules.length} flows=${flowMap.size} elapsed_ms=${Date.now() - detectStartedAt}`);
 
         return Array.from(flowMap.values());
     }
 
     private runWorkList(worklist: TaintFact[], visited: Set<string>): void {
+        const startedAt = process.hrtime.bigint();
+        this.progress(`[worklist] setup start initial=${worklist.length} visited=${visited.size}`);
         this.lastWorklistTruncation = undefined;
         this.prepareDebugCollectors();
-        const orderedTransferRules = this.orderRulesByFamilyTier([
+        const orderedTransferRules = this.orderRulesByFamily([
             ...this.normalizeRuntimeTransferRules(this.options.transferRules || [], "runtime_project"),
-            ...this.normalizeRuntimeTransferRules(this.enginePluginRuntime.getAdditionalTransferRules(), "plugin_runtime"),
         ]);
+        this.progress(`[worklist] transfer rules ready count=${orderedTransferRules.length}`);
         const propagationHooks = this.enginePluginRuntime.beginPropagation({
             pag: this.pag,
         });
+        this.progress("[worklist] propagation hooks ready");
         const deps = this.buildWorklistSolverDeps(orderedTransferRules, propagationHooks);
+        this.progress("[worklist] solver start");
         runWorklistSolvingStage({
             worklist,
             visited,
@@ -2194,6 +2875,7 @@ export class TaintPropagationEngine {
                 };
             },
         });
+        this.progress(`[worklist] solver done elapsed_ms=${Math.round(this.elapsedMsSince(startedAt))} visited=${visited.size}`);
     }
 
     private buildWorklistSolverDeps(
@@ -2213,8 +2895,14 @@ export class TaintPropagationEngine {
             fieldToVarIndex: this.fieldToVarIndex,
             queries: moduleQueries,
             log: this.log.bind(this),
+            moduleSetupDeadlineMs: this.options.debug?.moduleSetupMaxElapsedMs,
+            currentnessAnalysis: this.options.currentness || "enabled",
+            canonicalApiOccurrences: this.buildModuleCanonicalApiOccurrences(),
+            canonicalDecoratorOccurrences: this.buildModuleCanonicalDecoratorOccurrences(),
         });
         this.moduleRuntime = moduleRuntime;
+        const recordProvenance = this.options.provenanceRecording !== "disabled";
+        const trackFlowRuleChains = this.options.flowRuleChainTracking !== "disabled";
         return {
             scene: this.scene,
             pag: this.pag,
@@ -2231,21 +2919,25 @@ export class TaintPropagationEngine {
             ensureSyntheticInvokeEdgesForNode: (nodeId) => this.ensureLazySyntheticInvokeEdgesForNode(nodeId),
             fieldToVarIndex: this.fieldToVarIndex,
             transferRules: orderedTransferRules,
+            apiEffectRuntimeIndex: this.apiEffectRuntimeIndex,
             onTransferRuleHit: (event) => this.markRuleHit("transfer", event.ruleId, 1),
             getInitialRuleChainForFact: (fact) => this.initialFlowRuleChainForFact(fact),
-            onFactRuleChain: (factId, chain) => this.upsertFactRuleChain(factId, chain),
+            onFactRuleChain: trackFlowRuleChains
+                ? (factId, chain) => this.upsertFactRuleChain(factId, chain)
+                : undefined,
             profiler: this.worklistProfiler,
             traceGraph: this.traceGraph,
             allowedMethodSignatures: this.activeReachableMethodSignatures,
             moduleRuntime,
             moduleQueries,
-            onFactObserved: (fact) => this.recordObservedFact(fact),
-            onFactPredecessor: (record) => this.recordFactPredecessor(record),
+            onFactObserved: recordProvenance ? (fact) => this.recordObservedFact(fact) : undefined,
+            onFactPredecessor: recordProvenance ? (record) => this.recordFactPredecessor(record) : undefined,
             onCallEdge: (event) => propagationHooks.onCallEdge(event),
             onTaintFlow: (event) => propagationHooks.onTaintFlow(event),
             onMethodReached: (event) => propagationHooks.onMethodReached(event),
             budget: this.buildWorklistBudget(),
             log: this.log.bind(this),
+            progress: this.progress.bind(this),
         };
     }
 
@@ -2328,13 +3020,6 @@ export class TaintPropagationEngine {
             cg: this.cg,
             tracker: this.tracker,
             getTaintFacts: () => this.getObservedTaintFacts(),
-            detectSinks: (signature: string, options?: { targetEndpoint?: string; targetPath?: string[] }) => {
-                return this.detectSinks(signature, {
-                    targetEndpoint: options?.targetEndpoint as RuleEndpoint | undefined,
-                    targetPath: options?.targetPath,
-                    sanitizerRules,
-                });
-            },
         };
     }
 
@@ -2409,6 +3094,7 @@ export class TaintPropagationEngine {
                 this.log.bind(this),
                 cacheEntry.executionHandoffDeferredSiteKeys,
                 forcedDirectCallerSignatures,
+                this.callEdgeMaterializationLedger,
             );
             cacheEntry.syntheticInvokeEdgeMapReady = true;
             this.syntheticInvokeEdgeMap = cacheEntry.syntheticInvokeEdgeMap;
@@ -2441,6 +3127,7 @@ export class TaintPropagationEngine {
                 this.log.bind(this),
                 cacheEntry.executionHandoffDeferredSiteKeys,
                 forcedDirectCallerSignatures,
+                this.callEdgeMaterializationLedger,
             );
             cacheEntry.syntheticInvokeEdgeMapReady = true;
             this.syntheticInvokeEdgeMap = cacheEntry.syntheticInvokeEdgeMap;
@@ -2467,13 +3154,15 @@ export class TaintPropagationEngine {
         activatedMethodSignatures: string[];
         sourceSeedAudit: SourceRuleSeedAuditEntry[];
         sourceRuleZeroHitAudit: SourceRuleZeroHitAuditEntry[];
+        endpointResolutionAudit: EndpointResolutionLedgerItem[];
     } {
         return collectSourceRuleSeedsFromRules({
             scene: this.scene,
             pag: this.pag,
-            sourceRules: this.orderRulesByFamilyTier(sourceRules || []),
+            sourceRules: this.orderRulesByFamily(sourceRules || []),
             emptyContextId: this.ctxManager.getEmptyContextID(),
             allowedMethodSignatures,
+            apiEffectRuntimeIndex: this.apiEffectRuntimeIndex,
         });
     }
 
@@ -2488,6 +3177,7 @@ export class TaintPropagationEngine {
         sourceSeedAudit: SourceRuleSeedAuditEntry[];
         sourceRuleZeroHitAudit: SourceRuleZeroHitAuditEntry[];
         passCount: number;
+        endpointResolutionAudit: EndpointResolutionLedgerItem[];
     } {
         const facts: TaintFact[] = [];
         const seenFactIds = new Set<string>();
@@ -2498,17 +3188,43 @@ export class TaintPropagationEngine {
         const sourceSeedAudit: SourceRuleSeedAuditEntry[] = [];
         const seenSourceSeedAuditFactIds = new Set<string>();
         const sourceRuleZeroHitAuditByRuleId = new Map<string, SourceRuleZeroHitAuditEntry>();
+        const endpointResolutionAudit: EndpointResolutionLedgerItem[] = [];
 
         let nextAllowed = initialAllowedMethodSignatures
             ? new Set(initialAllowedMethodSignatures)
             : undefined;
         let passCount = 0;
         const maxPasses = 4;
+        this.progress(
+            `[source-seed] fixed point start max_passes=${maxPasses} `
+            + `initial_allowed=${initialAllowedMethodSignatures?.size ?? 0} `
+            + `direct_expansion=${this.options.reachabilityDirectExpansion !== "disabled" ? "enabled" : "disabled"}`,
+        );
+        const syntheticSeedMaterializeT0 = process.hrtime.bigint();
+        this.progress("[source-seed] synthetic invoke materialization start");
+        this.ensureAllSyntheticInvokeEdgesMaterialized();
+        this.progress(`[source-seed] synthetic invoke materialization done elapsed_ms=${Math.round(this.elapsedMsSince(syntheticSeedMaterializeT0))}`);
+        let exactReachabilityAdjacency: Map<string, Set<string>> | undefined;
+        const getExactReachabilityAdjacency = (): Map<string, Set<string>> => {
+            if (exactReachabilityAdjacency) return exactReachabilityAdjacency;
+            const exactAdjacencyT0 = process.hrtime.bigint();
+            this.progress("[source-seed] exact reachability adjacency start");
+            exactReachabilityAdjacency = this.buildExactMethodReachabilityAdjacency();
+            this.progress(
+                `[source-seed] exact reachability adjacency done callers=${exactReachabilityAdjacency.size} `
+                + `elapsed_ms=${Math.round(this.elapsedMsSince(exactAdjacencyT0))}`,
+            );
+            return exactReachabilityAdjacency;
+        };
 
         for (let pass = 0; pass < maxPasses; pass += 1) {
             if (nextAllowed && nextAllowed.size === 0) break;
             passCount += 1;
             const passAllowed = nextAllowed ? new Set(nextAllowed) : undefined;
+            this.progress(
+                `[source-seed] pass ${passCount} start allowed=${passAllowed?.size ?? "all"} `
+                + `scanned=${scannedMethodSignatures.size}`,
+            );
             if (passAllowed) {
                 for (const sig of passAllowed) {
                     scannedMethodSignatures.add(sig);
@@ -2516,6 +3232,7 @@ export class TaintPropagationEngine {
             }
 
             const passSeeds = this.collectSourceRuleSeeds(sourceRules, passAllowed);
+            endpointResolutionAudit.push(...passSeeds.endpointResolutionAudit);
             for (const audit of passSeeds.sourceRuleZeroHitAudit || []) {
                 if (!sourceRuleZeroHitAuditByRuleId.has(audit.ruleId)) {
                     sourceRuleZeroHitAuditByRuleId.set(audit.ruleId, audit);
@@ -2528,6 +3245,7 @@ export class TaintPropagationEngine {
                 const ruleId = this.parseSourceRuleId(fact.source);
                 if (ruleId) {
                     sourceRuleHits.set(ruleId, (sourceRuleHits.get(ruleId) || 0) + 1);
+                    sourceRuleZeroHitAuditByRuleId.delete(ruleId);
                 }
             }
             for (const audit of passSeeds.sourceSeedAudit) {
@@ -2548,12 +3266,30 @@ export class TaintPropagationEngine {
                     pending.add(sig);
                 }
             }
+            if (pending.size === 0) {
+                this.progress("[source-seed] exact reachability adjacency skipped no_new_activated_methods");
+            }
+            const expandedPending = pending.size === 0
+                ? new Set<string>()
+                : this.expandPendingMethodSignaturesByExactReachability(
+                    pending,
+                    scannedMethodSignatures,
+                    getExactReachabilityAdjacency(),
+                );
+            this.progress(
+                `[source-seed] pass ${passCount} done seeds_total=${facts.length} `
+                + `new_activated=${pending.size} next_allowed=${expandedPending.size}`,
+            );
 
             if (!initialAllowedMethodSignatures) {
                 break;
             }
-            nextAllowed = pending;
+            nextAllowed = expandedPending;
         }
+
+        const finalSourceRuleZeroHitAudit = [...sourceRuleZeroHitAuditByRuleId.values()]
+            .filter(audit => (sourceRuleHits.get(audit.ruleId) || 0) === 0)
+            .sort((a, b) => a.ruleId.localeCompare(b.ruleId));
 
         return {
             facts,
@@ -2561,9 +3297,126 @@ export class TaintPropagationEngine {
             sourceRuleHits: Object.fromEntries([...sourceRuleHits.entries()].sort(([a], [b]) => a.localeCompare(b))),
             activatedMethodSignatures: [...activatedMethodSignatures].sort(),
             sourceSeedAudit,
-            sourceRuleZeroHitAudit: [...sourceRuleZeroHitAuditByRuleId.values()].sort((a, b) => a.ruleId.localeCompare(b.ruleId)),
+            sourceRuleZeroHitAudit: finalSourceRuleZeroHitAudit,
             passCount,
+            endpointResolutionAudit,
         };
+    }
+
+    private buildExactMethodReachabilityAdjacency(): Map<string, Set<string>> {
+        this.progress("[source-seed] exact adjacency base graph start");
+        const adjacency = new Map<string, Set<string>>();
+        const deferredUnitSignatures = this.getDeferredUnitSignatures();
+        const addEdge = (callerSignature?: string, calleeSignature?: string): void => {
+            if (!callerSignature || !calleeSignature) return;
+            if (deferredUnitSignatures.has(calleeSignature)) return;
+            let callees = adjacency.get(callerSignature);
+            if (!callees) {
+                callees = new Set<string>();
+                adjacency.set(callerSignature, callees);
+            }
+            callees.add(calleeSignature);
+        };
+
+        const nodesIter = this.cg?.getNodesIter?.();
+        if (nodesIter) {
+            for (const node of nodesIter) {
+                const callerSignature = safeValueText(this.cg?.getMethodByFuncID?.(node.getID?.()));
+                if (!callerSignature) continue;
+                for (const edge of node.getOutgoingEdges?.() || []) {
+                    const calleeSignature = safeValueText(this.cg?.getMethodByFuncID?.(edge.getDstID?.()));
+                    addEdge(callerSignature, calleeSignature);
+                }
+            }
+        }
+
+        for (const edges of this.syntheticInvokeEdgeMap.values()) {
+            for (const edge of edges) {
+                if (edge.type !== CallEdgeType.CALL) continue;
+                addEdge(edge.callerSignature, edge.calleeSignature);
+            }
+        }
+        this.progress(`[source-seed] exact adjacency base graph done callers=${adjacency.size}`);
+
+        if (this.options.reachabilityDirectExpansion !== "disabled") {
+            const directAdjacencyT0 = process.hrtime.bigint();
+            this.progress("[source-seed] exact adjacency contextual direct expansion start");
+            const candidateSignatures = new Set<string>();
+            for (const [callerSignature, calleeSignatures] of adjacency.entries()) {
+                candidateSignatures.add(callerSignature);
+                for (const calleeSignature of calleeSignatures) {
+                    candidateSignatures.add(calleeSignature);
+                }
+            }
+            const methodsBySignature = this.getMethodsBySignature();
+            const thisOwnerSeedMethods = [...candidateSignatures]
+                .map(signature => methodsBySignature.get(signature))
+                .filter((method): method is ArkMethod => !!method);
+            const reusedThisOwnerContextIndex = this.syntheticInvokeLazyMaterializer?.lookupContext.thisOwnerNamesByMethodSignature;
+            if (!reusedThisOwnerContextIndex) {
+                this.progress(`[source-seed] this owner context index build start seeds=${thisOwnerSeedMethods.length}`);
+            }
+            const thisOwnerContextIndex = reusedThisOwnerContextIndex
+                || buildMethodThisOwnerContextIndex(this.scene, thisOwnerSeedMethods, {
+                    log: msg => this.progress(`[source-seed] ${msg}`),
+                    progressInterval: 200,
+                });
+            this.progress(
+                `[source-seed] exact adjacency contextual direct expansion candidates=${candidateSignatures.size} `
+                + `methods=${methodsBySignature.size}`,
+            );
+            let processed = 0;
+            for (const signature of candidateSignatures) {
+                processed++;
+                if (processed === 1 || processed % 50 === 0) {
+                    this.progress(
+                        `[source-seed] exact adjacency contextual direct expansion processing #${processed} `
+                        + `current=${this.shortReachableSignature(signature)}`,
+                    );
+                }
+                const method = methodsBySignature.get(signature);
+                if (!method) continue;
+                for (const targetSignature of this.collectContextualDirectCallExpansionTargetSignatures(method, thisOwnerContextIndex)) {
+                    addEdge(signature, targetSignature);
+                }
+            }
+            this.progress(
+                `[source-seed] exact adjacency contextual direct expansion done processed=${processed} `
+                + `elapsed_ms=${Math.round(this.elapsedMsSince(directAdjacencyT0))}`,
+            );
+        }
+
+        return adjacency;
+    }
+
+    private expandPendingMethodSignaturesByExactReachability(
+        seedSignatures: Set<string>,
+        scannedMethodSignatures: Set<string>,
+        adjacency: Map<string, Set<string>>,
+    ): Set<string> {
+        const pending = new Set<string>();
+        const queued = new Set<string>();
+        const queue: string[] = [];
+        const enqueue = (signature?: string): void => {
+            if (!signature || queued.has(signature)) return;
+            queued.add(signature);
+            queue.push(signature);
+            if (!scannedMethodSignatures.has(signature)) {
+                pending.add(signature);
+            }
+        };
+        for (const signature of seedSignatures) {
+            enqueue(signature);
+        }
+        for (let head = 0; head < queue.length; head += 1) {
+            const signature = queue[head];
+            const callees = adjacency.get(signature);
+            if (!callees) continue;
+            for (const callee of callees) {
+                enqueue(callee);
+            }
+        }
+        return pending;
     }
 
     private mergeAutoEntrySourceRules(sourceRules: SourceRule[]): SourceRule[] {
@@ -2590,28 +3443,28 @@ export class TaintPropagationEngine {
         sourceRules: SourceRule[],
         origin: "runtime_project" | "plugin_runtime",
     ): SourceRule[] {
-        return (sourceRules || []).map(rule => normalizeRuleGovernance(rule, { kind: origin }, "source"));
+        return (sourceRules || []).map(rule => normalizeRuleFamily(rule, { kind: origin }, "source"));
     }
 
     private normalizeRuntimeSinkRules(
         sinkRules: SinkRule[],
         origin: "runtime_project" | "plugin_runtime",
     ): SinkRule[] {
-        return (sinkRules || []).map(rule => normalizeRuleGovernance(rule, { kind: origin }, "sink"));
+        return (sinkRules || []).map(rule => normalizeRuleFamily(rule, { kind: origin }, "sink"));
     }
 
     private normalizeRuntimeSanitizerRules(
         sanitizerRules: SanitizerRule[],
         origin: "runtime_project" | "plugin_runtime",
     ): SanitizerRule[] {
-        return (sanitizerRules || []).map(rule => normalizeRuleGovernance(rule, { kind: origin }, "sanitizer"));
+        return (sanitizerRules || []).map(rule => normalizeRuleFamily(rule, { kind: origin }, "sanitizer"));
     }
 
     private normalizeRuntimeTransferRules(
         transferRules: TransferRule[],
         origin: "runtime_project" | "plugin_runtime",
     ): TransferRule[] {
-        return (transferRules || []).map(rule => normalizeRuleGovernance(rule, { kind: origin }, "transfer"));
+        return (transferRules || []).map(rule => normalizeRuleFamily(rule, { kind: origin }, "transfer"));
     }
 
     private recoverMethodSignaturesFromSeedFacts(facts: TaintFact[]): Set<string> {
@@ -2661,142 +3514,45 @@ export class TaintPropagationEngine {
     private buildAutoEntrySourceRules(
         arkMainPlan?: ReturnType<typeof buildArkMainPlan>,
     ): SourceRule[] {
-        if (!arkMainPlan) {
-            return [];
-        }
-
-        const out = new Map<string, SourceRule>();
-        for (const rule of arkMainPlan.sourceRules || []) {
-            if (!rule?.id || out.has(rule.id)) continue;
-            out.set(rule.id, rule);
-        }
-        return [...out.values()];
+        void arkMainPlan;
+        return [];
     }
 
     private buildAmbientFrameworkSourceRules(
         arkMainPlan?: ReturnType<typeof buildArkMainPlan>,
     ): SourceRule[] {
-        const out = new Map<string, SourceRule>();
-        const allMethods = this.scene.getMethods().filter(method => method.getName() !== "%dflt");
-
-        const addRule = (rule: SourceRule): void => {
-            if (!rule?.id || out.has(rule.id)) return;
-            out.set(rule.id, rule);
-        };
-
-        const addGlobalCallReturnRule = (
-            family: string,
-            description: string,
-            methodSignature: string,
-        ): void => {
-            addRule({
-                id: `source.auto.framework.${family}.${methodSignature}`,
-                enabled: true,
-                family: `source.auto.framework.${family}`,
-                tier: "A",
-                description,
-                tags: ["framework_source", "auto", family],
-                match: {
-                    kind: "signature_equals",
-                    value: methodSignature,
-                },
-                sourceKind: "call_return",
-                target: {
-                    endpoint: "result",
-                },
-            });
-        };
-
-        const navigationGetterSignatures = allMethods
-            .filter(method => {
-                const signature = method.getSignature?.();
-                const methodName = signature?.getMethodSubSignature?.()?.getMethodName?.() || method.getName?.() || "";
-                const className = signature?.getDeclaringClassSignature?.()?.getClassName?.() || "";
-                return methodName === "getParams" && (className === "Router" || className === "NavPathStack");
-            })
-            .map(method => safeMethodSignatureText(method))
-            .filter((signature): signature is string => !!signature);
-        for (const signature of navigationGetterSignatures) {
-            addGlobalCallReturnRule(
-                "navigation_context",
-                `[auto framework] ambient navigation context from ${signature}`,
-                signature,
-            );
-        }
-
-        const lifecycleFacts = arkMainPlan?.facts || [];
-        const lifecycleOwnerMethods = new Map<string, { className: string; methodName: string }>();
-        for (const fact of lifecycleFacts) {
-            const methodSignature = safeMethodSignatureText(fact.method);
-            const className = fact.method.getDeclaringArkClass?.()?.getName?.() || "";
-            const methodName = fact.method.getName?.() || "";
-            if (!methodSignature || !className || !methodName) continue;
-            lifecycleOwnerMethods.set(methodSignature, { className, methodName });
-        }
-
-        const systemContextGetterSignatures = allMethods
-            .filter(method => {
-                const signature = method.getSignature?.();
-                const methodName = signature?.getMethodSubSignature?.()?.getMethodName?.() || method.getName?.() || "";
-                const className = signature?.getDeclaringClassSignature?.()?.getClassName?.() || "";
-                return methodName === "getContext" && className === "SystemEnv";
-            })
-            .map(method => safeMethodSignatureText(method))
-            .filter((signature): signature is string => !!signature);
-        for (const getterSignature of systemContextGetterSignatures) {
-            for (const [ownerSignature, ownerMeta] of lifecycleOwnerMethods.entries()) {
-                if (ownerMeta.methodName !== "onCreate") continue;
-                addRule({
-                    id: `source.auto.framework.system_context.${ownerSignature}.${getterSignature}`,
-                    enabled: true,
-                    family: "source.auto.framework.system_context",
-                    tier: "A",
-                    description: `[auto framework] system context in ${ownerSignature}`,
-                    tags: ["framework_source", "auto", "system_context", "lifecycle"],
-                    match: {
-                        kind: "signature_equals",
-                        value: getterSignature,
-                    },
-                    scope: {
-                        className: { mode: "equals", value: ownerMeta.className },
-                        methodName: { mode: "equals", value: ownerMeta.methodName },
-                    },
-                    sourceKind: "call_return",
-                    target: {
-                        endpoint: "result",
-                    },
-                });
-            }
-        }
-
-        return [...out.values()];
+        void arkMainPlan;
+        return [];
     }
 
-    public detectSinks(
-        sinkSignature: string,
+    private detectSinkEffects(
+        sinkRule: SinkRule,
         options?: {
             targetEndpoint?: RuleEndpoint;
             targetPath?: string[];
-            invokeKind?: RuleInvokeKind;
-            argCount?: number;
-            typeHint?: string;
-            callerScope?: RuleScopeConstraint;
-            calleeScope?: RuleScopeConstraint;
             sanitizerRules?: SanitizerRule[];
             sinkRuleId?: string;
+            apiEffectRuntimeIndex?: ApiEffectRuntimeIndex;
         }
     ): TaintFlow[] {
         if (!this.cg) return [];
-        const orderedTransferRules = this.orderRulesByFamilyTier([
+        if (!hasApiEffectIdentity(sinkRule)) return [];
+        const orderedTransferRules = this.orderRulesByFamily([
             ...this.normalizeRuntimeTransferRules(this.options.transferRules || [], "runtime_project"),
-            ...this.normalizeRuntimeTransferRules(this.enginePluginRuntime.getAdditionalTransferRules(), "plugin_runtime"),
         ]);
+        const effectLabel = [
+            sinkRule.apiEffect.canonicalApiId,
+            sinkRule.apiEffect.assetId,
+            sinkRule.apiEffect.surfaceId,
+            sinkRule.apiEffect.bindingId,
+            sinkRule.apiEffect.effectTemplateId,
+        ].join("|");
         const scoped = runSinkDetector(
             this.scene,
             this.cg,
             this.pag,
             this.tracker,
-            sinkSignature,
+            effectLabel,
             this.log.bind(this),
             {
                 ...options,
@@ -2805,6 +3561,9 @@ export class TaintPropagationEngine {
                 orderedMethodSignatures: this.activeOrderedMethodSignatures,
                 interproceduralTaintTargetNodeIds: this.collectInterproceduralTaintTargetNodeIds(),
                 transferRules: orderedTransferRules,
+                apiIdentityRule: sinkRule,
+                apiEffectRuntimeIndex: this.apiEffectRuntimeIndex,
+                classBySignature: this.getClassSignatureIndex(),
                 onProfile: (profile) => this.mergeDetectProfile(profile),
                 onAudit: (entry) => this.recordSinkDetectionAudit(entry),
             }
@@ -2862,20 +3621,23 @@ export class TaintPropagationEngine {
     }
 
     private resolveSinkRuleTarget(rule: SinkRule): {
-        targetEndpoint?: RuleEndpoint;
-        targetPath?: string[];
-        invokeKind?: RuleInvokeKind;
-        argCount?: number;
-        typeHint?: string;
+            targetEndpoint?: RuleEndpoint;
+            targetPath?: string[];
+            targetTaintScope?: RuleEndpointTaintScope;
     } {
         const norm = rule.target ? normalizeEndpoint(rule.target) : undefined;
         return {
             targetEndpoint: norm?.endpoint,
             targetPath: norm?.path,
-            invokeKind: rule.match.invokeKind,
-            argCount: rule.match.argCount,
-            typeHint: rule.match.typeHint,
+            targetTaintScope: norm?.taintScope,
         };
+    }
+
+    private getClassSignatureIndex(): Map<string, any> {
+        if (!this.classBySignatureCache) {
+            this.classBySignatureCache = buildClassSignatureIndex(this.scene);
+        }
+        return this.classBySignatureCache;
     }
 
     public getAdaptiveContextSelector(): AdaptiveContextSelector | undefined {
@@ -2948,6 +3710,43 @@ export class TaintPropagationEngine {
         return signatures.size > 0 ? signatures : undefined;
     }
 
+    private getMethodsBySignature(): Map<string, ArkMethod> {
+        if (this.methodsBySignatureCache) return this.methodsBySignatureCache;
+        const methodsBySig = new Map<string, ArkMethod>();
+        for (const method of this.scene.getMethods()) {
+            const signature = safeMethodSignatureText(method);
+            if (signature) methodsBySig.set(signature, method);
+        }
+        this.methodsBySignatureCache = methodsBySig;
+        return methodsBySig;
+    }
+
+    private collectPagMethodScope(): ArkMethod[] {
+        if (!this.pag) return [];
+        const methodsBySig = this.getMethodsBySignature();
+        const signatures = new Set<string>();
+        const nodesIter = this.pag.getNodesIter?.();
+        if (!nodesIter) return [];
+        for (const rawNode of nodesIter) {
+            const node = rawNode as PagNode;
+            const stmtMethodSig = node.getStmt?.()?.getCfg?.()?.getDeclaringMethod?.()?.getSignature?.()?.toString?.();
+            if (stmtMethodSig) {
+                signatures.add(stmtMethodSig);
+                continue;
+            }
+            const valueMethodSig = (node.getValue?.() as any)
+                ?.getDeclaringStmt?.()
+                ?.getCfg?.()
+                ?.getDeclaringMethod?.()
+                ?.getSignature?.()
+                ?.toString?.();
+            if (valueMethodSig) signatures.add(valueMethodSig);
+        }
+        return [...signatures]
+            .map(signature => methodsBySig.get(signature))
+            .filter((method): method is ArkMethod => !!method);
+    }
+
     private getPagBuildCacheForScene(): Map<string, PagBuildCacheEntry> {
         let cache = TaintPropagationEngine.pagBuildCacheByScene.get(this.scene);
         if (!cache) {
@@ -2974,26 +3773,22 @@ export class TaintPropagationEngine {
 
 }
 
+function summarizeEndpointResolutionStatuses(
+    records: readonly EndpointResolutionLedgerItem[],
+): Partial<Record<EndpointResolutionStatus, number>> {
+    const out: Partial<Record<EndpointResolutionStatus, number>> = {};
+    for (const record of records) {
+        out[record.status] = (out[record.status] || 0) + 1;
+    }
+    return out;
+}
+
 function safeMethodSignatureText(method: any): string {
     try {
         return method?.getSignature?.()?.toString?.() || "";
     } catch {
         return "";
     }
-}
-
-function stringifyRuleScope(scope: RuleScopeConstraint | undefined): string {
-    if (!scope) return "";
-    const encode = (field?: { mode?: string; value?: string }) => {
-        if (!field) return "";
-        return `${field.mode || ""}:${field.value || ""}`;
-    };
-    return [
-        encode(scope.file),
-        encode(scope.module),
-        encode(scope.className),
-        encode(scope.methodName),
-    ].join("|");
 }
 
 function collectKnownFrameworkCallbackMethodSignaturesFromMethod(scene: Scene, method: ArkMethod): string[] {
@@ -3017,7 +3812,7 @@ function collectKnownFrameworkCallbackMethodSignaturesFromMethod(scene: Scene, m
             if (!signature) continue;
             out.add(signature);
         }
-        for (const registration of resolveKnownOptionCallbackRegistrationsFromStmt(stmt, scene, method)) {
+        for (const registration of resolveKnownControllerOptionCallbackRegistrationsFromStmt(stmt, scene, method)) {
             const signature = safeMethodSignatureText(registration.callbackMethod);
             if (!signature) continue;
             out.add(signature);
@@ -3038,6 +3833,11 @@ function shouldInspectFrameworkCallbackStmt(stmt: any): boolean {
 function isFrameworkCallbackLikeArg(value: any): boolean {
     if (!value) return false;
     return isCallableValue(value);
+}
+
+function isThisReceiverInvokeForReachability(invokeExpr: any): boolean {
+    const base = typeof invokeExpr?.getBase === "function" ? invokeExpr.getBase() : undefined;
+    return base?.getName?.() === "this";
 }
 
 function safeValueText(value: any): string {

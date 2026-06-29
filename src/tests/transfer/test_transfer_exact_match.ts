@@ -1,8 +1,20 @@
 ﻿import { Scene } from "../../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../../arkanalyzer/out/src/Config";
+import { PagNode } from "../../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
 import { TaintPropagationEngine } from "../../core/orchestration/TaintPropagationEngine";
 import { SinkRule, SourceRule, TransferRule } from "../../core/rules/RuleSchema";
 import { validateRuleSet } from "../../core/rules/RuleValidator";
+import {
+    exactSinkRule,
+    exactSourceRule,
+    exactTransferRule,
+    type ExactRuleRuntime,
+} from "../rules/ExactRuleTestUtils";
+import {
+    assertCanonicalExactRules,
+    canonicalApiIdMatch,
+    exactTransferRuntimeFromFixtures,
+} from "./ExactTransferTestUtils";
 import * as path from "path";
 
 interface CaseSpec {
@@ -25,38 +37,58 @@ function flowSinkInCaseMethod(scene: Scene, sinkStmt: any, caseMethodName: strin
 async function runCase(
     scene: Scene,
     caseName: string,
-    sourceRules: SourceRule[],
     sinkRules: SinkRule[],
-    transferRules: TransferRule[]
+    transferRules: TransferRule[],
+    runtime: ExactRuleRuntime,
 ): Promise<boolean> {
-    const engine = new TaintPropagationEngine(scene, 1, { transferRules });
+    const entryMethod = scene.getMethods().find(m => m.getName() === caseName);
+    assert(entryMethod, `case method not found: ${caseName}`);
+    const engine = new TaintPropagationEngine(scene, 1, {
+        ...runtime,
+        transferRules,
+        includeBuiltinModules: false,
+    });
     engine.verbose = false;
-    await engine.buildPAG();
+    await engine.buildPAG({
+        entryModel: "explicit",
+        syntheticEntryMethods: [entryMethod],
+    });
     engine.setActiveReachableMethodSignatures(undefined, { mergeExplicitEntryScope: false });
-    engine.propagateWithSourceRules(sourceRules);
+    const seedNodes = findSeedNodes(engine, scene, caseName, "taint_src");
+    assert(seedNodes.length > 0, `${caseName}: expected taint_src seed nodes`);
+    engine.propagateWithSeeds(seedNodes);
     const flows = engine.detectSinksByRules(sinkRules);
     const scopedFlows = flows.filter(flow => flowSinkInCaseMethod(scene, flow.sink, caseName));
     return scopedFlows.length > 0;
 }
 
-function findMethodSignature(scene: Scene, className: string, methodName: string): string {
+function findSeedNodes(engine: TaintPropagationEngine, scene: Scene, methodName: string, localName: string): PagNode[] {
+    const method = scene.getMethods().find(m => m.getName() === methodName);
+    assert(method, `method not found: ${methodName}`);
+    const cfg = method.getCfg();
+    assert(cfg, `cfg not found: ${methodName}`);
+    for (const stmt of cfg.getStmts()) {
+        const left = (stmt as any).getLeftOp?.();
+        if (!left || left.getName?.() !== localName) continue;
+        const nodeIds = engine.pag.getNodesByValue(left);
+        return nodeIds ? [...nodeIds.values()].map(id => engine.pag.getNode(id) as PagNode) : [];
+    }
+    return [];
+}
+
+function findMethodForClass(scene: Scene, className: string, methodName: string) {
     const method = scene.getMethods().find(m =>
         m.getName() === methodName
         && m.getDeclaringArkClass?.()?.getName?.() === className
     );
     assert(method, `method not found: ${className}.${methodName}`);
-    return method.getSignature().toString();
+    return method;
 }
 
-function findDeclaringClassSignature(scene: Scene, className: string, methodName: string): string {
-    const method = scene.getMethods().find(m =>
-        m.getName() === methodName
-        && m.getDeclaringArkClass?.()?.getName?.() === className
-    );
-    assert(method, `class signature method not found: ${className}.${methodName}`);
-    const classSignature = method.getDeclaringArkClass()?.getSignature?.()?.toString?.();
-    assert(classSignature && classSignature.length > 0, `class signature missing for ${className}.${methodName}`);
-    return classSignature;
+function findAnyMethod(scene: Scene, methodName: string) {
+    const method = scene.getMethods().find(m => m.getName() === methodName);
+    assert(method, `method not found: ${methodName}`);
+    return method;
 }
 
 async function main(): Promise<void> {
@@ -67,10 +99,33 @@ async function main(): Promise<void> {
     scene.buildSceneFromProjectDir(sceneConfig);
     scene.inferTypes();
 
-    const invokeKindHostSig = findMethodSignature(scene, "InvokeKindHost", "BridgeInvokeKind");
-    const scopeAllowedSig = findMethodSignature(scene, "ScopeHostAllowed", "BridgeScope");
-    const scopeAllowedClassSig = findDeclaringClassSignature(scene, "ScopeHostAllowed", "BridgeScope");
-
+    const invokeKindHostMethod = findMethodForClass(scene, "InvokeKindHost", "BridgeInvokeKind");
+    const scopeAllowedMethod = findMethodForClass(scene, "ScopeHostAllowed", "BridgeScope");
+    const sinkMethod = scene.getMethods().find(m => m.getName() === "Sink");
+    assert(sinkMethod, "sink method not found");
+    const sinkEffect = exactSinkRule({
+        id: "sink.arg0",
+        method: sinkMethod,
+        target: { endpoint: "arg0" },
+    });
+    const transferInvokeEffect = exactTransferRule({
+        id: "transfer.canonical.invoke_kind_host",
+        method: invokeKindHostMethod,
+        from: "arg0",
+        to: "result",
+    });
+    const transferScopeExactEffect = exactTransferRule({
+        id: "transfer.canonical.scope_allowed",
+        method: scopeAllowedMethod,
+        from: "arg0",
+        to: "result",
+    });
+    const transferScopeDuplicateEffect = exactTransferRule({
+        id: "transfer.canonical.scope_allowed.duplicate",
+        method: scopeAllowedMethod,
+        from: "arg0",
+        to: "result",
+    });
     const cases: CaseSpec[] = [
         { name: "transfer_invoke_kind_003_T", expected: true },
         { name: "transfer_invoke_kind_004_F", expected: false },
@@ -78,41 +133,34 @@ async function main(): Promise<void> {
         { name: "transfer_scope_010_F", expected: false },
     ];
 
-    const sourceRules: SourceRule[] = cases.map(c => ({
-        id: `source.exact.entry.${c.name}`,
-        sourceKind: "entry_param",
-        target: "arg0",
-        match: { kind: "method_name_equals", value: c.name },
-    }));
+    const sourceEffects = cases.map(c => {
+        const method = findAnyMethod(scene, c.name);
+        return {
+            caseName: c.name,
+            exact: exactSourceRule({
+                id: `source.exact.entry.${c.name}`,
+                method,
+                target: "arg0",
+                sourceKind: "entry_param",
+            }),
+        };
+    });
+    const exactRuntime = exactTransferRuntimeFromFixtures([
+        sinkEffect,
+        transferInvokeEffect,
+        transferScopeExactEffect,
+        transferScopeDuplicateEffect,
+        ...sourceEffects.map(item => item.exact),
+    ]);
 
-    const sinkRules: SinkRule[] = [
-        {
-            id: "sink.exact.arg0",
-            target: { endpoint: "arg0" },
-            match: { kind: "method_name_equals", value: "Sink" },
-        },
-    ];
-
+    const sourceRules: SourceRule[] = sourceEffects.map(({ exact }) => exact.rule);
+    const sinkRules: SinkRule[] = [sinkEffect.rule];
     const transferRules: TransferRule[] = [
-        {
-            id: "transfer.exact.signature_equals.invoke_kind_host",
-            match: { kind: "signature_equals", value: invokeKindHostSig },
-            from: "arg0",
-            to: "result",
-        },
-        {
-            id: "transfer.exact.callee_signature_equals.scope_allowed",
-            match: { kind: "signature_equals", value: scopeAllowedSig },
-            from: "arg0",
-            to: "result",
-        },
-        {
-            id: "transfer.exact.declaring_class_equals.scope_allowed",
-            match: { kind: "declaring_class_equals", value: scopeAllowedClassSig },
-            from: "arg0",
-            to: "result",
-        },
+        transferInvokeEffect.rule,
+        transferScopeExactEffect.rule,
+        transferScopeDuplicateEffect.rule,
     ];
+    assertCanonicalExactRules([...sourceRules, ...sinkRules, ...transferRules]);
 
     const validation = validateRuleSet({
         sources: sourceRules,
@@ -126,7 +174,8 @@ async function main(): Promise<void> {
         sinks: [],
         transfers: [{
             id: "transfer.path_from.ok",
-            match: { kind: "method_name_equals", value: "get", invokeKind: "instance", argCount: 1 },
+            match: canonicalApiIdMatch(transferInvokeEffect.rule),
+            apiEffect: transferInvokeEffect.rule.apiEffect,
             from: {
                 endpoint: "base",
                 pathFrom: "arg0",
@@ -137,12 +186,73 @@ async function main(): Promise<void> {
     });
     assert(pathFromValidation.valid, `pathFrom transfer rule should be valid: ${pathFromValidation.errors.join("; ")}`);
 
+    const appendSlotValidation = validateRuleSet({
+        sources: [],
+        sinks: [],
+        transfers: [{
+            id: "transfer.path_from.append.ok",
+            match: canonicalApiIdMatch(transferInvokeEffect.rule),
+            apiEffect: transferInvokeEffect.rule.apiEffect,
+            from: "arg1",
+            to: {
+                endpoint: "base",
+                pathFrom: "arg0",
+                slotKind: "headers",
+                slotWriteMode: "append",
+            },
+        }],
+    });
+    assert(appendSlotValidation.valid, `append slot transfer rule should be valid: ${appendSlotValidation.errors.join("; ")}`);
+
+    const invalidSlotWriteModeValidation = validateRuleSet({
+        sources: [],
+        sinks: [],
+        transfers: [{
+            id: "transfer.path_from.append.invalid.mode",
+            match: canonicalApiIdMatch(transferInvokeEffect.rule),
+            apiEffect: transferInvokeEffect.rule.apiEffect,
+            from: "arg1",
+            to: {
+                endpoint: "base",
+                pathFrom: "arg0",
+                slotKind: "headers",
+                slotWriteMode: "merge",
+            } as any,
+        }],
+    });
+    assert(!invalidSlotWriteModeValidation.valid, "invalid slotWriteMode should be rejected");
+    assert(
+        invalidSlotWriteModeValidation.errors.some(err => err.includes("slotWriteMode must be replace/append")),
+        `invalid slotWriteMode rejection missing, errors=${invalidSlotWriteModeValidation.errors.join("; ")}`
+    );
+
+    const orphanSlotWriteModeValidation = validateRuleSet({
+        sources: [],
+        sinks: [],
+        transfers: [{
+            id: "transfer.path_from.append.invalid.scope",
+            match: canonicalApiIdMatch(transferInvokeEffect.rule),
+            apiEffect: transferInvokeEffect.rule.apiEffect,
+            from: "arg1",
+            to: {
+                endpoint: "base",
+                slotWriteMode: "append",
+            } as any,
+        }],
+    });
+    assert(!orphanSlotWriteModeValidation.valid, "slotWriteMode without pathFrom+slotKind should be rejected");
+    assert(
+        orphanSlotWriteModeValidation.errors.some(err => err.includes("slotWriteMode requires pathFrom and slotKind")),
+        `orphan slotWriteMode rejection missing, errors=${orphanSlotWriteModeValidation.errors.join("; ")}`
+    );
+
     const containedPayloadValidation = validateRuleSet({
         sources: [],
         sinks: [],
         transfers: [{
             id: "transfer.contained_payload.ok",
-            match: { kind: "method_name_equals", value: "insert", invokeKind: "instance", argCount: 2 },
+            match: canonicalApiIdMatch(transferInvokeEffect.rule),
+            apiEffect: transferInvokeEffect.rule.apiEffect,
             from: {
                 endpoint: "arg1",
                 taintScope: "contained-values",
@@ -164,7 +274,8 @@ async function main(): Promise<void> {
         sinks: [],
         transfers: [{
             id: "transfer.contained_payload.invalid",
-            match: { kind: "method_name_equals", value: "insert", invokeKind: "instance", argCount: 2 },
+            match: canonicalApiIdMatch(transferInvokeEffect.rule),
+            apiEffect: transferInvokeEffect.rule.apiEffect,
             from: {
                 endpoint: "arg1",
                 taintScope: "deep-object",
@@ -186,7 +297,8 @@ async function main(): Promise<void> {
                 endpoint: "result",
                 path: ["secret"],
             },
-            match: { kind: "method_name_equals", value: "ReadSecret" },
+            match: canonicalApiIdMatch(sourceEffects[0].exact.rule),
+            apiEffect: sourceEffects[0].exact.rule.apiEffect,
         }],
         sinks: [],
         transfers: [],
@@ -201,7 +313,8 @@ async function main(): Promise<void> {
                 endpoint: "arg0",
                 path: ["secret"],
             },
-            match: { kind: "method_name_equals", value: "SinkField" },
+            match: canonicalApiIdMatch(sinkEffect.rule),
+            apiEffect: sinkEffect.rule.apiEffect,
         }],
         transfers: [],
     });
@@ -212,7 +325,8 @@ async function main(): Promise<void> {
         sinks: [],
         transfers: [{
             id: "transfer.static.path.ok",
-            match: { kind: "method_name_equals", value: "get" },
+            match: canonicalApiIdMatch(transferInvokeEffect.rule),
+            apiEffect: transferInvokeEffect.rule.apiEffect,
             from: {
                 endpoint: "base",
                 path: ["payload"],
@@ -230,7 +344,8 @@ async function main(): Promise<void> {
         sinks: [],
         transfers: [{
             id: "transfer.invalid.path.empty",
-            match: { kind: "method_name_equals", value: "get" },
+            match: canonicalApiIdMatch(transferInvokeEffect.rule),
+            apiEffect: transferInvokeEffect.rule.apiEffect,
             from: {
                 endpoint: "base",
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -247,8 +362,8 @@ async function main(): Promise<void> {
 
     let passCount = 0;
     for (const c of cases) {
-        const detectedWithRules = await runCase(scene, c.name, sourceRules, sinkRules, transferRules);
-        const detectedWithoutRules = await runCase(scene, c.name, sourceRules, sinkRules, []);
+        const detectedWithRules = await runCase(scene, c.name, sinkRules, transferRules, exactRuntime);
+        const detectedWithoutRules = await runCase(scene, c.name, sinkRules, [], exactRuntime);
 
         const pass = c.expected
             ? (detectedWithRules && !detectedWithoutRules)

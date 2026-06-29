@@ -8,7 +8,7 @@ export function buildPostsolveSkeleton(
     materialized: MaterializedTaintFlow | undefined,
     context: PostsolveContext,
 ): PostsolveSkeleton | undefined {
-    if (!materialized || materialized.paths.length === 0) return undefined;
+    if (!materialized) return undefined;
 
     const nodeMap = new Map<string, { factId: string; stmtText?: string; methodSignature?: string }>();
     const edgeMap = new Map<string, { fromFactId: string; toFactId: string; reason: string }>();
@@ -41,6 +41,11 @@ export function buildPostsolveSkeleton(
 
     return {
         sinkFactId: materialized.sinkFactId,
+        materialization: {
+            status: materialized.status,
+            incompleteReasons: [...(materialized.incompleteReasons || [])],
+            pathCount: materialized.paths.length,
+        },
         nodes: [...nodeMap.values()],
         edges: [...edgeMap.values()],
     };

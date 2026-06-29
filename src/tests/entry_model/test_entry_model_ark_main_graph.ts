@@ -93,10 +93,12 @@ async function main(): Promise<void> {
     assertHasEdge(edges, "baseline_root", "EntryAbility.onCreate");
     assertHasEdge(edges, "baseline_root", "DemoPage.build");
     assertHasEdge(edges, "baseline_root", "EntryAbility.onNewWant");
-    assertHasEdge(edges, "lifecycle_progression", "DemoPage.onPageHide", "DemoPage.build");
+    assertHasEdge(edges, "lifecycle_progression", "DemoPage.onPageShow", "DemoPage.build");
+    assertHasEdge(edges, "lifecycle_progression", "DemoPage.onPageHide", "DemoPage.onPageShow");
 
+    assertHasEdge(edges, "channel_callback_activation", "%dflt.cbOnClick", "DemoPage.build");
+    assertHasEdge(edges, "channel_callback_activation", "%dflt.cbOnChange", "DemoPage.build");
     assertNoEdgeKind(edges, "callback_registration");
-    assertNoEdgeKind(edges, "channel_callback_activation");
     assertNoEdgeKind(edges, "scheduler_activation");
     assertNoEdgeKind(edges, "state_watch_trigger");
     assertNoEdgeKind(edges, "router_channel");
@@ -107,6 +109,7 @@ async function main(): Promise<void> {
         "composition_lifecycle",
         "interaction_lifecycle",
         "teardown_lifecycle",
+        "channel_callback",
     ]));
 
     if (plan.activationGraph.rootMethods.length === 0) {
@@ -114,11 +117,18 @@ async function main(): Promise<void> {
     }
 
     const wantActivation = findActivation(plan.schedule.activations, "EntryAbility.onNewWant", "reactive_handoff", "baseline_root");
+    const pageShowProgression = findActivation(plan.schedule.activations, "DemoPage.onPageShow", "interaction", "interaction_lifecycle");
     const pageHideRoot = findActivation(plan.schedule.activations, "DemoPage.onPageHide", "teardown", "baseline_root");
     const pageHideProgression = findActivation(plan.schedule.activations, "DemoPage.onPageHide", "teardown", "teardown_lifecycle");
 
     if (!wantActivation || wantActivation.round !== 0) {
         throw new Error(`ArkMain handoff target lifecycle should now be a baseline root activation. actual=${wantActivation?.round}/${wantActivation?.phase}`);
+    }
+    if (!pageShowProgression) {
+        throw new Error("ArkMain should preserve lifecycle-progression activation for DemoPage.onPageShow.");
+    }
+    if (!pageShowProgression.activationEdgeKinds.includes("lifecycle_progression")) {
+        throw new Error(`ArkMain lifecycle progression explainability missing for DemoPage.onPageShow: ${pageShowProgression.activationEdgeKinds.join(", ")}`);
     }
     if (!pageHideRoot || !pageHideProgression) {
         throw new Error("ArkMain should preserve both baseline-root and lifecycle-progression activations for DemoPage.onPageHide.");

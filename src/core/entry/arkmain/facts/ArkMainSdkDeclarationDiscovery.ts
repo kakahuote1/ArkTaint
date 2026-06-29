@@ -5,11 +5,16 @@ import { ArkMethod } from "../../../../../arkanalyzer/out/src/core/model/ArkMeth
 import { ModifierType } from "../../../../../arkanalyzer/out/src/core/model/ArkBaseModel";
 import { CONSTRUCTOR_NAME } from "../../../../../arkanalyzer/out/src/core/common/TSConst";
 import { walkArkMainSuperClasses } from "./ArkMainFactResolverUtils";
+import {
+    resolveArkMainOfficialLifecycleDeclarationsByClassNameAndMethod,
+    type ArkMainOfficialLifecycleDeclaration,
+} from "../catalog/ArkMainOfficialDeclarationCatalog";
 
 export interface ArkMainSdkOverrideCandidate {
     method: ArkMethod;
     baseClass?: ArkClass;
     baseMethod?: ArkMethod;
+    officialDeclarations?: ArkMainOfficialLifecycleDeclaration[];
     discoveryLayer: "sdk_override_first_layer";
     explicitOverride: boolean;
 }
@@ -52,6 +57,20 @@ export function resolveSdkOverrideCandidate(
                     method,
                     baseClass: superClass,
                     baseMethod,
+                    discoveryLayer: "sdk_override_first_layer",
+                    explicitOverride,
+                };
+                return false;
+            }
+            const declarations = resolveArkMainOfficialLifecycleDeclarationsByClassNameAndMethod(
+                superClass.getName?.(),
+                method.getName?.(),
+            );
+            if (declarations.length > 0) {
+                resolved = {
+                    method,
+                    baseClass: superClass,
+                    officialDeclarations: declarations,
                     discoveryLayer: "sdk_override_first_layer",
                     explicitOverride,
                 };

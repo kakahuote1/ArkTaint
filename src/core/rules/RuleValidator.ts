@@ -1,17 +1,9 @@
 import {
     BaseRule,
-    CallbackResolutionMode,
-    RuleConstraintMode,
     RuleEndpoint,
-    RuleLayer,
-    EntryParamMatchMode,
     RuleEndpointRef,
-    RuleInvokeKind,
     RuleMatchKind,
-    RuleScopeConstraint,
     RuleSeverity,
-    RuleStringConstraint,
-    RuleTier,
     RuleValidationResult,
     SanitizerRule,
     SinkRule,
@@ -23,10 +15,7 @@ import {
 } from "./RuleSchema";
 
 const MATCH_KINDS: RuleMatchKind[] = [
-    "signature_equals",
-    "declaring_class_equals",
-    "method_name_equals",
-    "field_name_equals",
+    "canonical_api_id_equals",
 ];
 
 const SOURCE_KINDS = new Set<SourceRuleKind>([
@@ -39,13 +28,26 @@ const SOURCE_KINDS = new Set<SourceRuleKind>([
     "bound_state",
 ]);
 const RULE_SEVERITIES = new Set<RuleSeverity>(["low", "medium", "high", "critical"]);
-const INVOKE_KINDS = new Set<RuleInvokeKind>(["any", "instance", "static"]);
-const CONSTRAINT_MODES = new Set<RuleConstraintMode>(["equals", "contains", "regex"]);
-const RULE_TIERS = new Set<RuleTier>(["A", "B", "C"]);
-const RULE_LAYERS = new Set<RuleLayer>(["kernel", "project"]);
-const HIGH_RISK_METHOD_NAMES = new Set(["get", "set", "update", "request", "on"]);
-const ENTRY_PARAM_MATCH_MODES = new Set<EntryParamMatchMode>(["name_only", "name_and_type"]);
-const CALLBACK_RESOLUTION_MODES = new Set<CallbackResolutionMode>(["direct_arg", "known_option"]);
+const FORBIDDEN_MATCH_SELECTOR_FIELDS = [
+    "calleeClass",
+    "invokeKind",
+    "argCount",
+    "typeHint",
+    "literalArgs",
+];
+const FORBIDDEN_RULE_SELECTOR_FIELDS = [
+    "callee" + "Scope",
+    "scope",
+    "callbackArgIndexes",
+    "callbackFieldNames",
+    "callbackResolution",
+    "paramName",
+    "paramType",
+    "paramMatchMode",
+    "paramNameIncludes",
+    "paramTypeIncludes",
+];
+const API_EFFECT_ROLES = new Set(["source", "sink", "sanitizer", "transfer", "arkmain", "module"]);
 
 function isObject(value: unknown): value is Record<string, unknown> {
     return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -58,15 +60,6 @@ function isRuleEndpoint(value: string): value is RuleEndpoint {
 
 function isNonEmptyString(value: unknown): value is string {
     return typeof value === "string" && value.trim().length > 0;
-}
-
-function hasScopeAnchor(scope: RuleScopeConstraint | undefined): boolean {
-    if (!scope) return false;
-    return !!(scope.file || scope.module || scope.className || scope.methodName || scope.methodDecorators);
-}
-
-function hasAnyScopeAnchor(...scopes: Array<RuleScopeConstraint | undefined>): boolean {
-    return scopes.some(scope => hasScopeAnchor(scope));
 }
 
 function validateMatch(rulePath: string, match: unknown, out: RuleValidationResult): void {
@@ -84,97 +77,30 @@ function validateMatch(rulePath: string, match: unknown, out: RuleValidationResu
         out.errors.push(`${rulePath}.match.value must be a non-empty string`);
     }
 
-    if (match.calleeClass !== undefined) {
-        validateStringConstraint(rulePath, "match.calleeClass", match.calleeClass, out);
-    }
-    if (match.invokeKind !== undefined) {
-        if (typeof match.invokeKind !== "string" || !INVOKE_KINDS.has(match.invokeKind as RuleInvokeKind)) {
-            out.errors.push(`${rulePath}.match.invokeKind must be any/instance/static`);
-        }
-    }
-    if (match.argCount !== undefined) {
-        if (typeof match.argCount !== "number" || !Number.isInteger(match.argCount) || match.argCount < 0) {
-            out.errors.push(`${rulePath}.match.argCount must be a non-negative integer`);
-        }
-    }
-    if (match.typeHint !== undefined && !isNonEmptyString(match.typeHint)) {
-        out.errors.push(`${rulePath}.match.typeHint must be a non-empty string`);
-    }
-    if (match.literalArgs !== undefined) {
-        if (!Array.isArray(match.literalArgs)) {
-            out.errors.push(`${rulePath}.match.literalArgs must be an array`);
-        } else {
-            match.literalArgs.forEach((raw: unknown, index: number) => {
-                if (!isObject(raw)) {
-                    out.errors.push(`${rulePath}.match.literalArgs[${index}] must be an object`);
-                    return;
-                }
-                if (typeof raw.index !== "number" || !Number.isInteger(raw.index) || raw.index < 0) {
-                    out.errors.push(`${rulePath}.match.literalArgs[${index}].index must be a non-negative integer`);
-                }
-                if (!Array.isArray(raw.values) || raw.values.length === 0 || raw.values.some(value => !isNonEmptyString(value))) {
-                    out.errors.push(`${rulePath}.match.literalArgs[${index}].values must be a non-empty string[]`);
-                }
-            });
+    for (const field of FORBIDDEN_MATCH_SELECTOR_FIELDS) {
+        if (Object.prototype.hasOwnProperty.call(match, field)) {
+            out.errors.push(`${rulePath}.match.${field} is a legacy API selector field; use canonical apiEffect binding/effect instead`);
         }
     }
 }
 
-function validateStringConstraint(rulePath: string, fieldName: string, raw: unknown, out: RuleValidationResult): raw is RuleStringConstraint {
+function validateApiEffect(rulePath: string, raw: unknown, match: unknown, out: RuleValidationResult): void {
     if (!isObject(raw)) {
-        out.errors.push(`${rulePath}.${fieldName} must be an object`);
-        return false;
+        out.errors.push(`${rulePath}.apiEffect is required for trusted runtime rules`);
+        return;
     }
-
-    const mode = raw.mode;
-    const value = raw.value;
-    if (typeof mode !== "string" || !CONSTRAINT_MODES.has(mode as RuleConstraintMode)) {
-        out.errors.push(`${rulePath}.${fieldName}.mode must be equals/contains/regex`);
-    }
-    if (!isNonEmptyString(value)) {
-        out.errors.push(`${rulePath}.${fieldName}.value must be a non-empty string`);
-    }
-
-    if (mode === "regex" && typeof value === "string") {
-        try {
-            // eslint-disable-next-line no-new
-            new RegExp(value);
-        } catch (err: any) {
-            out.errors.push(`${rulePath}.${fieldName}.value regex is invalid: ${String(err?.message || err)}`);
+    const requiredStringFields = ["canonicalApiId", "assetId", "surfaceId", "bindingId", "effectTemplateId"];
+    for (const field of requiredStringFields) {
+        if (!isNonEmptyString(raw[field])) {
+            out.errors.push(`${rulePath}.apiEffect.${field} must be a non-empty string`);
         }
     }
-
-    return true;
-}
-
-function validateScopeConstraint(
-    rulePath: string,
-    scope: unknown,
-    out: RuleValidationResult,
-    fieldName = "scope"
-): scope is RuleScopeConstraint {
-    if (!isObject(scope)) {
-        out.errors.push(`${rulePath}.${fieldName} must be an object`);
-        return false;
+    if (typeof raw.role !== "string" || !API_EFFECT_ROLES.has(raw.role)) {
+        out.errors.push(`${rulePath}.apiEffect.role is invalid`);
     }
-
-    const fields: Array<keyof RuleScopeConstraint> = ["file", "module", "className", "methodName"];
-    for (const scopeFieldName of fields) {
-        const raw = scope[scopeFieldName];
-        if (raw === undefined) continue;
-        validateStringConstraint(rulePath, `${fieldName}.${scopeFieldName}`, raw, out);
+    if (isObject(match) && isNonEmptyString(match.value) && isNonEmptyString(raw.canonicalApiId) && match.value !== raw.canonicalApiId) {
+        out.errors.push(`${rulePath}.match.value must equal apiEffect.canonicalApiId`);
     }
-    const methodDecorators = scope.methodDecorators;
-    if (methodDecorators !== undefined) {
-        if (!Array.isArray(methodDecorators) || methodDecorators.length === 0) {
-            out.errors.push(`${rulePath}.${fieldName}.methodDecorators must be a non-empty array`);
-        } else {
-            methodDecorators.forEach((raw, index) => {
-                validateStringConstraint(rulePath, `${fieldName}.methodDecorators[${index}]`, raw, out);
-            });
-        }
-    }
-    return true;
 }
 
 function validateEndpointRef(
@@ -216,6 +142,11 @@ function validateEndpointRef(
         out.errors.push(`${rulePath}.${fieldName}.slotKind must be a non-empty string`);
     }
 
+    const slotWriteMode = value.slotWriteMode;
+    if (slotWriteMode !== undefined && slotWriteMode !== "replace" && slotWriteMode !== "append") {
+        out.errors.push(`${rulePath}.${fieldName}.slotWriteMode must be replace/append`);
+    }
+
     const taintScope = value.taintScope;
     if (taintScope !== undefined && taintScope !== "self" && taintScope !== "contained-values") {
         out.errors.push(`${rulePath}.${fieldName}.taintScope must be self/contained-values`);
@@ -226,6 +157,9 @@ function validateEndpointRef(
     }
     if (pathFrom === undefined && slotKind !== undefined) {
         out.errors.push(`${rulePath}.${fieldName}.slotKind requires pathFrom`);
+    }
+    if (slotWriteMode !== undefined && (pathFrom === undefined || !isNonEmptyString(slotKind))) {
+        out.errors.push(`${rulePath}.${fieldName}.slotWriteMode requires pathFrom and slotKind`);
     }
     if (path !== undefined && pathFrom !== undefined) {
         out.errors.push(`${rulePath}.${fieldName}.path cannot be combined with pathFrom`);
@@ -274,20 +208,12 @@ function validateRuleCommon(rulePath: string, rule: unknown, out: RuleValidation
     if (rule.tags !== undefined && (!Array.isArray(rule.tags) || rule.tags.some(x => typeof x !== "string"))) {
         out.errors.push(`${rulePath}.tags must be string[]`);
     }
-    if (rule.layer !== undefined) {
-        if (typeof rule.layer !== "string" || !RULE_LAYERS.has(rule.layer as RuleLayer)) {
-            out.errors.push(`${rulePath}.layer must be kernel/project`);
-        }
-    }
     if (rule.family !== undefined && !isNonEmptyString(rule.family)) {
         out.errors.push(`${rulePath}.family must be a non-empty string`);
     }
-    if (rule.tier !== undefined) {
-        if (typeof rule.tier !== "string" || !RULE_TIERS.has(rule.tier as RuleTier)) {
-            out.errors.push(`${rulePath}.tier must be A/B/C`);
-        } else if (!isNonEmptyString(rule.family)) {
-            out.warnings.push(`${rulePath}.tier is set but family is missing; tier preference cannot be applied`);
-        }
+    const obsoletePriorityField = "ti" + "er";
+    if (Object.prototype.hasOwnProperty.call(rule, obsoletePriorityField)) {
+        out.errors.push(`${rulePath}.${obsoletePriorityField} is an obsolete priority field; use canonical apiEffect identity, family, and endpoint binding`);
     }
 
     if (rule.severity !== undefined) {
@@ -298,60 +224,14 @@ function validateRuleCommon(rulePath: string, rule: unknown, out: RuleValidation
     if (rule.category !== undefined && !isNonEmptyString(rule.category)) {
         out.errors.push(`${rulePath}.category must be a non-empty string`);
     }
-    if (rule.scope !== undefined) {
-        validateScopeConstraint(rulePath, rule.scope, out, "scope");
-    }
-    const sourceLikeRule = rule as unknown as SourceRule;
-    if (sourceLikeRule.calleeScope !== undefined) {
-        validateScopeConstraint(rulePath, sourceLikeRule.calleeScope, out, "calleeScope");
+    for (const field of FORBIDDEN_RULE_SELECTOR_FIELDS) {
+        if (Object.prototype.hasOwnProperty.call(rule, field)) {
+            out.errors.push(`${rulePath}.${field} is a legacy API selector field; use canonical apiEffect binding/effect instead`);
+        }
     }
 
     validateMatch(rulePath, rule.match, out);
-    const normalizedRule = rule as unknown as BaseRule;
-    const m = isObject(normalizedRule.match) ? normalizedRule.match : undefined;
-
-    // High-risk gate: generic method names must carry stronger constraints.
-    if (m && m.kind === "method_name_equals" && typeof m.value === "string") {
-        const methodName = m.value.trim();
-        if (HIGH_RISK_METHOD_NAMES.has(methodName)) {
-            const hasScopeConstraint = hasAnyScopeAnchor(
-                normalizedRule.scope,
-                (rule as any).calleeScope as RuleScopeConstraint | undefined
-            );
-            const invokeKind = m.invokeKind;
-            const hasShapeConstraint = (
-                (invokeKind !== undefined && invokeKind !== "any")
-                || m.argCount !== undefined
-                || isNonEmptyString(m.typeHint)
-            );
-            if (!hasScopeConstraint || !hasShapeConstraint) {
-                const missing: string[] = [];
-                if (!hasScopeConstraint) missing.push("scope anchor(file/module/className/methodName/methodDecorators)");
-                if (!hasShapeConstraint) missing.push("match.invokeKind(instance/static)/match.argCount/match.typeHint");
-                out.warnings.push(
-                    `${rulePath} uses high-risk method_name_equals('${methodName}') without combined constraints `
-                    + `(${missing.join(", ")}); consider className/module + match.invokeKind/match.argCount/match.typeHint`
-                );
-            }
-        }
-    }
-
-    if (normalizedRule.tier === "C" && m && m.kind === "method_name_equals") {
-        const missing: string[] = [];
-        if (!isNonEmptyString(normalizedRule.family)) missing.push("family");
-        const mk = m.invokeKind;
-        if (mk === undefined || mk === "any") missing.push("match.invokeKind(instance/static)");
-        if (m.argCount === undefined) missing.push("match.argCount");
-        if (!hasAnyScopeAnchor(normalizedRule.scope, (rule as any).calleeScope as RuleScopeConstraint | undefined)) {
-            missing.push("scope/calleeScope anchor(file/module/className/methodName/methodDecorators)");
-        }
-        if (missing.length > 0) {
-            out.errors.push(
-                `${rulePath} tier C method selector is under-constrained (${missing.join(", ")}); `
-                + `Tier C selectors must be anchored by explicit owner/file/endpoint evidence`
-            );
-        }
-    }
+    validateApiEffect(rulePath, rule.apiEffect, rule.match, out);
 
     return true;
 }
@@ -372,42 +252,6 @@ function validateSourceRule(rulePath: string, rule: unknown, out: RuleValidation
         validateEndpointOrRef(rulePath, "target", obj.target, out, { allowStaticPath: true });
     }
 
-    if (obj.calleeScope !== undefined) {
-        validateScopeConstraint(rulePath, obj.calleeScope, out, "calleeScope");
-    }
-
-    if (obj.callbackArgIndexes !== undefined) {
-        if (!Array.isArray(obj.callbackArgIndexes) || obj.callbackArgIndexes.length === 0) {
-            out.errors.push(`${rulePath}.callbackArgIndexes must be a non-empty array`);
-        } else if (obj.callbackArgIndexes.some((x: unknown) => typeof x !== "number" || !Number.isInteger(x) || x < 0)) {
-            out.errors.push(`${rulePath}.callbackArgIndexes must contain non-negative integers only`);
-        }
-    }
-    if (obj.callbackFieldNames !== undefined) {
-        if (!Array.isArray(obj.callbackFieldNames) || obj.callbackFieldNames.length === 0 || obj.callbackFieldNames.some((x: unknown) => !isNonEmptyString(x))) {
-            out.errors.push(`${rulePath}.callbackFieldNames must be a non-empty string[]`);
-        }
-    }
-    if (obj.callbackResolution !== undefined) {
-        if (typeof obj.callbackResolution !== "string" || !CALLBACK_RESOLUTION_MODES.has(obj.callbackResolution as CallbackResolutionMode)) {
-            out.errors.push(`${rulePath}.callbackResolution must be direct_arg/known_option`);
-        }
-    }
-    if (obj.paramNameIncludes !== undefined) {
-        if (!Array.isArray(obj.paramNameIncludes) || obj.paramNameIncludes.length === 0 || obj.paramNameIncludes.some((x: unknown) => !isNonEmptyString(x))) {
-            out.errors.push(`${rulePath}.paramNameIncludes must be a non-empty string[]`);
-        }
-    }
-    if (obj.paramTypeIncludes !== undefined) {
-        if (!Array.isArray(obj.paramTypeIncludes) || obj.paramTypeIncludes.length === 0 || obj.paramTypeIncludes.some((x: unknown) => !isNonEmptyString(x))) {
-            out.errors.push(`${rulePath}.paramTypeIncludes must be a non-empty string[]`);
-        }
-    }
-    if (obj.paramMatchMode !== undefined) {
-        if (typeof obj.paramMatchMode !== "string" || !ENTRY_PARAM_MATCH_MODES.has(obj.paramMatchMode as EntryParamMatchMode)) {
-            out.errors.push(`${rulePath}.paramMatchMode must be name_only/name_and_type`);
-        }
-    }
     if (obj.sourceKind === "callback_param") {
         const endpoint = normalizeEndpoint(obj.target).endpoint;
         if (typeof endpoint !== "string" || !/^arg\d+$/.test(endpoint)) {

@@ -4,134 +4,449 @@
   "status": "official",
   "surfaces": [
     {
-      "surfaceId": "surface.transfer.harmony.textdecoder.decodeToString.base_to_result.exact.decodeToString.className.TextDecoder",
+      "surfaceId": "surface:api:official:openharmony:module=%40ohos.util:file=api%2F%40ohos.util.d.ts:export=namespace%3Autil.TextDecoder:decl=class%3Autil.TextDecoder:member=method%3Ainstance%3Adecode:invoke=call:params=0%3AUint8Array%2C1%3A%3F%3A%7B%20stream%3F%3A%20false%20%7D:ret=string",
+      "canonicalApiId": "api:official:openharmony:module=%40ohos.util:file=api%2F%40ohos.util.d.ts:export=namespace%3Autil.TextDecoder:decl=class%3Autil.TextDecoder:member=method%3Ainstance%3Adecode:invoke=call:params=0%3AUint8Array%2C1%3A%3F%3A%7B%20stream%3F%3A%20false%20%7D:ret=string",
       "kind": "invoke",
-      "modulePath": "tsjs.builtin",
-      "ownerName": "TextDecoder",
-      "methodName": "decodeToString",
-      "invokeKind": "instance",
-      "argCount": 2,
-      "confidence": "likely",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "api/@ohos.util.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "util.TextDecoder",
+            "methodName": "decode",
+            "parameterTypes": [
+              "Uint8Array",
+              "{ stream?: false }"
+            ],
+            "returnType": "string",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "sdk",
+        "location": {
+          "file": "api/@ohos.util.d.ts",
+          "line": 699
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.harmony.textdecoder.decodeToString.arg0_to_result.exact.decodeToString.className.TextDecoder",
+      "surfaceId": "surface:api:official:openharmony:module=%40ohos.util:file=api%2F%40ohos.util.d.ts:export=namespace%3Autil.TextDecoder:decl=class%3Autil.TextDecoder:member=method%3Ainstance%3AdecodeWithStream:invoke=call:params=0%3AUint8Array%2C1%3A%3F%3ADecodeWithStreamOptions:ret=string",
+      "canonicalApiId": "api:official:openharmony:module=%40ohos.util:file=api%2F%40ohos.util.d.ts:export=namespace%3Autil.TextDecoder:decl=class%3Autil.TextDecoder:member=method%3Ainstance%3AdecodeWithStream:invoke=call:params=0%3AUint8Array%2C1%3A%3F%3ADecodeWithStreamOptions:ret=string",
       "kind": "invoke",
-      "modulePath": "tsjs.builtin",
-      "ownerName": "TextDecoder",
-      "methodName": "decodeToString",
-      "invokeKind": "instance",
-      "argCount": 2,
-      "confidence": "likely",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "api/@ohos.util.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "util.TextDecoder",
+            "methodName": "decodeWithStream",
+            "parameterTypes": [
+              "Uint8Array",
+              "DecodeWithStreamOptions"
+            ],
+            "returnType": "string",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "sdk",
+        "location": {
+          "file": "api/@ohos.util.d.ts",
+          "line": 748
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.harmony.textencoder.encodeInto.arg0_to_result.exact.encodeInto.className.TextEncoder",
+      "surfaceId": "surface:api:official:openharmony:module=%40ohos.util:file=api%2F%40ohos.util.d.ts:export=namespace%3Autil.TextDecoder:decl=class%3Autil.TextDecoder:member=method%3Ainstance%3AdecodeToString:invoke=call:params=0%3AUint8Array%2C1%3A%3F%3ADecodeToStringOptions:ret=string",
+      "canonicalApiId": "api:official:openharmony:module=%40ohos.util:file=api%2F%40ohos.util.d.ts:export=namespace%3Autil.TextDecoder:decl=class%3Autil.TextDecoder:member=method%3Ainstance%3AdecodeToString:invoke=call:params=0%3AUint8Array%2C1%3A%3F%3ADecodeToStringOptions:ret=string",
       "kind": "invoke",
-      "modulePath": "tsjs.builtin",
-      "ownerName": "TextEncoder",
-      "methodName": "encodeInto",
-      "invokeKind": "instance",
-      "argCount": 1,
-      "confidence": "likely",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "api/@ohos.util.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "util.TextDecoder",
+            "methodName": "decodeToString",
+            "parameterTypes": [
+              "Uint8Array",
+              "DecodeToStringOptions"
+            ],
+            "returnType": "string",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "sdk",
+        "location": {
+          "file": "api/@ohos.util.d.ts",
+          "line": 763
+        }
+      }
+    },
+    {
+      "surfaceId": "surface:api:official:openharmony:module=%40ohos.util:file=api%2F%40ohos.util.d.ts:export=namespace%3Autil.TextEncoder:decl=class%3Autil.TextEncoder:member=method%3Ainstance%3Aencode:invoke=call:params=0%3A%3F%3Astring:ret=Uint8Array",
+      "canonicalApiId": "api:official:openharmony:module=%40ohos.util:file=api%2F%40ohos.util.d.ts:export=namespace%3Autil.TextEncoder:decl=class%3Autil.TextEncoder:member=method%3Ainstance%3Aencode:invoke=call:params=0%3A%3F%3Astring:ret=Uint8Array",
+      "kind": "invoke",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "api/@ohos.util.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "util.TextEncoder",
+            "methodName": "encode",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "Uint8Array",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
+      "provenance": {
+        "source": "sdk",
+        "location": {
+          "file": "api/@ohos.util.d.ts",
+          "line": 922
+        }
+      }
+    },
+    {
+      "surfaceId": "surface:api:official:openharmony:module=%40ohos.util:file=api%2F%40ohos.util.d.ts:export=namespace%3Autil.TextEncoder:decl=class%3Autil.TextEncoder:member=method%3Ainstance%3AencodeInto:invoke=call:params=0%3A%3F%3Astring:ret=Uint8Array",
+      "canonicalApiId": "api:official:openharmony:module=%40ohos.util:file=api%2F%40ohos.util.d.ts:export=namespace%3Autil.TextEncoder:decl=class%3Autil.TextEncoder:member=method%3Ainstance%3AencodeInto:invoke=call:params=0%3A%3F%3Astring:ret=Uint8Array",
+      "kind": "invoke",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "api/@ohos.util.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "util.TextEncoder",
+            "methodName": "encodeInto",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "Uint8Array",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
+      "provenance": {
+        "source": "sdk",
+        "location": {
+          "file": "api/@ohos.util.d.ts",
+          "line": 954
+        }
+      }
+    },
+    {
+      "surfaceId": "surface:api:official:openharmony:module=%40ohos.util:file=api%2F%40ohos.util.d.ts:export=namespace%3Autil.TextEncoder:decl=class%3Autil.TextEncoder:member=method%3Ainstance%3AencodeInto:invoke=call:params=0%3Astring%2C1%3AUint8Array:ret=%7B%20read%3A%20number%3B%20written%3A%20number%20%7D",
+      "canonicalApiId": "api:official:openharmony:module=%40ohos.util:file=api%2F%40ohos.util.d.ts:export=namespace%3Autil.TextEncoder:decl=class%3Autil.TextEncoder:member=method%3Ainstance%3AencodeInto:invoke=call:params=0%3Astring%2C1%3AUint8Array:ret=%7B%20read%3A%20number%3B%20written%3A%20number%20%7D",
+      "kind": "invoke",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "api/@ohos.util.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "util.TextEncoder",
+            "methodName": "encodeInto",
+            "parameterTypes": [
+              "string",
+              "Uint8Array"
+            ],
+            "returnType": "{ read: number; written: number }",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
+      "provenance": {
+        "source": "sdk",
+        "location": {
+          "file": "api/@ohos.util.d.ts",
+          "line": 969
+        }
+      }
+    },
+    {
+      "surfaceId": "surface:api:official:openharmony:module=%40ohos.util:file=api%2F%40ohos.util.d.ts:export=namespace%3Autil.TextEncoder:decl=class%3Autil.TextEncoder:member=method%3Ainstance%3AencodeIntoUint8Array:invoke=call:params=0%3Astring%2C1%3AUint8Array:ret=EncodeIntoUint8ArrayInfo",
+      "canonicalApiId": "api:official:openharmony:module=%40ohos.util:file=api%2F%40ohos.util.d.ts:export=namespace%3Autil.TextEncoder:decl=class%3Autil.TextEncoder:member=method%3Ainstance%3AencodeIntoUint8Array:invoke=call:params=0%3Astring%2C1%3AUint8Array:ret=EncodeIntoUint8ArrayInfo",
+      "kind": "invoke",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "api/@ohos.util.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "util.TextEncoder",
+            "methodName": "encodeIntoUint8Array",
+            "parameterTypes": [
+              "string",
+              "Uint8Array"
+            ],
+            "returnType": "EncodeIntoUint8ArrayInfo",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
+      "provenance": {
+        "source": "sdk",
+        "location": {
+          "file": "api/@ohos.util.d.ts",
+          "line": 1016
+        }
       }
     }
   ],
   "bindings": [
     {
-      "bindingId": "binding.transfer.harmony.textdecoder.decodeToString.base_to_result.exact.decodeToString.className.TextDecoder",
-      "surfaceId": "surface.transfer.harmony.textdecoder.decodeToString.base_to_result.exact.decodeToString.className.TextDecoder",
+      "bindingId": "binding:asset.rule.kernel.transfers.codec:0001",
+      "surfaceId": "surface:api:official:openharmony:module=%40ohos.util:file=api%2F%40ohos.util.d.ts:export=namespace%3Autil.TextDecoder:decl=class%3Autil.TextDecoder:member=method%3Ainstance%3Adecode:invoke=call:params=0%3AUint8Array%2C1%3A%3F%3A%7B%20stream%3F%3A%20false%20%7D:ret=string",
+      "canonicalApiId": "api:official:openharmony:module=%40ohos.util:file=api%2F%40ohos.util.d.ts:export=namespace%3Autil.TextDecoder:decl=class%3Autil.TextDecoder:member=method%3Ainstance%3Adecode:invoke=call:params=0%3AUint8Array%2C1%3A%3F%3A%7B%20stream%3F%3A%20false%20%7D:ret=string",
       "assetId": "asset.rule.kernel.transfers.codec",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "decodeToString",
-        "invokeKind": "instance",
-        "argCount": 2,
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "TextDecoder"
-          }
+      "endpoint": {
+        "base": {
+          "kind": "return"
         }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.textdecoder.decodeToString.base_to_result.exact.decodeToString.className.TextDecoder"
+        "template:asset.rule.kernel.transfers.codec:0001"
       ],
-      "semanticsFamily": "transfer",
+      "semanticsFamily": "codec",
       "metadata": {
-        "description": "TextDecoder.decodeToString(buffer): encoded bytes taint decoded string result."
+        "description": "Disabled after OTR-001 manual SDK audit. Original: util.TextDecoder.decode receiver transfer.",
+        "enabled": false,
+        "tags": [
+          "disabled-after-sdk-audit",
+          "otr-001"
+        ]
       },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain"
     },
     {
-      "bindingId": "binding.transfer.harmony.textdecoder.decodeToString.arg0_to_result.exact.decodeToString.className.TextDecoder",
-      "surfaceId": "surface.transfer.harmony.textdecoder.decodeToString.arg0_to_result.exact.decodeToString.className.TextDecoder",
+      "bindingId": "binding:asset.rule.kernel.transfers.codec:0002",
+      "surfaceId": "surface:api:official:openharmony:module=%40ohos.util:file=api%2F%40ohos.util.d.ts:export=namespace%3Autil.TextDecoder:decl=class%3Autil.TextDecoder:member=method%3Ainstance%3Adecode:invoke=call:params=0%3AUint8Array%2C1%3A%3F%3A%7B%20stream%3F%3A%20false%20%7D:ret=string",
+      "canonicalApiId": "api:official:openharmony:module=%40ohos.util:file=api%2F%40ohos.util.d.ts:export=namespace%3Autil.TextDecoder:decl=class%3Autil.TextDecoder:member=method%3Ainstance%3Adecode:invoke=call:params=0%3AUint8Array%2C1%3A%3F%3A%7B%20stream%3F%3A%20false%20%7D:ret=string",
       "assetId": "asset.rule.kernel.transfers.codec",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "decodeToString",
-        "invokeKind": "instance",
-        "argCount": 2,
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "TextDecoder"
-          }
+      "endpoint": {
+        "base": {
+          "kind": "return"
         }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.textdecoder.decodeToString.arg0_to_result.exact.decodeToString.className.TextDecoder"
+        "template:asset.rule.kernel.transfers.codec:0002"
       ],
-      "semanticsFamily": "transfer",
+      "semanticsFamily": "codec",
       "metadata": {
-        "description": "TextDecoder.decodeToString(buffer): buffer argument taints decoded string result."
+        "description": "util.TextDecoder.decode arg0 transfer."
       },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain"
     },
     {
-      "bindingId": "binding.transfer.harmony.textencoder.encodeInto.arg0_to_result.exact.encodeInto.className.TextEncoder",
-      "surfaceId": "surface.transfer.harmony.textencoder.encodeInto.arg0_to_result.exact.encodeInto.className.TextEncoder",
+      "bindingId": "binding:asset.rule.kernel.transfers.codec:0003",
+      "surfaceId": "surface:api:official:openharmony:module=%40ohos.util:file=api%2F%40ohos.util.d.ts:export=namespace%3Autil.TextDecoder:decl=class%3Autil.TextDecoder:member=method%3Ainstance%3AdecodeWithStream:invoke=call:params=0%3AUint8Array%2C1%3A%3F%3ADecodeWithStreamOptions:ret=string",
+      "canonicalApiId": "api:official:openharmony:module=%40ohos.util:file=api%2F%40ohos.util.d.ts:export=namespace%3Autil.TextDecoder:decl=class%3Autil.TextDecoder:member=method%3Ainstance%3AdecodeWithStream:invoke=call:params=0%3AUint8Array%2C1%3A%3F%3ADecodeWithStreamOptions:ret=string",
       "assetId": "asset.rule.kernel.transfers.codec",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "encodeInto",
-        "invokeKind": "instance",
-        "argCount": 1,
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "TextEncoder"
-          }
+      "endpoint": {
+        "base": {
+          "kind": "return"
         }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.textencoder.encodeInto.arg0_to_result.exact.encodeInto.className.TextEncoder"
+        "template:asset.rule.kernel.transfers.codec:0003"
       ],
-      "semanticsFamily": "transfer",
+      "semanticsFamily": "codec",
       "metadata": {
-        "description": "TextEncoder.encodeInto(text): source text taints encoded byte result."
+        "description": "Disabled after OTR-001 manual SDK audit. Original: util.TextDecoder.decodeWithStream receiver transfer.",
+        "enabled": false,
+        "tags": [
+          "disabled-after-sdk-audit",
+          "otr-001"
+        ]
       },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding:asset.rule.kernel.transfers.codec:0004",
+      "surfaceId": "surface:api:official:openharmony:module=%40ohos.util:file=api%2F%40ohos.util.d.ts:export=namespace%3Autil.TextDecoder:decl=class%3Autil.TextDecoder:member=method%3Ainstance%3AdecodeWithStream:invoke=call:params=0%3AUint8Array%2C1%3A%3F%3ADecodeWithStreamOptions:ret=string",
+      "canonicalApiId": "api:official:openharmony:module=%40ohos.util:file=api%2F%40ohos.util.d.ts:export=namespace%3Autil.TextDecoder:decl=class%3Autil.TextDecoder:member=method%3Ainstance%3AdecodeWithStream:invoke=call:params=0%3AUint8Array%2C1%3A%3F%3ADecodeWithStreamOptions:ret=string",
+      "assetId": "asset.rule.kernel.transfers.codec",
+      "plane": "rule",
+      "role": "transfer",
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template:asset.rule.kernel.transfers.codec:0004"
+      ],
+      "semanticsFamily": "codec",
+      "metadata": {
+        "description": "util.TextDecoder.decodeWithStream arg0 transfer."
+      },
+      "completeness": "complete",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding:asset.rule.kernel.transfers.codec:0005",
+      "surfaceId": "surface:api:official:openharmony:module=%40ohos.util:file=api%2F%40ohos.util.d.ts:export=namespace%3Autil.TextDecoder:decl=class%3Autil.TextDecoder:member=method%3Ainstance%3AdecodeToString:invoke=call:params=0%3AUint8Array%2C1%3A%3F%3ADecodeToStringOptions:ret=string",
+      "canonicalApiId": "api:official:openharmony:module=%40ohos.util:file=api%2F%40ohos.util.d.ts:export=namespace%3Autil.TextDecoder:decl=class%3Autil.TextDecoder:member=method%3Ainstance%3AdecodeToString:invoke=call:params=0%3AUint8Array%2C1%3A%3F%3ADecodeToStringOptions:ret=string",
+      "assetId": "asset.rule.kernel.transfers.codec",
+      "plane": "rule",
+      "role": "transfer",
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template:asset.rule.kernel.transfers.codec:0005"
+      ],
+      "semanticsFamily": "codec",
+      "metadata": {
+        "description": "Disabled after OTR-001 manual SDK audit. Original: util.TextDecoder.decodeToString receiver transfer.",
+        "enabled": false,
+        "tags": [
+          "disabled-after-sdk-audit",
+          "otr-001"
+        ]
+      },
+      "completeness": "complete",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding:asset.rule.kernel.transfers.codec:0006",
+      "surfaceId": "surface:api:official:openharmony:module=%40ohos.util:file=api%2F%40ohos.util.d.ts:export=namespace%3Autil.TextDecoder:decl=class%3Autil.TextDecoder:member=method%3Ainstance%3AdecodeToString:invoke=call:params=0%3AUint8Array%2C1%3A%3F%3ADecodeToStringOptions:ret=string",
+      "canonicalApiId": "api:official:openharmony:module=%40ohos.util:file=api%2F%40ohos.util.d.ts:export=namespace%3Autil.TextDecoder:decl=class%3Autil.TextDecoder:member=method%3Ainstance%3AdecodeToString:invoke=call:params=0%3AUint8Array%2C1%3A%3F%3ADecodeToStringOptions:ret=string",
+      "assetId": "asset.rule.kernel.transfers.codec",
+      "plane": "rule",
+      "role": "transfer",
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template:asset.rule.kernel.transfers.codec:0006"
+      ],
+      "semanticsFamily": "codec",
+      "metadata": {
+        "description": "util.TextDecoder.decodeToString arg0 transfer."
+      },
+      "completeness": "complete",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding:asset.rule.kernel.transfers.codec:0007",
+      "surfaceId": "surface:api:official:openharmony:module=%40ohos.util:file=api%2F%40ohos.util.d.ts:export=namespace%3Autil.TextEncoder:decl=class%3Autil.TextEncoder:member=method%3Ainstance%3Aencode:invoke=call:params=0%3A%3F%3Astring:ret=Uint8Array",
+      "canonicalApiId": "api:official:openharmony:module=%40ohos.util:file=api%2F%40ohos.util.d.ts:export=namespace%3Autil.TextEncoder:decl=class%3Autil.TextEncoder:member=method%3Ainstance%3Aencode:invoke=call:params=0%3A%3F%3Astring:ret=Uint8Array",
+      "assetId": "asset.rule.kernel.transfers.codec",
+      "plane": "rule",
+      "role": "transfer",
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template:asset.rule.kernel.transfers.codec:0007"
+      ],
+      "semanticsFamily": "codec",
+      "metadata": {
+        "description": "util.TextEncoder.encode arg0 transfer."
+      },
+      "completeness": "complete",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding:asset.rule.kernel.transfers.codec:0008",
+      "surfaceId": "surface:api:official:openharmony:module=%40ohos.util:file=api%2F%40ohos.util.d.ts:export=namespace%3Autil.TextEncoder:decl=class%3Autil.TextEncoder:member=method%3Ainstance%3AencodeInto:invoke=call:params=0%3A%3F%3Astring:ret=Uint8Array",
+      "canonicalApiId": "api:official:openharmony:module=%40ohos.util:file=api%2F%40ohos.util.d.ts:export=namespace%3Autil.TextEncoder:decl=class%3Autil.TextEncoder:member=method%3Ainstance%3AencodeInto:invoke=call:params=0%3A%3F%3Astring:ret=Uint8Array",
+      "assetId": "asset.rule.kernel.transfers.codec",
+      "plane": "rule",
+      "role": "transfer",
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template:asset.rule.kernel.transfers.codec:0008"
+      ],
+      "semanticsFamily": "codec",
+      "metadata": {
+        "description": "util.TextEncoder.encodeInto arg0 transfer."
+      },
+      "completeness": "complete",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding:asset.rule.kernel.transfers.codec:0009",
+      "surfaceId": "surface:api:official:openharmony:module=%40ohos.util:file=api%2F%40ohos.util.d.ts:export=namespace%3Autil.TextEncoder:decl=class%3Autil.TextEncoder:member=method%3Ainstance%3AencodeInto:invoke=call:params=0%3Astring%2C1%3AUint8Array:ret=%7B%20read%3A%20number%3B%20written%3A%20number%20%7D",
+      "canonicalApiId": "api:official:openharmony:module=%40ohos.util:file=api%2F%40ohos.util.d.ts:export=namespace%3Autil.TextEncoder:decl=class%3Autil.TextEncoder:member=method%3Ainstance%3AencodeInto:invoke=call:params=0%3Astring%2C1%3AUint8Array:ret=%7B%20read%3A%20number%3B%20written%3A%20number%20%7D",
+      "assetId": "asset.rule.kernel.transfers.codec",
+      "plane": "rule",
+      "role": "transfer",
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "effectTemplateRefs": [
+        "template:asset.rule.kernel.transfers.codec:0009"
+      ],
+      "semanticsFamily": "codec",
+      "metadata": {
+        "description": "util.TextEncoder.encodeInto arg0_to_dest transfer."
+      },
+      "completeness": "complete",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding:asset.rule.kernel.transfers.codec:0010",
+      "surfaceId": "surface:api:official:openharmony:module=%40ohos.util:file=api%2F%40ohos.util.d.ts:export=namespace%3Autil.TextEncoder:decl=class%3Autil.TextEncoder:member=method%3Ainstance%3AencodeIntoUint8Array:invoke=call:params=0%3Astring%2C1%3AUint8Array:ret=EncodeIntoUint8ArrayInfo",
+      "canonicalApiId": "api:official:openharmony:module=%40ohos.util:file=api%2F%40ohos.util.d.ts:export=namespace%3Autil.TextEncoder:decl=class%3Autil.TextEncoder:member=method%3Ainstance%3AencodeIntoUint8Array:invoke=call:params=0%3Astring%2C1%3AUint8Array:ret=EncodeIntoUint8ArrayInfo",
+      "assetId": "asset.rule.kernel.transfers.codec",
+      "plane": "rule",
+      "role": "transfer",
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "effectTemplateRefs": [
+        "template:asset.rule.kernel.transfers.codec:0010"
+      ],
+      "semanticsFamily": "codec",
+      "metadata": {
+        "description": "util.TextEncoder.encodeIntoUint8Array arg0_to_dest transfer."
+      },
+      "completeness": "complete",
+      "confidence": "certain"
     }
   ],
   "effectTemplates": [
     {
-      "id": "template.transfer.harmony.textdecoder.decodeToString.base_to_result.exact.decodeToString.className.TextDecoder",
+      "id": "template:asset.rule.kernel.transfers.codec:0001",
       "confidence": "certain",
       "kind": "rule.transfer",
       "from": {
@@ -144,10 +459,10 @@
           "kind": "return"
         }
       },
-      "transferKind": "transfer"
+      "transferKind": "codec"
     },
     {
-      "id": "template.transfer.harmony.textdecoder.decodeToString.arg0_to_result.exact.decodeToString.className.TextDecoder",
+      "id": "template:asset.rule.kernel.transfers.codec:0002",
       "confidence": "certain",
       "kind": "rule.transfer",
       "from": {
@@ -161,10 +476,26 @@
           "kind": "return"
         }
       },
-      "transferKind": "transfer"
+      "transferKind": "codec"
     },
     {
-      "id": "template.transfer.harmony.textencoder.encodeInto.arg0_to_result.exact.encodeInto.className.TextEncoder",
+      "id": "template:asset.rule.kernel.transfers.codec:0003",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "codec"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.codec:0004",
       "confidence": "certain",
       "kind": "rule.transfer",
       "from": {
@@ -178,12 +509,118 @@
           "kind": "return"
         }
       },
-      "transferKind": "transfer"
+      "transferKind": "codec"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.codec:0005",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "codec"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.codec:0006",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "codec"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.codec:0007",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "codec"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.codec:0008",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "codec"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.codec:0009",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "transferKind": "codec"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.codec:0010",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "transferKind": "codec"
     }
   ],
   "provenance": {
     "source": "builtin",
     "evidenceLocations": [
+      {
+        "file": "api/@ohos.util.d.ts"
+      },
       {
         "file": "src/models/kernel/rules/transfers/codec.rules.json"
       }

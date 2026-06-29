@@ -6,27 +6,53 @@
     {
       "surfaceId": "surface.source.external_entry_llm.return.Source",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "Source",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "external_entry_llm/external_entry_llm_001_T.ets"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=external_entry_llm%2Fexternal_entry_llm_001_T.ets:file=external_entry_llm%2Fexternal_entry_llm_001_T.ets:export=namespace%3A%25dflt:decl=namespace%3A%25dflt:member=function%3ASource:invoke=call:params=none:ret=string",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "external_entry_llm/external_entry_llm_001_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "Source",
+            "parameterTypes": [],
+            "returnType": "string",
+            "staticFlag": true
+          }
+        }
       }
     },
     {
       "surfaceId": "surface.sink.external_entry_llm.arg0.Sink",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "Sink",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "external_entry_llm/external_entry_llm_001_T.ets"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=external_entry_llm%2Fexternal_entry_llm_001_T.ets:file=external_entry_llm%2Fexternal_entry_llm_001_T.ets:export=namespace%3A%25dflt:decl=namespace%3A%25dflt:member=function%3ASink:invoke=call:params=0%3Astring:ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "external_entry_llm/external_entry_llm_001_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "Sink",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": true
+          }
+        }
       }
     }
   ],
@@ -37,10 +63,6 @@
       "assetId": "asset.rule.test.external_entry_llm",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "Source"
-      },
       "endpoint": {
         "base": {
           "kind": "return"
@@ -50,9 +72,10 @@
         "template.source.external_entry_llm.return.Source"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely",
-      "metadata": {}
+      "completeness": "complete",
+      "confidence": "certain",
+      "metadata": {},
+      "canonicalApiId": "api:project:local:module=external_entry_llm%2Fexternal_entry_llm_001_T.ets:file=external_entry_llm%2Fexternal_entry_llm_001_T.ets:export=namespace%3A%25dflt:decl=namespace%3A%25dflt:member=function%3ASource:invoke=call:params=none:ret=string"
     },
     {
       "bindingId": "binding.sink.external_entry_llm.arg0.Sink.0",
@@ -60,10 +83,6 @@
       "assetId": "asset.rule.test.external_entry_llm",
       "plane": "rule",
       "role": "sink",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "Sink"
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -74,9 +93,10 @@
         "template.sink.external_entry_llm.arg0.Sink"
       ],
       "semanticsFamily": "sink",
-      "completeness": "partial",
-      "confidence": "likely",
-      "metadata": {}
+      "completeness": "complete",
+      "confidence": "certain",
+      "metadata": {},
+      "canonicalApiId": "api:project:local:module=external_entry_llm%2Fexternal_entry_llm_001_T.ets:file=external_entry_llm%2Fexternal_entry_llm_001_T.ets:export=namespace%3A%25dflt:decl=namespace%3A%25dflt:member=function%3ASink:invoke=call:params=0%3Astring:ret=void"
     }
   ],
   "effectTemplates": [

@@ -4,984 +4,1919 @@
   "status": "official",
   "surfaces": [
     {
-      "surfaceId": "surface.transfer.reflect.get.arg0_to_result.exact.get.className.Reflect",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2015.reflect.d.ts:file=typescript%2Flib%2Flib.es2015.reflect.d.ts:export=namespace%3AReflect:decl=namespace%3AReflect:member=function%3Aget:invoke=call:params=0%3AT%2C1%3AP%2C2%3A%3F%3Aunknown:ret=P%20extends%20keyof%20T%20%3F%20T%5BP%5D%20%3A%20any",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2015.reflect.d.ts:file=typescript%2Flib%2Flib.es2015.reflect.d.ts:export=namespace%3AReflect:decl=namespace%3AReflect:member=function%3Aget:invoke=call:params=0%3AT%2C1%3AP%2C2%3A%3F%3Aunknown:ret=P%20extends%20keyof%20T%20%3F%20T%5BP%5D%20%3A%20any",
       "kind": "invoke",
-      "modulePath": "tsjs.builtin",
-      "ownerName": "Reflect",
-      "methodName": "get",
-      "invokeKind": "static",
-      "argCount": 2,
-      "confidence": "likely",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "typescript/lib/lib.es2015.reflect.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "Reflect",
+            "methodName": "get",
+            "parameterTypes": [
+              "T",
+              "P",
+              "unknown"
+            ],
+            "returnType": "P extends keyof T ? T[P] : any",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "sdk",
+        "location": {
+          "file": "typescript/lib/lib.es2015.reflect.d.ts",
+          "line": 72
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.harmony.object.assign.arg1_to_arg0.exact.assign.className.Object",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2015.core.d.ts:file=typescript%2Flib%2Flib.es2015.core.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Aassign:invoke=call:params=0%3AT%2C1%3AU:ret=T%20%26%20U",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2015.core.d.ts:file=typescript%2Flib%2Flib.es2015.core.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Aassign:invoke=call:params=0%3AT%2C1%3AU:ret=T%20%26%20U",
       "kind": "invoke",
-      "modulePath": "tsjs.builtin",
-      "ownerName": "Object",
-      "methodName": "assign",
-      "invokeKind": "static",
-      "argCount": 0,
-      "confidence": "likely",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "typescript/lib/lib.es2015.core.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "ObjectConstructor",
+            "methodName": "assign",
+            "parameterTypes": [
+              "T",
+              "U"
+            ],
+            "returnType": "T & U",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "sdk",
+        "location": {
+          "file": "typescript/lib/lib.es2015.core.d.ts",
+          "line": 286
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.harmony.object.assign.arg1_to_result.exact.assign.className.Object",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2015.core.d.ts:file=typescript%2Flib%2Flib.es2015.core.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Aassign:invoke=call:params=0%3AT%2C1%3AU%2C2%3AV:ret=T%20%26%20U%20%26%20V",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2015.core.d.ts:file=typescript%2Flib%2Flib.es2015.core.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Aassign:invoke=call:params=0%3AT%2C1%3AU%2C2%3AV:ret=T%20%26%20U%20%26%20V",
       "kind": "invoke",
-      "modulePath": "tsjs.builtin",
-      "ownerName": "Object",
-      "methodName": "assign",
-      "invokeKind": "static",
-      "argCount": 0,
-      "confidence": "likely",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "typescript/lib/lib.es2015.core.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "ObjectConstructor",
+            "methodName": "assign",
+            "parameterTypes": [
+              "T",
+              "U",
+              "V"
+            ],
+            "returnType": "T & U & V",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "sdk",
+        "location": {
+          "file": "typescript/lib/lib.es2015.core.d.ts",
+          "line": 295
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.harmony.object.keys.arg0_to_result.exact.keys.className.Object",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2015.core.d.ts:file=typescript%2Flib%2Flib.es2015.core.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Aassign:invoke=call:params=0%3AT%2C1%3AU%2C2%3AV%2C3%3AW:ret=T%20%26%20U%20%26%20V%20%26%20W",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2015.core.d.ts:file=typescript%2Flib%2Flib.es2015.core.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Aassign:invoke=call:params=0%3AT%2C1%3AU%2C2%3AV%2C3%3AW:ret=T%20%26%20U%20%26%20V%20%26%20W",
       "kind": "invoke",
-      "modulePath": "tsjs.builtin",
-      "ownerName": "Object",
-      "methodName": "keys",
-      "invokeKind": "static",
-      "argCount": 1,
-      "confidence": "likely",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "typescript/lib/lib.es2015.core.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "ObjectConstructor",
+            "methodName": "assign",
+            "parameterTypes": [
+              "T",
+              "U",
+              "V",
+              "W"
+            ],
+            "returnType": "T & U & V & W",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "sdk",
+        "location": {
+          "file": "typescript/lib/lib.es2015.core.d.ts",
+          "line": 305
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.harmony.object.values.arg0_to_result.exact.values.className.Object",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2015.core.d.ts:file=typescript%2Flib%2Flib.es2015.core.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Aassign:invoke=call:params=0%3Aobject%2C1%3Arest%3Aany%5B%5D:ret=any",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2015.core.d.ts:file=typescript%2Flib%2Flib.es2015.core.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Aassign:invoke=call:params=0%3Aobject%2C1%3Arest%3Aany%5B%5D:ret=any",
       "kind": "invoke",
-      "modulePath": "tsjs.builtin",
-      "ownerName": "Object",
-      "methodName": "values",
-      "invokeKind": "static",
-      "argCount": 1,
-      "confidence": "likely",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "typescript/lib/lib.es2015.core.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "ObjectConstructor",
+            "methodName": "assign",
+            "parameterTypes": [
+              "object",
+              "any[]"
+            ],
+            "returnType": "any",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "sdk",
+        "location": {
+          "file": "typescript/lib/lib.es2015.core.d.ts",
+          "line": 313
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.harmony.object.entries.arg0_to_result.exact.entries.className.Object",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Akeys:invoke=call:params=0%3Aobject:ret=string%5B%5D",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Akeys:invoke=call:params=0%3Aobject:ret=string%5B%5D",
       "kind": "invoke",
-      "modulePath": "tsjs.builtin",
-      "ownerName": "Object",
-      "methodName": "entries",
-      "invokeKind": "static",
-      "argCount": 1,
-      "confidence": "likely",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "typescript/lib/lib.es5.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "ObjectConstructor",
+            "methodName": "keys",
+            "parameterTypes": [
+              "object"
+            ],
+            "returnType": "string[]",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "sdk",
+        "location": {
+          "file": "typescript/lib/lib.es5.d.ts",
+          "line": 264
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.harmony.object.getOwnPropertyDescriptors.arg0_to_result.exact.getOwnPropertyDescriptors.className.Object",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2017.object.d.ts:file=typescript%2Flib%2Flib.es2017.object.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Avalues:invoke=call:params=0%3A%7B%20%5Bs%3A%20string%5D%3A%20T%3B%20%7D%20%7C%20ArrayLike%3CT%3E:ret=T%5B%5D",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2017.object.d.ts:file=typescript%2Flib%2Flib.es2017.object.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Avalues:invoke=call:params=0%3A%7B%20%5Bs%3A%20string%5D%3A%20T%3B%20%7D%20%7C%20ArrayLike%3CT%3E:ret=T%5B%5D",
       "kind": "invoke",
-      "modulePath": "tsjs.builtin",
-      "ownerName": "Object",
-      "methodName": "getOwnPropertyDescriptors",
-      "invokeKind": "static",
-      "argCount": 1,
-      "confidence": "likely",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "typescript/lib/lib.es2017.object.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "ObjectConstructor",
+            "methodName": "values",
+            "parameterTypes": [
+              "{ [s: string]: T; } | ArrayLike<T>"
+            ],
+            "returnType": "T[]",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "sdk",
+        "location": {
+          "file": "typescript/lib/lib.es2017.object.d.ts",
+          "line": 24
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.harmony.reflect.set.arg2_to_arg0.exact.set.className.Reflect",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2017.object.d.ts:file=typescript%2Flib%2Flib.es2017.object.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Avalues:invoke=call:params=0%3A%7B%7D:ret=any%5B%5D",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2017.object.d.ts:file=typescript%2Flib%2Flib.es2017.object.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Avalues:invoke=call:params=0%3A%7B%7D:ret=any%5B%5D",
       "kind": "invoke",
-      "modulePath": "tsjs.builtin",
-      "ownerName": "Reflect",
-      "methodName": "set",
-      "invokeKind": "static",
-      "argCount": 3,
-      "confidence": "likely",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "typescript/lib/lib.es2017.object.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "ObjectConstructor",
+            "methodName": "values",
+            "parameterTypes": [
+              "{}"
+            ],
+            "returnType": "any[]",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "sdk",
+        "location": {
+          "file": "typescript/lib/lib.es2017.object.d.ts",
+          "line": 30
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.harmony.weakref.deref.base_to_result.exact.deref.className.WeakRef",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2017.object.d.ts:file=typescript%2Flib%2Flib.es2017.object.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Aentries:invoke=call:params=0%3A%7B%20%5Bs%3A%20string%5D%3A%20T%3B%20%7D%20%7C%20ArrayLike%3CT%3E:ret=%5Bstring%2C%20T%5D%5B%5D",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2017.object.d.ts:file=typescript%2Flib%2Flib.es2017.object.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Aentries:invoke=call:params=0%3A%7B%20%5Bs%3A%20string%5D%3A%20T%3B%20%7D%20%7C%20ArrayLike%3CT%3E:ret=%5Bstring%2C%20T%5D%5B%5D",
       "kind": "invoke",
-      "modulePath": "tsjs.builtin",
-      "ownerName": "WeakRef",
-      "methodName": "deref",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "typescript/lib/lib.es2017.object.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "ObjectConstructor",
+            "methodName": "entries",
+            "parameterTypes": [
+              "{ [s: string]: T; } | ArrayLike<T>"
+            ],
+            "returnType": "[string, T][]",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "sdk",
+        "location": {
+          "file": "typescript/lib/lib.es2017.object.d.ts",
+          "line": 36
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.builtin.object.freeze.arg0_to_result.exact.freeze.className.Object",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2017.object.d.ts:file=typescript%2Flib%2Flib.es2017.object.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Aentries:invoke=call:params=0%3A%7B%7D:ret=%5Bstring%2C%20any%5D%5B%5D",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2017.object.d.ts:file=typescript%2Flib%2Flib.es2017.object.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Aentries:invoke=call:params=0%3A%7B%7D:ret=%5Bstring%2C%20any%5D%5B%5D",
       "kind": "invoke",
-      "modulePath": "tsjs.builtin",
-      "ownerName": "Object",
-      "methodName": "freeze",
-      "invokeKind": "static",
-      "argCount": 0,
-      "confidence": "likely",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "typescript/lib/lib.es2017.object.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "ObjectConstructor",
+            "methodName": "entries",
+            "parameterTypes": [
+              "{}"
+            ],
+            "returnType": "[string, any][]",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "sdk",
+        "location": {
+          "file": "typescript/lib/lib.es2017.object.d.ts",
+          "line": 42
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.builtin.object.seal.arg0_to_result.exact.seal.className.Object",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2017.object.d.ts:file=typescript%2Flib%2Flib.es2017.object.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3AgetOwnPropertyDescriptors:invoke=call:params=0%3AT:ret=%7B%20%5BP%20in%20keyof%20T%5D%3A%20TypedPropertyDescriptor%3CT%5BP%5D%3E%3B%20%7D%20%26%20%7B%20%5Bx%3A%20string%5D%3A%20PropertyDescriptor%3B%20%7D",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2017.object.d.ts:file=typescript%2Flib%2Flib.es2017.object.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3AgetOwnPropertyDescriptors:invoke=call:params=0%3AT:ret=%7B%20%5BP%20in%20keyof%20T%5D%3A%20TypedPropertyDescriptor%3CT%5BP%5D%3E%3B%20%7D%20%26%20%7B%20%5Bx%3A%20string%5D%3A%20PropertyDescriptor%3B%20%7D",
       "kind": "invoke",
-      "modulePath": "tsjs.builtin",
-      "ownerName": "Object",
-      "methodName": "seal",
-      "invokeKind": "static",
-      "argCount": 0,
-      "confidence": "likely",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "typescript/lib/lib.es2017.object.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "ObjectConstructor",
+            "methodName": "getOwnPropertyDescriptors",
+            "parameterTypes": [
+              "T"
+            ],
+            "returnType": "{ [P in keyof T]: TypedPropertyDescriptor<T[P]>; } & { [x: string]: PropertyDescriptor; }",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "sdk",
+        "location": {
+          "file": "typescript/lib/lib.es2017.object.d.ts",
+          "line": 48
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.builtin.object.getOwnPropertyNames.arg0_to_result.exact.getOwnPropertyNames.className.Object",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2015.reflect.d.ts:file=typescript%2Flib%2Flib.es2015.reflect.d.ts:export=namespace%3AReflect:decl=namespace%3AReflect:member=function%3Aset:invoke=call:params=0%3AT%2C1%3AP%2C2%3AP%20extends%20keyof%20T%20%3F%20T%5BP%5D%20%3A%20any%2C3%3A%3F%3Aany:ret=boolean",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2015.reflect.d.ts:file=typescript%2Flib%2Flib.es2015.reflect.d.ts:export=namespace%3AReflect:decl=namespace%3AReflect:member=function%3Aset:invoke=call:params=0%3AT%2C1%3AP%2C2%3AP%20extends%20keyof%20T%20%3F%20T%5BP%5D%20%3A%20any%2C3%3A%3F%3Aany:ret=boolean",
       "kind": "invoke",
-      "modulePath": "tsjs.builtin",
-      "ownerName": "Object",
-      "methodName": "getOwnPropertyNames",
-      "invokeKind": "static",
-      "argCount": 0,
-      "confidence": "likely",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "typescript/lib/lib.es2015.reflect.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "Reflect",
+            "methodName": "set",
+            "parameterTypes": [
+              "T",
+              "P",
+              "P extends keyof T ? T[P] : any",
+              "any"
+            ],
+            "returnType": "boolean",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "sdk",
+        "location": {
+          "file": "typescript/lib/lib.es2015.reflect.d.ts",
+          "line": 129
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.builtin.object.preventExtensions.arg0_to_result.exact.preventExtensions.className.Object",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2015.reflect.d.ts:file=typescript%2Flib%2Flib.es2015.reflect.d.ts:export=namespace%3AReflect:decl=namespace%3AReflect:member=function%3Aset:invoke=call:params=0%3Aobject%2C1%3APropertyKey%2C2%3Aany%2C3%3A%3F%3Aany:ret=boolean",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2015.reflect.d.ts:file=typescript%2Flib%2Flib.es2015.reflect.d.ts:export=namespace%3AReflect:decl=namespace%3AReflect:member=function%3Aset:invoke=call:params=0%3Aobject%2C1%3APropertyKey%2C2%3Aany%2C3%3A%3F%3Aany:ret=boolean",
       "kind": "invoke",
-      "modulePath": "tsjs.builtin",
-      "ownerName": "Object",
-      "methodName": "preventExtensions",
-      "invokeKind": "static",
-      "argCount": 0,
-      "confidence": "likely",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "typescript/lib/lib.es2015.reflect.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "Reflect",
+            "methodName": "set",
+            "parameterTypes": [
+              "object",
+              "PropertyKey",
+              "any",
+              "any"
+            ],
+            "returnType": "boolean",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "sdk",
+        "location": {
+          "file": "typescript/lib/lib.es2015.reflect.d.ts",
+          "line": 135
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.builtin.object.create.arg0_to_result.exact.create.className.Object",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2021.weakref.d.ts:file=typescript%2Flib%2Flib.es2021.weakref.d.ts:export=interface%3AWeakRef:decl=interface%3AWeakRef:member=method%3Ainstance%3Aderef:invoke=call:params=none:ret=T%20%7C%20undefined",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2021.weakref.d.ts:file=typescript%2Flib%2Flib.es2021.weakref.d.ts:export=interface%3AWeakRef:decl=interface%3AWeakRef:member=method%3Ainstance%3Aderef:invoke=call:params=none:ret=T%20%7C%20undefined",
       "kind": "invoke",
-      "modulePath": "tsjs.builtin",
-      "ownerName": "Object",
-      "methodName": "create",
-      "invokeKind": "static",
-      "argCount": 0,
-      "confidence": "likely",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "typescript/lib/lib.es2021.weakref.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "WeakRef",
+            "methodName": "deref",
+            "parameterTypes": [],
+            "returnType": "T | undefined",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "sdk",
+        "location": {
+          "file": "typescript/lib/lib.es2021.weakref.d.ts",
+          "line": 29
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.builtin.object.create.arg1_to_result.exact.create.className.Object",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Afreeze:invoke=call:params=0%3AT:ret=T",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Afreeze:invoke=call:params=0%3AT:ret=T",
       "kind": "invoke",
-      "modulePath": "tsjs.builtin",
-      "ownerName": "Object",
-      "methodName": "create",
-      "invokeKind": "static",
-      "argCount": 2,
-      "confidence": "likely",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "typescript/lib/lib.es5.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "ObjectConstructor",
+            "methodName": "freeze",
+            "parameterTypes": [
+              "T"
+            ],
+            "returnType": "T",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "sdk",
+        "location": {
+          "file": "typescript/lib/lib.es5.d.ts",
+          "line": 222
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.builtin.object.defineProperty.arg2_to_arg0.exact.defineProperty.className.Object",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Afreeze:invoke=call:params=0%3AT:ret=Readonly%3CT%3E",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Afreeze:invoke=call:params=0%3AT:ret=Readonly%3CT%3E",
       "kind": "invoke",
-      "modulePath": "tsjs.builtin",
-      "ownerName": "Object",
-      "methodName": "defineProperty",
-      "invokeKind": "static",
-      "argCount": 3,
-      "confidence": "likely",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "typescript/lib/lib.es5.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "ObjectConstructor",
+            "methodName": "freeze",
+            "parameterTypes": [
+              "T"
+            ],
+            "returnType": "Readonly<T>",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "sdk",
+        "location": {
+          "file": "typescript/lib/lib.es5.d.ts",
+          "line": 228
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.builtin.object.defineProperty.arg0_to_result.exact.defineProperty.className.Object",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Aseal:invoke=call:params=0%3AT:ret=T",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Aseal:invoke=call:params=0%3AT:ret=T",
       "kind": "invoke",
-      "modulePath": "tsjs.builtin",
-      "ownerName": "Object",
-      "methodName": "defineProperty",
-      "invokeKind": "static",
-      "argCount": 3,
-      "confidence": "likely",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "typescript/lib/lib.es5.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "ObjectConstructor",
+            "methodName": "seal",
+            "parameterTypes": [
+              "T"
+            ],
+            "returnType": "T",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "sdk",
+        "location": {
+          "file": "typescript/lib/lib.es5.d.ts",
+          "line": 216
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.builtin.object.defineProperties.arg1_to_arg0.exact.defineProperties.className.Object",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3AgetOwnPropertyNames:invoke=call:params=0%3Aany:ret=string%5B%5D",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3AgetOwnPropertyNames:invoke=call:params=0%3Aany:ret=string%5B%5D",
       "kind": "invoke",
-      "modulePath": "tsjs.builtin",
-      "ownerName": "Object",
-      "methodName": "defineProperties",
-      "invokeKind": "static",
-      "argCount": 2,
-      "confidence": "likely",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "typescript/lib/lib.es5.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "ObjectConstructor",
+            "methodName": "getOwnPropertyNames",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "string[]",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "sdk",
+        "location": {
+          "file": "typescript/lib/lib.es5.d.ts",
+          "line": 182
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.builtin.object.defineProperties.arg0_to_result.exact.defineProperties.className.Object",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3ApreventExtensions:invoke=call:params=0%3AT:ret=T",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3ApreventExtensions:invoke=call:params=0%3AT:ret=T",
       "kind": "invoke",
-      "modulePath": "tsjs.builtin",
-      "ownerName": "Object",
-      "methodName": "defineProperties",
-      "invokeKind": "static",
-      "argCount": 2,
-      "confidence": "likely",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "typescript/lib/lib.es5.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "ObjectConstructor",
+            "methodName": "preventExtensions",
+            "parameterTypes": [
+              "T"
+            ],
+            "returnType": "T",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "sdk",
+        "location": {
+          "file": "typescript/lib/lib.es5.d.ts",
+          "line": 240
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.builtin.regexp.exec.arg0_to_result.exact.exec.className.RegExp",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Acreate:invoke=call:params=0%3Aobject%20%7C%20null:ret=any",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Acreate:invoke=call:params=0%3Aobject%20%7C%20null:ret=any",
       "kind": "invoke",
-      "modulePath": "tsjs.builtin",
-      "ownerName": "RegExp",
-      "methodName": "exec",
-      "invokeKind": "instance",
-      "argCount": 1,
-      "confidence": "likely",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "typescript/lib/lib.es5.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "ObjectConstructor",
+            "methodName": "create",
+            "parameterTypes": [
+              "object | null"
+            ],
+            "returnType": "any",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "sdk",
+        "location": {
+          "file": "typescript/lib/lib.es5.d.ts",
+          "line": 188
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.builtin.reflect.ownKeys.arg0_to_result.exact.ownKeys.className.Reflect",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Acreate:invoke=call:params=0%3Aobject%20%7C%20null%2C1%3APropertyDescriptorMap%20%26%20ThisType%3Cany%3E:ret=any",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Acreate:invoke=call:params=0%3Aobject%20%7C%20null%2C1%3APropertyDescriptorMap%20%26%20ThisType%3Cany%3E:ret=any",
       "kind": "invoke",
-      "modulePath": "tsjs.builtin",
-      "ownerName": "Reflect",
-      "methodName": "ownKeys",
-      "invokeKind": "static",
-      "argCount": 0,
-      "confidence": "likely",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "typescript/lib/lib.es5.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "ObjectConstructor",
+            "methodName": "create",
+            "parameterTypes": [
+              "object | null",
+              "PropertyDescriptorMap & ThisType<any>"
+            ],
+            "returnType": "any",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "sdk",
+        "location": {
+          "file": "typescript/lib/lib.es5.d.ts",
+          "line": 195
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.builtin.reflect.apply.arg2_to_result.exact.apply.className.Reflect",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3AdefineProperty:invoke=call:params=0%3AT%2C1%3APropertyKey%2C2%3APropertyDescriptor%20%26%20ThisType%3Cany%3E:ret=T",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3AdefineProperty:invoke=call:params=0%3AT%2C1%3APropertyKey%2C2%3APropertyDescriptor%20%26%20ThisType%3Cany%3E:ret=T",
       "kind": "invoke",
-      "modulePath": "tsjs.builtin",
-      "ownerName": "Reflect",
-      "methodName": "apply",
-      "invokeKind": "static",
-      "argCount": 0,
-      "confidence": "likely",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "typescript/lib/lib.es5.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "ObjectConstructor",
+            "methodName": "defineProperty",
+            "parameterTypes": [
+              "T",
+              "PropertyKey",
+              "PropertyDescriptor & ThisType<any>"
+            ],
+            "returnType": "T",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "sdk",
+        "location": {
+          "file": "typescript/lib/lib.es5.d.ts",
+          "line": 203
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.builtin.reflect.construct.arg1_to_result.exact.construct.className.Reflect",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3AdefineProperties:invoke=call:params=0%3AT%2C1%3APropertyDescriptorMap%20%26%20ThisType%3Cany%3E:ret=T",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3AdefineProperties:invoke=call:params=0%3AT%2C1%3APropertyDescriptorMap%20%26%20ThisType%3Cany%3E:ret=T",
       "kind": "invoke",
-      "modulePath": "tsjs.builtin",
-      "ownerName": "Reflect",
-      "methodName": "construct",
-      "invokeKind": "static",
-      "argCount": 0,
-      "confidence": "likely",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "typescript/lib/lib.es5.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "ObjectConstructor",
+            "methodName": "defineProperties",
+            "parameterTypes": [
+              "T",
+              "PropertyDescriptorMap & ThisType<any>"
+            ],
+            "returnType": "T",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "sdk",
+        "location": {
+          "file": "typescript/lib/lib.es5.d.ts",
+          "line": 210
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.builtin.reflect.getOwnPropertyDescriptor.arg0_to_result.exact.getOwnPropertyDescriptor.className.Reflect",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3ARegExp:decl=interface%3ARegExp:member=method%3Ainstance%3Aexec:invoke=call:params=0%3Astring:ret=RegExpExecArray%20%7C%20null",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3ARegExp:decl=interface%3ARegExp:member=method%3Ainstance%3Aexec:invoke=call:params=0%3Astring:ret=RegExpExecArray%20%7C%20null",
       "kind": "invoke",
-      "modulePath": "tsjs.builtin",
-      "ownerName": "Reflect",
-      "methodName": "getOwnPropertyDescriptor",
-      "invokeKind": "static",
-      "argCount": 0,
-      "confidence": "likely",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "typescript/lib/lib.es5.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "RegExp",
+            "methodName": "exec",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "RegExpExecArray | null",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "sdk",
+        "location": {
+          "file": "typescript/lib/lib.es5.d.ts",
+          "line": 998
+        }
+      }
+    },
+    {
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2015.reflect.d.ts:file=typescript%2Flib%2Flib.es2015.reflect.d.ts:export=namespace%3AReflect:decl=namespace%3AReflect:member=function%3AownKeys:invoke=call:params=0%3Aobject:ret=(string%20%7C%20symbol)%5B%5D",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2015.reflect.d.ts:file=typescript%2Flib%2Flib.es2015.reflect.d.ts:export=namespace%3AReflect:decl=namespace%3AReflect:member=function%3AownKeys:invoke=call:params=0%3Aobject:ret=(string%20%7C%20symbol)%5B%5D",
+      "kind": "invoke",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "typescript/lib/lib.es2015.reflect.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "Reflect",
+            "methodName": "ownKeys",
+            "parameterTypes": [
+              "object"
+            ],
+            "returnType": "(string | symbol)[]",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
+      "provenance": {
+        "source": "sdk",
+        "location": {
+          "file": "typescript/lib/lib.es2015.reflect.d.ts",
+          "line": 113
+        }
+      }
+    },
+    {
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2015.reflect.d.ts:file=typescript%2Flib%2Flib.es2015.reflect.d.ts:export=namespace%3AReflect:decl=namespace%3AReflect:member=function%3Aapply:invoke=call:params=0%3A(this%3A%20T%2C%20...args%3A%20A)%20%3D%3E%20R%2C1%3AT%2C2%3AReadonly%3CA%3E:ret=R",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2015.reflect.d.ts:file=typescript%2Flib%2Flib.es2015.reflect.d.ts:export=namespace%3AReflect:decl=namespace%3AReflect:member=function%3Aapply:invoke=call:params=0%3A(this%3A%20T%2C%20...args%3A%20A)%20%3D%3E%20R%2C1%3AT%2C2%3AReadonly%3CA%3E:ret=R",
+      "kind": "invoke",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "typescript/lib/lib.es2015.reflect.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "Reflect",
+            "methodName": "apply",
+            "parameterTypes": [
+              "(this: T",
+              " ...args: A) => R",
+              "T",
+              "Readonly<A>"
+            ],
+            "returnType": "R",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
+      "provenance": {
+        "source": "sdk",
+        "location": {
+          "file": "typescript/lib/lib.es2015.reflect.d.ts",
+          "line": 27
+        }
+      }
+    },
+    {
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2015.reflect.d.ts:file=typescript%2Flib%2Flib.es2015.reflect.d.ts:export=namespace%3AReflect:decl=namespace%3AReflect:member=function%3Aapply:invoke=call:params=0%3AFunction%2C1%3Aany%2C2%3AArrayLike%3Cany%3E:ret=any",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2015.reflect.d.ts:file=typescript%2Flib%2Flib.es2015.reflect.d.ts:export=namespace%3AReflect:decl=namespace%3AReflect:member=function%3Aapply:invoke=call:params=0%3AFunction%2C1%3Aany%2C2%3AArrayLike%3Cany%3E:ret=any",
+      "kind": "invoke",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "typescript/lib/lib.es2015.reflect.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "Reflect",
+            "methodName": "apply",
+            "parameterTypes": [
+              "Function",
+              "any",
+              "ArrayLike<any>"
+            ],
+            "returnType": "any",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
+      "provenance": {
+        "source": "sdk",
+        "location": {
+          "file": "typescript/lib/lib.es2015.reflect.d.ts",
+          "line": 32
+        }
+      }
+    },
+    {
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2015.reflect.d.ts:file=typescript%2Flib%2Flib.es2015.reflect.d.ts:export=namespace%3AReflect:decl=namespace%3AReflect:member=function%3Aconstruct:invoke=call:params=0%3Anew%20(...args%3A%20A)%20%3D%3E%20R%2C1%3AReadonly%3CA%3E%2C2%3A%3F%3Anew%20(...args%3A%20any)%20%3D%3E%20any:ret=R",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2015.reflect.d.ts:file=typescript%2Flib%2Flib.es2015.reflect.d.ts:export=namespace%3AReflect:decl=namespace%3AReflect:member=function%3Aconstruct:invoke=call:params=0%3Anew%20(...args%3A%20A)%20%3D%3E%20R%2C1%3AReadonly%3CA%3E%2C2%3A%3F%3Anew%20(...args%3A%20any)%20%3D%3E%20any:ret=R",
+      "kind": "invoke",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "typescript/lib/lib.es2015.reflect.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "Reflect",
+            "methodName": "construct",
+            "parameterTypes": [
+              "new (...args: A) => R",
+              "Readonly<A>",
+              "new (...args: any) => any"
+            ],
+            "returnType": "R",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
+      "provenance": {
+        "source": "sdk",
+        "location": {
+          "file": "typescript/lib/lib.es2015.reflect.d.ts",
+          "line": 41
+        }
+      }
+    },
+    {
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2015.reflect.d.ts:file=typescript%2Flib%2Flib.es2015.reflect.d.ts:export=namespace%3AReflect:decl=namespace%3AReflect:member=function%3Aconstruct:invoke=call:params=0%3AFunction%2C1%3AArrayLike%3Cany%3E%2C2%3A%3F%3AFunction:ret=any",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2015.reflect.d.ts:file=typescript%2Flib%2Flib.es2015.reflect.d.ts:export=namespace%3AReflect:decl=namespace%3AReflect:member=function%3Aconstruct:invoke=call:params=0%3AFunction%2C1%3AArrayLike%3Cany%3E%2C2%3A%3F%3AFunction:ret=any",
+      "kind": "invoke",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "typescript/lib/lib.es2015.reflect.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "Reflect",
+            "methodName": "construct",
+            "parameterTypes": [
+              "Function",
+              "ArrayLike<any>",
+              "Function"
+            ],
+            "returnType": "any",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
+      "provenance": {
+        "source": "sdk",
+        "location": {
+          "file": "typescript/lib/lib.es2015.reflect.d.ts",
+          "line": 46
+        }
+      }
+    },
+    {
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2015.reflect.d.ts:file=typescript%2Flib%2Flib.es2015.reflect.d.ts:export=namespace%3AReflect:decl=namespace%3AReflect:member=function%3AgetOwnPropertyDescriptor:invoke=call:params=0%3AT%2C1%3AP:ret=TypedPropertyDescriptor%3CP%20extends%20keyof%20T%20%3F%20T%5BP%5D%20%3A%20any%3E%20%7C%20undefined",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2015.reflect.d.ts:file=typescript%2Flib%2Flib.es2015.reflect.d.ts:export=namespace%3AReflect:decl=namespace%3AReflect:member=function%3AgetOwnPropertyDescriptor:invoke=call:params=0%3AT%2C1%3AP:ret=TypedPropertyDescriptor%3CP%20extends%20keyof%20T%20%3F%20T%5BP%5D%20%3A%20any%3E%20%7C%20undefined",
+      "kind": "invoke",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "typescript/lib/lib.es2015.reflect.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "Reflect",
+            "methodName": "getOwnPropertyDescriptor",
+            "parameterTypes": [
+              "T",
+              "P"
+            ],
+            "returnType": "TypedPropertyDescriptor<P extends keyof T ? T[P] : any> | undefined",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
+      "provenance": {
+        "source": "sdk",
+        "location": {
+          "file": "typescript/lib/lib.es2015.reflect.d.ts",
+          "line": 84
+        }
       }
     }
   ],
   "bindings": [
     {
-      "bindingId": "binding.transfer.reflect.get.arg0_to_result.exact.get.className.Reflect",
-      "surfaceId": "surface.transfer.reflect.get.arg0_to_result.exact.get.className.Reflect",
+      "bindingId": "binding:asset.rule.kernel.transfers.object_reflect:0001",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2015.reflect.d.ts:file=typescript%2Flib%2Flib.es2015.reflect.d.ts:export=namespace%3AReflect:decl=namespace%3AReflect:member=function%3Aget:invoke=call:params=0%3AT%2C1%3AP%2C2%3A%3F%3Aunknown:ret=P%20extends%20keyof%20T%20%3F%20T%5BP%5D%20%3A%20any",
       "assetId": "asset.rule.kernel.transfers.object_reflect",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "get",
-        "invokeKind": "static",
-        "argCount": 2,
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "Reflect"
-          }
+      "endpoint": {
+        "base": {
+          "kind": "return"
         }
       },
       "effectTemplateRefs": [
-        "template.transfer.reflect.get.arg0_to_result.exact.get.className.Reflect"
+        "template:asset.rule.kernel.transfers.object_reflect:0001"
       ],
       "semanticsFamily": "transfer",
-      "metadata": {
-        "description": "Reflect.get(target, key): target object field value flows to result."
-      },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2015.reflect.d.ts:file=typescript%2Flib%2Flib.es2015.reflect.d.ts:export=namespace%3AReflect:decl=namespace%3AReflect:member=function%3Aget:invoke=call:params=0%3AT%2C1%3AP%2C2%3A%3F%3Aunknown:ret=P%20extends%20keyof%20T%20%3F%20T%5BP%5D%20%3A%20any"
     },
     {
-      "bindingId": "binding.transfer.harmony.object.assign.arg1_to_arg0.exact.assign.className.Object",
-      "surfaceId": "surface.transfer.harmony.object.assign.arg1_to_arg0.exact.assign.className.Object",
+      "bindingId": "binding:asset.rule.kernel.transfers.object_reflect:0002",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2015.core.d.ts:file=typescript%2Flib%2Flib.es2015.core.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Aassign:invoke=call:params=0%3AT%2C1%3AU:ret=T%20%26%20U",
       "assetId": "asset.rule.kernel.transfers.object_reflect",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "assign",
-        "invokeKind": "static",
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "Object"
-          }
+      "endpoint": {
+        "base": {
+          "kind": "return"
         }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.object.assign.arg1_to_arg0.exact.assign.className.Object"
+        "template:asset.rule.kernel.transfers.object_reflect:0002"
       ],
       "semanticsFamily": "transfer",
-      "metadata": {
-        "description": "Object.assign(target, source): source taints target object."
-      },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2015.core.d.ts:file=typescript%2Flib%2Flib.es2015.core.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Aassign:invoke=call:params=0%3AT%2C1%3AU:ret=T%20%26%20U"
     },
     {
-      "bindingId": "binding.transfer.harmony.object.assign.arg1_to_result.exact.assign.className.Object",
-      "surfaceId": "surface.transfer.harmony.object.assign.arg1_to_result.exact.assign.className.Object",
+      "bindingId": "binding:asset.rule.kernel.transfers.object_reflect:0003",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2015.core.d.ts:file=typescript%2Flib%2Flib.es2015.core.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Aassign:invoke=call:params=0%3AT%2C1%3AU:ret=T%20%26%20U",
       "assetId": "asset.rule.kernel.transfers.object_reflect",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "assign",
-        "invokeKind": "static",
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "Object"
-          }
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
         }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.object.assign.arg1_to_result.exact.assign.className.Object"
+        "template:asset.rule.kernel.transfers.object_reflect:0003"
       ],
       "semanticsFamily": "transfer",
-      "metadata": {
-        "description": "Object.assign(target, source): source taints returned object."
-      },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2015.core.d.ts:file=typescript%2Flib%2Flib.es2015.core.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Aassign:invoke=call:params=0%3AT%2C1%3AU:ret=T%20%26%20U"
     },
     {
-      "bindingId": "binding.transfer.harmony.object.keys.arg0_to_result.exact.keys.className.Object",
-      "surfaceId": "surface.transfer.harmony.object.keys.arg0_to_result.exact.keys.className.Object",
+      "bindingId": "binding:asset.rule.kernel.transfers.object_reflect:0004",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2015.core.d.ts:file=typescript%2Flib%2Flib.es2015.core.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Aassign:invoke=call:params=0%3AT%2C1%3AU:ret=T%20%26%20U",
       "assetId": "asset.rule.kernel.transfers.object_reflect",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "keys",
-        "invokeKind": "static",
-        "argCount": 1,
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "Object"
-          }
+      "endpoint": {
+        "base": {
+          "kind": "return"
         }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.object.keys.arg0_to_result.exact.keys.className.Object"
+        "template:asset.rule.kernel.transfers.object_reflect:0004"
       ],
       "semanticsFamily": "transfer",
-      "metadata": {
-        "description": "Object.keys(obj): object key content taints returned key array."
-      },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2015.core.d.ts:file=typescript%2Flib%2Flib.es2015.core.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Aassign:invoke=call:params=0%3AT%2C1%3AU:ret=T%20%26%20U"
     },
     {
-      "bindingId": "binding.transfer.harmony.object.values.arg0_to_result.exact.values.className.Object",
-      "surfaceId": "surface.transfer.harmony.object.values.arg0_to_result.exact.values.className.Object",
+      "bindingId": "binding:asset.rule.kernel.transfers.object_reflect:0005",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2015.core.d.ts:file=typescript%2Flib%2Flib.es2015.core.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Aassign:invoke=call:params=0%3AT%2C1%3AU%2C2%3AV:ret=T%20%26%20U%20%26%20V",
       "assetId": "asset.rule.kernel.transfers.object_reflect",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "values",
-        "invokeKind": "static",
-        "argCount": 1,
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "Object"
-          }
+      "endpoint": {
+        "base": {
+          "kind": "return"
         }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.object.values.arg0_to_result.exact.values.className.Object"
+        "template:asset.rule.kernel.transfers.object_reflect:0005"
       ],
       "semanticsFamily": "transfer",
-      "metadata": {
-        "description": "Object.values(obj): object value content taints returned value array."
-      },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2015.core.d.ts:file=typescript%2Flib%2Flib.es2015.core.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Aassign:invoke=call:params=0%3AT%2C1%3AU%2C2%3AV:ret=T%20%26%20U%20%26%20V"
     },
     {
-      "bindingId": "binding.transfer.harmony.object.entries.arg0_to_result.exact.entries.className.Object",
-      "surfaceId": "surface.transfer.harmony.object.entries.arg0_to_result.exact.entries.className.Object",
+      "bindingId": "binding:asset.rule.kernel.transfers.object_reflect:0006",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2015.core.d.ts:file=typescript%2Flib%2Flib.es2015.core.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Aassign:invoke=call:params=0%3AT%2C1%3AU%2C2%3AV:ret=T%20%26%20U%20%26%20V",
       "assetId": "asset.rule.kernel.transfers.object_reflect",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "entries",
-        "invokeKind": "static",
-        "argCount": 1,
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "Object"
-          }
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
         }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.object.entries.arg0_to_result.exact.entries.className.Object"
+        "template:asset.rule.kernel.transfers.object_reflect:0006"
       ],
       "semanticsFamily": "transfer",
-      "metadata": {
-        "description": "Object.entries(obj): object value content taints returned entry array."
-      },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2015.core.d.ts:file=typescript%2Flib%2Flib.es2015.core.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Aassign:invoke=call:params=0%3AT%2C1%3AU%2C2%3AV:ret=T%20%26%20U%20%26%20V"
     },
     {
-      "bindingId": "binding.transfer.harmony.object.getOwnPropertyDescriptors.arg0_to_result.exact.getOwnPropertyDescriptors.className.Object",
-      "surfaceId": "surface.transfer.harmony.object.getOwnPropertyDescriptors.arg0_to_result.exact.getOwnPropertyDescriptors.className.Object",
+      "bindingId": "binding:asset.rule.kernel.transfers.object_reflect:0007",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2015.core.d.ts:file=typescript%2Flib%2Flib.es2015.core.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Aassign:invoke=call:params=0%3AT%2C1%3AU%2C2%3AV:ret=T%20%26%20U%20%26%20V",
       "assetId": "asset.rule.kernel.transfers.object_reflect",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "getOwnPropertyDescriptors",
-        "invokeKind": "static",
-        "argCount": 1,
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "Object"
-          }
+      "endpoint": {
+        "base": {
+          "kind": "return"
         }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.object.getOwnPropertyDescriptors.arg0_to_result.exact.getOwnPropertyDescriptors.className.Object"
+        "template:asset.rule.kernel.transfers.object_reflect:0007"
       ],
       "semanticsFamily": "transfer",
-      "metadata": {
-        "description": "Object.getOwnPropertyDescriptors(obj): object value content taints descriptor result."
-      },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2015.core.d.ts:file=typescript%2Flib%2Flib.es2015.core.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Aassign:invoke=call:params=0%3AT%2C1%3AU%2C2%3AV:ret=T%20%26%20U%20%26%20V"
     },
     {
-      "bindingId": "binding.transfer.harmony.reflect.set.arg2_to_arg0.exact.set.className.Reflect",
-      "surfaceId": "surface.transfer.harmony.reflect.set.arg2_to_arg0.exact.set.className.Reflect",
+      "bindingId": "binding:asset.rule.kernel.transfers.object_reflect:0008",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2015.core.d.ts:file=typescript%2Flib%2Flib.es2015.core.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Aassign:invoke=call:params=0%3AT%2C1%3AU%2C2%3AV:ret=T%20%26%20U%20%26%20V",
       "assetId": "asset.rule.kernel.transfers.object_reflect",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "set",
-        "invokeKind": "static",
-        "argCount": 3,
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "Reflect"
-          }
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
         }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.reflect.set.arg2_to_arg0.exact.set.className.Reflect"
+        "template:asset.rule.kernel.transfers.object_reflect:0008"
       ],
       "semanticsFamily": "transfer",
-      "metadata": {
-        "description": "Reflect.set(target, key, value): value taints target object."
-      },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2015.core.d.ts:file=typescript%2Flib%2Flib.es2015.core.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Aassign:invoke=call:params=0%3AT%2C1%3AU%2C2%3AV:ret=T%20%26%20U%20%26%20V"
     },
     {
-      "bindingId": "binding.transfer.harmony.weakref.deref.base_to_result.exact.deref.className.WeakRef",
-      "surfaceId": "surface.transfer.harmony.weakref.deref.base_to_result.exact.deref.className.WeakRef",
+      "bindingId": "binding:asset.rule.kernel.transfers.object_reflect:0009",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2015.core.d.ts:file=typescript%2Flib%2Flib.es2015.core.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Aassign:invoke=call:params=0%3AT%2C1%3AU%2C2%3AV:ret=T%20%26%20U%20%26%20V",
       "assetId": "asset.rule.kernel.transfers.object_reflect",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "deref",
-        "invokeKind": "instance",
-        "argCount": 0,
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "WeakRef"
-          }
+      "endpoint": {
+        "base": {
+          "kind": "return"
         }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.weakref.deref.base_to_result.exact.deref.className.WeakRef"
+        "template:asset.rule.kernel.transfers.object_reflect:0009"
       ],
       "semanticsFamily": "transfer",
-      "metadata": {
-        "description": "WeakRef.deref(): wrapped object taint flows to dereferenced result."
-      },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2015.core.d.ts:file=typescript%2Flib%2Flib.es2015.core.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Aassign:invoke=call:params=0%3AT%2C1%3AU%2C2%3AV:ret=T%20%26%20U%20%26%20V"
     },
     {
-      "bindingId": "binding.transfer.builtin.object.freeze.arg0_to_result.exact.freeze.className.Object",
-      "surfaceId": "surface.transfer.builtin.object.freeze.arg0_to_result.exact.freeze.className.Object",
+      "bindingId": "binding:asset.rule.kernel.transfers.object_reflect:0010",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2015.core.d.ts:file=typescript%2Flib%2Flib.es2015.core.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Aassign:invoke=call:params=0%3AT%2C1%3AU%2C2%3AV%2C3%3AW:ret=T%20%26%20U%20%26%20V%20%26%20W",
       "assetId": "asset.rule.kernel.transfers.object_reflect",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "freeze",
-        "invokeKind": "static",
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "Object"
-          }
+      "endpoint": {
+        "base": {
+          "kind": "return"
         }
       },
       "effectTemplateRefs": [
-        "template.transfer.builtin.object.freeze.arg0_to_result.exact.freeze.className.Object"
+        "template:asset.rule.kernel.transfers.object_reflect:0010"
       ],
       "semanticsFamily": "transfer",
-      "metadata": {
-        "description": "Object.freeze(obj): returns same frozen object."
-      },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2015.core.d.ts:file=typescript%2Flib%2Flib.es2015.core.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Aassign:invoke=call:params=0%3AT%2C1%3AU%2C2%3AV%2C3%3AW:ret=T%20%26%20U%20%26%20V%20%26%20W"
     },
     {
-      "bindingId": "binding.transfer.builtin.object.seal.arg0_to_result.exact.seal.className.Object",
-      "surfaceId": "surface.transfer.builtin.object.seal.arg0_to_result.exact.seal.className.Object",
+      "bindingId": "binding:asset.rule.kernel.transfers.object_reflect:0011",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2015.core.d.ts:file=typescript%2Flib%2Flib.es2015.core.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Aassign:invoke=call:params=0%3AT%2C1%3AU%2C2%3AV%2C3%3AW:ret=T%20%26%20U%20%26%20V%20%26%20W",
       "assetId": "asset.rule.kernel.transfers.object_reflect",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "seal",
-        "invokeKind": "static",
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "Object"
-          }
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
         }
       },
       "effectTemplateRefs": [
-        "template.transfer.builtin.object.seal.arg0_to_result.exact.seal.className.Object"
+        "template:asset.rule.kernel.transfers.object_reflect:0011"
       ],
       "semanticsFamily": "transfer",
-      "metadata": {
-        "description": "Object.seal(obj): returns same sealed object."
-      },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2015.core.d.ts:file=typescript%2Flib%2Flib.es2015.core.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Aassign:invoke=call:params=0%3AT%2C1%3AU%2C2%3AV%2C3%3AW:ret=T%20%26%20U%20%26%20V%20%26%20W"
     },
     {
-      "bindingId": "binding.transfer.builtin.object.getOwnPropertyNames.arg0_to_result.exact.getOwnPropertyNames.className.Object",
-      "surfaceId": "surface.transfer.builtin.object.getOwnPropertyNames.arg0_to_result.exact.getOwnPropertyNames.className.Object",
+      "bindingId": "binding:asset.rule.kernel.transfers.object_reflect:0012",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2015.core.d.ts:file=typescript%2Flib%2Flib.es2015.core.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Aassign:invoke=call:params=0%3AT%2C1%3AU%2C2%3AV%2C3%3AW:ret=T%20%26%20U%20%26%20V%20%26%20W",
       "assetId": "asset.rule.kernel.transfers.object_reflect",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "getOwnPropertyNames",
-        "invokeKind": "static",
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "Object"
-          }
+      "endpoint": {
+        "base": {
+          "kind": "return"
         }
       },
       "effectTemplateRefs": [
-        "template.transfer.builtin.object.getOwnPropertyNames.arg0_to_result.exact.getOwnPropertyNames.className.Object"
+        "template:asset.rule.kernel.transfers.object_reflect:0012"
       ],
       "semanticsFamily": "transfer",
-      "metadata": {
-        "description": "Object.getOwnPropertyNames(obj): object property names taint result array."
-      },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2015.core.d.ts:file=typescript%2Flib%2Flib.es2015.core.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Aassign:invoke=call:params=0%3AT%2C1%3AU%2C2%3AV%2C3%3AW:ret=T%20%26%20U%20%26%20V%20%26%20W"
     },
     {
-      "bindingId": "binding.transfer.builtin.object.preventExtensions.arg0_to_result.exact.preventExtensions.className.Object",
-      "surfaceId": "surface.transfer.builtin.object.preventExtensions.arg0_to_result.exact.preventExtensions.className.Object",
+      "bindingId": "binding:asset.rule.kernel.transfers.object_reflect:0013",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2015.core.d.ts:file=typescript%2Flib%2Flib.es2015.core.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Aassign:invoke=call:params=0%3AT%2C1%3AU%2C2%3AV%2C3%3AW:ret=T%20%26%20U%20%26%20V%20%26%20W",
       "assetId": "asset.rule.kernel.transfers.object_reflect",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "preventExtensions",
-        "invokeKind": "static",
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "Object"
-          }
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
         }
       },
       "effectTemplateRefs": [
-        "template.transfer.builtin.object.preventExtensions.arg0_to_result.exact.preventExtensions.className.Object"
+        "template:asset.rule.kernel.transfers.object_reflect:0013"
       ],
       "semanticsFamily": "transfer",
-      "metadata": {
-        "description": "Object.preventExtensions(obj): returns same object reference."
-      },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2015.core.d.ts:file=typescript%2Flib%2Flib.es2015.core.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Aassign:invoke=call:params=0%3AT%2C1%3AU%2C2%3AV%2C3%3AW:ret=T%20%26%20U%20%26%20V%20%26%20W"
     },
     {
-      "bindingId": "binding.transfer.builtin.object.create.arg0_to_result.exact.create.className.Object",
-      "surfaceId": "surface.transfer.builtin.object.create.arg0_to_result.exact.create.className.Object",
+      "bindingId": "binding:asset.rule.kernel.transfers.object_reflect:0014",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2015.core.d.ts:file=typescript%2Flib%2Flib.es2015.core.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Aassign:invoke=call:params=0%3AT%2C1%3AU%2C2%3AV%2C3%3AW:ret=T%20%26%20U%20%26%20V%20%26%20W",
       "assetId": "asset.rule.kernel.transfers.object_reflect",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "create",
-        "invokeKind": "static",
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "Object"
-          }
+      "endpoint": {
+        "base": {
+          "kind": "return"
         }
       },
       "effectTemplateRefs": [
-        "template.transfer.builtin.object.create.arg0_to_result.exact.create.className.Object"
+        "template:asset.rule.kernel.transfers.object_reflect:0014"
       ],
       "semanticsFamily": "transfer",
-      "metadata": {
-        "description": "Object.create(proto): prototype properties accessible on created object."
-      },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2015.core.d.ts:file=typescript%2Flib%2Flib.es2015.core.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Aassign:invoke=call:params=0%3AT%2C1%3AU%2C2%3AV%2C3%3AW:ret=T%20%26%20U%20%26%20V%20%26%20W"
     },
     {
-      "bindingId": "binding.transfer.builtin.object.create.arg1_to_result.exact.create.className.Object",
-      "surfaceId": "surface.transfer.builtin.object.create.arg1_to_result.exact.create.className.Object",
+      "bindingId": "binding:asset.rule.kernel.transfers.object_reflect:0015",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2015.core.d.ts:file=typescript%2Flib%2Flib.es2015.core.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Aassign:invoke=call:params=0%3AT%2C1%3AU%2C2%3AV%2C3%3AW:ret=T%20%26%20U%20%26%20V%20%26%20W",
       "assetId": "asset.rule.kernel.transfers.object_reflect",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "create",
-        "invokeKind": "static",
-        "argCount": 2,
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "Object"
-          }
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
         }
       },
       "effectTemplateRefs": [
-        "template.transfer.builtin.object.create.arg1_to_result.exact.create.className.Object"
+        "template:asset.rule.kernel.transfers.object_reflect:0015"
       ],
       "semanticsFamily": "transfer",
-      "metadata": {
-        "description": "Object.create(proto, descriptors): descriptor values taint created object."
-      },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2015.core.d.ts:file=typescript%2Flib%2Flib.es2015.core.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Aassign:invoke=call:params=0%3AT%2C1%3AU%2C2%3AV%2C3%3AW:ret=T%20%26%20U%20%26%20V%20%26%20W"
     },
     {
-      "bindingId": "binding.transfer.builtin.object.defineProperty.arg2_to_arg0.exact.defineProperty.className.Object",
-      "surfaceId": "surface.transfer.builtin.object.defineProperty.arg2_to_arg0.exact.defineProperty.className.Object",
+      "bindingId": "binding:asset.rule.kernel.transfers.object_reflect:0016",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2015.core.d.ts:file=typescript%2Flib%2Flib.es2015.core.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Aassign:invoke=call:params=0%3AT%2C1%3AU%2C2%3AV%2C3%3AW:ret=T%20%26%20U%20%26%20V%20%26%20W",
       "assetId": "asset.rule.kernel.transfers.object_reflect",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "defineProperty",
-        "invokeKind": "static",
-        "argCount": 3,
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "Object"
-          }
+      "endpoint": {
+        "base": {
+          "kind": "return"
         }
       },
       "effectTemplateRefs": [
-        "template.transfer.builtin.object.defineProperty.arg2_to_arg0.exact.defineProperty.className.Object"
+        "template:asset.rule.kernel.transfers.object_reflect:0016"
       ],
       "semanticsFamily": "transfer",
-      "metadata": {
-        "description": "Object.defineProperty(obj, prop, descriptor): descriptor value taints target."
-      },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2015.core.d.ts:file=typescript%2Flib%2Flib.es2015.core.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Aassign:invoke=call:params=0%3AT%2C1%3AU%2C2%3AV%2C3%3AW:ret=T%20%26%20U%20%26%20V%20%26%20W"
     },
     {
-      "bindingId": "binding.transfer.builtin.object.defineProperty.arg0_to_result.exact.defineProperty.className.Object",
-      "surfaceId": "surface.transfer.builtin.object.defineProperty.arg0_to_result.exact.defineProperty.className.Object",
+      "bindingId": "binding:asset.rule.kernel.transfers.object_reflect:0017",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2015.core.d.ts:file=typescript%2Flib%2Flib.es2015.core.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Aassign:invoke=call:params=0%3Aobject%2C1%3Arest%3Aany%5B%5D:ret=any",
       "assetId": "asset.rule.kernel.transfers.object_reflect",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "defineProperty",
-        "invokeKind": "static",
-        "argCount": 3,
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "Object"
-          }
+      "endpoint": {
+        "base": {
+          "kind": "return"
         }
       },
       "effectTemplateRefs": [
-        "template.transfer.builtin.object.defineProperty.arg0_to_result.exact.defineProperty.className.Object"
+        "template:asset.rule.kernel.transfers.object_reflect:0017"
       ],
       "semanticsFamily": "transfer",
-      "metadata": {
-        "description": "Object.defineProperty(obj, prop, descriptor): returns same object."
-      },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2015.core.d.ts:file=typescript%2Flib%2Flib.es2015.core.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Aassign:invoke=call:params=0%3Aobject%2C1%3Arest%3Aany%5B%5D:ret=any"
     },
     {
-      "bindingId": "binding.transfer.builtin.object.defineProperties.arg1_to_arg0.exact.defineProperties.className.Object",
-      "surfaceId": "surface.transfer.builtin.object.defineProperties.arg1_to_arg0.exact.defineProperties.className.Object",
+      "bindingId": "binding:asset.rule.kernel.transfers.object_reflect:0018",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2015.core.d.ts:file=typescript%2Flib%2Flib.es2015.core.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Aassign:invoke=call:params=0%3Aobject%2C1%3Arest%3Aany%5B%5D:ret=any",
       "assetId": "asset.rule.kernel.transfers.object_reflect",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "defineProperties",
-        "invokeKind": "static",
-        "argCount": 2,
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "Object"
-          }
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
         }
       },
       "effectTemplateRefs": [
-        "template.transfer.builtin.object.defineProperties.arg1_to_arg0.exact.defineProperties.className.Object"
+        "template:asset.rule.kernel.transfers.object_reflect:0018"
       ],
       "semanticsFamily": "transfer",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2015.core.d.ts:file=typescript%2Flib%2Flib.es2015.core.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Aassign:invoke=call:params=0%3Aobject%2C1%3Arest%3Aany%5B%5D:ret=any",
       "metadata": {
-        "description": "Object.defineProperties(obj, props): descriptor values taint target."
-      },
-      "completeness": "partial",
-      "confidence": "likely"
+        "auditFix": "OTR-004: from changed from arg1 to rest(startIndex=1)"
+      }
     },
     {
-      "bindingId": "binding.transfer.builtin.object.defineProperties.arg0_to_result.exact.defineProperties.className.Object",
-      "surfaceId": "surface.transfer.builtin.object.defineProperties.arg0_to_result.exact.defineProperties.className.Object",
+      "bindingId": "binding:asset.rule.kernel.transfers.object_reflect:0019",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2015.core.d.ts:file=typescript%2Flib%2Flib.es2015.core.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Aassign:invoke=call:params=0%3Aobject%2C1%3Arest%3Aany%5B%5D:ret=any",
       "assetId": "asset.rule.kernel.transfers.object_reflect",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "defineProperties",
-        "invokeKind": "static",
-        "argCount": 2,
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "Object"
-          }
+      "endpoint": {
+        "base": {
+          "kind": "return"
         }
       },
       "effectTemplateRefs": [
-        "template.transfer.builtin.object.defineProperties.arg0_to_result.exact.defineProperties.className.Object"
+        "template:asset.rule.kernel.transfers.object_reflect:0019"
       ],
       "semanticsFamily": "transfer",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2015.core.d.ts:file=typescript%2Flib%2Flib.es2015.core.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Aassign:invoke=call:params=0%3Aobject%2C1%3Arest%3Aany%5B%5D:ret=any",
       "metadata": {
-        "description": "Object.defineProperties(obj, props): returns same object."
-      },
-      "completeness": "partial",
-      "confidence": "likely"
+        "auditFix": "OTR-004: from changed from arg1 to rest(startIndex=1)"
+      }
     },
     {
-      "bindingId": "binding.transfer.builtin.regexp.exec.arg0_to_result.exact.exec.className.RegExp",
-      "surfaceId": "surface.transfer.builtin.regexp.exec.arg0_to_result.exact.exec.className.RegExp",
+      "bindingId": "binding:asset.rule.kernel.transfers.object_reflect:0020",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Akeys:invoke=call:params=0%3Aobject:ret=string%5B%5D",
       "assetId": "asset.rule.kernel.transfers.object_reflect",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "exec",
-        "invokeKind": "instance",
-        "argCount": 1,
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "RegExp"
-          }
+      "endpoint": {
+        "base": {
+          "kind": "return"
         }
       },
       "effectTemplateRefs": [
-        "template.transfer.builtin.regexp.exec.arg0_to_result.exact.exec.className.RegExp"
+        "template:asset.rule.kernel.transfers.object_reflect:0020"
       ],
       "semanticsFamily": "transfer",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Akeys:invoke=call:params=0%3Aobject:ret=string%5B%5D",
       "metadata": {
-        "description": "RegExp.exec(str): matched string content taints result array."
-      },
-      "completeness": "partial",
-      "confidence": "likely"
+        "enabled": false,
+        "tags": [
+          "disabled-after-sdk-audit",
+          "otr-005"
+        ],
+        "description": "Disabled after OTR-005 manual SDK audit. Original: "
+      }
     },
     {
-      "bindingId": "binding.transfer.builtin.reflect.ownKeys.arg0_to_result.exact.ownKeys.className.Reflect",
-      "surfaceId": "surface.transfer.builtin.reflect.ownKeys.arg0_to_result.exact.ownKeys.className.Reflect",
+      "bindingId": "binding:asset.rule.kernel.transfers.object_reflect:0021",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2017.object.d.ts:file=typescript%2Flib%2Flib.es2017.object.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Avalues:invoke=call:params=0%3A%7B%20%5Bs%3A%20string%5D%3A%20T%3B%20%7D%20%7C%20ArrayLike%3CT%3E:ret=T%5B%5D",
       "assetId": "asset.rule.kernel.transfers.object_reflect",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "ownKeys",
-        "invokeKind": "static",
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "Reflect"
-          }
+      "endpoint": {
+        "base": {
+          "kind": "return"
         }
       },
       "effectTemplateRefs": [
-        "template.transfer.builtin.reflect.ownKeys.arg0_to_result.exact.ownKeys.className.Reflect"
+        "template:asset.rule.kernel.transfers.object_reflect:0021"
       ],
       "semanticsFamily": "transfer",
-      "metadata": {
-        "description": "Reflect.ownKeys(obj): object property keys taint result array."
-      },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2017.object.d.ts:file=typescript%2Flib%2Flib.es2017.object.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Avalues:invoke=call:params=0%3A%7B%20%5Bs%3A%20string%5D%3A%20T%3B%20%7D%20%7C%20ArrayLike%3CT%3E:ret=T%5B%5D"
     },
     {
-      "bindingId": "binding.transfer.builtin.reflect.apply.arg2_to_result.exact.apply.className.Reflect",
-      "surfaceId": "surface.transfer.builtin.reflect.apply.arg2_to_result.exact.apply.className.Reflect",
+      "bindingId": "binding:asset.rule.kernel.transfers.object_reflect:0022",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2017.object.d.ts:file=typescript%2Flib%2Flib.es2017.object.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Avalues:invoke=call:params=0%3A%7B%7D:ret=any%5B%5D",
       "assetId": "asset.rule.kernel.transfers.object_reflect",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "apply",
-        "invokeKind": "static",
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "Reflect"
-          }
+      "endpoint": {
+        "base": {
+          "kind": "return"
         }
       },
       "effectTemplateRefs": [
-        "template.transfer.builtin.reflect.apply.arg2_to_result.exact.apply.className.Reflect"
+        "template:asset.rule.kernel.transfers.object_reflect:0022"
       ],
       "semanticsFamily": "transfer",
-      "metadata": {
-        "description": "Reflect.apply(target, thisArg, args): args array taints function result."
-      },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2017.object.d.ts:file=typescript%2Flib%2Flib.es2017.object.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Avalues:invoke=call:params=0%3A%7B%7D:ret=any%5B%5D"
     },
     {
-      "bindingId": "binding.transfer.builtin.reflect.construct.arg1_to_result.exact.construct.className.Reflect",
-      "surfaceId": "surface.transfer.builtin.reflect.construct.arg1_to_result.exact.construct.className.Reflect",
+      "bindingId": "binding:asset.rule.kernel.transfers.object_reflect:0023",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2017.object.d.ts:file=typescript%2Flib%2Flib.es2017.object.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Aentries:invoke=call:params=0%3A%7B%20%5Bs%3A%20string%5D%3A%20T%3B%20%7D%20%7C%20ArrayLike%3CT%3E:ret=%5Bstring%2C%20T%5D%5B%5D",
       "assetId": "asset.rule.kernel.transfers.object_reflect",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "construct",
-        "invokeKind": "static",
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "Reflect"
-          }
+      "endpoint": {
+        "base": {
+          "kind": "return"
         }
       },
       "effectTemplateRefs": [
-        "template.transfer.builtin.reflect.construct.arg1_to_result.exact.construct.className.Reflect"
+        "template:asset.rule.kernel.transfers.object_reflect:0023"
       ],
       "semanticsFamily": "transfer",
-      "metadata": {
-        "description": "Reflect.construct(target, args): args array taints constructed object."
-      },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2017.object.d.ts:file=typescript%2Flib%2Flib.es2017.object.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Aentries:invoke=call:params=0%3A%7B%20%5Bs%3A%20string%5D%3A%20T%3B%20%7D%20%7C%20ArrayLike%3CT%3E:ret=%5Bstring%2C%20T%5D%5B%5D"
     },
     {
-      "bindingId": "binding.transfer.builtin.reflect.getOwnPropertyDescriptor.arg0_to_result.exact.getOwnPropertyDescriptor.className.Reflect",
-      "surfaceId": "surface.transfer.builtin.reflect.getOwnPropertyDescriptor.arg0_to_result.exact.getOwnPropertyDescriptor.className.Reflect",
+      "bindingId": "binding:asset.rule.kernel.transfers.object_reflect:0024",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2017.object.d.ts:file=typescript%2Flib%2Flib.es2017.object.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Aentries:invoke=call:params=0%3A%7B%7D:ret=%5Bstring%2C%20any%5D%5B%5D",
       "assetId": "asset.rule.kernel.transfers.object_reflect",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "getOwnPropertyDescriptor",
-        "invokeKind": "static",
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "Reflect"
-          }
+      "endpoint": {
+        "base": {
+          "kind": "return"
         }
       },
       "effectTemplateRefs": [
-        "template.transfer.builtin.reflect.getOwnPropertyDescriptor.arg0_to_result.exact.getOwnPropertyDescriptor.className.Reflect"
+        "template:asset.rule.kernel.transfers.object_reflect:0024"
       ],
       "semanticsFamily": "transfer",
-      "metadata": {
-        "description": "Reflect.getOwnPropertyDescriptor(obj, prop): object content taints descriptor."
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2017.object.d.ts:file=typescript%2Flib%2Flib.es2017.object.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Aentries:invoke=call:params=0%3A%7B%7D:ret=%5Bstring%2C%20any%5D%5B%5D"
+    },
+    {
+      "bindingId": "binding:asset.rule.kernel.transfers.object_reflect:0025",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2017.object.d.ts:file=typescript%2Flib%2Flib.es2017.object.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3AgetOwnPropertyDescriptors:invoke=call:params=0%3AT:ret=%7B%20%5BP%20in%20keyof%20T%5D%3A%20TypedPropertyDescriptor%3CT%5BP%5D%3E%3B%20%7D%20%26%20%7B%20%5Bx%3A%20string%5D%3A%20PropertyDescriptor%3B%20%7D",
+      "assetId": "asset.rule.kernel.transfers.object_reflect",
+      "plane": "rule",
+      "role": "transfer",
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
       },
-      "completeness": "partial",
-      "confidence": "likely"
+      "effectTemplateRefs": [
+        "template:asset.rule.kernel.transfers.object_reflect:0025"
+      ],
+      "semanticsFamily": "transfer",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2017.object.d.ts:file=typescript%2Flib%2Flib.es2017.object.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3AgetOwnPropertyDescriptors:invoke=call:params=0%3AT:ret=%7B%20%5BP%20in%20keyof%20T%5D%3A%20TypedPropertyDescriptor%3CT%5BP%5D%3E%3B%20%7D%20%26%20%7B%20%5Bx%3A%20string%5D%3A%20PropertyDescriptor%3B%20%7D",
+      "metadata": {
+        "enabled": false,
+        "tags": [
+          "disabled-after-sdk-audit",
+          "otr-006"
+        ],
+        "description": "Disabled after OTR-006 manual SDK audit. Original: "
+      }
+    },
+    {
+      "bindingId": "binding:asset.rule.kernel.transfers.object_reflect:0026",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2015.reflect.d.ts:file=typescript%2Flib%2Flib.es2015.reflect.d.ts:export=namespace%3AReflect:decl=namespace%3AReflect:member=function%3Aset:invoke=call:params=0%3AT%2C1%3AP%2C2%3AP%20extends%20keyof%20T%20%3F%20T%5BP%5D%20%3A%20any%2C3%3A%3F%3Aany:ret=boolean",
+      "assetId": "asset.rule.kernel.transfers.object_reflect",
+      "plane": "rule",
+      "role": "transfer",
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template:asset.rule.kernel.transfers.object_reflect:0026"
+      ],
+      "semanticsFamily": "transfer",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2015.reflect.d.ts:file=typescript%2Flib%2Flib.es2015.reflect.d.ts:export=namespace%3AReflect:decl=namespace%3AReflect:member=function%3Aset:invoke=call:params=0%3AT%2C1%3AP%2C2%3AP%20extends%20keyof%20T%20%3F%20T%5BP%5D%20%3A%20any%2C3%3A%3F%3Aany:ret=boolean"
+    },
+    {
+      "bindingId": "binding:asset.rule.kernel.transfers.object_reflect:0027",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2015.reflect.d.ts:file=typescript%2Flib%2Flib.es2015.reflect.d.ts:export=namespace%3AReflect:decl=namespace%3AReflect:member=function%3Aset:invoke=call:params=0%3Aobject%2C1%3APropertyKey%2C2%3Aany%2C3%3A%3F%3Aany:ret=boolean",
+      "assetId": "asset.rule.kernel.transfers.object_reflect",
+      "plane": "rule",
+      "role": "transfer",
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template:asset.rule.kernel.transfers.object_reflect:0027"
+      ],
+      "semanticsFamily": "transfer",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2015.reflect.d.ts:file=typescript%2Flib%2Flib.es2015.reflect.d.ts:export=namespace%3AReflect:decl=namespace%3AReflect:member=function%3Aset:invoke=call:params=0%3Aobject%2C1%3APropertyKey%2C2%3Aany%2C3%3A%3F%3Aany:ret=boolean"
+    },
+    {
+      "bindingId": "binding:asset.rule.kernel.transfers.object_reflect:0028",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2021.weakref.d.ts:file=typescript%2Flib%2Flib.es2021.weakref.d.ts:export=interface%3AWeakRef:decl=interface%3AWeakRef:member=method%3Ainstance%3Aderef:invoke=call:params=none:ret=T%20%7C%20undefined",
+      "assetId": "asset.rule.kernel.transfers.object_reflect",
+      "plane": "rule",
+      "role": "transfer",
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template:asset.rule.kernel.transfers.object_reflect:0028"
+      ],
+      "semanticsFamily": "transfer",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2021.weakref.d.ts:file=typescript%2Flib%2Flib.es2021.weakref.d.ts:export=interface%3AWeakRef:decl=interface%3AWeakRef:member=method%3Ainstance%3Aderef:invoke=call:params=none:ret=T%20%7C%20undefined"
+    },
+    {
+      "bindingId": "binding:asset.rule.kernel.transfers.object_reflect:0029",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Afreeze:invoke=call:params=0%3AT:ret=T",
+      "assetId": "asset.rule.kernel.transfers.object_reflect",
+      "plane": "rule",
+      "role": "transfer",
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template:asset.rule.kernel.transfers.object_reflect:0029"
+      ],
+      "semanticsFamily": "transfer",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Afreeze:invoke=call:params=0%3AT:ret=T"
+    },
+    {
+      "bindingId": "binding:asset.rule.kernel.transfers.object_reflect:0030",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Afreeze:invoke=call:params=0%3AT:ret=Readonly%3CT%3E",
+      "assetId": "asset.rule.kernel.transfers.object_reflect",
+      "plane": "rule",
+      "role": "transfer",
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template:asset.rule.kernel.transfers.object_reflect:0030"
+      ],
+      "semanticsFamily": "transfer",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Afreeze:invoke=call:params=0%3AT:ret=Readonly%3CT%3E"
+    },
+    {
+      "bindingId": "binding:asset.rule.kernel.transfers.object_reflect:0031",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Aseal:invoke=call:params=0%3AT:ret=T",
+      "assetId": "asset.rule.kernel.transfers.object_reflect",
+      "plane": "rule",
+      "role": "transfer",
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template:asset.rule.kernel.transfers.object_reflect:0031"
+      ],
+      "semanticsFamily": "transfer",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Aseal:invoke=call:params=0%3AT:ret=T"
+    },
+    {
+      "bindingId": "binding:asset.rule.kernel.transfers.object_reflect:0032",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3AgetOwnPropertyNames:invoke=call:params=0%3Aany:ret=string%5B%5D",
+      "assetId": "asset.rule.kernel.transfers.object_reflect",
+      "plane": "rule",
+      "role": "transfer",
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template:asset.rule.kernel.transfers.object_reflect:0032"
+      ],
+      "semanticsFamily": "transfer",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3AgetOwnPropertyNames:invoke=call:params=0%3Aany:ret=string%5B%5D",
+      "metadata": {
+        "enabled": false,
+        "tags": [
+          "disabled-after-sdk-audit",
+          "otr-005"
+        ],
+        "description": "Disabled after OTR-005 manual SDK audit. Original: "
+      }
+    },
+    {
+      "bindingId": "binding:asset.rule.kernel.transfers.object_reflect:0033",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3ApreventExtensions:invoke=call:params=0%3AT:ret=T",
+      "assetId": "asset.rule.kernel.transfers.object_reflect",
+      "plane": "rule",
+      "role": "transfer",
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template:asset.rule.kernel.transfers.object_reflect:0033"
+      ],
+      "semanticsFamily": "transfer",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3ApreventExtensions:invoke=call:params=0%3AT:ret=T"
+    },
+    {
+      "bindingId": "binding:asset.rule.kernel.transfers.object_reflect:0034",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Acreate:invoke=call:params=0%3Aobject%20%7C%20null:ret=any",
+      "assetId": "asset.rule.kernel.transfers.object_reflect",
+      "plane": "rule",
+      "role": "transfer",
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template:asset.rule.kernel.transfers.object_reflect:0034"
+      ],
+      "semanticsFamily": "transfer",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Acreate:invoke=call:params=0%3Aobject%20%7C%20null:ret=any",
+      "metadata": {
+        "enabled": false,
+        "tags": [
+          "disabled-after-sdk-audit",
+          "otr-007"
+        ],
+        "description": "Disabled after OTR-007 manual SDK audit. Original: "
+      }
+    },
+    {
+      "bindingId": "binding:asset.rule.kernel.transfers.object_reflect:0035",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Acreate:invoke=call:params=0%3Aobject%20%7C%20null%2C1%3APropertyDescriptorMap%20%26%20ThisType%3Cany%3E:ret=any",
+      "assetId": "asset.rule.kernel.transfers.object_reflect",
+      "plane": "rule",
+      "role": "transfer",
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template:asset.rule.kernel.transfers.object_reflect:0035"
+      ],
+      "semanticsFamily": "transfer",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Acreate:invoke=call:params=0%3Aobject%20%7C%20null%2C1%3APropertyDescriptorMap%20%26%20ThisType%3Cany%3E:ret=any",
+      "metadata": {
+        "enabled": false,
+        "tags": [
+          "disabled-after-sdk-audit",
+          "otr-007"
+        ],
+        "description": "Disabled after OTR-007 manual SDK audit. Original: "
+      }
+    },
+    {
+      "bindingId": "binding:asset.rule.kernel.transfers.object_reflect:0036",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Acreate:invoke=call:params=0%3Aobject%20%7C%20null%2C1%3APropertyDescriptorMap%20%26%20ThisType%3Cany%3E:ret=any",
+      "assetId": "asset.rule.kernel.transfers.object_reflect",
+      "plane": "rule",
+      "role": "transfer",
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template:asset.rule.kernel.transfers.object_reflect:0036"
+      ],
+      "semanticsFamily": "transfer",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3Acreate:invoke=call:params=0%3Aobject%20%7C%20null%2C1%3APropertyDescriptorMap%20%26%20ThisType%3Cany%3E:ret=any",
+      "metadata": {
+        "enabled": false,
+        "tags": [
+          "disabled-after-sdk-audit",
+          "otr-006"
+        ],
+        "description": "Disabled after OTR-006 manual SDK audit. Original: "
+      }
+    },
+    {
+      "bindingId": "binding:asset.rule.kernel.transfers.object_reflect:0037",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3AdefineProperty:invoke=call:params=0%3AT%2C1%3APropertyKey%2C2%3APropertyDescriptor%20%26%20ThisType%3Cany%3E:ret=T",
+      "assetId": "asset.rule.kernel.transfers.object_reflect",
+      "plane": "rule",
+      "role": "transfer",
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template:asset.rule.kernel.transfers.object_reflect:0037"
+      ],
+      "semanticsFamily": "transfer",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3AdefineProperty:invoke=call:params=0%3AT%2C1%3APropertyKey%2C2%3APropertyDescriptor%20%26%20ThisType%3Cany%3E:ret=T",
+      "metadata": {
+        "auditFix": "OTR-006: from changed from whole descriptor to descriptor.value"
+      }
+    },
+    {
+      "bindingId": "binding:asset.rule.kernel.transfers.object_reflect:0038",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3AdefineProperty:invoke=call:params=0%3AT%2C1%3APropertyKey%2C2%3APropertyDescriptor%20%26%20ThisType%3Cany%3E:ret=T",
+      "assetId": "asset.rule.kernel.transfers.object_reflect",
+      "plane": "rule",
+      "role": "transfer",
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template:asset.rule.kernel.transfers.object_reflect:0038"
+      ],
+      "semanticsFamily": "transfer",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3AdefineProperty:invoke=call:params=0%3AT%2C1%3APropertyKey%2C2%3APropertyDescriptor%20%26%20ThisType%3Cany%3E:ret=T"
+    },
+    {
+      "bindingId": "binding:asset.rule.kernel.transfers.object_reflect:0039",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3AdefineProperties:invoke=call:params=0%3AT%2C1%3APropertyDescriptorMap%20%26%20ThisType%3Cany%3E:ret=T",
+      "assetId": "asset.rule.kernel.transfers.object_reflect",
+      "plane": "rule",
+      "role": "transfer",
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template:asset.rule.kernel.transfers.object_reflect:0039"
+      ],
+      "semanticsFamily": "transfer",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3AdefineProperties:invoke=call:params=0%3AT%2C1%3APropertyDescriptorMap%20%26%20ThisType%3Cany%3E:ret=T",
+      "metadata": {
+        "enabled": false,
+        "tags": [
+          "disabled-after-sdk-audit",
+          "otr-006"
+        ],
+        "description": "Disabled after OTR-006 manual SDK audit. Original: "
+      }
+    },
+    {
+      "bindingId": "binding:asset.rule.kernel.transfers.object_reflect:0040",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3AdefineProperties:invoke=call:params=0%3AT%2C1%3APropertyDescriptorMap%20%26%20ThisType%3Cany%3E:ret=T",
+      "assetId": "asset.rule.kernel.transfers.object_reflect",
+      "plane": "rule",
+      "role": "transfer",
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template:asset.rule.kernel.transfers.object_reflect:0040"
+      ],
+      "semanticsFamily": "transfer",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3AObjectConstructor:decl=interface%3AObjectConstructor:member=method%3Ainstance%3AdefineProperties:invoke=call:params=0%3AT%2C1%3APropertyDescriptorMap%20%26%20ThisType%3Cany%3E:ret=T"
+    },
+    {
+      "bindingId": "binding:asset.rule.kernel.transfers.object_reflect:0041",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3ARegExp:decl=interface%3ARegExp:member=method%3Ainstance%3Aexec:invoke=call:params=0%3Astring:ret=RegExpExecArray%20%7C%20null",
+      "assetId": "asset.rule.kernel.transfers.object_reflect",
+      "plane": "rule",
+      "role": "transfer",
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template:asset.rule.kernel.transfers.object_reflect:0041"
+      ],
+      "semanticsFamily": "transfer",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es5.d.ts:file=typescript%2Flib%2Flib.es5.d.ts:export=interface%3ARegExp:decl=interface%3ARegExp:member=method%3Ainstance%3Aexec:invoke=call:params=0%3Astring:ret=RegExpExecArray%20%7C%20null"
+    },
+    {
+      "bindingId": "binding:asset.rule.kernel.transfers.object_reflect:0042",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2015.reflect.d.ts:file=typescript%2Flib%2Flib.es2015.reflect.d.ts:export=namespace%3AReflect:decl=namespace%3AReflect:member=function%3AownKeys:invoke=call:params=0%3Aobject:ret=(string%20%7C%20symbol)%5B%5D",
+      "assetId": "asset.rule.kernel.transfers.object_reflect",
+      "plane": "rule",
+      "role": "transfer",
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template:asset.rule.kernel.transfers.object_reflect:0042"
+      ],
+      "semanticsFamily": "transfer",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2015.reflect.d.ts:file=typescript%2Flib%2Flib.es2015.reflect.d.ts:export=namespace%3AReflect:decl=namespace%3AReflect:member=function%3AownKeys:invoke=call:params=0%3Aobject:ret=(string%20%7C%20symbol)%5B%5D",
+      "metadata": {
+        "enabled": false,
+        "tags": [
+          "disabled-after-sdk-audit",
+          "otr-005"
+        ],
+        "description": "Disabled after OTR-005 manual SDK audit. Original: "
+      }
+    },
+    {
+      "bindingId": "binding:asset.rule.kernel.transfers.object_reflect:0043",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2015.reflect.d.ts:file=typescript%2Flib%2Flib.es2015.reflect.d.ts:export=namespace%3AReflect:decl=namespace%3AReflect:member=function%3Aapply:invoke=call:params=0%3A(this%3A%20T%2C%20...args%3A%20A)%20%3D%3E%20R%2C1%3AT%2C2%3AReadonly%3CA%3E:ret=R",
+      "assetId": "asset.rule.kernel.transfers.object_reflect",
+      "plane": "rule",
+      "role": "transfer",
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template:asset.rule.kernel.transfers.object_reflect:0043"
+      ],
+      "semanticsFamily": "transfer",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2015.reflect.d.ts:file=typescript%2Flib%2Flib.es2015.reflect.d.ts:export=namespace%3AReflect:decl=namespace%3AReflect:member=function%3Aapply:invoke=call:params=0%3A(this%3A%20T%2C%20...args%3A%20A)%20%3D%3E%20R%2C1%3AT%2C2%3AReadonly%3CA%3E:ret=R",
+      "metadata": {
+        "enabled": false,
+        "tags": [
+          "disabled-after-sdk-audit",
+          "otr-008"
+        ],
+        "description": "Disabled after OTR-008 manual SDK audit. Original: "
+      }
+    },
+    {
+      "bindingId": "binding:asset.rule.kernel.transfers.object_reflect:0044",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2015.reflect.d.ts:file=typescript%2Flib%2Flib.es2015.reflect.d.ts:export=namespace%3AReflect:decl=namespace%3AReflect:member=function%3Aapply:invoke=call:params=0%3AFunction%2C1%3Aany%2C2%3AArrayLike%3Cany%3E:ret=any",
+      "assetId": "asset.rule.kernel.transfers.object_reflect",
+      "plane": "rule",
+      "role": "transfer",
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template:asset.rule.kernel.transfers.object_reflect:0044"
+      ],
+      "semanticsFamily": "transfer",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2015.reflect.d.ts:file=typescript%2Flib%2Flib.es2015.reflect.d.ts:export=namespace%3AReflect:decl=namespace%3AReflect:member=function%3Aapply:invoke=call:params=0%3AFunction%2C1%3Aany%2C2%3AArrayLike%3Cany%3E:ret=any",
+      "metadata": {
+        "enabled": false,
+        "tags": [
+          "disabled-after-sdk-audit",
+          "otr-008"
+        ],
+        "description": "Disabled after OTR-008 manual SDK audit. Original: "
+      }
+    },
+    {
+      "bindingId": "binding:asset.rule.kernel.transfers.object_reflect:0045",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2015.reflect.d.ts:file=typescript%2Flib%2Flib.es2015.reflect.d.ts:export=namespace%3AReflect:decl=namespace%3AReflect:member=function%3Aconstruct:invoke=call:params=0%3Anew%20(...args%3A%20A)%20%3D%3E%20R%2C1%3AReadonly%3CA%3E%2C2%3A%3F%3Anew%20(...args%3A%20any)%20%3D%3E%20any:ret=R",
+      "assetId": "asset.rule.kernel.transfers.object_reflect",
+      "plane": "rule",
+      "role": "transfer",
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template:asset.rule.kernel.transfers.object_reflect:0045"
+      ],
+      "semanticsFamily": "transfer",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2015.reflect.d.ts:file=typescript%2Flib%2Flib.es2015.reflect.d.ts:export=namespace%3AReflect:decl=namespace%3AReflect:member=function%3Aconstruct:invoke=call:params=0%3Anew%20(...args%3A%20A)%20%3D%3E%20R%2C1%3AReadonly%3CA%3E%2C2%3A%3F%3Anew%20(...args%3A%20any)%20%3D%3E%20any:ret=R",
+      "metadata": {
+        "enabled": false,
+        "tags": [
+          "disabled-after-sdk-audit",
+          "otr-008"
+        ],
+        "description": "Disabled after OTR-008 manual SDK audit. Original: "
+      }
+    },
+    {
+      "bindingId": "binding:asset.rule.kernel.transfers.object_reflect:0046",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2015.reflect.d.ts:file=typescript%2Flib%2Flib.es2015.reflect.d.ts:export=namespace%3AReflect:decl=namespace%3AReflect:member=function%3Aconstruct:invoke=call:params=0%3AFunction%2C1%3AArrayLike%3Cany%3E%2C2%3A%3F%3AFunction:ret=any",
+      "assetId": "asset.rule.kernel.transfers.object_reflect",
+      "plane": "rule",
+      "role": "transfer",
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template:asset.rule.kernel.transfers.object_reflect:0046"
+      ],
+      "semanticsFamily": "transfer",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2015.reflect.d.ts:file=typescript%2Flib%2Flib.es2015.reflect.d.ts:export=namespace%3AReflect:decl=namespace%3AReflect:member=function%3Aconstruct:invoke=call:params=0%3AFunction%2C1%3AArrayLike%3Cany%3E%2C2%3A%3F%3AFunction:ret=any",
+      "metadata": {
+        "enabled": false,
+        "tags": [
+          "disabled-after-sdk-audit",
+          "otr-008"
+        ],
+        "description": "Disabled after OTR-008 manual SDK audit. Original: "
+      }
+    },
+    {
+      "bindingId": "binding:asset.rule.kernel.transfers.object_reflect:0047",
+      "surfaceId": "surface:api:official:tsjs:module=typescript%2Flib%2Flib.es2015.reflect.d.ts:file=typescript%2Flib%2Flib.es2015.reflect.d.ts:export=namespace%3AReflect:decl=namespace%3AReflect:member=function%3AgetOwnPropertyDescriptor:invoke=call:params=0%3AT%2C1%3AP:ret=TypedPropertyDescriptor%3CP%20extends%20keyof%20T%20%3F%20T%5BP%5D%20%3A%20any%3E%20%7C%20undefined",
+      "assetId": "asset.rule.kernel.transfers.object_reflect",
+      "plane": "rule",
+      "role": "transfer",
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        },
+        "accessPath": [
+          "value"
+        ]
+      },
+      "effectTemplateRefs": [
+        "template:asset.rule.kernel.transfers.object_reflect:0047"
+      ],
+      "semanticsFamily": "transfer",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:official:tsjs:module=typescript%2Flib%2Flib.es2015.reflect.d.ts:file=typescript%2Flib%2Flib.es2015.reflect.d.ts:export=namespace%3AReflect:decl=namespace%3AReflect:member=function%3AgetOwnPropertyDescriptor:invoke=call:params=0%3AT%2C1%3AP:ret=TypedPropertyDescriptor%3CP%20extends%20keyof%20T%20%3F%20T%5BP%5D%20%3A%20any%3E%20%7C%20undefined",
+      "metadata": {
+        "auditFix": "OTR-006: to changed from whole descriptor return to return.value"
+      }
     }
   ],
   "effectTemplates": [
     {
-      "id": "template.transfer.reflect.get.arg0_to_result.exact.get.className.Reflect",
+      "id": "template:asset.rule.kernel.transfers.object_reflect:0001",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "endpoint": {
+          "base": {
+            "kind": "arg",
+            "index": 0
+          }
+        },
+        "pathFrom": {
+          "base": {
+            "kind": "arg",
+            "index": 1
+          }
+        },
+        "slotKind": "object-property"
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.object_reflect:0002",
       "confidence": "certain",
       "kind": "rule.transfer",
       "from": {
@@ -998,7 +1933,7 @@
       "transferKind": "transfer"
     },
     {
-      "id": "template.transfer.harmony.object.assign.arg1_to_arg0.exact.assign.className.Object",
+      "id": "template:asset.rule.kernel.transfers.object_reflect:0003",
       "confidence": "certain",
       "kind": "rule.transfer",
       "from": {
@@ -1016,7 +1951,7 @@
       "transferKind": "transfer"
     },
     {
-      "id": "template.transfer.harmony.object.assign.arg1_to_result.exact.assign.className.Object",
+      "id": "template:asset.rule.kernel.transfers.object_reflect:0004",
       "confidence": "certain",
       "kind": "rule.transfer",
       "from": {
@@ -1033,7 +1968,7 @@
       "transferKind": "transfer"
     },
     {
-      "id": "template.transfer.harmony.object.keys.arg0_to_result.exact.keys.className.Object",
+      "id": "template:asset.rule.kernel.transfers.object_reflect:0005",
       "confidence": "certain",
       "kind": "rule.transfer",
       "from": {
@@ -1050,13 +1985,31 @@
       "transferKind": "transfer"
     },
     {
-      "id": "template.transfer.harmony.object.values.arg0_to_result.exact.values.className.Object",
+      "id": "template:asset.rule.kernel.transfers.object_reflect:0006",
       "confidence": "certain",
       "kind": "rule.transfer",
       "from": {
         "base": {
           "kind": "arg",
+          "index": 1
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "arg",
           "index": 0
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.object_reflect:0007",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 1
         }
       },
       "to": {
@@ -1067,41 +2020,7 @@
       "transferKind": "transfer"
     },
     {
-      "id": "template.transfer.harmony.object.entries.arg0_to_result.exact.entries.className.Object",
-      "confidence": "certain",
-      "kind": "rule.transfer",
-      "from": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "to": {
-        "base": {
-          "kind": "return"
-        }
-      },
-      "transferKind": "transfer"
-    },
-    {
-      "id": "template.transfer.harmony.object.getOwnPropertyDescriptors.arg0_to_result.exact.getOwnPropertyDescriptors.className.Object",
-      "confidence": "certain",
-      "kind": "rule.transfer",
-      "from": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "to": {
-        "base": {
-          "kind": "return"
-        }
-      },
-      "transferKind": "transfer"
-    },
-    {
-      "id": "template.transfer.harmony.reflect.set.arg2_to_arg0.exact.set.className.Reflect",
+      "id": "template:asset.rule.kernel.transfers.object_reflect:0008",
       "confidence": "certain",
       "kind": "rule.transfer",
       "from": {
@@ -1119,7 +2038,354 @@
       "transferKind": "transfer"
     },
     {
-      "id": "template.transfer.harmony.weakref.deref.base_to_result.exact.deref.className.WeakRef",
+      "id": "template:asset.rule.kernel.transfers.object_reflect:0009",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 2
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.object_reflect:0010",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.object_reflect:0011",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.object_reflect:0012",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.object_reflect:0013",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 2
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.object_reflect:0014",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 2
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.object_reflect:0015",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 3
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.object_reflect:0016",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 3
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.object_reflect:0017",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.object_reflect:0018",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "rest",
+          "startIndex": 1
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.object_reflect:0019",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "rest",
+          "startIndex": 1
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.object_reflect:0020",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.object_reflect:0021",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.object_reflect:0022",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.object_reflect:0023",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.object_reflect:0024",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.object_reflect:0025",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.object_reflect:0026",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 2
+        }
+      },
+      "to": {
+        "endpoint": {
+          "base": {
+            "kind": "arg",
+            "index": 0
+          }
+        },
+        "pathFrom": {
+          "base": {
+            "kind": "arg",
+            "index": 1
+          }
+        },
+        "slotKind": "object-property"
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.object_reflect:0027",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 2
+        }
+      },
+      "to": {
+        "endpoint": {
+          "base": {
+            "kind": "arg",
+            "index": 0
+          }
+        },
+        "pathFrom": {
+          "base": {
+            "kind": "arg",
+            "index": 1
+          }
+        },
+        "slotKind": "object-property"
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.object_reflect:0028",
       "confidence": "certain",
       "kind": "rule.transfer",
       "from": {
@@ -1135,7 +2401,7 @@
       "transferKind": "transfer"
     },
     {
-      "id": "template.transfer.builtin.object.freeze.arg0_to_result.exact.freeze.className.Object",
+      "id": "template:asset.rule.kernel.transfers.object_reflect:0029",
       "confidence": "certain",
       "kind": "rule.transfer",
       "from": {
@@ -1152,7 +2418,7 @@
       "transferKind": "transfer"
     },
     {
-      "id": "template.transfer.builtin.object.seal.arg0_to_result.exact.seal.className.Object",
+      "id": "template:asset.rule.kernel.transfers.object_reflect:0030",
       "confidence": "certain",
       "kind": "rule.transfer",
       "from": {
@@ -1169,7 +2435,7 @@
       "transferKind": "transfer"
     },
     {
-      "id": "template.transfer.builtin.object.getOwnPropertyNames.arg0_to_result.exact.getOwnPropertyNames.className.Object",
+      "id": "template:asset.rule.kernel.transfers.object_reflect:0031",
       "confidence": "certain",
       "kind": "rule.transfer",
       "from": {
@@ -1186,7 +2452,7 @@
       "transferKind": "transfer"
     },
     {
-      "id": "template.transfer.builtin.object.preventExtensions.arg0_to_result.exact.preventExtensions.className.Object",
+      "id": "template:asset.rule.kernel.transfers.object_reflect:0032",
       "confidence": "certain",
       "kind": "rule.transfer",
       "from": {
@@ -1203,7 +2469,7 @@
       "transferKind": "transfer"
     },
     {
-      "id": "template.transfer.builtin.object.create.arg0_to_result.exact.create.className.Object",
+      "id": "template:asset.rule.kernel.transfers.object_reflect:0033",
       "confidence": "certain",
       "kind": "rule.transfer",
       "from": {
@@ -1220,7 +2486,41 @@
       "transferKind": "transfer"
     },
     {
-      "id": "template.transfer.builtin.object.create.arg1_to_result.exact.create.className.Object",
+      "id": "template:asset.rule.kernel.transfers.object_reflect:0034",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.object_reflect:0035",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.object_reflect:0036",
       "confidence": "certain",
       "kind": "rule.transfer",
       "from": {
@@ -1237,7 +2537,123 @@
       "transferKind": "transfer"
     },
     {
-      "id": "template.transfer.builtin.object.defineProperty.arg2_to_arg0.exact.defineProperty.className.Object",
+      "id": "template:asset.rule.kernel.transfers.object_reflect:0037",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 2
+        },
+        "accessPath": [
+          "value"
+        ]
+      },
+      "to": {
+        "endpoint": {
+          "base": {
+            "kind": "arg",
+            "index": 0
+          }
+        },
+        "pathFrom": {
+          "base": {
+            "kind": "arg",
+            "index": 1
+          }
+        },
+        "slotKind": "object-property"
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.object_reflect:0038",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.object_reflect:0039",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.object_reflect:0040",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.object_reflect:0041",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.object_reflect:0042",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.object_reflect:0043",
       "confidence": "certain",
       "kind": "rule.transfer",
       "from": {
@@ -1248,100 +2664,13 @@
       },
       "to": {
         "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "transferKind": "transfer"
-    },
-    {
-      "id": "template.transfer.builtin.object.defineProperty.arg0_to_result.exact.defineProperty.className.Object",
-      "confidence": "certain",
-      "kind": "rule.transfer",
-      "from": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "to": {
-        "base": {
           "kind": "return"
         }
       },
       "transferKind": "transfer"
     },
     {
-      "id": "template.transfer.builtin.object.defineProperties.arg1_to_arg0.exact.defineProperties.className.Object",
-      "confidence": "certain",
-      "kind": "rule.transfer",
-      "from": {
-        "base": {
-          "kind": "arg",
-          "index": 1
-        }
-      },
-      "to": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "transferKind": "transfer"
-    },
-    {
-      "id": "template.transfer.builtin.object.defineProperties.arg0_to_result.exact.defineProperties.className.Object",
-      "confidence": "certain",
-      "kind": "rule.transfer",
-      "from": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "to": {
-        "base": {
-          "kind": "return"
-        }
-      },
-      "transferKind": "transfer"
-    },
-    {
-      "id": "template.transfer.builtin.regexp.exec.arg0_to_result.exact.exec.className.RegExp",
-      "confidence": "certain",
-      "kind": "rule.transfer",
-      "from": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "to": {
-        "base": {
-          "kind": "return"
-        }
-      },
-      "transferKind": "transfer"
-    },
-    {
-      "id": "template.transfer.builtin.reflect.ownKeys.arg0_to_result.exact.ownKeys.className.Reflect",
-      "confidence": "certain",
-      "kind": "rule.transfer",
-      "from": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "to": {
-        "base": {
-          "kind": "return"
-        }
-      },
-      "transferKind": "transfer"
-    },
-    {
-      "id": "template.transfer.builtin.reflect.apply.arg2_to_result.exact.apply.className.Reflect",
+      "id": "template:asset.rule.kernel.transfers.object_reflect:0044",
       "confidence": "certain",
       "kind": "rule.transfer",
       "from": {
@@ -1358,7 +2687,7 @@
       "transferKind": "transfer"
     },
     {
-      "id": "template.transfer.builtin.reflect.construct.arg1_to_result.exact.construct.className.Reflect",
+      "id": "template:asset.rule.kernel.transfers.object_reflect:0045",
       "confidence": "certain",
       "kind": "rule.transfer",
       "from": {
@@ -1375,19 +2704,48 @@
       "transferKind": "transfer"
     },
     {
-      "id": "template.transfer.builtin.reflect.getOwnPropertyDescriptor.arg0_to_result.exact.getOwnPropertyDescriptor.className.Reflect",
+      "id": "template:asset.rule.kernel.transfers.object_reflect:0046",
       "confidence": "certain",
       "kind": "rule.transfer",
       "from": {
         "base": {
           "kind": "arg",
-          "index": 0
+          "index": 1
         }
       },
       "to": {
         "base": {
           "kind": "return"
         }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template:asset.rule.kernel.transfers.object_reflect:0047",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "endpoint": {
+          "base": {
+            "kind": "arg",
+            "index": 0
+          }
+        },
+        "pathFrom": {
+          "base": {
+            "kind": "arg",
+            "index": 1
+          }
+        },
+        "slotKind": "object-property"
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        },
+        "accessPath": [
+          "value"
+        ]
       },
       "transferKind": "transfer"
     }
@@ -1395,6 +2753,21 @@
   "provenance": {
     "source": "builtin",
     "evidenceLocations": [
+      {
+        "file": "typescript/lib/lib.es5.d.ts"
+      },
+      {
+        "file": "typescript/lib/lib.es2015.core.d.ts"
+      },
+      {
+        "file": "typescript/lib/lib.es2015.reflect.d.ts"
+      },
+      {
+        "file": "typescript/lib/lib.es2017.object.d.ts"
+      },
+      {
+        "file": "typescript/lib/lib.es2021.weakref.d.ts"
+      },
       {
         "file": "src/models/kernel/rules/transfers/object_reflect.rules.json"
       }

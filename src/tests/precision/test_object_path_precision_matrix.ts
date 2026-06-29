@@ -1,17 +1,19 @@
 import * as path from "path";
 import { Scene } from "../../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../../arkanalyzer/out/src/Config";
+import { detectSinksByExactMethodsForTest, resolveUniqueMethodByExactNameForTest, resolveUniqueMethodByExactSignatureForTest } from "../helpers/ExactSinkDetectionTestUtils";
 import {
     buildEngineForCase,
     collectCaseSeedNodes,
     findCaseMethod,
+    findTaintMockSinkSignature,
     resolveCaseMethod,
 } from "../helpers/SyntheticCaseHarness";
 
 interface CaseSpec {
     filePath: string;
     expected: boolean;
-    family: "nested_field" | "deep_field" | "object_alias" | "extracted_alias" | "object_relay";
+    family: "nested_field" | "deep_field" | "object_alias" | "extracted_alias" | "object_relay" | "object_literal_array_property";
 }
 
 interface CaseResult {
@@ -73,6 +75,16 @@ const CASES: CaseSpec[] = [
         expected: false,
         family: "object_relay",
     },
+    {
+        filePath: "tests/adhoc/ordinary_object_field_chain/object_literal_array_property_relay_017_T.ets",
+        expected: true,
+        family: "object_literal_array_property",
+    },
+    {
+        filePath: "tests/adhoc/ordinary_object_field_chain/object_literal_array_property_relay_018_F.ets",
+        expected: false,
+        family: "object_literal_array_property",
+    },
 ];
 
 function buildScene(projectDir: string): Scene {
@@ -108,7 +120,7 @@ async function runCase(scene: Scene, testCase: CaseSpec): Promise<CaseResult> {
     }
 
     engine.propagateWithSeeds(seeds);
-    const flows = engine.detectSinks("Sink");
+    const flows = detectSinksByExactMethodsForTest(engine, resolveUniqueMethodByExactSignatureForTest(engine, findTaintMockSinkSignature(scene)));
     const detected = flows.length > 0;
     return {
         name: testName,

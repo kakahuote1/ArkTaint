@@ -1,6 +1,7 @@
 import * as path from "path";
 import { Scene } from "../../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../../arkanalyzer/out/src/Config";
+import { detectSinksByExactMethodsForTest, resolveUniqueMethodByExactNameForTest, resolveUniqueMethodByExactSignatureForTest } from "../helpers/ExactSinkDetectionTestUtils";
 import {
     buildEngineForCase,
     collectCaseSeedNodes,
@@ -48,7 +49,7 @@ async function runCase(testCase: CaseSpec): Promise<boolean> {
     const engine = await buildEngineForCase(scene, 1, entryMethod, { verbose: false });
     const seeds = collectCaseSeedNodes(engine, entryMethod);
     engine.propagateWithSeeds(seeds);
-    const flows = engine.detectSinks("Sink");
+    const flows = detectSinksByExactMethodsForTest(engine, resolveUniqueMethodByExactNameForTest(engine, "Sink"));
     const detected = flows.length > 0;
     const pass = detected === testCase.expected;
     console.log(

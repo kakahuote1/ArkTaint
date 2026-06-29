@@ -39,7 +39,14 @@ export function createArkMainFactCollectionContext(explicitSeedMethods: ArkMetho
         addFact: (fact: ArkMainEntryFact): void => {
             const signature = fact.method?.getSignature?.()?.toString?.();
             if (!signature) return;
-            const key = `${fact.phase}|${fact.kind}|${signature}`;
+            const semanticKey = [
+                fact.canonicalApiId || "",
+                fact.semanticSurfaceId || "",
+                fact.semanticBindingId || "",
+                fact.semanticTemplateId || "",
+                fact.semanticGate || "",
+            ].join("|");
+            const key = `${fact.phase}|${fact.kind}|${signature}|${semanticKey}`;
             if (seen.has(key)) return;
             seen.add(key);
             facts.push(fact);

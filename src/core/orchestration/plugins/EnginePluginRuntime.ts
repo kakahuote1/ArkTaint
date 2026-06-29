@@ -36,12 +36,6 @@ import {
     StartApi,
 } from "./EnginePlugin";
 import {
-    SanitizerRule,
-    SinkRule,
-    SourceRule,
-    TransferRule,
-} from "../../rules/RuleSchema";
-import {
     extractErrorLocation,
     getExtensionSourceModulePath,
     preferExtensionSourceLocation,
@@ -195,10 +189,6 @@ export class EnginePluginRuntime {
     private readonly plugins: EnginePlugin[];
     private readonly scene: Scene;
     private readonly config: EnginePluginConfigSnapshot;
-    private readonly additionalSourceRules: SourceRule[] = [];
-    private readonly additionalSinkRules: SinkRule[] = [];
-    private readonly additionalTransferRules: TransferRule[] = [];
-    private readonly additionalSanitizerRules: SanitizerRule[] = [];
     private readonly optionOverrides = new Map<string, unknown>();
     private readonly failedPluginNames = new Set<string>();
     private readonly audit: EnginePluginAuditSnapshot;
@@ -267,22 +257,6 @@ export class EnginePluginRuntime {
 
     hasPlugins(): boolean {
         return this.plugins.length > 0;
-    }
-
-    getAdditionalSourceRules(): SourceRule[] {
-        return this.dryRun ? [] : [...this.additionalSourceRules];
-    }
-
-    getAdditionalSinkRules(): SinkRule[] {
-        return this.dryRun ? [] : [...this.additionalSinkRules];
-    }
-
-    getAdditionalTransferRules(): TransferRule[] {
-        return this.dryRun ? [] : [...this.additionalTransferRules];
-    }
-
-    getAdditionalSanitizerRules(): SanitizerRule[] {
-        return this.dryRun ? [] : [...this.additionalSanitizerRules];
     }
 
     getOptionOverrides(): ReadonlyMap<string, unknown> {
@@ -760,23 +734,12 @@ export class EnginePluginRuntime {
     private runStartHooks(): void {
         for (const plugin of this.plugins) {
             if (this.failedPluginNames.has(plugin.name)) continue;
-            const stagedRules: Array<{
-                kind: "source" | "sink" | "transfer" | "sanitizer";
-                rule: SourceRule | SinkRule | TransferRule | SanitizerRule;
-            }> = [];
             const stagedOptions = new Map<string, unknown>();
             this.currentPluginName = plugin.name;
             this.requirePluginStats(plugin.name).startHookCalls++;
             const api: StartApi = {
                 getConfig: () => ({ ...this.config, isolatedPluginNames: [...this.config.isolatedPluginNames], moduleIds: [...this.config.moduleIds] }),
                 getScene: () => this.scene,
-                addRule: (kind, rule) => {
-                    stagedRules.push({ kind, rule });
-                },
-                addSourceRule: rule => stagedRules.push({ kind: "source", rule }),
-                addSinkRule: rule => stagedRules.push({ kind: "sink", rule }),
-                addTransferRule: rule => stagedRules.push({ kind: "transfer", rule }),
-                addSanitizerRule: rule => stagedRules.push({ kind: "sanitizer", rule }),
                 setOption: (key, value) => {
                     stagedOptions.set(key, value);
                 },
@@ -788,9 +751,6 @@ export class EnginePluginRuntime {
                 continue;
             } finally {
                 this.currentPluginName = undefined;
-            }
-            for (const { kind, rule } of stagedRules) {
-                this.pushRule(plugin.name, kind, rule);
             }
             for (const [key, value] of stagedOptions.entries()) {
                 this.optionOverrides.set(key, value);
@@ -833,35 +793,6 @@ export class EnginePluginRuntime {
         console.warn(
             `engine plugin ${pluginName} disabled after ${phase} failure${locationSuffix}: ${message}`,
         );
-    }
-
-    private pushRule(
-        pluginName: string,
-        kind: "source" | "sink" | "transfer" | "sanitizer",
-        rule: SourceRule | SinkRule | TransferRule | SanitizerRule,
-    ): void {
-        switch (kind) {
-            case "source":
-                this.additionalSourceRules.push(rule as SourceRule);
-                this.audit.start.sourceRulesAdded++;
-                this.requirePluginStats(pluginName).sourceRulesAdded++;
-                break;
-            case "sink":
-                this.additionalSinkRules.push(rule as SinkRule);
-                this.audit.start.sinkRulesAdded++;
-                this.requirePluginStats(pluginName).sinkRulesAdded++;
-                break;
-            case "transfer":
-                this.additionalTransferRules.push(rule as TransferRule);
-                this.audit.start.transferRulesAdded++;
-                this.requirePluginStats(pluginName).transferRulesAdded++;
-                break;
-            case "sanitizer":
-                this.additionalSanitizerRules.push(rule as SanitizerRule);
-                this.audit.start.sanitizerRulesAdded++;
-                this.requirePluginStats(pluginName).sanitizerRulesAdded++;
-                break;
-        }
     }
 
     private requirePluginStats(pluginName: string): EnginePluginAuditEntry {

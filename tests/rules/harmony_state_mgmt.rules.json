@@ -4,49 +4,796 @@
   "status": "official",
   "surfaces": [
     {
-      "surfaceId": "surface.source.harmony.state_mgmt.entry_param",
-      "kind": "access",
-      "modulePath": "@arktaint/local",
-      "ownerName": "LocalBinding",
-      "propertyName": "source.harmony.state_mgmt.entry_param",
-      "accessKind": "read",
-      "receiverKind": "namespace",
-      "confidence": "likely",
+      "surfaceId": "surface.source.harmony.state_mgmt.entry_param.method.objectlink_local_sibling_field_020_F",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_state_mgmt%2Fobjectlink_local_sibling_field_020_F.ets:file=harmony_state_mgmt%2Fobjectlink_local_sibling_field_020_F.ets:export=entry%3Acomponent.objectlink_local_sibling_field_020_F:decl=entry%3Acomponent.objectlink_local_sibling_field_020_F:member=lifecycle%3Atest.case.objectlink_local_sibling_field_020_F:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "harmony_state_mgmt/objectlink_local_sibling_field_020_F.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_state_mgmt/objectlink_local_sibling_field_020_F.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "objectlink_local_sibling_field_020_F",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.state_mgmt.entry_param.method.objectlink_observed_012_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_state_mgmt%2Fobjectlink_observed_012_T.ets:file=harmony_state_mgmt%2Fobjectlink_observed_012_T.ets:export=entry%3Acomponent.objectlink_observed_012_T:decl=entry%3Acomponent.objectlink_observed_012_T:member=lifecycle%3Atest.case.objectlink_observed_012_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_state_mgmt/objectlink_observed_012_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_state_mgmt/objectlink_observed_012_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "objectlink_observed_012_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.state_mgmt.entry_param.method.objectlink_observed_013_F",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_state_mgmt%2Fobjectlink_observed_013_F.ets:file=harmony_state_mgmt%2Fobjectlink_observed_013_F.ets:export=entry%3Acomponent.objectlink_observed_013_F:decl=entry%3Acomponent.objectlink_observed_013_F:member=lifecycle%3Atest.case.objectlink_observed_013_F:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_state_mgmt/objectlink_observed_013_F.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_state_mgmt/objectlink_observed_013_F.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "objectlink_observed_013_F",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.state_mgmt.entry_param.method.objectlink_sibling_field_019_F",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_state_mgmt%2Fobjectlink_sibling_field_019_F.ets:file=harmony_state_mgmt%2Fobjectlink_sibling_field_019_F.ets:export=entry%3Acomponent.objectlink_sibling_field_019_F:decl=entry%3Acomponent.objectlink_sibling_field_019_F:member=lifecycle%3Atest.case.objectlink_sibling_field_019_F:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_state_mgmt/objectlink_sibling_field_019_F.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_state_mgmt/objectlink_sibling_field_019_F.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "objectlink_sibling_field_019_F",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.state_mgmt.entry_param.method.state_array_content_field_022_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_state_mgmt%2Fstate_array_content_field_022_T.ets:file=harmony_state_mgmt%2Fstate_array_content_field_022_T.ets:export=entry%3Acomponent.state_array_content_field_022_T:decl=entry%3Acomponent.state_array_content_field_022_T:member=lifecycle%3Atest.case.state_array_content_field_022_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_state_mgmt/state_array_content_field_022_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_state_mgmt/state_array_content_field_022_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "state_array_content_field_022_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.state_mgmt.entry_param.method.state_array_self_reassign_content_field_026_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_state_mgmt%2Fstate_array_self_reassign_content_field_026_T.ets:file=harmony_state_mgmt%2Fstate_array_self_reassign_content_field_026_T.ets:export=entry%3Acomponent.state_array_self_reassign_content_field_026_T:decl=entry%3Acomponent.state_array_self_reassign_content_field_026_T:member=lifecycle%3Atest.case.state_array_self_reassign_content_field_026_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_state_mgmt/state_array_self_reassign_content_field_026_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_state_mgmt/state_array_self_reassign_content_field_026_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "state_array_self_reassign_content_field_026_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.state_mgmt.entry_param.method.state_array_self_reassign_sibling_field_027_F",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_state_mgmt%2Fstate_array_self_reassign_sibling_field_027_F.ets:file=harmony_state_mgmt%2Fstate_array_self_reassign_sibling_field_027_F.ets:export=entry%3Acomponent.state_array_self_reassign_sibling_field_027_F:decl=entry%3Acomponent.state_array_self_reassign_sibling_field_027_F:member=lifecycle%3Atest.case.state_array_self_reassign_sibling_field_027_F:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_state_mgmt/state_array_self_reassign_sibling_field_027_F.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_state_mgmt/state_array_self_reassign_sibling_field_027_F.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "state_array_self_reassign_sibling_field_027_F",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.state_mgmt.entry_param.method.state_array_sibling_field_023_F",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_state_mgmt%2Fstate_array_sibling_field_023_F.ets:file=harmony_state_mgmt%2Fstate_array_sibling_field_023_F.ets:export=entry%3Acomponent.state_array_sibling_field_023_F:decl=entry%3Acomponent.state_array_sibling_field_023_F:member=lifecycle%3Atest.case.state_array_sibling_field_023_F:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_state_mgmt/state_array_sibling_field_023_F.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_state_mgmt/state_array_sibling_field_023_F.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "state_array_sibling_field_023_F",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.state_mgmt.entry_param.method.state_link_object_content_field_024_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_state_mgmt%2Fstate_link_object_content_field_024_T.ets:file=harmony_state_mgmt%2Fstate_link_object_content_field_024_T.ets:export=entry%3Acomponent.state_link_object_content_field_024_T:decl=entry%3Acomponent.state_link_object_content_field_024_T:member=lifecycle%3Atest.case.state_link_object_content_field_024_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_state_mgmt/state_link_object_content_field_024_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_state_mgmt/state_link_object_content_field_024_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "state_link_object_content_field_024_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.state_mgmt.entry_param.method.state_link_object_sibling_field_025_F",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_state_mgmt%2Fstate_link_object_sibling_field_025_F.ets:file=harmony_state_mgmt%2Fstate_link_object_sibling_field_025_F.ets:export=entry%3Acomponent.state_link_object_sibling_field_025_F:decl=entry%3Acomponent.state_link_object_sibling_field_025_F:member=lifecycle%3Atest.case.state_link_object_sibling_field_025_F:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_state_mgmt/state_link_object_sibling_field_025_F.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_state_mgmt/state_link_object_sibling_field_025_F.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "state_link_object_sibling_field_025_F",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.state_mgmt.entry_param.method.state_link_scalar_alias_words_028_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_state_mgmt%2Fstate_link_scalar_alias_words_028_T.ets:file=harmony_state_mgmt%2Fstate_link_scalar_alias_words_028_T.ets:export=entry%3Acomponent.state_link_scalar_alias_words_028_T:decl=entry%3Acomponent.state_link_scalar_alias_words_028_T:member=lifecycle%3Atest.case.state_link_scalar_alias_words_028_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_state_mgmt/state_link_scalar_alias_words_028_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_state_mgmt/state_link_scalar_alias_words_028_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "state_link_scalar_alias_words_028_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.state_mgmt.entry_param.method.state_local_sibling_field_021_F",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_state_mgmt%2Fstate_local_sibling_field_021_F.ets:file=harmony_state_mgmt%2Fstate_local_sibling_field_021_F.ets:export=entry%3Acomponent.state_local_sibling_field_021_F:decl=entry%3Acomponent.state_local_sibling_field_021_F:member=lifecycle%3Atest.case.state_local_sibling_field_021_F:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_state_mgmt/state_local_sibling_field_021_F.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_state_mgmt/state_local_sibling_field_021_F.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "state_local_sibling_field_021_F",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.state_mgmt.entry_param.method.state_prop_alias_key_003_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_state_mgmt%2Fstate_prop_alias_key_003_T.ets:file=harmony_state_mgmt%2Fstate_prop_alias_key_003_T.ets:export=entry%3Acomponent.state_prop_alias_key_003_T:decl=entry%3Acomponent.state_prop_alias_key_003_T:member=lifecycle%3Atest.case.state_prop_alias_key_003_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_state_mgmt/state_prop_alias_key_003_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_state_mgmt/state_prop_alias_key_003_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "state_prop_alias_key_003_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.state_mgmt.entry_param.method.state_prop_child_not_built_009_F",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_state_mgmt%2Fstate_prop_child_not_built_009_F.ets:file=harmony_state_mgmt%2Fstate_prop_child_not_built_009_F.ets:export=entry%3Acomponent.state_prop_child_not_built_009_F:decl=entry%3Acomponent.state_prop_child_not_built_009_F:member=lifecycle%3Atest.case.state_prop_child_not_built_009_F:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_state_mgmt/state_prop_child_not_built_009_F.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_state_mgmt/state_prop_child_not_built_009_F.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "state_prop_child_not_built_009_F",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.state_mgmt.entry_param.method.state_prop_direct_variant_007_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_state_mgmt%2Fstate_prop_direct_variant_007_T.ets:file=harmony_state_mgmt%2Fstate_prop_direct_variant_007_T.ets:export=entry%3Acomponent.state_prop_direct_variant_007_T:decl=entry%3Acomponent.state_prop_direct_variant_007_T:member=lifecycle%3Atest.case.state_prop_direct_variant_007_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_state_mgmt/state_prop_direct_variant_007_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_state_mgmt/state_prop_direct_variant_007_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "state_prop_direct_variant_007_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.state_mgmt.entry_param.method.state_prop_multi_param_010_F",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_state_mgmt%2Fstate_prop_multi_param_010_F.ets:file=harmony_state_mgmt%2Fstate_prop_multi_param_010_F.ets:export=entry%3Acomponent.state_prop_multi_param_010_F:decl=entry%3Acomponent.state_prop_multi_param_010_F:member=lifecycle%3Atest.case.state_prop_multi_param_010_F:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_state_mgmt/state_prop_multi_param_010_F.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_state_mgmt/state_prop_multi_param_010_F.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "state_prop_multi_param_010_F",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.state_mgmt.entry_param.method.state_prop_multi_param_011_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_state_mgmt%2Fstate_prop_multi_param_011_T.ets:file=harmony_state_mgmt%2Fstate_prop_multi_param_011_T.ets:export=entry%3Acomponent.state_prop_multi_param_011_T:decl=entry%3Acomponent.state_prop_multi_param_011_T:member=lifecycle%3Atest.case.state_prop_multi_param_011_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_state_mgmt/state_prop_multi_param_011_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_state_mgmt/state_prop_multi_param_011_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "state_prop_multi_param_011_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.state_mgmt.entry_param.method.state_prop_non_state_field_002_F",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_state_mgmt%2Fstate_prop_non_state_field_002_F.ets:file=harmony_state_mgmt%2Fstate_prop_non_state_field_002_F.ets:export=entry%3Acomponent.state_prop_non_state_field_002_F:decl=entry%3Acomponent.state_prop_non_state_field_002_F:member=lifecycle%3Atest.case.state_prop_non_state_field_002_F:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_state_mgmt/state_prop_non_state_field_002_F.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_state_mgmt/state_prop_non_state_field_002_F.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "state_prop_non_state_field_002_F",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.state_mgmt.entry_param.method.state_prop_object_literal_001_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_state_mgmt%2Fstate_prop_object_literal_001_T.ets:file=harmony_state_mgmt%2Fstate_prop_object_literal_001_T.ets:export=entry%3Acomponent.state_prop_object_literal_001_T:decl=entry%3Acomponent.state_prop_object_literal_001_T:member=lifecycle%3Atest.case.state_prop_object_literal_001_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_state_mgmt/state_prop_object_literal_001_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_state_mgmt/state_prop_object_literal_001_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "state_prop_object_literal_001_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.state_mgmt.entry_param.method.state_prop_precise_callsite_006_F",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_state_mgmt%2Fstate_prop_precise_callsite_006_F.ets:file=harmony_state_mgmt%2Fstate_prop_precise_callsite_006_F.ets:export=entry%3Acomponent.state_prop_precise_callsite_006_F:decl=entry%3Acomponent.state_prop_precise_callsite_006_F:member=lifecycle%3Atest.case.state_prop_precise_callsite_006_F:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_state_mgmt/state_prop_precise_callsite_006_F.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_state_mgmt/state_prop_precise_callsite_006_F.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "state_prop_precise_callsite_006_F",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.state_mgmt.entry_param.method.state_prop_transit_child_008_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_state_mgmt%2Fstate_prop_transit_child_008_T.ets:file=harmony_state_mgmt%2Fstate_prop_transit_child_008_T.ets:export=entry%3Acomponent.state_prop_transit_child_008_T:decl=entry%3Acomponent.state_prop_transit_child_008_T:member=lifecycle%3Atest.case.state_prop_transit_child_008_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_state_mgmt/state_prop_transit_child_008_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_state_mgmt/state_prop_transit_child_008_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "state_prop_transit_child_008_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.state_mgmt.entry_param.method.state_prop_two_children_005_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_state_mgmt%2Fstate_prop_two_children_005_T.ets:file=harmony_state_mgmt%2Fstate_prop_two_children_005_T.ets:export=entry%3Acomponent.state_prop_two_children_005_T:decl=entry%3Acomponent.state_prop_two_children_005_T:member=lifecycle%3Atest.case.state_prop_two_children_005_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_state_mgmt/state_prop_two_children_005_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_state_mgmt/state_prop_two_children_005_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "state_prop_two_children_005_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.state_mgmt.entry_param.method.state_prop_wrong_key_004_F",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_state_mgmt%2Fstate_prop_wrong_key_004_F.ets:file=harmony_state_mgmt%2Fstate_prop_wrong_key_004_F.ets:export=entry%3Acomponent.state_prop_wrong_key_004_F:decl=entry%3Acomponent.state_prop_wrong_key_004_F:member=lifecycle%3Atest.case.state_prop_wrong_key_004_F:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_state_mgmt/state_prop_wrong_key_004_F.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_state_mgmt/state_prop_wrong_key_004_F.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "state_prop_wrong_key_004_F",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.state_mgmt.entry_param.method.state_v2_computed_018_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_state_mgmt%2Fstate_v2_computed_018_T.ets:file=harmony_state_mgmt%2Fstate_v2_computed_018_T.ets:export=entry%3Acomponent.state_v2_computed_018_T:decl=entry%3Acomponent.state_v2_computed_018_T:member=lifecycle%3Atest.case.state_v2_computed_018_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_state_mgmt/state_v2_computed_018_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_state_mgmt/state_v2_computed_018_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "state_v2_computed_018_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.state_mgmt.entry_param.method.state_v2_event_callback_017_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_state_mgmt%2Fstate_v2_event_callback_017_T.ets:file=harmony_state_mgmt%2Fstate_v2_event_callback_017_T.ets:export=entry%3Acomponent.state_v2_event_callback_017_T:decl=entry%3Acomponent.state_v2_event_callback_017_T:member=lifecycle%3Atest.case.state_v2_event_callback_017_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_state_mgmt/state_v2_event_callback_017_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_state_mgmt/state_v2_event_callback_017_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "state_v2_event_callback_017_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.state_mgmt.entry_param.method.state_v2_observed_trace_016_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_state_mgmt%2Fstate_v2_observed_trace_016_T.ets:file=harmony_state_mgmt%2Fstate_v2_observed_trace_016_T.ets:export=entry%3Acomponent.state_v2_observed_trace_016_T:decl=entry%3Acomponent.state_v2_observed_trace_016_T:member=lifecycle%3Atest.case.state_v2_observed_trace_016_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_state_mgmt/state_v2_observed_trace_016_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_state_mgmt/state_v2_observed_trace_016_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "state_v2_observed_trace_016_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.state_mgmt.entry_param.method.state_v2_param_local_014_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_state_mgmt%2Fstate_v2_param_local_014_T.ets:file=harmony_state_mgmt%2Fstate_v2_param_local_014_T.ets:export=entry%3Acomponent.state_v2_param_local_014_T:decl=entry%3Acomponent.state_v2_param_local_014_T:member=lifecycle%3Atest.case.state_v2_param_local_014_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_state_mgmt/state_v2_param_local_014_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_state_mgmt/state_v2_param_local_014_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "state_v2_param_local_014_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.state_mgmt.entry_param.method.state_v2_provider_consumer_015_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_state_mgmt%2Fstate_v2_provider_consumer_015_T.ets:file=harmony_state_mgmt%2Fstate_v2_provider_consumer_015_T.ets:export=entry%3Acomponent.state_v2_provider_consumer_015_T:decl=entry%3Acomponent.state_v2_provider_consumer_015_T:member=lifecycle%3Atest.case.state_v2_provider_consumer_015_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_state_mgmt/state_v2_provider_consumer_015_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_state_mgmt/state_v2_provider_consumer_015_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "state_v2_provider_consumer_015_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
       }
     },
     {
       "surfaceId": "surface.sink.harmony.state_mgmt.mock_sink",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "Sink",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "harmony_state_mgmt/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=harmony_state_mgmt%2Ftaint_mock.ts:file=harmony_state_mgmt%2Ftaint_mock.ts:export=namespace%3Ataint.%25dflt:decl=namespace%3Ataint.%25dflt:member=function%3ASink:invoke=call:params=0%3Aany:ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_state_mgmt/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "taint.%dflt",
+            "methodName": "Sink",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "void",
+            "staticFlag": true
+          }
+        }
       }
     }
   ],
   "bindings": [
     {
       "bindingId": "binding.source.harmony.state_mgmt.entry_param.0.method.objectlink_local_sibling_field_020_F",
-      "surfaceId": "surface.source.harmony.state_mgmt.entry_param",
+      "surfaceId": "surface.source.harmony.state_mgmt.entry_param.method.objectlink_local_sibling_field_020_F",
       "assetId": "asset.rule.test.harmony_state_mgmt",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "objectlink_local_sibling_field_020_F",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "objectlink_local_sibling_field_020_F.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -57,25 +804,16 @@
         "template.source.harmony.state_mgmt.entry_param.for.source.harmony.state_mgmt.entry_param.0.method.objectlink_local_sibling_field_020_F"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_state_mgmt%2Fobjectlink_local_sibling_field_020_F.ets:file=harmony_state_mgmt%2Fobjectlink_local_sibling_field_020_F.ets:export=entry%3Acomponent.objectlink_local_sibling_field_020_F:decl=entry%3Acomponent.objectlink_local_sibling_field_020_F:member=lifecycle%3Atest.case.objectlink_local_sibling_field_020_F:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony.state_mgmt.entry_param.0.method.objectlink_observed_012_T",
-      "surfaceId": "surface.source.harmony.state_mgmt.entry_param",
+      "surfaceId": "surface.source.harmony.state_mgmt.entry_param.method.objectlink_observed_012_T",
       "assetId": "asset.rule.test.harmony_state_mgmt",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "objectlink_observed_012_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "objectlink_observed_012_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -86,25 +824,16 @@
         "template.source.harmony.state_mgmt.entry_param.for.source.harmony.state_mgmt.entry_param.0.method.objectlink_observed_012_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_state_mgmt%2Fobjectlink_observed_012_T.ets:file=harmony_state_mgmt%2Fobjectlink_observed_012_T.ets:export=entry%3Acomponent.objectlink_observed_012_T:decl=entry%3Acomponent.objectlink_observed_012_T:member=lifecycle%3Atest.case.objectlink_observed_012_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony.state_mgmt.entry_param.0.method.objectlink_observed_013_F",
-      "surfaceId": "surface.source.harmony.state_mgmt.entry_param",
+      "surfaceId": "surface.source.harmony.state_mgmt.entry_param.method.objectlink_observed_013_F",
       "assetId": "asset.rule.test.harmony_state_mgmt",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "objectlink_observed_013_F",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "objectlink_observed_013_F.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -115,25 +844,16 @@
         "template.source.harmony.state_mgmt.entry_param.for.source.harmony.state_mgmt.entry_param.0.method.objectlink_observed_013_F"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_state_mgmt%2Fobjectlink_observed_013_F.ets:file=harmony_state_mgmt%2Fobjectlink_observed_013_F.ets:export=entry%3Acomponent.objectlink_observed_013_F:decl=entry%3Acomponent.objectlink_observed_013_F:member=lifecycle%3Atest.case.objectlink_observed_013_F:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony.state_mgmt.entry_param.0.method.objectlink_sibling_field_019_F",
-      "surfaceId": "surface.source.harmony.state_mgmt.entry_param",
+      "surfaceId": "surface.source.harmony.state_mgmt.entry_param.method.objectlink_sibling_field_019_F",
       "assetId": "asset.rule.test.harmony_state_mgmt",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "objectlink_sibling_field_019_F",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "objectlink_sibling_field_019_F.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -144,25 +864,16 @@
         "template.source.harmony.state_mgmt.entry_param.for.source.harmony.state_mgmt.entry_param.0.method.objectlink_sibling_field_019_F"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_state_mgmt%2Fobjectlink_sibling_field_019_F.ets:file=harmony_state_mgmt%2Fobjectlink_sibling_field_019_F.ets:export=entry%3Acomponent.objectlink_sibling_field_019_F:decl=entry%3Acomponent.objectlink_sibling_field_019_F:member=lifecycle%3Atest.case.objectlink_sibling_field_019_F:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony.state_mgmt.entry_param.0.method.state_array_content_field_022_T",
-      "surfaceId": "surface.source.harmony.state_mgmt.entry_param",
+      "surfaceId": "surface.source.harmony.state_mgmt.entry_param.method.state_array_content_field_022_T",
       "assetId": "asset.rule.test.harmony_state_mgmt",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "state_array_content_field_022_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "state_array_content_field_022_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -173,25 +884,16 @@
         "template.source.harmony.state_mgmt.entry_param.for.source.harmony.state_mgmt.entry_param.0.method.state_array_content_field_022_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_state_mgmt%2Fstate_array_content_field_022_T.ets:file=harmony_state_mgmt%2Fstate_array_content_field_022_T.ets:export=entry%3Acomponent.state_array_content_field_022_T:decl=entry%3Acomponent.state_array_content_field_022_T:member=lifecycle%3Atest.case.state_array_content_field_022_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony.state_mgmt.entry_param.0.method.state_array_self_reassign_content_field_026_T",
-      "surfaceId": "surface.source.harmony.state_mgmt.entry_param",
+      "surfaceId": "surface.source.harmony.state_mgmt.entry_param.method.state_array_self_reassign_content_field_026_T",
       "assetId": "asset.rule.test.harmony_state_mgmt",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "state_array_self_reassign_content_field_026_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "state_array_self_reassign_content_field_026_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -202,25 +904,16 @@
         "template.source.harmony.state_mgmt.entry_param.for.source.harmony.state_mgmt.entry_param.0.method.state_array_self_reassign_content_field_026_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_state_mgmt%2Fstate_array_self_reassign_content_field_026_T.ets:file=harmony_state_mgmt%2Fstate_array_self_reassign_content_field_026_T.ets:export=entry%3Acomponent.state_array_self_reassign_content_field_026_T:decl=entry%3Acomponent.state_array_self_reassign_content_field_026_T:member=lifecycle%3Atest.case.state_array_self_reassign_content_field_026_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony.state_mgmt.entry_param.0.method.state_array_self_reassign_sibling_field_027_F",
-      "surfaceId": "surface.source.harmony.state_mgmt.entry_param",
+      "surfaceId": "surface.source.harmony.state_mgmt.entry_param.method.state_array_self_reassign_sibling_field_027_F",
       "assetId": "asset.rule.test.harmony_state_mgmt",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "state_array_self_reassign_sibling_field_027_F",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "state_array_self_reassign_sibling_field_027_F.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -231,25 +924,16 @@
         "template.source.harmony.state_mgmt.entry_param.for.source.harmony.state_mgmt.entry_param.0.method.state_array_self_reassign_sibling_field_027_F"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_state_mgmt%2Fstate_array_self_reassign_sibling_field_027_F.ets:file=harmony_state_mgmt%2Fstate_array_self_reassign_sibling_field_027_F.ets:export=entry%3Acomponent.state_array_self_reassign_sibling_field_027_F:decl=entry%3Acomponent.state_array_self_reassign_sibling_field_027_F:member=lifecycle%3Atest.case.state_array_self_reassign_sibling_field_027_F:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony.state_mgmt.entry_param.0.method.state_array_sibling_field_023_F",
-      "surfaceId": "surface.source.harmony.state_mgmt.entry_param",
+      "surfaceId": "surface.source.harmony.state_mgmt.entry_param.method.state_array_sibling_field_023_F",
       "assetId": "asset.rule.test.harmony_state_mgmt",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "state_array_sibling_field_023_F",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "state_array_sibling_field_023_F.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -260,25 +944,16 @@
         "template.source.harmony.state_mgmt.entry_param.for.source.harmony.state_mgmt.entry_param.0.method.state_array_sibling_field_023_F"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_state_mgmt%2Fstate_array_sibling_field_023_F.ets:file=harmony_state_mgmt%2Fstate_array_sibling_field_023_F.ets:export=entry%3Acomponent.state_array_sibling_field_023_F:decl=entry%3Acomponent.state_array_sibling_field_023_F:member=lifecycle%3Atest.case.state_array_sibling_field_023_F:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony.state_mgmt.entry_param.0.method.state_link_object_content_field_024_T",
-      "surfaceId": "surface.source.harmony.state_mgmt.entry_param",
+      "surfaceId": "surface.source.harmony.state_mgmt.entry_param.method.state_link_object_content_field_024_T",
       "assetId": "asset.rule.test.harmony_state_mgmt",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "state_link_object_content_field_024_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "state_link_object_content_field_024_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -289,25 +964,16 @@
         "template.source.harmony.state_mgmt.entry_param.for.source.harmony.state_mgmt.entry_param.0.method.state_link_object_content_field_024_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_state_mgmt%2Fstate_link_object_content_field_024_T.ets:file=harmony_state_mgmt%2Fstate_link_object_content_field_024_T.ets:export=entry%3Acomponent.state_link_object_content_field_024_T:decl=entry%3Acomponent.state_link_object_content_field_024_T:member=lifecycle%3Atest.case.state_link_object_content_field_024_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony.state_mgmt.entry_param.0.method.state_link_object_sibling_field_025_F",
-      "surfaceId": "surface.source.harmony.state_mgmt.entry_param",
+      "surfaceId": "surface.source.harmony.state_mgmt.entry_param.method.state_link_object_sibling_field_025_F",
       "assetId": "asset.rule.test.harmony_state_mgmt",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "state_link_object_sibling_field_025_F",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "state_link_object_sibling_field_025_F.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -318,25 +984,16 @@
         "template.source.harmony.state_mgmt.entry_param.for.source.harmony.state_mgmt.entry_param.0.method.state_link_object_sibling_field_025_F"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_state_mgmt%2Fstate_link_object_sibling_field_025_F.ets:file=harmony_state_mgmt%2Fstate_link_object_sibling_field_025_F.ets:export=entry%3Acomponent.state_link_object_sibling_field_025_F:decl=entry%3Acomponent.state_link_object_sibling_field_025_F:member=lifecycle%3Atest.case.state_link_object_sibling_field_025_F:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony.state_mgmt.entry_param.0.method.state_link_scalar_alias_words_028_T",
-      "surfaceId": "surface.source.harmony.state_mgmt.entry_param",
+      "surfaceId": "surface.source.harmony.state_mgmt.entry_param.method.state_link_scalar_alias_words_028_T",
       "assetId": "asset.rule.test.harmony_state_mgmt",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "state_link_scalar_alias_words_028_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "state_link_scalar_alias_words_028_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -347,25 +1004,16 @@
         "template.source.harmony.state_mgmt.entry_param.for.source.harmony.state_mgmt.entry_param.0.method.state_link_scalar_alias_words_028_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_state_mgmt%2Fstate_link_scalar_alias_words_028_T.ets:file=harmony_state_mgmt%2Fstate_link_scalar_alias_words_028_T.ets:export=entry%3Acomponent.state_link_scalar_alias_words_028_T:decl=entry%3Acomponent.state_link_scalar_alias_words_028_T:member=lifecycle%3Atest.case.state_link_scalar_alias_words_028_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony.state_mgmt.entry_param.0.method.state_local_sibling_field_021_F",
-      "surfaceId": "surface.source.harmony.state_mgmt.entry_param",
+      "surfaceId": "surface.source.harmony.state_mgmt.entry_param.method.state_local_sibling_field_021_F",
       "assetId": "asset.rule.test.harmony_state_mgmt",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "state_local_sibling_field_021_F",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "state_local_sibling_field_021_F.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -376,25 +1024,16 @@
         "template.source.harmony.state_mgmt.entry_param.for.source.harmony.state_mgmt.entry_param.0.method.state_local_sibling_field_021_F"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_state_mgmt%2Fstate_local_sibling_field_021_F.ets:file=harmony_state_mgmt%2Fstate_local_sibling_field_021_F.ets:export=entry%3Acomponent.state_local_sibling_field_021_F:decl=entry%3Acomponent.state_local_sibling_field_021_F:member=lifecycle%3Atest.case.state_local_sibling_field_021_F:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony.state_mgmt.entry_param.0.method.state_prop_alias_key_003_T",
-      "surfaceId": "surface.source.harmony.state_mgmt.entry_param",
+      "surfaceId": "surface.source.harmony.state_mgmt.entry_param.method.state_prop_alias_key_003_T",
       "assetId": "asset.rule.test.harmony_state_mgmt",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "state_prop_alias_key_003_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "state_prop_alias_key_003_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -405,25 +1044,16 @@
         "template.source.harmony.state_mgmt.entry_param.for.source.harmony.state_mgmt.entry_param.0.method.state_prop_alias_key_003_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_state_mgmt%2Fstate_prop_alias_key_003_T.ets:file=harmony_state_mgmt%2Fstate_prop_alias_key_003_T.ets:export=entry%3Acomponent.state_prop_alias_key_003_T:decl=entry%3Acomponent.state_prop_alias_key_003_T:member=lifecycle%3Atest.case.state_prop_alias_key_003_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony.state_mgmt.entry_param.0.method.state_prop_child_not_built_009_F",
-      "surfaceId": "surface.source.harmony.state_mgmt.entry_param",
+      "surfaceId": "surface.source.harmony.state_mgmt.entry_param.method.state_prop_child_not_built_009_F",
       "assetId": "asset.rule.test.harmony_state_mgmt",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "state_prop_child_not_built_009_F",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "state_prop_child_not_built_009_F.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -434,25 +1064,16 @@
         "template.source.harmony.state_mgmt.entry_param.for.source.harmony.state_mgmt.entry_param.0.method.state_prop_child_not_built_009_F"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_state_mgmt%2Fstate_prop_child_not_built_009_F.ets:file=harmony_state_mgmt%2Fstate_prop_child_not_built_009_F.ets:export=entry%3Acomponent.state_prop_child_not_built_009_F:decl=entry%3Acomponent.state_prop_child_not_built_009_F:member=lifecycle%3Atest.case.state_prop_child_not_built_009_F:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony.state_mgmt.entry_param.0.method.state_prop_direct_variant_007_T",
-      "surfaceId": "surface.source.harmony.state_mgmt.entry_param",
+      "surfaceId": "surface.source.harmony.state_mgmt.entry_param.method.state_prop_direct_variant_007_T",
       "assetId": "asset.rule.test.harmony_state_mgmt",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "state_prop_direct_variant_007_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "state_prop_direct_variant_007_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -463,25 +1084,16 @@
         "template.source.harmony.state_mgmt.entry_param.for.source.harmony.state_mgmt.entry_param.0.method.state_prop_direct_variant_007_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_state_mgmt%2Fstate_prop_direct_variant_007_T.ets:file=harmony_state_mgmt%2Fstate_prop_direct_variant_007_T.ets:export=entry%3Acomponent.state_prop_direct_variant_007_T:decl=entry%3Acomponent.state_prop_direct_variant_007_T:member=lifecycle%3Atest.case.state_prop_direct_variant_007_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony.state_mgmt.entry_param.0.method.state_prop_multi_param_010_F",
-      "surfaceId": "surface.source.harmony.state_mgmt.entry_param",
+      "surfaceId": "surface.source.harmony.state_mgmt.entry_param.method.state_prop_multi_param_010_F",
       "assetId": "asset.rule.test.harmony_state_mgmt",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "state_prop_multi_param_010_F",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "state_prop_multi_param_010_F.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -492,25 +1104,16 @@
         "template.source.harmony.state_mgmt.entry_param.for.source.harmony.state_mgmt.entry_param.0.method.state_prop_multi_param_010_F"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_state_mgmt%2Fstate_prop_multi_param_010_F.ets:file=harmony_state_mgmt%2Fstate_prop_multi_param_010_F.ets:export=entry%3Acomponent.state_prop_multi_param_010_F:decl=entry%3Acomponent.state_prop_multi_param_010_F:member=lifecycle%3Atest.case.state_prop_multi_param_010_F:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony.state_mgmt.entry_param.0.method.state_prop_multi_param_011_T",
-      "surfaceId": "surface.source.harmony.state_mgmt.entry_param",
+      "surfaceId": "surface.source.harmony.state_mgmt.entry_param.method.state_prop_multi_param_011_T",
       "assetId": "asset.rule.test.harmony_state_mgmt",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "state_prop_multi_param_011_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "state_prop_multi_param_011_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -521,25 +1124,16 @@
         "template.source.harmony.state_mgmt.entry_param.for.source.harmony.state_mgmt.entry_param.0.method.state_prop_multi_param_011_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_state_mgmt%2Fstate_prop_multi_param_011_T.ets:file=harmony_state_mgmt%2Fstate_prop_multi_param_011_T.ets:export=entry%3Acomponent.state_prop_multi_param_011_T:decl=entry%3Acomponent.state_prop_multi_param_011_T:member=lifecycle%3Atest.case.state_prop_multi_param_011_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony.state_mgmt.entry_param.0.method.state_prop_non_state_field_002_F",
-      "surfaceId": "surface.source.harmony.state_mgmt.entry_param",
+      "surfaceId": "surface.source.harmony.state_mgmt.entry_param.method.state_prop_non_state_field_002_F",
       "assetId": "asset.rule.test.harmony_state_mgmt",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "state_prop_non_state_field_002_F",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "state_prop_non_state_field_002_F.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -550,25 +1144,16 @@
         "template.source.harmony.state_mgmt.entry_param.for.source.harmony.state_mgmt.entry_param.0.method.state_prop_non_state_field_002_F"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_state_mgmt%2Fstate_prop_non_state_field_002_F.ets:file=harmony_state_mgmt%2Fstate_prop_non_state_field_002_F.ets:export=entry%3Acomponent.state_prop_non_state_field_002_F:decl=entry%3Acomponent.state_prop_non_state_field_002_F:member=lifecycle%3Atest.case.state_prop_non_state_field_002_F:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony.state_mgmt.entry_param.0.method.state_prop_object_literal_001_T",
-      "surfaceId": "surface.source.harmony.state_mgmt.entry_param",
+      "surfaceId": "surface.source.harmony.state_mgmt.entry_param.method.state_prop_object_literal_001_T",
       "assetId": "asset.rule.test.harmony_state_mgmt",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "state_prop_object_literal_001_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "state_prop_object_literal_001_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -579,25 +1164,16 @@
         "template.source.harmony.state_mgmt.entry_param.for.source.harmony.state_mgmt.entry_param.0.method.state_prop_object_literal_001_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_state_mgmt%2Fstate_prop_object_literal_001_T.ets:file=harmony_state_mgmt%2Fstate_prop_object_literal_001_T.ets:export=entry%3Acomponent.state_prop_object_literal_001_T:decl=entry%3Acomponent.state_prop_object_literal_001_T:member=lifecycle%3Atest.case.state_prop_object_literal_001_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony.state_mgmt.entry_param.0.method.state_prop_precise_callsite_006_F",
-      "surfaceId": "surface.source.harmony.state_mgmt.entry_param",
+      "surfaceId": "surface.source.harmony.state_mgmt.entry_param.method.state_prop_precise_callsite_006_F",
       "assetId": "asset.rule.test.harmony_state_mgmt",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "state_prop_precise_callsite_006_F",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "state_prop_precise_callsite_006_F.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -608,25 +1184,16 @@
         "template.source.harmony.state_mgmt.entry_param.for.source.harmony.state_mgmt.entry_param.0.method.state_prop_precise_callsite_006_F"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_state_mgmt%2Fstate_prop_precise_callsite_006_F.ets:file=harmony_state_mgmt%2Fstate_prop_precise_callsite_006_F.ets:export=entry%3Acomponent.state_prop_precise_callsite_006_F:decl=entry%3Acomponent.state_prop_precise_callsite_006_F:member=lifecycle%3Atest.case.state_prop_precise_callsite_006_F:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony.state_mgmt.entry_param.0.method.state_prop_transit_child_008_T",
-      "surfaceId": "surface.source.harmony.state_mgmt.entry_param",
+      "surfaceId": "surface.source.harmony.state_mgmt.entry_param.method.state_prop_transit_child_008_T",
       "assetId": "asset.rule.test.harmony_state_mgmt",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "state_prop_transit_child_008_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "state_prop_transit_child_008_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -637,25 +1204,16 @@
         "template.source.harmony.state_mgmt.entry_param.for.source.harmony.state_mgmt.entry_param.0.method.state_prop_transit_child_008_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_state_mgmt%2Fstate_prop_transit_child_008_T.ets:file=harmony_state_mgmt%2Fstate_prop_transit_child_008_T.ets:export=entry%3Acomponent.state_prop_transit_child_008_T:decl=entry%3Acomponent.state_prop_transit_child_008_T:member=lifecycle%3Atest.case.state_prop_transit_child_008_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony.state_mgmt.entry_param.0.method.state_prop_two_children_005_T",
-      "surfaceId": "surface.source.harmony.state_mgmt.entry_param",
+      "surfaceId": "surface.source.harmony.state_mgmt.entry_param.method.state_prop_two_children_005_T",
       "assetId": "asset.rule.test.harmony_state_mgmt",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "state_prop_two_children_005_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "state_prop_two_children_005_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -666,25 +1224,16 @@
         "template.source.harmony.state_mgmt.entry_param.for.source.harmony.state_mgmt.entry_param.0.method.state_prop_two_children_005_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_state_mgmt%2Fstate_prop_two_children_005_T.ets:file=harmony_state_mgmt%2Fstate_prop_two_children_005_T.ets:export=entry%3Acomponent.state_prop_two_children_005_T:decl=entry%3Acomponent.state_prop_two_children_005_T:member=lifecycle%3Atest.case.state_prop_two_children_005_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony.state_mgmt.entry_param.0.method.state_prop_wrong_key_004_F",
-      "surfaceId": "surface.source.harmony.state_mgmt.entry_param",
+      "surfaceId": "surface.source.harmony.state_mgmt.entry_param.method.state_prop_wrong_key_004_F",
       "assetId": "asset.rule.test.harmony_state_mgmt",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "state_prop_wrong_key_004_F",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "state_prop_wrong_key_004_F.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -695,25 +1244,16 @@
         "template.source.harmony.state_mgmt.entry_param.for.source.harmony.state_mgmt.entry_param.0.method.state_prop_wrong_key_004_F"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_state_mgmt%2Fstate_prop_wrong_key_004_F.ets:file=harmony_state_mgmt%2Fstate_prop_wrong_key_004_F.ets:export=entry%3Acomponent.state_prop_wrong_key_004_F:decl=entry%3Acomponent.state_prop_wrong_key_004_F:member=lifecycle%3Atest.case.state_prop_wrong_key_004_F:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony.state_mgmt.entry_param.0.method.state_v2_computed_018_T",
-      "surfaceId": "surface.source.harmony.state_mgmt.entry_param",
+      "surfaceId": "surface.source.harmony.state_mgmt.entry_param.method.state_v2_computed_018_T",
       "assetId": "asset.rule.test.harmony_state_mgmt",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "state_v2_computed_018_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "state_v2_computed_018_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -724,25 +1264,16 @@
         "template.source.harmony.state_mgmt.entry_param.for.source.harmony.state_mgmt.entry_param.0.method.state_v2_computed_018_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_state_mgmt%2Fstate_v2_computed_018_T.ets:file=harmony_state_mgmt%2Fstate_v2_computed_018_T.ets:export=entry%3Acomponent.state_v2_computed_018_T:decl=entry%3Acomponent.state_v2_computed_018_T:member=lifecycle%3Atest.case.state_v2_computed_018_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony.state_mgmt.entry_param.0.method.state_v2_event_callback_017_T",
-      "surfaceId": "surface.source.harmony.state_mgmt.entry_param",
+      "surfaceId": "surface.source.harmony.state_mgmt.entry_param.method.state_v2_event_callback_017_T",
       "assetId": "asset.rule.test.harmony_state_mgmt",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "state_v2_event_callback_017_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "state_v2_event_callback_017_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -753,25 +1284,16 @@
         "template.source.harmony.state_mgmt.entry_param.for.source.harmony.state_mgmt.entry_param.0.method.state_v2_event_callback_017_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_state_mgmt%2Fstate_v2_event_callback_017_T.ets:file=harmony_state_mgmt%2Fstate_v2_event_callback_017_T.ets:export=entry%3Acomponent.state_v2_event_callback_017_T:decl=entry%3Acomponent.state_v2_event_callback_017_T:member=lifecycle%3Atest.case.state_v2_event_callback_017_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony.state_mgmt.entry_param.0.method.state_v2_observed_trace_016_T",
-      "surfaceId": "surface.source.harmony.state_mgmt.entry_param",
+      "surfaceId": "surface.source.harmony.state_mgmt.entry_param.method.state_v2_observed_trace_016_T",
       "assetId": "asset.rule.test.harmony_state_mgmt",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "state_v2_observed_trace_016_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "state_v2_observed_trace_016_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -782,25 +1304,16 @@
         "template.source.harmony.state_mgmt.entry_param.for.source.harmony.state_mgmt.entry_param.0.method.state_v2_observed_trace_016_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_state_mgmt%2Fstate_v2_observed_trace_016_T.ets:file=harmony_state_mgmt%2Fstate_v2_observed_trace_016_T.ets:export=entry%3Acomponent.state_v2_observed_trace_016_T:decl=entry%3Acomponent.state_v2_observed_trace_016_T:member=lifecycle%3Atest.case.state_v2_observed_trace_016_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony.state_mgmt.entry_param.0.method.state_v2_param_local_014_T",
-      "surfaceId": "surface.source.harmony.state_mgmt.entry_param",
+      "surfaceId": "surface.source.harmony.state_mgmt.entry_param.method.state_v2_param_local_014_T",
       "assetId": "asset.rule.test.harmony_state_mgmt",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "state_v2_param_local_014_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "state_v2_param_local_014_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -811,25 +1324,16 @@
         "template.source.harmony.state_mgmt.entry_param.for.source.harmony.state_mgmt.entry_param.0.method.state_v2_param_local_014_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_state_mgmt%2Fstate_v2_param_local_014_T.ets:file=harmony_state_mgmt%2Fstate_v2_param_local_014_T.ets:export=entry%3Acomponent.state_v2_param_local_014_T:decl=entry%3Acomponent.state_v2_param_local_014_T:member=lifecycle%3Atest.case.state_v2_param_local_014_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony.state_mgmt.entry_param.0.method.state_v2_provider_consumer_015_T",
-      "surfaceId": "surface.source.harmony.state_mgmt.entry_param",
+      "surfaceId": "surface.source.harmony.state_mgmt.entry_param.method.state_v2_provider_consumer_015_T",
       "assetId": "asset.rule.test.harmony_state_mgmt",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "state_v2_provider_consumer_015_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "state_v2_provider_consumer_015_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -840,8 +1344,9 @@
         "template.source.harmony.state_mgmt.entry_param.for.source.harmony.state_mgmt.entry_param.0.method.state_v2_provider_consumer_015_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_state_mgmt%2Fstate_v2_provider_consumer_015_T.ets:file=harmony_state_mgmt%2Fstate_v2_provider_consumer_015_T.ets:export=entry%3Acomponent.state_v2_provider_consumer_015_T:decl=entry%3Acomponent.state_v2_provider_consumer_015_T:member=lifecycle%3Atest.case.state_v2_provider_consumer_015_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.sink.harmony.state_mgmt.mock_sink.0",
@@ -849,18 +1354,6 @@
       "assetId": "asset.rule.test.harmony_state_mgmt",
       "plane": "rule",
       "role": "sink",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "Sink",
-        "invokeKind": "static",
-        "argCount": 1,
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "harmony_state_mgmt"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -871,24 +1364,13 @@
         "template.sink.harmony.state_mgmt.mock_sink"
       ],
       "semanticsFamily": "sink",
-      "completeness": "partial",
-      "confidence": "likely",
-      "metadata": {}
+      "completeness": "complete",
+      "confidence": "certain",
+      "metadata": {},
+      "canonicalApiId": "api:project:local:module=harmony_state_mgmt%2Ftaint_mock.ts:file=harmony_state_mgmt%2Ftaint_mock.ts:export=namespace%3Ataint.%25dflt:decl=namespace%3Ataint.%25dflt:member=function%3ASink:invoke=call:params=0%3Aany:ret=void"
     }
   ],
   "effectTemplates": [
-    {
-      "id": "template.sink.harmony.state_mgmt.mock_sink",
-      "confidence": "certain",
-      "kind": "rule.sink",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sinkKind": "sink"
-    },
     {
       "id": "template.source.harmony.state_mgmt.entry_param.for.source.harmony.state_mgmt.entry_param.0.method.objectlink_local_sibling_field_020_F",
       "confidence": "certain",
@@ -1224,6 +1706,18 @@
         }
       },
       "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.sink.harmony.state_mgmt.mock_sink",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "sink"
     }
   ],
   "provenance": {

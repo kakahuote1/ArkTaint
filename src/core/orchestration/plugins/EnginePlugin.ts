@@ -24,8 +24,6 @@ import type {
     TransferRule,
 } from "../../rules/RuleSchema";
 
-export type EnginePluginRuleKind = "source" | "sink" | "transfer" | "sanitizer";
-
 export interface EnginePluginConfigSnapshot {
     k: number;
     verbose: boolean;
@@ -45,11 +43,6 @@ export interface EntryDiscoverer {
 export interface StartApi {
     getConfig(): Readonly<EnginePluginConfigSnapshot>;
     getScene(): Scene;
-    addRule(kind: EnginePluginRuleKind, rule: SourceRule | SinkRule | TransferRule | SanitizerRule): void;
-    addSourceRule(rule: SourceRule): void;
-    addSinkRule(rule: SinkRule): void;
-    addTransferRule(rule: TransferRule): void;
-    addSanitizerRule(rule: SanitizerRule): void;
     setOption(key: string, value: unknown): void;
 }
 
@@ -93,13 +86,6 @@ export interface DetectionContext {
     cg: CallGraph;
     tracker: TaintTracker;
     getTaintFacts(): ReadonlyMap<number, readonly TaintFact[]>;
-    detectSinks(
-        signature: string,
-        options?: {
-            targetEndpoint?: string;
-            targetPath?: string[];
-        }
-    ): TaintFlow[];
 }
 
 export interface DetectionInput {

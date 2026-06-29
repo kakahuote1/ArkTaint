@@ -4,49 +4,352 @@
   "status": "official",
   "surfaces": [
     {
-      "surfaceId": "surface.source.harmony.link.entry_param",
-      "kind": "access",
-      "modulePath": "@arktaint/local",
-      "ownerName": "LocalBinding",
-      "propertyName": "source.harmony.link.entry_param",
-      "accessKind": "read",
-      "receiverKind": "namespace",
-      "confidence": "likely",
+      "surfaceId": "surface.source.harmony.link.entry_param.method.link_child_update_parent_001_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_link%2Flink_child_update_parent_001_T.ets:file=harmony_link%2Flink_child_update_parent_001_T.ets:export=entry%3Acomponent.link_child_update_parent_001_T:decl=entry%3Acomponent.link_child_update_parent_001_T:member=lifecycle%3Atest.case.link_child_update_parent_001_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "harmony_link/link_child_update_parent_001_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_link/link_child_update_parent_001_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "link_child_update_parent_001_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.link.entry_param.for.harmony_link_link_child_update_parent_001_T_ets_Parent001_build_string",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_link%2Flink_child_update_parent_001_T.ets:file=harmony_link%2Flink_child_update_parent_001_T.ets:export=entry%3Acomponent.build:decl=entry%3Acomponent.build:member=lifecycle%3Atest.case.build:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_link/link_child_update_parent_001_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_link/link_child_update_parent_001_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "Parent001",
+            "methodName": "build",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.link.entry_param.for.harmony_link_link_no_taint_003_F_ets_Child003_build",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_link%2Flink_no_taint_003_F.ets:file=harmony_link%2Flink_no_taint_003_F.ets:export=entry%3Acomponent.build:decl=entry%3Acomponent.build:member=lifecycle%3Atest.case.build:invoke=entry:params=none:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_link/link_no_taint_003_F.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_link/link_no_taint_003_F.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "Child003",
+            "methodName": "build",
+            "parameterTypes": [],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.link.entry_param.for.harmony_link_link_no_taint_003_F_ets_Parent003_build",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_link%2Flink_no_taint_003_F.ets:file=harmony_link%2Flink_no_taint_003_F.ets:export=entry%3Acomponent.build:decl=entry%3Acomponent.build:member=lifecycle%3Atest.case.build:invoke=entry:params=none:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_link/link_no_taint_003_F.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_link/link_no_taint_003_F.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "Parent003",
+            "methodName": "build",
+            "parameterTypes": [],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.link.entry_param.for.harmony_link_link_parent_to_child_002_T_ets_Child002_build",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_link%2Flink_parent_to_child_002_T.ets:file=harmony_link%2Flink_parent_to_child_002_T.ets:export=entry%3Acomponent.build:decl=entry%3Acomponent.build:member=lifecycle%3Atest.case.build:invoke=entry:params=none:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_link/link_parent_to_child_002_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_link/link_parent_to_child_002_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "Child002",
+            "methodName": "build",
+            "parameterTypes": [],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.link.entry_param.for.harmony_link_link_parent_to_child_002_T_ets_Parent002_build",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_link%2Flink_parent_to_child_002_T.ets:file=harmony_link%2Flink_parent_to_child_002_T.ets:export=entry%3Acomponent.build:decl=entry%3Acomponent.build:member=lifecycle%3Atest.case.build:invoke=entry:params=none:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_link/link_parent_to_child_002_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_link/link_parent_to_child_002_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "Parent002",
+            "methodName": "build",
+            "parameterTypes": [],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.link.entry_param.for.harmony_link_link_prop_mix_005_F_ets_Child005_build",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_link%2Flink_prop_mix_005_F.ets:file=harmony_link%2Flink_prop_mix_005_F.ets:export=entry%3Acomponent.build:decl=entry%3Acomponent.build:member=lifecycle%3Atest.case.build:invoke=entry:params=none:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_link/link_prop_mix_005_F.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_link/link_prop_mix_005_F.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "Child005",
+            "methodName": "build",
+            "parameterTypes": [],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.link.entry_param.for.harmony_link_link_prop_mix_005_F_ets_Parent005_build",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_link%2Flink_prop_mix_005_F.ets:file=harmony_link%2Flink_prop_mix_005_F.ets:export=entry%3Acomponent.build:decl=entry%3Acomponent.build:member=lifecycle%3Atest.case.build:invoke=entry:params=none:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_link/link_prop_mix_005_F.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_link/link_prop_mix_005_F.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "Parent005",
+            "methodName": "build",
+            "parameterTypes": [],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.link.entry_param.for.harmony_link_link_two_way_loop_004_T_ets_Parent004_build_string",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_link%2Flink_two_way_loop_004_T.ets:file=harmony_link%2Flink_two_way_loop_004_T.ets:export=entry%3Acomponent.build:decl=entry%3Acomponent.build:member=lifecycle%3Atest.case.build:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_link/link_two_way_loop_004_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_link/link_two_way_loop_004_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "Parent004",
+            "methodName": "build",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.link.entry_param.method.link_parent_to_child_002_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_link%2Flink_parent_to_child_002_T.ets:file=harmony_link%2Flink_parent_to_child_002_T.ets:export=entry%3Acomponent.link_parent_to_child_002_T:decl=entry%3Acomponent.link_parent_to_child_002_T:member=lifecycle%3Atest.case.link_parent_to_child_002_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_link/link_parent_to_child_002_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_link/link_parent_to_child_002_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "link_parent_to_child_002_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.link.entry_param.method.link_prop_mix_005_F",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_link%2Flink_prop_mix_005_F.ets:file=harmony_link%2Flink_prop_mix_005_F.ets:export=entry%3Acomponent.link_prop_mix_005_F:decl=entry%3Acomponent.link_prop_mix_005_F:member=lifecycle%3Atest.case.link_prop_mix_005_F:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_link/link_prop_mix_005_F.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_link/link_prop_mix_005_F.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "link_prop_mix_005_F",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.link.entry_param.method.link_two_way_loop_004_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_link%2Flink_two_way_loop_004_T.ets:file=harmony_link%2Flink_two_way_loop_004_T.ets:export=entry%3Acomponent.link_two_way_loop_004_T:decl=entry%3Acomponent.link_two_way_loop_004_T:member=lifecycle%3Atest.case.link_two_way_loop_004_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_link/link_two_way_loop_004_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_link/link_two_way_loop_004_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "link_two_way_loop_004_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
       }
     },
     {
       "surfaceId": "surface.sink.harmony.link.mock_sink",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "Sink",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "harmony_link/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=harmony_link%2Ftaint_mock.ts:file=harmony_link%2Ftaint_mock.ts:export=namespace%3Ataint.%25dflt:decl=namespace%3Ataint.%25dflt:member=function%3ASink:invoke=call:params=0%3Aany:ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_link/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "taint.%dflt",
+            "methodName": "Sink",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "void",
+            "staticFlag": true
+          }
+        }
       }
     }
   ],
   "bindings": [
     {
       "bindingId": "binding.source.harmony.link.entry_param.0.method.link_child_update_parent_001_T",
-      "surfaceId": "surface.source.harmony.link.entry_param",
+      "surfaceId": "surface.source.harmony.link.entry_param.method.link_child_update_parent_001_T",
       "assetId": "asset.rule.test.harmony_link",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "link_child_update_parent_001_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "link_child_update_parent_001_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -57,19 +360,16 @@
         "template.source.harmony.link.entry_param.for.source.harmony.link.entry_param.0.method.link_child_update_parent_001_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_link%2Flink_child_update_parent_001_T.ets:file=harmony_link%2Flink_child_update_parent_001_T.ets:export=entry%3Acomponent.link_child_update_parent_001_T:decl=entry%3Acomponent.link_child_update_parent_001_T:member=lifecycle%3Atest.case.link_child_update_parent_001_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
-      "bindingId": "binding.source.harmony.link.entry_param.0.method.build",
-      "surfaceId": "surface.source.harmony.link.entry_param",
+      "bindingId": "binding.source.harmony.link.entry_param.0.method.build.for.harmony_link_link_child_update_parent_001_T_ets_Parent001_build_string",
+      "surfaceId": "surface.source.harmony.link.entry_param.for.harmony_link_link_child_update_parent_001_T_ets_Parent001_build_string",
       "assetId": "asset.rule.test.harmony_link",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "build"
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -77,28 +377,159 @@
         }
       },
       "effectTemplateRefs": [
-        "template.source.harmony.link.entry_param.for.source.harmony.link.entry_param.0.method.build"
+        "template.source.harmony.link.entry_param.for.source.harmony.link.entry_param.0.method.build.for.harmony_link_link_child_update_parent_001_T_ets_Parent001_build_string"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_link%2Flink_child_update_parent_001_T.ets:file=harmony_link%2Flink_child_update_parent_001_T.ets:export=entry%3Acomponent.build:decl=entry%3Acomponent.build:member=lifecycle%3Atest.case.build:invoke=entry:params=0%3Astring:ret=void"
     },
     {
-      "bindingId": "binding.source.harmony.link.entry_param.0.method.link_parent_to_child_002_T",
-      "surfaceId": "surface.source.harmony.link.entry_param",
+      "bindingId": "binding.source.harmony.link.entry_param.0.method.build.for.harmony_link_link_no_taint_003_F_ets_Child003_build",
+      "surfaceId": "surface.source.harmony.link.entry_param.for.harmony_link_link_no_taint_003_F_ets_Child003_build",
       "assetId": "asset.rule.test.harmony_link",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "link_parent_to_child_002_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "link_parent_to_child_002_T.ets"
-          }
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
         }
       },
+      "effectTemplateRefs": [
+        "template.source.harmony.link.entry_param.for.source.harmony.link.entry_param.0.method.build.for.harmony_link_link_no_taint_003_F_ets_Child003_build"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_link%2Flink_no_taint_003_F.ets:file=harmony_link%2Flink_no_taint_003_F.ets:export=entry%3Acomponent.build:decl=entry%3Acomponent.build:member=lifecycle%3Atest.case.build:invoke=entry:params=none:ret=void"
+    },
+    {
+      "bindingId": "binding.source.harmony.link.entry_param.0.method.build.for.harmony_link_link_no_taint_003_F_ets_Parent003_build",
+      "surfaceId": "surface.source.harmony.link.entry_param.for.harmony_link_link_no_taint_003_F_ets_Parent003_build",
+      "assetId": "asset.rule.test.harmony_link",
+      "plane": "rule",
+      "role": "source",
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.link.entry_param.for.source.harmony.link.entry_param.0.method.build.for.harmony_link_link_no_taint_003_F_ets_Parent003_build"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_link%2Flink_no_taint_003_F.ets:file=harmony_link%2Flink_no_taint_003_F.ets:export=entry%3Acomponent.build:decl=entry%3Acomponent.build:member=lifecycle%3Atest.case.build:invoke=entry:params=none:ret=void"
+    },
+    {
+      "bindingId": "binding.source.harmony.link.entry_param.0.method.build.for.harmony_link_link_parent_to_child_002_T_ets_Child002_build",
+      "surfaceId": "surface.source.harmony.link.entry_param.for.harmony_link_link_parent_to_child_002_T_ets_Child002_build",
+      "assetId": "asset.rule.test.harmony_link",
+      "plane": "rule",
+      "role": "source",
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.link.entry_param.for.source.harmony.link.entry_param.0.method.build.for.harmony_link_link_parent_to_child_002_T_ets_Child002_build"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_link%2Flink_parent_to_child_002_T.ets:file=harmony_link%2Flink_parent_to_child_002_T.ets:export=entry%3Acomponent.build:decl=entry%3Acomponent.build:member=lifecycle%3Atest.case.build:invoke=entry:params=none:ret=void"
+    },
+    {
+      "bindingId": "binding.source.harmony.link.entry_param.0.method.build.for.harmony_link_link_parent_to_child_002_T_ets_Parent002_build",
+      "surfaceId": "surface.source.harmony.link.entry_param.for.harmony_link_link_parent_to_child_002_T_ets_Parent002_build",
+      "assetId": "asset.rule.test.harmony_link",
+      "plane": "rule",
+      "role": "source",
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.link.entry_param.for.source.harmony.link.entry_param.0.method.build.for.harmony_link_link_parent_to_child_002_T_ets_Parent002_build"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_link%2Flink_parent_to_child_002_T.ets:file=harmony_link%2Flink_parent_to_child_002_T.ets:export=entry%3Acomponent.build:decl=entry%3Acomponent.build:member=lifecycle%3Atest.case.build:invoke=entry:params=none:ret=void"
+    },
+    {
+      "bindingId": "binding.source.harmony.link.entry_param.0.method.build.for.harmony_link_link_prop_mix_005_F_ets_Child005_build",
+      "surfaceId": "surface.source.harmony.link.entry_param.for.harmony_link_link_prop_mix_005_F_ets_Child005_build",
+      "assetId": "asset.rule.test.harmony_link",
+      "plane": "rule",
+      "role": "source",
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.link.entry_param.for.source.harmony.link.entry_param.0.method.build.for.harmony_link_link_prop_mix_005_F_ets_Child005_build"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_link%2Flink_prop_mix_005_F.ets:file=harmony_link%2Flink_prop_mix_005_F.ets:export=entry%3Acomponent.build:decl=entry%3Acomponent.build:member=lifecycle%3Atest.case.build:invoke=entry:params=none:ret=void"
+    },
+    {
+      "bindingId": "binding.source.harmony.link.entry_param.0.method.build.for.harmony_link_link_prop_mix_005_F_ets_Parent005_build",
+      "surfaceId": "surface.source.harmony.link.entry_param.for.harmony_link_link_prop_mix_005_F_ets_Parent005_build",
+      "assetId": "asset.rule.test.harmony_link",
+      "plane": "rule",
+      "role": "source",
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.link.entry_param.for.source.harmony.link.entry_param.0.method.build.for.harmony_link_link_prop_mix_005_F_ets_Parent005_build"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_link%2Flink_prop_mix_005_F.ets:file=harmony_link%2Flink_prop_mix_005_F.ets:export=entry%3Acomponent.build:decl=entry%3Acomponent.build:member=lifecycle%3Atest.case.build:invoke=entry:params=none:ret=void"
+    },
+    {
+      "bindingId": "binding.source.harmony.link.entry_param.0.method.build.for.harmony_link_link_two_way_loop_004_T_ets_Parent004_build_string",
+      "surfaceId": "surface.source.harmony.link.entry_param.for.harmony_link_link_two_way_loop_004_T_ets_Parent004_build_string",
+      "assetId": "asset.rule.test.harmony_link",
+      "plane": "rule",
+      "role": "source",
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.link.entry_param.for.source.harmony.link.entry_param.0.method.build.for.harmony_link_link_two_way_loop_004_T_ets_Parent004_build_string"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_link%2Flink_two_way_loop_004_T.ets:file=harmony_link%2Flink_two_way_loop_004_T.ets:export=entry%3Acomponent.build:decl=entry%3Acomponent.build:member=lifecycle%3Atest.case.build:invoke=entry:params=0%3Astring:ret=void"
+    },
+    {
+      "bindingId": "binding.source.harmony.link.entry_param.0.method.link_parent_to_child_002_T",
+      "surfaceId": "surface.source.harmony.link.entry_param.method.link_parent_to_child_002_T",
+      "assetId": "asset.rule.test.harmony_link",
+      "plane": "rule",
+      "role": "source",
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -109,25 +540,16 @@
         "template.source.harmony.link.entry_param.for.source.harmony.link.entry_param.0.method.link_parent_to_child_002_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_link%2Flink_parent_to_child_002_T.ets:file=harmony_link%2Flink_parent_to_child_002_T.ets:export=entry%3Acomponent.link_parent_to_child_002_T:decl=entry%3Acomponent.link_parent_to_child_002_T:member=lifecycle%3Atest.case.link_parent_to_child_002_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony.link.entry_param.0.method.link_prop_mix_005_F",
-      "surfaceId": "surface.source.harmony.link.entry_param",
+      "surfaceId": "surface.source.harmony.link.entry_param.method.link_prop_mix_005_F",
       "assetId": "asset.rule.test.harmony_link",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "link_prop_mix_005_F",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "link_prop_mix_005_F.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -138,25 +560,16 @@
         "template.source.harmony.link.entry_param.for.source.harmony.link.entry_param.0.method.link_prop_mix_005_F"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_link%2Flink_prop_mix_005_F.ets:file=harmony_link%2Flink_prop_mix_005_F.ets:export=entry%3Acomponent.link_prop_mix_005_F:decl=entry%3Acomponent.link_prop_mix_005_F:member=lifecycle%3Atest.case.link_prop_mix_005_F:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony.link.entry_param.0.method.link_two_way_loop_004_T",
-      "surfaceId": "surface.source.harmony.link.entry_param",
+      "surfaceId": "surface.source.harmony.link.entry_param.method.link_two_way_loop_004_T",
       "assetId": "asset.rule.test.harmony_link",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "link_two_way_loop_004_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "link_two_way_loop_004_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -167,19 +580,16 @@
         "template.source.harmony.link.entry_param.for.source.harmony.link.entry_param.0.method.link_two_way_loop_004_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_link%2Flink_two_way_loop_004_T.ets:file=harmony_link%2Flink_two_way_loop_004_T.ets:export=entry%3Acomponent.link_two_way_loop_004_T:decl=entry%3Acomponent.link_two_way_loop_004_T:member=lifecycle%3Atest.case.link_two_way_loop_004_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
-      "bindingId": "binding.source.harmony.link.entry_param.0.method.build",
-      "surfaceId": "surface.source.harmony.link.entry_param",
+      "bindingId": "binding.source.harmony.link.entry_param.0.method.build.for.harmony_link_link_child_update_parent_001_T_ets_Parent001_build_string",
+      "surfaceId": "surface.source.harmony.link.entry_param.for.harmony_link_link_child_update_parent_001_T_ets_Parent001_build_string",
       "assetId": "asset.rule.test.harmony_link",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "build"
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -187,11 +597,152 @@
         }
       },
       "effectTemplateRefs": [
-        "template.source.harmony.link.entry_param.for.source.harmony.link.entry_param.0.method.build"
+        "template.source.harmony.link.entry_param.for.source.harmony.link.entry_param.0.method.build.for.harmony_link_link_child_update_parent_001_T_ets_Parent001_build_string"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_link%2Flink_child_update_parent_001_T.ets:file=harmony_link%2Flink_child_update_parent_001_T.ets:export=entry%3Acomponent.build:decl=entry%3Acomponent.build:member=lifecycle%3Atest.case.build:invoke=entry:params=0%3Astring:ret=void"
+    },
+    {
+      "bindingId": "binding.source.harmony.link.entry_param.0.method.build.for.harmony_link_link_no_taint_003_F_ets_Child003_build",
+      "surfaceId": "surface.source.harmony.link.entry_param.for.harmony_link_link_no_taint_003_F_ets_Child003_build",
+      "assetId": "asset.rule.test.harmony_link",
+      "plane": "rule",
+      "role": "source",
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.link.entry_param.for.source.harmony.link.entry_param.0.method.build.for.harmony_link_link_no_taint_003_F_ets_Child003_build"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_link%2Flink_no_taint_003_F.ets:file=harmony_link%2Flink_no_taint_003_F.ets:export=entry%3Acomponent.build:decl=entry%3Acomponent.build:member=lifecycle%3Atest.case.build:invoke=entry:params=none:ret=void"
+    },
+    {
+      "bindingId": "binding.source.harmony.link.entry_param.0.method.build.for.harmony_link_link_no_taint_003_F_ets_Parent003_build",
+      "surfaceId": "surface.source.harmony.link.entry_param.for.harmony_link_link_no_taint_003_F_ets_Parent003_build",
+      "assetId": "asset.rule.test.harmony_link",
+      "plane": "rule",
+      "role": "source",
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.link.entry_param.for.source.harmony.link.entry_param.0.method.build.for.harmony_link_link_no_taint_003_F_ets_Parent003_build"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_link%2Flink_no_taint_003_F.ets:file=harmony_link%2Flink_no_taint_003_F.ets:export=entry%3Acomponent.build:decl=entry%3Acomponent.build:member=lifecycle%3Atest.case.build:invoke=entry:params=none:ret=void"
+    },
+    {
+      "bindingId": "binding.source.harmony.link.entry_param.0.method.build.for.harmony_link_link_parent_to_child_002_T_ets_Child002_build",
+      "surfaceId": "surface.source.harmony.link.entry_param.for.harmony_link_link_parent_to_child_002_T_ets_Child002_build",
+      "assetId": "asset.rule.test.harmony_link",
+      "plane": "rule",
+      "role": "source",
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.link.entry_param.for.source.harmony.link.entry_param.0.method.build.for.harmony_link_link_parent_to_child_002_T_ets_Child002_build"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_link%2Flink_parent_to_child_002_T.ets:file=harmony_link%2Flink_parent_to_child_002_T.ets:export=entry%3Acomponent.build:decl=entry%3Acomponent.build:member=lifecycle%3Atest.case.build:invoke=entry:params=none:ret=void"
+    },
+    {
+      "bindingId": "binding.source.harmony.link.entry_param.0.method.build.for.harmony_link_link_parent_to_child_002_T_ets_Parent002_build",
+      "surfaceId": "surface.source.harmony.link.entry_param.for.harmony_link_link_parent_to_child_002_T_ets_Parent002_build",
+      "assetId": "asset.rule.test.harmony_link",
+      "plane": "rule",
+      "role": "source",
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.link.entry_param.for.source.harmony.link.entry_param.0.method.build.for.harmony_link_link_parent_to_child_002_T_ets_Parent002_build"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_link%2Flink_parent_to_child_002_T.ets:file=harmony_link%2Flink_parent_to_child_002_T.ets:export=entry%3Acomponent.build:decl=entry%3Acomponent.build:member=lifecycle%3Atest.case.build:invoke=entry:params=none:ret=void"
+    },
+    {
+      "bindingId": "binding.source.harmony.link.entry_param.0.method.build.for.harmony_link_link_prop_mix_005_F_ets_Child005_build",
+      "surfaceId": "surface.source.harmony.link.entry_param.for.harmony_link_link_prop_mix_005_F_ets_Child005_build",
+      "assetId": "asset.rule.test.harmony_link",
+      "plane": "rule",
+      "role": "source",
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.link.entry_param.for.source.harmony.link.entry_param.0.method.build.for.harmony_link_link_prop_mix_005_F_ets_Child005_build"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_link%2Flink_prop_mix_005_F.ets:file=harmony_link%2Flink_prop_mix_005_F.ets:export=entry%3Acomponent.build:decl=entry%3Acomponent.build:member=lifecycle%3Atest.case.build:invoke=entry:params=none:ret=void"
+    },
+    {
+      "bindingId": "binding.source.harmony.link.entry_param.0.method.build.for.harmony_link_link_prop_mix_005_F_ets_Parent005_build",
+      "surfaceId": "surface.source.harmony.link.entry_param.for.harmony_link_link_prop_mix_005_F_ets_Parent005_build",
+      "assetId": "asset.rule.test.harmony_link",
+      "plane": "rule",
+      "role": "source",
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.link.entry_param.for.source.harmony.link.entry_param.0.method.build.for.harmony_link_link_prop_mix_005_F_ets_Parent005_build"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_link%2Flink_prop_mix_005_F.ets:file=harmony_link%2Flink_prop_mix_005_F.ets:export=entry%3Acomponent.build:decl=entry%3Acomponent.build:member=lifecycle%3Atest.case.build:invoke=entry:params=none:ret=void"
+    },
+    {
+      "bindingId": "binding.source.harmony.link.entry_param.0.method.build.for.harmony_link_link_two_way_loop_004_T_ets_Parent004_build_string",
+      "surfaceId": "surface.source.harmony.link.entry_param.for.harmony_link_link_two_way_loop_004_T_ets_Parent004_build_string",
+      "assetId": "asset.rule.test.harmony_link",
+      "plane": "rule",
+      "role": "source",
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.link.entry_param.for.source.harmony.link.entry_param.0.method.build.for.harmony_link_link_two_way_loop_004_T_ets_Parent004_build_string"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_link%2Flink_two_way_loop_004_T.ets:file=harmony_link%2Flink_two_way_loop_004_T.ets:export=entry%3Acomponent.build:decl=entry%3Acomponent.build:member=lifecycle%3Atest.case.build:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.sink.harmony.link.mock_sink.0",
@@ -199,10 +750,6 @@
       "assetId": "asset.rule.test.harmony_link",
       "plane": "rule",
       "role": "sink",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "Sink"
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -213,24 +760,13 @@
         "template.sink.harmony.link.mock_sink"
       ],
       "semanticsFamily": "sink",
-      "completeness": "partial",
-      "confidence": "likely",
-      "metadata": {}
+      "completeness": "complete",
+      "confidence": "certain",
+      "metadata": {},
+      "canonicalApiId": "api:project:local:module=harmony_link%2Ftaint_mock.ts:file=harmony_link%2Ftaint_mock.ts:export=namespace%3Ataint.%25dflt:decl=namespace%3Ataint.%25dflt:member=function%3ASink:invoke=call:params=0%3Aany:ret=void"
     }
   ],
   "effectTemplates": [
-    {
-      "id": "template.sink.harmony.link.mock_sink",
-      "confidence": "certain",
-      "kind": "rule.sink",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sinkKind": "sink"
-    },
     {
       "id": "template.source.harmony.link.entry_param.for.source.harmony.link.entry_param.0.method.link_child_update_parent_001_T",
       "confidence": "certain",
@@ -244,7 +780,91 @@
       "sourceKind": "entry_param"
     },
     {
-      "id": "template.source.harmony.link.entry_param.for.source.harmony.link.entry_param.0.method.build",
+      "id": "template.source.harmony.link.entry_param.for.source.harmony.link.entry_param.0.method.build.for.harmony_link_link_child_update_parent_001_T_ets_Parent001_build_string",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony.link.entry_param.for.source.harmony.link.entry_param.0.method.build.for.harmony_link_link_no_taint_003_F_ets_Child003_build",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony.link.entry_param.for.source.harmony.link.entry_param.0.method.build.for.harmony_link_link_no_taint_003_F_ets_Parent003_build",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony.link.entry_param.for.source.harmony.link.entry_param.0.method.build.for.harmony_link_link_parent_to_child_002_T_ets_Child002_build",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony.link.entry_param.for.source.harmony.link.entry_param.0.method.build.for.harmony_link_link_parent_to_child_002_T_ets_Parent002_build",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony.link.entry_param.for.source.harmony.link.entry_param.0.method.build.for.harmony_link_link_prop_mix_005_F_ets_Child005_build",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony.link.entry_param.for.source.harmony.link.entry_param.0.method.build.for.harmony_link_link_prop_mix_005_F_ets_Parent005_build",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony.link.entry_param.for.source.harmony.link.entry_param.0.method.build.for.harmony_link_link_two_way_loop_004_T_ets_Parent004_build_string",
       "confidence": "certain",
       "kind": "rule.source",
       "value": {
@@ -290,6 +910,18 @@
         }
       },
       "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.sink.harmony.link.mock_sink",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "sink"
     }
   ],
   "provenance": {

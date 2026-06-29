@@ -9,6 +9,7 @@ import {
     resolveCaseMethod,
 } from "../helpers/SyntheticCaseHarness";
 import { registerMockSdkFiles } from "../helpers/TestSceneBuilder";
+import { detectSinksByExactMethodsForTest, resolveUniqueMethodByExactNameForTest, resolveUniqueMethodByExactSignatureForTest } from "../helpers/ExactSinkDetectionTestUtils";
 import {
     createFormalTestSuite,
     TestFailureSummary,
@@ -287,7 +288,7 @@ async function analyzeCase(
         }
 
         engine.propagateWithSeeds(seeds);
-        const flows = engine.detectSinks("Sink");
+        const flows = detectSinksByExactMethodsForTest(engine, resolveUniqueMethodByExactNameForTest(engine, "Sink"));
         const detected = flows.length > 0;
         return { ok: true, detected, expected };
     } catch (err: any) {

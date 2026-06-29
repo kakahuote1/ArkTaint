@@ -3,10 +3,6 @@ import { assert, expectThrows, makeRuleAsset } from "./SemanticFlowV2TestHelpers
 
 function main(): void {
     const guarded = makeRuleAsset("asset.project.http.request");
-    if (guarded.surfaces[0].kind === "invoke") {
-        guarded.surfaces[0].ownerName = "HttpClient";
-        guarded.surfaces[0].methodName = "request";
-    }
     guarded.bindings[0].endpoint = {
         base: { kind: "arg", index: 0 },
         accessPath: ["body"],

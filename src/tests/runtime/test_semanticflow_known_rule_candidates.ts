@@ -3,6 +3,8 @@ import * as path from "path";
 import type { AssetDocumentBase } from "../../core/assets/schema";
 import type { NormalizedCallsiteItem } from "../../core/model/callsite/callsiteContextSlices";
 import { filterKnownSemanticFlowRuleCandidates } from "../../cli/semanticflowKnownRuleCandidates";
+import { canonicalApiIdFromTestDeclaration, indexedTestParameters } from "../helpers/CanonicalApiTestDeclarations";
+import tsjsContainerModuleAsset from "../../models/kernel/modules/tsjs/container";
 
 function assert(condition: unknown, message: string): asserts condition {
     if (!condition) {
@@ -10,19 +12,22 @@ function assert(condition: unknown, message: string): asserts condition {
     }
 }
 
-function makeCandidate(signature: string, method: string, argCount: number): NormalizedCallsiteItem {
+function makeCandidate(signature: string, method: string, argCount: number, canonicalApiId?: string): NormalizedCallsiteItem {
     return {
         callee_signature: signature,
         method,
         invokeKind: "instance",
         argCount,
         sourceFile: "demo.ets",
+        canonicalApiId,
     };
 }
 
 function writeProjectModuleAsset(modelRoot: string): void {
     const modulesDir = path.join(modelRoot, "project", "shared_demo", "modules");
     fs.mkdirSync(modulesDir, { recursive: true });
+    const getCanonicalApiId = projectVaultCanonicalApiId("get", ["string"], "Object");
+    const putCanonicalApiId = projectVaultCanonicalApiId("put", ["string", "Object"], "void");
     const doc: AssetDocumentBase = {
         id: "shared_demo.vault",
         plane: "module",
@@ -31,22 +36,40 @@ function writeProjectModuleAsset(modelRoot: string): void {
             {
                 surfaceId: "surface.shared_demo.vault.get",
                 kind: "invoke",
-                modulePath: "project/demo",
-                ownerName: "Vault",
-                methodName: "get",
-                invokeKind: "instance",
-                argCount: 1,
+                canonicalApiId: getCanonicalApiId,
+                evidence: {
+                    arkanalyzer: {
+                        methodKey: {
+                            declaringFileName: "project/demo",
+                            declaringNamespacePath: [],
+                            declaringClassName: "Vault",
+                            methodName: "get",
+                            parameterTypes: ["string"],
+                            returnType: "Object",
+                            staticFlag: false,
+                        },
+                    },
+                },
                 confidence: "certain",
                 provenance: { source: "manual" },
             },
             {
                 surfaceId: "surface.shared_demo.vault.put",
                 kind: "invoke",
-                modulePath: "project/demo",
-                ownerName: "Vault",
-                methodName: "put",
-                invokeKind: "instance",
-                argCount: 2,
+                canonicalApiId: putCanonicalApiId,
+                evidence: {
+                    arkanalyzer: {
+                        methodKey: {
+                            declaringFileName: "project/demo",
+                            declaringNamespacePath: [],
+                            declaringClassName: "Vault",
+                            methodName: "put",
+                            parameterTypes: ["string", "Object"],
+                            returnType: "void",
+                            staticFlag: false,
+                        },
+                    },
+                },
                 confidence: "certain",
                 provenance: { source: "manual" },
             },
@@ -58,6 +81,7 @@ function writeProjectModuleAsset(modelRoot: string): void {
                 assetId: "shared_demo.vault",
                 plane: "module",
                 role: "handoff",
+                canonicalApiId: getCanonicalApiId,
                 effectTemplateRefs: ["template.shared_demo.vault.get"],
                 semanticsFamily: "project-keyed-storage",
                 completeness: "complete",
@@ -69,6 +93,7 @@ function writeProjectModuleAsset(modelRoot: string): void {
                 assetId: "shared_demo.vault",
                 plane: "module",
                 role: "handoff",
+                canonicalApiId: putCanonicalApiId,
                 effectTemplateRefs: ["template.shared_demo.vault.put"],
                 semanticsFamily: "project-keyed-storage",
                 completeness: "complete",
@@ -84,7 +109,7 @@ function writeProjectModuleAsset(modelRoot: string): void {
                     family: "project.vault",
                     key: [{ kind: "fromEndpoint", endpoint: { base: { kind: "arg", index: 0 } } }],
                     owner: [{ kind: "const", value: "Vault" }],
-                    precision: "infer",
+                    precision: "exact",
                 },
                 target: { base: { kind: "return" } },
                 confidence: "certain",
@@ -97,10 +122,10 @@ function writeProjectModuleAsset(modelRoot: string): void {
                     family: "project.vault",
                     key: [{ kind: "fromEndpoint", endpoint: { base: { kind: "arg", index: 0 } } }],
                     owner: [{ kind: "const", value: "Vault" }],
-                    precision: "infer",
+                    precision: "exact",
                 },
                 value: { base: { kind: "arg", index: 1 } },
-                updateStrength: "infer",
+                updateStrength: "weak",
                 confidence: "certain",
             },
         ],
@@ -113,19 +138,76 @@ function writeProjectModuleAsset(modelRoot: string): void {
     fs.writeFileSync(path.join(modulesDir, "semanticflow.modules.json"), JSON.stringify(doc, null, 2), "utf8");
 }
 
+function projectVaultCanonicalApiId(methodName: "get" | "put", parameterTypes: string[], returnType: string): string {
+    return canonicalApiIdFromTestDeclaration({
+        authority: "project",
+        domain: "local",
+        moduleSpecifier: "project/demo",
+        logicalDeclarationFile: "project/demo",
+        exportPath: [{ kind: "named", name: "Vault" }],
+        declarationOwner: { kind: "class", path: ["Vault"], normalizedName: "Vault" },
+        member: { kind: "method", name: methodName, static: false },
+        invoke: { kind: "call" },
+        signature: {
+            parameters: indexedTestParameters(parameterTypes),
+            returnType: { text: returnType },
+        },
+    });
+}
+
+function canonicalApiIdFromJsonAsset(
+    relativePath: string,
+    predicate: (surface: any) => boolean,
+): string {
+    const asset = JSON.parse(fs.readFileSync(path.resolve(relativePath), "utf8")) as AssetDocumentBase;
+    const surface = (asset.surfaces || []).find(predicate) as any;
+    assert(surface?.canonicalApiId, `canonicalApiId not found in ${relativePath}`);
+    return surface.canonicalApiId;
+}
+
+function canonicalApiIdFromModuleAsset(predicate: (surface: any) => boolean): string {
+    const surface = (tsjsContainerModuleAsset.surfaces || []).find(predicate) as any;
+    assert(surface?.canonicalApiId, "canonicalApiId not found in tsjs container module asset");
+    return surface.canonicalApiId;
+}
+
+function methodKeyMatches(
+    surface: any,
+    declaringClassName: string,
+    methodName: string,
+    parameterCount: number,
+): boolean {
+    const methodKey = surface?.evidence?.arkanalyzer?.methodKey;
+    return methodKey?.declaringClassName === declaringClassName
+        && methodKey?.methodName === methodName
+        && Array.isArray(methodKey?.parameterTypes)
+        && methodKey.parameterTypes.length === parameterCount;
+}
+
 function main(): void {
     const root = path.resolve("tmp/test_runs/runtime/semanticflow_known_rule_candidates/latest");
     const modelRoot = path.join(root, "models");
     fs.rmSync(root, { recursive: true, force: true });
     fs.mkdirSync(root, { recursive: true });
     writeProjectModuleAsset(modelRoot);
+    const mapSetCanonicalApiId = canonicalApiIdFromModuleAsset(surface =>
+        methodKeyMatches(surface, "Map", "set", 2));
+    const preferencesGetCanonicalApiId = canonicalApiIdFromJsonAsset("src/models/kernel/rules/sources/official_declarations.rules.json", surface =>
+        methodKeyMatches(surface, "preferences.Preferences", "get", 2));
+    const consoleInfoCanonicalApiId = canonicalApiIdFromJsonAsset("src/models/kernel/rules/sinks/official_declarations.rules.json", surface =>
+        methodKeyMatches(surface, "console", "info", 2));
+    const consoleLogCanonicalApiId = canonicalApiIdFromJsonAsset("src/models/kernel/rules/sinks/official_declarations.rules.json", surface =>
+        methodKeyMatches(surface, "console", "log", 2));
+    const arkmainOnCreateCanonicalApiId = canonicalApiIdFromJsonAsset("src/models/kernel/arkmain/harmony/official_declarations.catalog.json", surface =>
+        methodKeyMatches(surface, "UIAbility", "onCreate", 2));
+    const vaultGetCanonicalApiId = projectVaultCanonicalApiId("get", ["string"], "Object");
 
     const assetBackedCandidates = [
         makeCandidate("@ohos/storage: LocalStorage.get(string)", "get", 1),
         makeCandidate("@%unk/%unk: .setUIContent()", "setUIContent", 3),
-        makeCandidate("@collections: Map.set(string,string)", "set", 2),
-        makeCandidate("@ohos/preferences: Preferences.get(string)", "get", 1),
-        makeCandidate("@project/demo: Vault.get(string)", "get", 1),
+        makeCandidate("@collections: Map.set(any, any)", "set", 2, mapSetCanonicalApiId),
+        makeCandidate("@ohos/preferences: Preferences.get(string, ValueType)", "get", 2, preferencesGetCanonicalApiId),
+        makeCandidate("@project/demo: Vault.get(string)", "get", 1, vaultGetCanonicalApiId),
     ];
     const assetFiltered = filterKnownSemanticFlowRuleCandidates(assetBackedCandidates);
     const skippedSignatures = assetFiltered.skippedKnown.map(item => item.callee_signature);
@@ -150,9 +232,9 @@ function main(): void {
     assert(contextFiltered.candidates.length === 1, `expected context-only AppStorage call to remain for modeling/facade evidence, got ${contextFiltered.candidates.length}`);
 
     const officialLoggingFiltered = filterKnownSemanticFlowRuleCandidates([{
-        ...makeCandidate("@ohos/hilog: hilog.info(number, string, string, string)", "info", 4),
+        ...makeCandidate("@ohos/console: console.info(string, ...any[])", "info", 2, consoleInfoCanonicalApiId),
     } as any, {
-        ...makeCandidate("@ohos/console: console.log(any)", "log", 1),
+        ...makeCandidate("@ohos/console: console.log(string, ...any[])", "log", 2, consoleLogCanonicalApiId),
     } as any]);
     assert(officialLoggingFiltered.skippedKnown.length === 2, `expected direct official logging signatures to be known through sink rules, got ${officialLoggingFiltered.skippedKnown.length}`);
     assert(officialLoggingFiltered.candidates.length === 0, `expected direct official logging calls to be filtered, got ${officialLoggingFiltered.candidates.length}`);
@@ -171,7 +253,7 @@ function main(): void {
     assert(unresolvedConsoleContextFiltered.candidates.length === 1, `expected unresolved context-only console.log to remain as a candidate, got ${unresolvedConsoleContextFiltered.candidates.length}`);
 
     const officialArkMainFiltered = filterKnownSemanticFlowRuleCandidates([{
-        ...makeCandidate("@demo.ets: DemoAbility.onCreate(Unknown)", "onCreate", 1),
+        ...makeCandidate("@demo.ets: UIAbility.onCreate(Want, AbilityConstant.LaunchParam)", "onCreate", 2, arkmainOnCreateCanonicalApiId),
         topEntries: ["origin=recall_api_surface", "candidateBoundary=official_arkmain_entry_evidence"],
     } as any]);
     assert(officialArkMainFiltered.skippedKnown.length === 1, `expected official ArkMain entry evidence to be skipped before LLM, got ${officialArkMainFiltered.skippedKnown.length}`);
@@ -204,7 +286,7 @@ function main(): void {
     assert(projectEventBusFiltered.candidates.length === 2, `expected project EventBus.emit/on candidates to be preserved, got ${projectEventBusFiltered.candidates.length}`);
 
     const projectFiltered = filterKnownSemanticFlowRuleCandidates(
-        [makeCandidate("@project/demo: Vault.get(string)", "get", 1)],
+        [makeCandidate("@project/demo: Vault.get(string)", "get", 1, vaultGetCanonicalApiId)],
         {
             modelRoots: [modelRoot],
             enabledModels: ["shared_demo"],

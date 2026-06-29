@@ -11,6 +11,11 @@ import type {
 } from "../model/DeferredBindingDeclaration";
 import type { TaintFact } from "../model/TaintFact";
 import type { CurrentnessCertificate } from "../oclfs";
+import type {
+    SemanticEndpointProjection,
+    SemanticEndpointProjectionInput,
+} from "./PagNodeResolution";
+import type { SemanticEffectSite } from "../../api/effects/SemanticEffectSite";
 
 export interface ModuleRuleChain {
     sourceRuleId?: string;
@@ -19,36 +24,25 @@ export interface ModuleRuleChain {
 
 export interface ModuleMethodsApi {
     all(): any[];
-    byName(methodName: string): any[];
-    byClassName(className: string): any[];
 }
 
-export interface ModuleInvokeScanFilter {
+export type ModuleCanonicalApiScanFilter =
+    | {
+        canonicalApiId: string;
+        canonicalApiIds?: string[];
+    }
+    | {
+        canonicalApiId?: string;
+        canonicalApiIds: string[];
+    };
+
+export type ModuleInvokeScanFilter = ModuleCanonicalApiScanFilter & {
     surfaceKind?: "invoke";
-    modulePath?: string;
-    methodName?: string;
-    declaringClassName?: string;
-    declaringClassIncludes?: string;
-    baseLocalName?: string;
-    baseLocalNames?: string[];
-    signature?: string;
-    signatureIncludes?: string;
-    argCount?: number;
-    minArgs?: number;
-    instanceOnly?: boolean;
-    staticOnly?: boolean;
-}
+};
 
-export interface ModuleConstructScanFilter {
+export type ModuleConstructScanFilter = ModuleCanonicalApiScanFilter & {
     surfaceKind?: "construct";
-    modulePath?: string;
-    className?: string;
-    classNameIncludes?: string;
-    signature?: string;
-    signatureIncludes?: string;
-    argCount?: number;
-    minArgs?: number;
-}
+};
 
 export interface ModuleScannedInvoke {
     readonly ownerMethodSignature: string;
@@ -66,6 +60,7 @@ export interface ModuleScannedInvoke {
     baseNodeIds(): number[];
     baseObjectNodeIds(): number[];
     baseCarrierNodeIds(): number[];
+    semanticEndpointNodeIds(selector: { kind: string; index?: number; nodeKind?: string; rest?: boolean }): number[];
     calleeReceiverEndpointNodeIds?(accessPath: string[]): number[];
     resultNodeIds(): number[];
     resultCarrierNodeIds(): number[];
@@ -81,10 +76,9 @@ export interface ModuleParameterBindingScanFilter {
     ownerMethodSignature?: string;
     ownerMethodName?: string;
     declaringClassName?: string;
-    declaringClassIncludes?: string;
     paramIndex?: number;
-    paramNameIncludes?: string;
-    paramTypeIncludes?: string;
+    paramName?: string;
+    paramType?: string;
     localName?: string;
 }
 
@@ -108,7 +102,6 @@ export interface ModuleAssignScanFilter {
     ownerMethodSignature?: string;
     ownerMethodName?: string;
     declaringClassName?: string;
-    declaringClassIncludes?: string;
     leftLocalName?: string;
     rightLocalName?: string;
 }
@@ -132,7 +125,6 @@ export interface ModuleFieldLoadScanFilter {
     ownerMethodSignature?: string;
     ownerMethodName?: string;
     declaringClassName?: string;
-    declaringClassIncludes?: string;
     fieldName?: string;
     fieldSignature?: string;
     baseLocalName?: string;
@@ -164,7 +156,6 @@ export interface ModuleFieldStoreScanFilter {
     ownerMethodSignature?: string;
     ownerMethodName?: string;
     declaringClassName?: string;
-    declaringClassIncludes?: string;
     fieldName?: string;
     fieldSignature?: string;
     baseThisOnly?: boolean;
@@ -194,17 +185,15 @@ export interface ModuleScannedFieldStore {
 
 export interface ModuleDecoratedFieldScanFilter {
     className?: string;
-    classNameIncludes?: string;
     fieldName?: string;
     fieldSignature?: string;
-    decoratorKind?: string;
-    decoratorKinds?: string[];
-    decoratorParam?: string;
-    decoratorParams?: string[];
+    decoratorCanonicalApiId?: string;
+    decoratorCanonicalApiIds?: string[];
 }
 
 export interface ModuleScannedDecorator {
     readonly kind: string;
+    readonly canonicalApiId?: string;
     readonly param?: string;
     readonly content?: string;
 }
@@ -214,14 +203,21 @@ export interface ModuleScannedDecoratedField {
     readonly fieldName: string;
     readonly fieldSignature: string;
     decorators(): ModuleScannedDecorator[];
-    decoratorKinds(): string[];
-    hasDecorator(kind: string): boolean;
-    decoratorParams(kind: string): string[];
+}
+
+export interface ModuleCanonicalDecoratorOccurrence {
+    readonly ownerKind: "namespace" | "class" | "method" | "field";
+    readonly model: any;
+    readonly canonicalApiId: string;
+    readonly occurrenceId: string;
+    readonly rawOccurrenceId: string;
+    readonly semanticEffectSites: readonly SemanticEffectSite[];
+    readonly decorator: ModuleScannedDecorator;
 }
 
 export interface ModuleScanApi {
-    invokes(filter?: ModuleInvokeScanFilter): ModuleScannedInvoke[];
-    constructs(filter?: ModuleConstructScanFilter): ModuleScannedInvoke[];
+    invokes(filter: ModuleInvokeScanFilter): ModuleScannedInvoke[];
+    constructs(filter: ModuleConstructScanFilter): ModuleScannedInvoke[];
     parameterBindings(filter?: ModuleParameterBindingScanFilter): ModuleScannedParameterBinding[];
     assigns(filter?: ModuleAssignScanFilter): ModuleScannedAssign[];
     fieldLoads(filter?: ModuleFieldLoadScanFilter): ModuleScannedFieldLoad[];
@@ -246,6 +242,9 @@ export interface RawModuleSetupContext {
     fieldToVarIndex: Map<string, Set<number>>;
     log: (msg: string) => void;
     moduleSetupDeadlineMs?: number;
+    currentnessAnalysis?: "enabled" | "disabled";
+    canonicalApiOccurrences?: readonly ModuleCanonicalApiOccurrence[];
+    canonicalDecoratorOccurrences?: readonly ModuleCanonicalDecoratorOccurrence[];
 }
 
 export interface ModuleSetupDebugApi {
@@ -270,6 +269,10 @@ export interface RawModuleInvokeEvent extends RawModuleFactEvent {
     callSignature: string;
     methodName: string;
     declaringClassName: string;
+    canonicalApiId: string;
+    occurrenceId: string;
+    rawOccurrenceId: string;
+    semanticEffectSites: readonly SemanticEffectSite[];
     args: any[];
     baseValue?: any;
     resultValue?: any;
@@ -477,6 +480,8 @@ export interface ModuleEmitApi {
     collector(): ModuleEmitCollector;
 }
 
+export type ModuleSemanticEndpointProjectionInput = Omit<SemanticEndpointProjectionInput, "pag">;
+
 export interface ModuleAnalysisApi {
     nodeIdsForValue(value: any, anchorStmt?: any): number[];
     exactEndpointNodeIdsForValue(value: any, anchorStmt?: any): number[];
@@ -486,6 +491,7 @@ export interface ModuleAnalysisApi {
     resultCarrierNodeIdsForValue(value: any, anchorStmt?: any): number[];
     aliasLocalsForCarrier(carrierNodeId: number): any[];
     stringCandidates(value: any, maxDepth?: number): string[];
+    projectEndpoint(input: ModuleSemanticEndpointProjectionInput): SemanticEndpointProjection;
 }
 
 export interface ModuleCallbackResolveOptions {
@@ -531,9 +537,18 @@ export interface ModuleCallView {
     readonly methodName: string;
     readonly declaringClassName: string;
     readonly argCount: number;
-    matchesSignature(expected: string): boolean;
-    matchesMethod(expected: string): boolean;
-    matchesClass(expected: string): boolean;
+    readonly canonicalApiId: string;
+    readonly occurrenceId: string;
+    readonly rawOccurrenceId: string;
+    readonly semanticEffectSites: readonly SemanticEffectSite[];
+}
+
+export interface ModuleCanonicalApiOccurrence {
+    readonly stmt: any;
+    readonly canonicalApiId: string;
+    readonly occurrenceId: string;
+    readonly rawOccurrenceId: string;
+    readonly semanticEffectSites: readonly SemanticEffectSite[];
 }
 
 export interface ModuleValuesView {

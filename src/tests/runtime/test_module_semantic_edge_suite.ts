@@ -3,13 +3,21 @@ import * as path from "path";
 import { execFileSync } from "child_process";
 import { Scene } from "../../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../../arkanalyzer/out/src/Config";
-import type { InternalModuleLoweringIR } from "../../core/kernel/contracts/InternalModuleLoweringIR";
+import type { AssetDocumentBase, AssetEndpoint, AssetSurface } from "../../core/assets/schema";
+import { fromProjectDeclaration } from "../../core/api/identity";
+import type {
+    InternalModuleLoweringIR,
+    ModuleSemanticSurfaceRef,
+} from "../../core/kernel/contracts/InternalModuleLoweringIR";
+import { lowerModuleAssetToInternalModuleLoweringIR } from "../../core/kernel/contracts/ModuleAssetLowering";
 import type { TaintModule } from "../../core/kernel/contracts/ModuleContract";
 import { compileInternalModuleLoweringIR } from "../../core/orchestration/modules/InternalModuleLoweringIRCompiler";
 import { TaintPropagationEngine } from "../../core/orchestration/TaintPropagationEngine";
 import { loadRuleSet } from "../../core/rules/RuleLoader";
+import { makeRuleAssetFixture } from "../helpers/RuleAssetFixtureFactory";
 import { findCaseMethod, resolveCaseMethod } from "../helpers/SyntheticCaseHarness";
 import { resolveTestRunDir } from "../helpers/TestWorkspaceLayout";
+import tsjsContainerModuleAsset from "../../models/kernel/modules/tsjs/container";
 
 function assert(condition: unknown, message: string): asserts condition {
     if (!condition) throw new Error(message);
@@ -18,6 +26,14 @@ function assert(condition: unknown, message: string): asserts condition {
 function writeText(filePath: string, content: string): void {
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
     fs.writeFileSync(filePath, content, "utf-8");
+}
+
+function capabilityPayload(asset: AssetDocumentBase): Record<string, any> {
+    const template = (asset.effectTemplates || []).find(item => item.kind === "core.capability") as any;
+    if (!template || typeof template.payload !== "object" || template.payload === null) {
+        throw new Error(`module asset ${asset.id} must expose a core.capability payload for this fixture`);
+    }
+    return template.payload as Record<string, any>;
 }
 
 function buildScene(projectDir: string): Scene {
@@ -35,15 +51,21 @@ async function runCase(
     caseName: string,
     modules: TaintModule[],
     projectRulePath: string,
+    moduleAssets: AssetDocumentBase[],
 ): Promise<{
     totalFlows: number;
     loadedModuleIds: string[];
+    totalEmissionCount: number;
+    emissionReasons: string[];
+    moduleSemanticSiteCount: number;
+    moduleResolvedCount: number;
+    moduleEndpointGapCount: number;
 }> {
     const loaded = loadRuleSet({
         kernelRulePath: path.resolve("tests/rules/minimal.rules.json"),
         projectRulePath: path.resolve(projectRulePath),
         allowMissingProject: false,
-        autoDiscoverLayers: false,
+        autoDiscoverRuleSources: false,
     });
     const sourceRules = loaded.ruleSet.sources || [];
     const sinkRules = loaded.ruleSet.sinks || [];
@@ -54,6 +76,7 @@ async function runCase(
     const engine = new TaintPropagationEngine(scene, 1, {
         includeBuiltinModules: false,
         modules,
+        apiAssets: [...loaded.assets, ...moduleAssets],
     });
     engine.verbose = false;
     await engine.buildPAG({
@@ -69,9 +92,19 @@ async function runCase(
 
     engine.propagateWithSourceRules(sourceRules);
     const flows = engine.detectSinksByRules(sinkRules);
+    const moduleStats = Object.values(engine.getModuleAuditSnapshot().moduleStats) as any[];
+    const semanticSites = engine.getSemanticEffectLedger()
+        .filter((record: any) => record.recordKind === "semantic_effect_site" && record.capability === "module");
     return {
         totalFlows: flows.length,
         loadedModuleIds: engine.getModuleAuditSnapshot().loadedModuleIds,
+        totalEmissionCount: moduleStats.reduce((sum, item) => sum + Number(item.totalEmissionCount || 0), 0),
+        emissionReasons: moduleStats.flatMap(item =>
+            (item.emissionSamples || []).map((sample: any) => String(sample.reason || "")),
+        ).filter(Boolean).sort(),
+        moduleSemanticSiteCount: semanticSites.length,
+        moduleResolvedCount: semanticSites.filter((record: any) => record.status === "resolved").length,
+        moduleEndpointGapCount: semanticSites.filter((record: any) => record.status === "endpoint_gap").length,
     };
 }
 
@@ -88,7 +121,33 @@ type RuntimeFamily = {
     title: string;
     semantic: string;
     why: string;
-    spec: InternalModuleLoweringIR;
+    spec: InternalModuleLoweringIR | ((surfaceForMethod: (methodName: string) => ModuleSemanticSurfaceRef) => InternalModuleLoweringIR);
+    identityHints?: {
+        eventEmitter?: {
+            on: string[];
+            emit: string[];
+        };
+        keyedStorage?: {
+            writes: Array<{ methodName: string; valueIndex: number }>;
+            reads: string[];
+            kills?: string[];
+        };
+        routeBridge?: {
+            pushes: Array<{
+                methodName: string;
+                routeField?: string;
+                routeArgIndex?: number;
+                payloadArgIndex?: number;
+                payloadField?: string;
+            }>;
+            gets: string[];
+            navRegisters?: string[];
+            navTriggers?: string[];
+        };
+        bridge?: {
+            invokes: string[];
+        };
+    };
     files: Record<string, string>;
     projectRules?: Record<string, unknown>;
     cases: RuntimeCase[];
@@ -116,7 +175,15 @@ type RuntimeResult = {
     semantic: string;
     why: string;
     compiledModuleIds: string[];
-    cases: Array<RuntimeCase & { actualFlows: number; passed: boolean }>;
+    cases: Array<RuntimeCase & {
+        actualFlows: number;
+        passed: boolean;
+        totalEmissionCount?: number;
+        emissionReasons?: string[];
+        moduleSemanticSiteCount?: number;
+        moduleResolvedCount?: number;
+        moduleEndpointGapCount?: number;
+    }>;
 };
 
 type CompileResult = {
@@ -128,192 +195,623 @@ type CompileResult = {
     cases: Array<CompileCase & { passed: boolean; message: string }>;
 };
 
-function writeProjectRules(projectRulePath: string, rules?: Record<string, unknown>): void {
+function writeProjectRules(projectRulePath: string, asset: AssetDocumentBase): void {
+    writeText(projectRulePath, JSON.stringify(asset, null, 2));
+}
+
+function projectRuleAsset(files: Record<string, string>, rules?: Record<string, unknown>): AssetDocumentBase {
     if (rules) {
-        const asset = typeof rules.id === "string" && rules.plane === "rule"
-            ? rules
-            : legacyFixtureRulesToAsset("fixture.semantic_edge_suite.custom", rules, projectRulePath);
-        writeText(projectRulePath, JSON.stringify(asset, null, 2));
-        return;
+        return typeof rules.id === "string" && rules.plane === "rule"
+            ? rules as unknown as AssetDocumentBase
+            : makeRuleAssetFixture({
+                id: "asset.rule.fixture.semantic_edge_suite.custom",
+                sources: (rules.sources as any[]) || [],
+                sinks: (rules.sinks as any[]) || [],
+                sanitizers: (rules.sanitizers as any[]) || [],
+                transfers: (rules.transfers as any[]) || [],
+            });
     }
-    writeText(
-        projectRulePath,
-        JSON.stringify({
-            id: "asset.rule.fixture.semantic_edge_suite",
-            plane: "rule",
-            status: "reviewed",
-            surfaces: [
-                {
-                    surfaceId: "surface.fixture.semantic_edge_suite.Source",
-                    kind: "invoke",
-                    modulePath: "fixture",
-                    functionName: "Source",
-                    invokeKind: "free-function",
-                    argCount: 0,
-                    confidence: "certain",
-                    provenance: { source: "manual" },
-                },
-                {
-                    surfaceId: "surface.fixture.semantic_edge_suite.Sink",
-                    kind: "invoke",
-                    modulePath: "fixture",
-                    functionName: "Sink",
-                    invokeKind: "free-function",
-                    argCount: 1,
-                    confidence: "certain",
-                    provenance: { source: "manual" },
-                },
-            ],
-            bindings: [
-                {
-                    bindingId: "binding.fixture.semantic_edge_suite.Source.return",
-                    surfaceId: "surface.fixture.semantic_edge_suite.Source",
-                    assetId: "asset.rule.fixture.semantic_edge_suite",
-                    plane: "rule",
-                    role: "source",
-                    endpoint: { base: { kind: "return" } },
-                    effectTemplateRefs: ["template.fixture.semantic_edge_suite.Source.return"],
-                    completeness: "complete",
-                    confidence: "certain",
-                },
-                {
-                    bindingId: "binding.fixture.semantic_edge_suite.Sink.arg0",
-                    surfaceId: "surface.fixture.semantic_edge_suite.Sink",
-                    assetId: "asset.rule.fixture.semantic_edge_suite",
-                    plane: "rule",
-                    role: "sink",
-                    endpoint: { base: { kind: "arg", index: 0 } },
-                    effectTemplateRefs: ["template.fixture.semantic_edge_suite.Sink.arg0"],
-                    completeness: "complete",
-                    confidence: "certain",
-                },
-            ],
-            effectTemplates: [
-                {
-                    id: "template.fixture.semantic_edge_suite.Source.return",
-                    kind: "rule.source",
-                    sourceKind: "call_return",
-                    value: { base: { kind: "return" } },
-                    confidence: "certain",
-                },
-                {
-                    id: "template.fixture.semantic_edge_suite.Sink.arg0",
-                    kind: "rule.sink",
-                    sinkKind: "fixture",
-                    value: { base: { kind: "arg", index: 0 } },
-                    confidence: "certain",
-                },
-            ],
-            provenance: {
-                source: "manual",
-                evidenceLocations: [{ file: projectRulePath }],
+    return defaultSemanticEdgeRuleAsset(files);
+}
+
+function defaultSemanticEdgeRuleAsset(files: Record<string, string>): ReturnType<typeof makeRuleAssetFixture> {
+    const fileNames = Object.keys(files);
+    return makeRuleAssetFixture({
+        id: "asset.rule.fixture.semantic_edge_suite",
+        sources: fileNames.map(file => ({
+            id: `source.fixture.semantic_edge_suite.${sanitizeId(file)}`,
+            sourceKind: "call_return",
+            surface: {
+                kind: "invoke",
+                modulePath: modulePathForGeneratedInput(file),
+                ownerName: "file",
+                ownerKind: "namespace",
+                methodName: "Source",
+                invokeKind: "free-function",
+                argCount: 0,
+                parameterTypes: [],
+                returnType: "string",
             },
-        }, null, 2),
-    );
+            target: "result",
+        })),
+        sinks: fileNames.map(file => ({
+            id: `sink.fixture.semantic_edge_suite.${sanitizeId(file)}`,
+            surface: {
+                kind: "invoke",
+                modulePath: modulePathForGeneratedInput(file),
+                ownerName: "file",
+                ownerKind: "namespace",
+                methodName: "Sink",
+                invokeKind: "free-function",
+                argCount: 1,
+                parameterTypes: ["string"],
+                returnType: "void",
+            },
+            target: "arg0",
+        })),
+    });
 }
 
-function legacyFixtureRulesToAsset(fixtureId: string, rules: Record<string, unknown>, filePath: string): Record<string, unknown> {
-    const surfaces: any[] = [];
-    const bindings: any[] = [];
-    const effectTemplates: any[] = [];
+function modulePathForGeneratedInput(file: string): string {
+    return `inputs/${file.replace(/\\/g, "/")}`;
+}
 
-    for (const [index, source] of ((rules.sources as any[]) || []).entries()) {
-        const surfaceId = `surface.${fixtureId}.source.${index}`;
-        const templateId = `template.${fixtureId}.source.${index}`;
-        surfaces.push(surfaceFromLegacyMatch(source.match, surfaceId));
-        bindings.push({
-            bindingId: `binding.${fixtureId}.source.${index}`,
-            surfaceId,
-            assetId: `asset.rule.${fixtureId}`,
-            plane: "rule",
-            role: "source",
-            selector: selectorFromLegacyMatch(source.match),
-            endpoint: endpointFromLegacyTarget(source.target || "result"),
-            effectTemplateRefs: [templateId],
-            completeness: "complete",
-            confidence: "certain",
+function sanitizeId(value: string): string {
+    return value.replace(/[^A-Za-z0-9_.-]+/g, "_").replace(/^_+|_+$/g, "") || "fixture";
+}
+
+function materializeRuntimeFamilyIdentity(
+    scene: Scene,
+    family: RuntimeFamily,
+): { spec: InternalModuleLoweringIR; asset: AssetDocumentBase; moduleAssets: AssetDocumentBase[] } {
+    const asset = projectRuleAsset(family.files, family.projectRules);
+    if (typeof family.spec === "function") {
+        const hints = family.identityHints?.bridge;
+        if (!hints) {
+            throw new Error(`${family.id} spec factory requires identityHints.bridge`);
+        }
+        const canonicalIdsByMethodName = new Map<string, string[]>();
+        for (const methodName of hints.invokes) {
+            const canonicalApiIds = canonicalApiIdsForSceneMethods(scene, asset, [methodName], `bridge.${methodName}`);
+            if (canonicalApiIds.length === 0) {
+                throw new Error(`${family.id} bridge invoke ${methodName} requires exact canonicalApiIds`);
+            }
+            canonicalIdsByMethodName.set(methodName, canonicalApiIds);
+        }
+        const spec = family.spec(methodName => {
+            const canonicalApiIds = canonicalIdsByMethodName.get(methodName);
+            if (!canonicalApiIds || canonicalApiIds.length !== 1) {
+                throw new Error(`bridge surface ${methodName} must resolve to exactly one canonicalApiId, got ${canonicalApiIds?.length || 0}`);
+            }
+            return invokeSurfaceRef(canonicalApiIds[0]);
         });
-        effectTemplates.push({
-            id: templateId,
-            kind: "rule.source",
-            sourceKind: source.sourceKind || "call_return",
-            value: endpointFromLegacyTarget(source.target || "result"),
-            confidence: "certain",
-        });
+        return { spec, asset, moduleAssets: moduleAssetsForMaterializedSpec(family, spec, asset) };
     }
-
-    for (const [index, sink] of ((rules.sinks as any[]) || []).entries()) {
-        const surfaceId = `surface.${fixtureId}.sink.${index}`;
-        const templateId = `template.${fixtureId}.sink.${index}`;
-        surfaces.push(surfaceFromLegacyMatch(sink.match, surfaceId));
-        bindings.push({
-            bindingId: `binding.${fixtureId}.sink.${index}`,
-            surfaceId,
-            assetId: `asset.rule.${fixtureId}`,
-            plane: "rule",
-            role: "sink",
-            selector: selectorFromLegacyMatch(sink.match),
-            endpoint: endpointFromLegacyTarget(sink.target || "arg0"),
-            effectTemplateRefs: [templateId],
-            completeness: "complete",
-            confidence: "certain",
-        });
-        effectTemplates.push({
-            id: templateId,
-            kind: "rule.sink",
-            sinkKind: "fixture",
-            value: endpointFromLegacyTarget(sink.target || "arg0"),
-            confidence: "certain",
-        });
+    const spec = JSON.parse(JSON.stringify(family.spec)) as InternalModuleLoweringIR;
+    for (const semantic of spec.semantics || []) {
+        if ((semantic as any).kind === "event_emitter") {
+            const hints = family.identityHints?.eventEmitter;
+            if (!hints) {
+                throw new Error(`${family.id} event_emitter semantic requires identityHints.eventEmitter`);
+            }
+            const onCanonicalApiIds = mergeCanonicalApiIds(
+                stringArray((semantic as any).onCanonicalApiIds),
+                canonicalApiIdsForSceneMethods(scene, asset, hints.on, "on"),
+            );
+            const emitCanonicalApiIds = mergeCanonicalApiIds(
+                stringArray((semantic as any).emitCanonicalApiIds),
+                canonicalApiIdsForSceneMethods(scene, asset, hints.emit, "emit"),
+            );
+            if (onCanonicalApiIds.length === 0 || emitCanonicalApiIds.length === 0) {
+                throw new Error(`${family.id} event_emitter semantic requires exact onCanonicalApiIds and emitCanonicalApiIds`);
+            }
+            (semantic as any).onCanonicalApiIds = onCanonicalApiIds;
+            (semantic as any).emitCanonicalApiIds = emitCanonicalApiIds;
+        }
+        if ((semantic as any).kind === "keyed_storage") {
+            const hints = family.identityHints?.keyedStorage;
+            if (!hints) {
+                throw new Error(`${family.id} keyed_storage semantic requires identityHints.keyedStorage`);
+            }
+            (semantic as any).writeApis = hints.writes.map((write, index) => {
+                const canonicalApiIds = canonicalApiIdsForSceneMethods(scene, asset, [write.methodName], `write.${index}`);
+                if (canonicalApiIds.length === 0) {
+                    throw new Error(`${family.id} keyed_storage write ${write.methodName} requires exact canonicalApiIds`);
+                }
+                return {
+                    canonicalApiIds,
+                    valueIndex: write.valueIndex,
+                };
+            });
+            (semantic as any).readCanonicalApiIds = canonicalApiIdsForSceneMethods(scene, asset, hints.reads, "read");
+            if ((semantic as any).readCanonicalApiIds.length === 0) {
+                throw new Error(`${family.id} keyed_storage read requires exact readCanonicalApiIds`);
+            }
+            const killCanonicalApiIds = canonicalApiIdsForSceneMethods(scene, asset, hints.kills || [], "kill");
+            if (killCanonicalApiIds.length > 0) {
+                (semantic as any).killCanonicalApiIds = killCanonicalApiIds;
+            }
+        }
+        if ((semantic as any).kind === "route_bridge") {
+            const hints = family.identityHints?.routeBridge;
+            if (!hints) {
+                throw new Error(`${family.id} route_bridge semantic requires identityHints.routeBridge`);
+            }
+            (semantic as any).pushApis = hints.pushes.map((push, index) => {
+                const canonicalApiIds = canonicalApiIdsForSceneMethods(scene, asset, [push.methodName], `push.${index}`);
+                if (canonicalApiIds.length === 0) {
+                    throw new Error(`${family.id} route_bridge push ${push.methodName} requires exact canonicalApiIds`);
+                }
+                return {
+                    canonicalApiIds,
+                    ...(push.routeField ? { routeField: push.routeField } : {}),
+                    ...(Number.isInteger(push.routeArgIndex) ? { routeArgIndex: push.routeArgIndex } : {}),
+                    ...(Number.isInteger(push.payloadArgIndex) ? { payloadArgIndex: push.payloadArgIndex } : {}),
+                    ...(push.payloadField ? { payloadField: push.payloadField } : {}),
+                };
+            });
+            (semantic as any).getCanonicalApiIds = canonicalApiIdsForSceneMethods(scene, asset, hints.gets, "get");
+            if ((semantic as any).getCanonicalApiIds.length === 0) {
+                throw new Error(`${family.id} route_bridge get requires exact getCanonicalApiIds`);
+            }
+            const navDestinationRegisterCanonicalApiIds = canonicalApiIdsForSceneMethods(
+                scene,
+                asset,
+                hints.navRegisters || [],
+                "nav.register",
+            );
+            if (navDestinationRegisterCanonicalApiIds.length > 0) {
+                (semantic as any).navDestinationRegisterApis = navDestinationRegisterCanonicalApiIds.map(canonicalApiId => ({
+                    canonicalApiIds: [canonicalApiId],
+                    callbackArgIndex: 1,
+                    payloadParamIndex: 0,
+                }));
+            }
+            const navDestinationTriggerCanonicalApiIds = canonicalApiIdsForSceneMethods(
+                scene,
+                asset,
+                hints.navTriggers || [],
+                "nav.trigger",
+            );
+            if (navDestinationTriggerCanonicalApiIds.length > 0) {
+                (semantic as any).navDestinationTriggerApis = navDestinationTriggerCanonicalApiIds.map(canonicalApiId => ({
+                    canonicalApiIds: [canonicalApiId],
+                    routeArgIndex: 0,
+                }));
+            }
+        }
+        if ((semantic as any).kind === "bridge") {
+            const hints = family.identityHints?.bridge;
+            if (hints) {
+                const canonicalIdsByMethodName = new Map<string, string[]>();
+                for (const methodName of hints.invokes) {
+                    const canonicalApiIds = canonicalApiIdsForSceneMethods(scene, asset, [methodName], `bridge.${methodName}`);
+                    if (canonicalApiIds.length === 0) {
+                        throw new Error(`${family.id} bridge invoke ${methodName} requires exact canonicalApiIds`);
+                    }
+                    canonicalIdsByMethodName.set(methodName, canonicalApiIds);
+                }
+                rewriteBridgeStringSurfaces(semantic as unknown as Record<string, unknown>, canonicalIdsByMethodName);
+            }
+        }
     }
+    return { spec, asset, moduleAssets: moduleAssetsForMaterializedSpec(family, spec, asset) };
+}
 
+function moduleAssetsForMaterializedSpec(
+    family: RuntimeFamily,
+    spec: InternalModuleLoweringIR,
+    ruleAsset: AssetDocumentBase,
+): AssetDocumentBase[] {
+    const assets: AssetDocumentBase[] = [];
+    for (const [index, semantic] of (spec.semantics || []).entries()) {
+        const semanticId = String((semantic as any).id || `${semantic.kind}.${index}`);
+        if (semantic.kind === "event_emitter") {
+            assets.push(eventEmitterModuleAssetForSemantic(family, semanticId, semantic as any, ruleAsset));
+        }
+        if (semantic.kind === "route_bridge") {
+            assets.push(routeBridgeModuleAssetForSemantic(family, semanticId, semantic as any, ruleAsset));
+        }
+    }
+    return assets;
+}
+
+function eventEmitterModuleAssetForSemantic(
+    family: RuntimeFamily,
+    semanticId: string,
+    semantic: {
+        onCanonicalApiIds: string[];
+        emitCanonicalApiIds: string[];
+        channelArgIndexes?: number[];
+        payloadArgIndex?: number;
+        callbackArgIndex?: number;
+        callbackParamIndex?: number;
+        maxCandidates?: number;
+    },
+    ruleAsset: AssetDocumentBase,
+): AssetDocumentBase {
+    const onCanonicalApiIds = stringArray(semantic.onCanonicalApiIds);
+    const emitCanonicalApiIds = stringArray(semantic.emitCanonicalApiIds);
+    assert(onCanonicalApiIds.length > 0, `${family.id} event_emitter requires exact onCanonicalApiIds`);
+    assert(emitCanonicalApiIds.length > 0, `${family.id} event_emitter requires exact emitCanonicalApiIds`);
+    const assetId = `asset.module.fixture.semantic_edge_suite.${sanitizeId(family.id)}.${sanitizeId(semanticId)}`;
+    const templateId = `${assetId}.template.eventEmitter`;
+    const surfaces = surfacesForCanonicalApiIds(ruleAsset, [...onCanonicalApiIds, ...emitCanonicalApiIds], family.id);
     return {
-        id: `asset.rule.${fixtureId}`,
-        plane: "rule",
-        status: "reviewed",
+        id: assetId,
+        plane: "module",
+        status: "official",
         surfaces,
-        bindings,
-        effectTemplates,
-        provenance: {
-            source: "manual",
-            evidenceLocations: [{ file: filePath }],
-        },
-    };
-}
-
-function surfaceFromLegacyMatch(match: any, surfaceId: string): Record<string, unknown> {
-    const methodName = String(match?.value || "fixtureCall");
-    return {
-        surfaceId,
-        kind: "invoke",
-        modulePath: "fixture",
-        functionName: methodName,
-        invokeKind: "free-function",
-        argCount: methodName === "Sink" ? 1 : 0,
-        confidence: "certain",
+        bindings: surfaces.map((surface, bindingIndex) => ({
+            bindingId: `${assetId}.binding.${bindingIndex}`,
+            surfaceId: surface.surfaceId,
+            canonicalApiId: surface.canonicalApiId,
+            assetId,
+            plane: "module",
+            role: "handoff",
+            effectTemplateRefs: [templateId],
+            semanticsFamily: `semantic-edge-suite.${family.id}.event_emitter`,
+            metadata: { description: `${family.id} event emitter runtime fixture` },
+            completeness: "complete",
+            confidence: "certain",
+        })),
+        effectTemplates: [
+            {
+                id: templateId,
+                kind: "module.eventEmitter",
+                onCanonicalApiIds,
+                emitCanonicalApiIds,
+                ...(semantic.channelArgIndexes ? { channelArgIndexes: [...semantic.channelArgIndexes] } : {}),
+                ...(Number.isInteger(semantic.payloadArgIndex) ? { payloadArgIndex: semantic.payloadArgIndex } : {}),
+                ...(Number.isInteger(semantic.callbackArgIndex) ? { callbackArgIndex: semantic.callbackArgIndex } : {}),
+                ...(Number.isInteger(semantic.callbackParamIndex) ? { callbackParamIndex: semantic.callbackParamIndex } : {}),
+                ...(Number.isInteger(semantic.maxCandidates) ? { maxCandidates: semantic.maxCandidates } : {}),
+                confidence: "certain",
+            },
+        ],
         provenance: { source: "manual" },
     };
 }
 
-function selectorFromLegacyMatch(match: any): Record<string, unknown> {
-    const kindMap: Record<string, string> = {
-        method_name_equals: "method-name-equals",
-        signature_equals: "signature-equals",
-        declaring_class_equals: "declaring-class-equals",
-        field_name_equals: "field-name-equals",
-    };
+function routeBridgeModuleAssetForSemantic(
+    family: RuntimeFamily,
+    semanticId: string,
+    semantic: {
+        pushApis: Array<{
+            canonicalApiIds: string[];
+            routeField?: string;
+            routeArgIndex?: number;
+            payloadArgIndex?: number;
+            payloadField?: string;
+        }>;
+        getCanonicalApiIds: string[];
+        navDestinationRegisterApis?: Array<{
+            canonicalApiIds: string[];
+            callbackArgIndex: number;
+            routeParamIndex?: number;
+            payloadParamIndex: number;
+        }>;
+        navDestinationTriggerApis?: Array<{
+            canonicalApiIds: string[];
+            routeField?: string;
+            routeArgIndex?: number;
+            payloadArgIndex?: number;
+            payloadField?: string;
+        }>;
+        payloadUnwrapPrefixes?: string[];
+    },
+    ruleAsset: AssetDocumentBase,
+): AssetDocumentBase {
+    const pushApis = (semantic.pushApis || []).map(api => ({
+        canonicalApiIds: stringArray(api.canonicalApiIds),
+        ...(api.routeField ? { routeField: api.routeField } : {}),
+        ...(Number.isInteger(api.routeArgIndex) ? { routeArgIndex: api.routeArgIndex } : {}),
+        ...(Number.isInteger(api.payloadArgIndex) ? { payloadArgIndex: api.payloadArgIndex } : {}),
+        ...(api.payloadField ? { payloadField: api.payloadField } : {}),
+    }));
+    const getCanonicalApiIds = stringArray(semantic.getCanonicalApiIds);
+    const navDestinationRegisterApis = (semantic.navDestinationRegisterApis || []).map(api => ({
+        canonicalApiIds: stringArray(api.canonicalApiIds),
+        callbackArgIndex: api.callbackArgIndex,
+        ...(Number.isInteger(api.routeParamIndex) ? { routeParamIndex: api.routeParamIndex } : {}),
+        payloadParamIndex: api.payloadParamIndex,
+    }));
+    const navDestinationTriggerApis = (semantic.navDestinationTriggerApis || []).map(api => ({
+        canonicalApiIds: stringArray(api.canonicalApiIds),
+        ...(api.routeField ? { routeField: api.routeField } : {}),
+        ...(Number.isInteger(api.routeArgIndex) ? { routeArgIndex: api.routeArgIndex } : {}),
+        ...(Number.isInteger(api.payloadArgIndex) ? { payloadArgIndex: api.payloadArgIndex } : {}),
+        ...(api.payloadField ? { payloadField: api.payloadField } : {}),
+    }));
+    assert(pushApis.some(api => api.canonicalApiIds.length > 0), `${family.id} route_bridge requires exact push canonicalApiIds`);
+    assert(getCanonicalApiIds.length > 0, `${family.id} route_bridge requires exact getCanonicalApiIds`);
+    const assetId = `asset.module.fixture.semantic_edge_suite.${sanitizeId(family.id)}.${sanitizeId(semanticId)}`;
+    const templateId = `${assetId}.template.routeBridge`;
+    const canonicalApiIds = [
+        ...pushApis.flatMap(api => api.canonicalApiIds),
+        ...getCanonicalApiIds,
+        ...navDestinationRegisterApis.flatMap(api => api.canonicalApiIds),
+        ...navDestinationTriggerApis.flatMap(api => api.canonicalApiIds),
+    ];
+    const surfaces = surfacesForCanonicalApiIds(ruleAsset, canonicalApiIds, family.id);
     return {
-        kind: kindMap[String(match?.kind || "")] || "method-name-equals",
-        value: String(match?.value || ""),
+        id: assetId,
+        plane: "module",
+        status: "official",
+        surfaces,
+        bindings: surfaces.map((surface, bindingIndex) => ({
+            bindingId: `${assetId}.binding.${bindingIndex}`,
+            surfaceId: surface.surfaceId,
+            canonicalApiId: surface.canonicalApiId,
+            assetId,
+            plane: "module",
+            role: "handoff",
+            endpoint: endpointForRouteBridgeCanonicalApiId(String(surface.canonicalApiId || ""), {
+                pushApis,
+                getCanonicalApiIds,
+                navDestinationRegisterApis,
+                navDestinationTriggerApis,
+            }),
+            effectTemplateRefs: [templateId],
+            semanticsFamily: `semantic-edge-suite.${family.id}.route_bridge`,
+            metadata: { description: `${family.id} route bridge runtime fixture` },
+            completeness: "complete",
+            confidence: "certain",
+        })),
+        effectTemplates: [
+            {
+                id: templateId,
+                kind: "core.capability",
+                capability: "module.route-bridge",
+                payload: {
+                    pushApis,
+                    getCanonicalApiIds,
+                    navDestinationRegisterApis,
+                    navDestinationTriggerApis,
+                    ...(semantic.payloadUnwrapPrefixes ? { payloadUnwrapPrefixes: [...semantic.payloadUnwrapPrefixes] } : {}),
+                },
+                confidence: "certain",
+            },
+        ],
+        provenance: { source: "manual" },
     };
 }
 
-function endpointFromLegacyTarget(target: unknown): Record<string, unknown> {
-    if (target === "result") return { base: { kind: "return" } };
-    const text = String(target || "arg0");
-    const argMatch = /^arg(\d+)$/.exec(text);
-    if (argMatch) return { base: { kind: "arg", index: Number(argMatch[1]) } };
-    return { base: { kind: "arg", index: 0 } };
+function surfacesForCanonicalApiIds(
+    asset: AssetDocumentBase,
+    canonicalApiIds: string[],
+    familyId: string,
+): AssetSurface[] {
+    const wanted = new Set(stringArray(canonicalApiIds));
+    const surfaces = (asset.surfaces || []).filter(surface => wanted.has(String(surface.canonicalApiId || "")));
+    const found = new Set(surfaces.map(surface => String(surface.canonicalApiId || "")));
+    const missing = [...wanted].filter(canonicalApiId => !found.has(canonicalApiId));
+    assert(missing.length === 0, `${familyId} module asset references missing canonical surfaces: ${missing.join(", ")}`);
+    const bySurfaceId = new Map<string, AssetSurface>();
+    for (const surface of surfaces) {
+        bySurfaceId.set(surface.surfaceId, surface);
+    }
+    return [...bySurfaceId.values()].sort((left, right) => left.surfaceId.localeCompare(right.surfaceId));
+}
+
+function endpointForRouteBridgeCanonicalApiId(
+    canonicalApiId: string,
+    semantic: {
+        pushApis: Array<{ canonicalApiIds: string[]; routeArgIndex?: number; payloadArgIndex?: number }>;
+        getCanonicalApiIds: string[];
+        navDestinationRegisterApis: Array<{ canonicalApiIds: string[]; callbackArgIndex: number }>;
+        navDestinationTriggerApis: Array<{ canonicalApiIds: string[]; routeArgIndex?: number; payloadArgIndex?: number }>;
+    },
+): AssetEndpoint {
+    const pushApi = semantic.pushApis.find(api => api.canonicalApiIds.includes(canonicalApiId));
+    if (pushApi) {
+        return argEndpoint(requiredRouteEndpointIndex(pushApi, canonicalApiId, "push"));
+    }
+    if (semantic.getCanonicalApiIds.includes(canonicalApiId)) {
+        return returnEndpoint();
+    }
+    const registerApi = semantic.navDestinationRegisterApis.find(api => api.canonicalApiIds.includes(canonicalApiId));
+    if (registerApi) {
+        return argEndpoint(registerApi.callbackArgIndex);
+    }
+    const triggerApi = semantic.navDestinationTriggerApis.find(api => api.canonicalApiIds.includes(canonicalApiId));
+    if (triggerApi) {
+        return argEndpoint(requiredRouteEndpointIndex(triggerApi, canonicalApiId, "trigger"));
+    }
+    throw new Error(`route_bridge canonicalApiId is not declared by semantic payload: ${canonicalApiId}`);
+}
+
+function requiredRouteEndpointIndex(
+    api: { routeArgIndex?: number; payloadArgIndex?: number },
+    canonicalApiId: string,
+    role: string,
+): number {
+    if (Number.isInteger(api.payloadArgIndex)) return api.payloadArgIndex!;
+    if (Number.isInteger(api.routeArgIndex)) return api.routeArgIndex!;
+    throw new Error(`route_bridge ${role} API ${canonicalApiId} requires explicit routeArgIndex or payloadArgIndex`);
+}
+
+function argEndpoint(index: number): AssetEndpoint {
+    return { base: { kind: "arg", index } };
+}
+
+function returnEndpoint(): AssetEndpoint {
+    return { base: { kind: "return" } };
+}
+
+function compileRuntimeModules(materialized: { spec: InternalModuleLoweringIR; moduleAssets: AssetDocumentBase[] }): TaintModule[] {
+    if (materialized.moduleAssets.length === 0) {
+        return compileInternalModuleLoweringIR(materialized.spec);
+    }
+    return materialized.moduleAssets.flatMap(asset =>
+        compileInternalModuleLoweringIR(
+            lowerModuleAssetToInternalModuleLoweringIR(asset, { loadMode: "trusted-analysis" }),
+        ),
+    );
+}
+
+function rewriteBridgeStringSurfaces(value: unknown, canonicalIdsByMethodName: Map<string, string[]>): void {
+    if (!value || typeof value !== "object") return;
+    if (Array.isArray(value)) {
+        value.forEach(item => rewriteBridgeStringSurfaces(item, canonicalIdsByMethodName));
+        return;
+    }
+    const record = value as Record<string, unknown>;
+    if (typeof record.surface === "string") {
+        const canonicalApiIds = canonicalIdsByMethodName.get(record.surface);
+        if (!canonicalApiIds || canonicalApiIds.length !== 1) {
+            throw new Error(`bridge surface ${record.surface} must resolve to exactly one canonicalApiId, got ${canonicalApiIds?.length || 0}`);
+        }
+        record.surface = invokeSurfaceRef(canonicalApiIds[0]);
+    }
+    for (const nested of Object.values(record)) {
+        rewriteBridgeStringSurfaces(nested, canonicalIdsByMethodName);
+    }
+}
+
+function invokeSurfaceRef(canonicalApiId: string): ModuleSemanticSurfaceRef {
+    return {
+        kind: "invoke",
+        selector: {
+            surfaceKind: "invoke",
+            canonicalApiId,
+        },
+    };
+}
+
+function compileGuardMutationSurface(): ModuleSemanticSurfaceRef {
+    const canonicalApiId = String(capabilityPayload(tsjsContainerModuleAsset).mutationCanonicalApiIds?.[0] || "");
+    if (!canonicalApiId) throw new Error("tsjs container fixture must expose a mutation canonicalApiId");
+    return invokeSurfaceRef(canonicalApiId);
+}
+
+function compileGuardAccessSurface(): ModuleSemanticSurfaceRef {
+    const canonicalApiId = String(capabilityPayload(tsjsContainerModuleAsset).accessCanonicalApiIds?.[0] || "");
+    if (!canonicalApiId) throw new Error("tsjs container fixture must expose an access canonicalApiId");
+    return invokeSurfaceRef(canonicalApiId);
+}
+
+function canonicalApiIdsForSceneMethods(
+    scene: Scene,
+    asset: AssetDocumentBase,
+    methodNames: string[],
+    role: string,
+): string[] {
+    const wanted = new Set(methodNames);
+    if (wanted.size === 0) return [];
+    const out = new Set<string>();
+    let index = 0;
+    for (const method of scene.getMethods() as any[]) {
+        const methodSig = method.getSignature?.();
+        const subSig = methodSig?.getMethodSubSignature?.();
+        const methodName = String(subSig?.getMethodName?.() || method.getName?.() || "").trim();
+        if (!wanted.has(methodName)) continue;
+        const classSig = methodSig?.getDeclaringClassSignature?.();
+        const className = String(classSig?.getClassName?.() || "").trim();
+        if (!className || className === "%dflt") continue;
+        const surface = projectInvokeSurfaceFromMethod(asset.id, method, role, index++);
+        if (!asset.surfaces.some(existing => existing.canonicalApiId === surface.canonicalApiId)) {
+            asset.surfaces.push(surface);
+        }
+        if (surface.canonicalApiId) out.add(surface.canonicalApiId);
+    }
+    return [...out.values()].sort((left, right) => left.localeCompare(right));
+}
+
+function projectInvokeSurfaceFromMethod(
+    assetId: string,
+    method: any,
+    role: string,
+    index: number,
+): AssetSurface {
+    const methodSig = method.getSignature?.();
+    const classSig = methodSig?.getDeclaringClassSignature?.();
+    const subSig = methodSig?.getMethodSubSignature?.();
+    const rawDeclaringFile = String(classSig?.getDeclaringFileSignature?.()?.toString?.() || "").trim();
+    const logicalFile = logicalGeneratedInputFile(rawDeclaringFile);
+    const className = String(classSig?.getClassName?.() || "").trim();
+    const methodName = String(subSig?.getMethodName?.() || method.getName?.() || "").trim();
+    const parameterTypes = (subSig?.getParameters?.() || []).map((param: any) => typeTextOf(param));
+    const returnType = typeTextOf(subSig?.getReturnType?.() || method.getReturnType?.());
+    const staticFlag = !!subSig?.isStatic?.();
+    const result = fromProjectDeclaration({
+        domain: "local",
+        moduleSpecifier: logicalFile,
+        logicalDeclarationFile: logicalFile,
+        exportPath: [{ kind: "namespace", name: className }],
+        declarationOwner: {
+            kind: "class",
+            path: [className],
+            normalizedName: className,
+            arkanalyzerName: className,
+        },
+        member: { kind: "method", name: methodName, static: staticFlag },
+        invoke: { kind: "call" },
+        signature: {
+            parameters: parameterTypes.map((type, parameterIndex) => ({ index: parameterIndex, type: { text: type } })),
+            returnType: { text: returnType },
+        },
+        arkanalyzer: {
+            declaringFileName: rawDeclaringFile,
+            declaringNamespacePath: [],
+            declaringClassName: className,
+            methodName,
+            parameterTypes,
+            returnType,
+            staticFlag,
+        },
+        declarationLocations: [{ file: logicalFile, line: method.getLine?.() || undefined, column: method.getColumn?.() || undefined }],
+    });
+    if (result.status !== "accepted") {
+        throw new Error(`event emitter identity rejected for ${className}.${methodName}: ${result.reason}`);
+    }
+    return {
+        surfaceId: `surface.${assetId}.event.${role}.${sanitizeId(logicalFile)}.${sanitizeId(className)}.${sanitizeId(methodName)}.${index}`,
+        canonicalApiId: result.descriptor.canonicalApiId,
+        kind: "invoke",
+        evidence: {
+            arkanalyzer: {
+                methodKey: {
+                    declaringFileName: rawDeclaringFile,
+                    declaringNamespacePath: [],
+                    declaringClassName: className,
+                    methodName,
+                    parameterTypes,
+                    returnType,
+                    staticFlag,
+                },
+            },
+        },
+        confidence: "certain",
+        provenance: { source: "manual", location: { file: logicalFile, line: method.getLine?.() || undefined, column: method.getColumn?.() || undefined } },
+    };
+}
+
+function logicalGeneratedInputFile(rawFile: string): string {
+    const normalized = String(rawFile || "")
+        .replace(/\\/g, "/")
+        .replace(/^@/, "")
+        .replace(/:\s*$/, "")
+        .replace(/^\/+|\/+$/g, "");
+    const marker = "/inputs/";
+    const markerIndex = normalized.lastIndexOf(marker);
+    if (markerIndex >= 0) {
+        return normalized.slice(markerIndex + 1);
+    }
+    if (normalized.startsWith("inputs/")) return normalized;
+    return normalized;
+}
+
+function typeTextOf(value: any): string {
+    return String(value?.getType?.()?.toString?.() || value?.toString?.() || "unknown").trim() || "unknown";
+}
+
+function stringArray(value: unknown): string[] {
+    return Array.isArray(value) ? value.map(item => String(item || "").trim()).filter(Boolean) : [];
+}
+
+function mergeCanonicalApiIds(left: string[], right: string[]): string[] {
+    return [...new Set([...left, ...right])].sort((a, b) => a.localeCompare(b));
 }
 
 function buildRuntimeFamilies(): RuntimeFamily[] {
@@ -328,10 +826,16 @@ function buildRuntimeFamilies(): RuntimeFamily[] {
                 semantics: [
                     {
                         kind: "event_emitter",
-                        onMethods: ["on"],
-                        emitMethods: ["emit"],
+                        onCanonicalApiIds: [],
+                        emitCanonicalApiIds: [],
                     },
                 ],
+            },
+            identityHints: {
+                eventEmitter: {
+                    on: ["on"],
+                    emit: ["emit"],
+                },
             },
             files: {
                 "event_same_receiver_same_topic_T.ets": [
@@ -429,14 +933,20 @@ function buildRuntimeFamilies(): RuntimeFamily[] {
                 semantics: [
                     {
                         kind: "event_emitter",
-                        onMethods: ["on"],
-                        emitMethods: ["publish"],
+                        onCanonicalApiIds: [],
+                        emitCanonicalApiIds: [],
                         channelArgIndexes: [0, 1],
                         payloadArgIndex: 2,
                         callbackArgIndex: 2,
                         callbackParamIndex: 0,
                     },
                 ],
+            },
+            identityHints: {
+                eventEmitter: {
+                    on: ["on"],
+                    emit: ["publish"],
+                },
             },
             files: {
                 "lane_same_topic_same_lane_T.ets": [
@@ -499,14 +1009,20 @@ function buildRuntimeFamilies(): RuntimeFamily[] {
                 semantics: [
                     {
                         kind: "event_emitter",
-                        onMethods: ["on"],
-                        emitMethods: ["sendEvent"],
+                        onCanonicalApiIds: [],
+                        emitCanonicalApiIds: [],
                         channelArgIndexes: [0],
                         payloadArgIndex: -1,
                         callbackArgIndex: 1,
                         callbackParamIndex: 0,
                     },
                 ],
+            },
+            identityHints: {
+                eventEmitter: {
+                    on: ["on"],
+                    emit: ["sendEvent"],
+                },
             },
             files: {
                 "project_eventhub_static_enum_same_key_T.ets": [
@@ -629,14 +1145,20 @@ function buildRuntimeFamilies(): RuntimeFamily[] {
                 semantics: [
                     {
                         kind: "event_emitter",
-                        onMethods: ["on"],
-                        emitMethods: ["sendEvent"],
+                        onCanonicalApiIds: [],
+                        emitCanonicalApiIds: [],
                         channelArgIndexes: [0],
                         payloadArgIndex: 1,
                         callbackArgIndex: 1,
                         callbackParamIndex: 0,
                     },
                 ],
+            },
+            identityHints: {
+                eventEmitter: {
+                    on: ["on"],
+                    emit: ["sendEvent"],
+                },
             },
             files: {
                 "project_eventhub_static_payload_same_key_T.ets": [
@@ -718,10 +1240,16 @@ function buildRuntimeFamilies(): RuntimeFamily[] {
                 semantics: [
                     {
                         kind: "event_emitter",
-                        onMethods: ["on"],
-                        emitMethods: ["emit"],
+                        onCanonicalApiIds: [],
+                        emitCanonicalApiIds: [],
                     },
                 ],
+            },
+            identityHints: {
+                eventEmitter: {
+                    on: ["on"],
+                    emit: ["emit"],
+                },
             },
             files: {
                 "bus.ts": [
@@ -807,13 +1335,18 @@ function buildRuntimeFamilies(): RuntimeFamily[] {
                 semantics: [
                     {
                         kind: "keyed_storage",
-                        storageClasses: ["PocketStore"],
-                        writeMethods: [{ methodName: "put", valueIndex: 1 }],
-                        readMethods: ["take"],
-                        propDecorators: [],
-                        linkDecorators: [],
+                        writeApis: [],
+                        readCanonicalApiIds: [],
+                        propDecoratorCanonicalApiIds: [],
+                        linkDecoratorCanonicalApiIds: [],
                     },
                 ],
+            },
+            identityHints: {
+                keyedStorage: {
+                    writes: [{ methodName: "put", valueIndex: 1 }],
+                    reads: ["take"],
+                },
             },
             files: {
                 "store_same_instance_same_key_T.ets": [
@@ -900,13 +1433,26 @@ function buildRuntimeFamilies(): RuntimeFamily[] {
                 semantics: [
                     {
                         kind: "route_bridge",
-                        pushMethods: [{ methodName: "pushPath", routeField: "name" }],
-                        getMethods: ["getParams"],
-                        navDestinationClassNames: ["NavDestination"],
-                        navDestinationRegisterMethods: ["register"],
+                        pushApis: [],
+                        getCanonicalApiIds: [],
+                        navDestinationRegisterApis: [],
+                        navDestinationTriggerApis: [],
                         payloadUnwrapPrefixes: ["param"],
                     },
                 ],
+            },
+            identityHints: {
+                routeBridge: {
+                    pushes: [{
+                        methodName: "pushPath",
+                        routeField: "name",
+                        payloadArgIndex: 0,
+                        payloadField: "param",
+                    }],
+                    gets: ["getParams"],
+                    navRegisters: ["register"],
+                    navTriggers: ["trigger"],
+                },
             },
             files: {
                 "nav_same_route_T.ets": [
@@ -1013,12 +1559,12 @@ function buildRuntimeFamilies(): RuntimeFamily[] {
                 semantics: [
                     {
                         kind: "state_binding",
-                        stateDecorators: ["State"],
-                        propDecorators: ["Prop", "Link", "ObjectLink", "Local", "Param", "Once", "Event", "Trace"],
-                        linkDecorators: ["Link", "ObjectLink", "Local", "Trace"],
-                        provideDecorators: ["Provide"],
-                        consumeDecorators: ["Consume"],
-                        eventDecorators: ["Event"],
+                        stateDecoratorCanonicalApiIds: [],
+                        propDecoratorCanonicalApiIds: [],
+                        linkDecoratorCanonicalApiIds: [],
+                        provideDecoratorCanonicalApiIds: [],
+                        consumeDecoratorCanonicalApiIds: [],
+                        eventDecoratorCanonicalApiIds: [],
                     },
                 ],
             },
@@ -1173,16 +1719,55 @@ function buildRuntimeFamilies(): RuntimeFamily[] {
                 semantics: [
                     {
                         kind: "ability_handoff",
-                        startMethods: ["startAbility"],
-                        targetMethods: ["onCreate"],
+                        startCanonicalApiIds: [],
+                        targetCanonicalApiIds: [],
                     },
                 ],
             },
             projectRules: {
                 sources: [
                     {
-                        id: "source.fixture.ability_handoff.entry_param",
-                        match: { kind: "method_name_equals", value: "build" },
+                        id: "source.fixture.ability_handoff.entry_page_target",
+                        surface: {
+                            kind: "invoke",
+                            modulePath: "inputs/ability_target_T.ets",
+                            ownerName: "EntryPage",
+                            methodName: "build",
+                            invokeKind: "instance",
+                            argCount: 1,
+                            parameterTypes: ["string"],
+                            returnType: "void",
+                        },
+                        sourceKind: "entry_param",
+                        target: "arg0",
+                    },
+                    {
+                        id: "source.fixture.ability_handoff.entry_page_plain",
+                        surface: {
+                            kind: "invoke",
+                            modulePath: "inputs/ability_plain_class_F.ets",
+                            ownerName: "EntryPage",
+                            methodName: "build",
+                            invokeKind: "instance",
+                            argCount: 1,
+                            parameterTypes: ["string"],
+                            returnType: "void",
+                        },
+                        sourceKind: "entry_param",
+                        target: "arg0",
+                    },
+                    {
+                        id: "source.fixture.ability_handoff.self_ability",
+                        surface: {
+                            kind: "invoke",
+                            modulePath: "inputs/ability_same_class_self_F.ets",
+                            ownerName: "SelfAbility",
+                            methodName: "build",
+                            invokeKind: "instance",
+                            argCount: 1,
+                            parameterTypes: ["string"],
+                            returnType: "void",
+                        },
                         sourceKind: "entry_param",
                         target: "arg0",
                     },
@@ -1190,9 +1775,15 @@ function buildRuntimeFamilies(): RuntimeFamily[] {
                 sinks: [
                     {
                         id: "sink.fixture.ability_handoff",
-                        match: {
-                            kind: "method_name_equals",
-                            value: "Sink",
+                        surface: {
+                            kind: "invoke",
+                            modulePath: "inputs/taint_mock.ts",
+                            ownerName: "taint",
+                            methodName: "Sink",
+                            invokeKind: "static",
+                            argCount: 1,
+                            parameterTypes: ["string"],
+                            returnType: "void",
                         },
                         target: "arg0",
                     },
@@ -1324,18 +1915,18 @@ function buildRuntimeFamilies(): RuntimeFamily[] {
             title: "Generic bridge same_address guard",
             semantic: "bridge",
             why: "Ensure generic same_address matching still behaves precisely for keyed bridge semantics.",
-            spec: {
+            spec: surfaceForMethod => ({
                 id: "edge.generic_same_address_bridge",
                 semantics: [
                     {
                         kind: "bridge",
                         from: {
-                            surface: "PutAddress",
+                            surface: surfaceForMethod("PutAddress"),
                             slot: "arg",
                             index: 1,
                         },
                         to: {
-                            surface: "GetAddress",
+                            surface: surfaceForMethod("GetAddress"),
                             slot: "result",
                         },
                         constraints: [
@@ -1344,7 +1935,7 @@ function buildRuntimeFamilies(): RuntimeFamily[] {
                                 left: {
                                     kind: "endpoint",
                                     endpoint: {
-                                        surface: "PutAddress",
+                                        surface: surfaceForMethod("PutAddress"),
                                         slot: "arg",
                                         index: 0,
                                     },
@@ -1352,7 +1943,7 @@ function buildRuntimeFamilies(): RuntimeFamily[] {
                                 right: {
                                     kind: "endpoint",
                                     endpoint: {
-                                        surface: "GetAddress",
+                                        surface: surfaceForMethod("GetAddress"),
                                         slot: "arg",
                                         index: 0,
                                     },
@@ -1364,6 +1955,11 @@ function buildRuntimeFamilies(): RuntimeFamily[] {
                         },
                     },
                 ],
+            }),
+            identityHints: {
+                bridge: {
+                    invokes: ["PutAddress", "GetAddress"],
+                },
             },
             files: {
                 "same_address_same_key_T.ets": [
@@ -1427,12 +2023,12 @@ function buildCompileFamilies(): CompileFamily[] {
                             {
                                 kind: "bridge",
                                 from: {
-                                    surface: "PutScoped",
+                                    surface: compileGuardMutationSurface(),
                                     slot: "arg",
                                     index: 1,
                                 },
                                 to: {
-                                    surface: "GetScoped",
+                                    surface: compileGuardAccessSurface(),
                                     slot: "result",
                                 },
                                 constraints: [
@@ -1442,7 +2038,7 @@ function buildCompileFamilies(): CompileFamily[] {
                                         left: {
                                             kind: "endpoint",
                                             endpoint: {
-                                                surface: "PutScoped",
+                                                surface: compileGuardMutationSurface(),
                                                 slot: "arg",
                                                 index: 0,
                                             },
@@ -1450,7 +2046,7 @@ function buildCompileFamilies(): CompileFamily[] {
                                         right: {
                                             kind: "endpoint",
                                             endpoint: {
-                                                surface: "GetScoped",
+                                                surface: compileGuardAccessSurface(),
                                                 slot: "arg",
                                                 index: 0,
                                             },
@@ -1475,17 +2071,20 @@ async function runRuntimeFamily(root: string, family: RuntimeFamily): Promise<Ru
     const inputsDir = path.join(familyDir, "inputs");
     const projectRulePath = path.join(familyDir, "project.rules.json");
     const internalModuleLoweringIRPath = path.join(familyDir, "internal_module_lowering_ir.json");
+    const moduleAssetsPath = path.join(familyDir, "module_assets.json");
     for (const [name, content] of Object.entries(family.files)) {
         writeText(path.join(inputsDir, name), content);
     }
-    writeProjectRules(projectRulePath, family.projectRules);
-    writeText(internalModuleLoweringIRPath, JSON.stringify(family.spec, null, 2));
-
-    const compiled = compileInternalModuleLoweringIR(family.spec);
     const scene = buildScene(inputsDir);
-    const cases: Array<RuntimeCase & { actualFlows: number; passed: boolean }> = [];
+    const materialized = materializeRuntimeFamilyIdentity(scene, family);
+    writeProjectRules(projectRulePath, materialized.asset);
+    writeText(internalModuleLoweringIRPath, JSON.stringify(materialized.spec, null, 2));
+    writeText(moduleAssetsPath, JSON.stringify(materialized.moduleAssets, null, 2));
+
+    const compiled = compileRuntimeModules(materialized);
+    const cases: RuntimeResult["cases"] = [];
     for (const item of family.cases) {
-        const actual = await runCase(scene, item.file, item.entry, compiled, projectRulePath);
+        const actual = await runCase(scene, item.file, item.entry, compiled, projectRulePath, materialized.moduleAssets);
         const passed = item.expectedFlows === 0
             ? actual.totalFlows === 0
             : actual.totalFlows >= item.expectedFlows;
@@ -1493,6 +2092,11 @@ async function runRuntimeFamily(root: string, family: RuntimeFamily): Promise<Ru
             ...item,
             actualFlows: actual.totalFlows,
             passed,
+            totalEmissionCount: actual.totalEmissionCount,
+            emissionReasons: actual.emissionReasons,
+            moduleSemanticSiteCount: actual.moduleSemanticSiteCount,
+            moduleResolvedCount: actual.moduleResolvedCount,
+            moduleEndpointGapCount: actual.moduleEndpointGapCount,
         });
     }
     return {

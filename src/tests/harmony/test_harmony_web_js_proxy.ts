@@ -1,8 +1,9 @@
 import { buildTestScene } from "../helpers/TestSceneBuilder";
 import { resolveKnownOptionCallbackRegistrationsFromStmt } from "../../core/substrate/semantics/KnownOptionCallbackRegistration";
-import { buildFrameworkCallbackSourceRules } from "../../core/rules/FrameworkCallbackSourceCatalog";
 import { TaintPropagationEngine } from "../../core/orchestration/TaintPropagationEngine";
 import { SinkRule, SourceRule } from "../../core/rules/RuleSchema";
+import { loadRuleSet } from "../../core/rules/RuleLoader";
+import { projectApiEffectAssetFromMethod } from "../helpers/ApiEffectTestAssets";
 import * as path from "path";
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -44,20 +45,35 @@ async function main(): Promise<void> {
         `javaScriptProxy must not resolve methods absent from methodList: ${callbackSignatures.join(", ")}`,
     );
 
-    const sourceRules = buildFrameworkCallbackSourceRules()
+    const loaded = loadRuleSet({
+        kernelRulePath: path.resolve("tests/rules/minimal.rules.json"),
+        ruleCatalogPath: path.resolve("src/models"),
+        autoDiscoverRuleSources: false,
+        allowMissingProject: true,
+        allowMissingCandidate: true,
+    });
+    const sourceRules = (loaded.ruleSet.sources || [])
         .filter((rule: SourceRule) => rule.family === "source.harmony.callback.web.js_proxy");
     assert(sourceRules.length > 0, "expected Web JS proxy callback source family");
 
+    const sinkEffect = projectApiEffectAssetFromMethod({
+        id: "sink.fixture.web.bridge",
+        role: "sink",
+        method: findMethodByName(scene, "Sink"),
+        endpoint: { base: { kind: "arg", index: 0 } },
+        sinkKind: "test",
+    });
     const sinkRules: SinkRule[] = [
         {
             id: "sink.fixture.web.bridge",
             enabled: true,
-            match: { kind: "method_name_equals", value: "Sink" },
+            match: { kind: "canonical_api_id_equals", value: sinkEffect.canonicalApiDescriptor.canonicalApiId },
+            apiEffect: sinkEffect.apiEffect,
             target: { endpoint: "arg0" },
         },
     ];
 
-    const engine = new TaintPropagationEngine(scene, 1);
+    const engine = new TaintPropagationEngine(scene, 1, { apiAssets: [sinkEffect.asset] });
     engine.verbose = false;
     await engine.buildPAG({
         entryModel: "explicit",

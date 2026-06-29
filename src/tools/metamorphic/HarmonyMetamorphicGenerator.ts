@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as ts from "typescript";
+import { parseCanonicalApiId } from "../../core/api/identity";
 
 export type HarmonyMutatorGroup = "A" | "B";
 
@@ -35,19 +36,16 @@ export interface HarmonyBenchManifest {
     categories: HarmonyBenchCategory[];
 }
 
-interface HarmonyRuleMatchShape {
-    kind?: string;
-    value?: unknown;
-}
-
-interface HarmonyRuleShape {
-    match?: HarmonyRuleMatchShape;
-}
-
 interface HarmonyRuleFileShape {
-    sources?: HarmonyRuleShape[];
-    sinks?: HarmonyRuleShape[];
-    transfers?: HarmonyRuleShape[];
+    surfaces?: Array<{
+        surfaceId?: string;
+        canonicalApiId?: string;
+        kind?: string;
+    }>;
+    bindings?: Array<{
+        surfaceId?: string;
+        role?: string;
+    }>;
 }
 
 export interface HarmonyAnchorProfile {
@@ -367,17 +365,29 @@ function renameVariableAst(source: string, oldName: string, newName: string): { 
     return { code, changed: code !== source };
 }
 
-function collectMethodNameEquals(entries: HarmonyRuleShape[] | undefined): string[] {
-    if (!entries || !Array.isArray(entries)) return [];
+function collectRoleSurfaceNames(ruleFile: HarmonyRuleFileShape, role: "source" | "sink" | "transfer"): string[] {
+    const surfaces = new Map<string, NonNullable<HarmonyRuleFileShape["surfaces"]>[number]>();
+    for (const surface of ruleFile.surfaces || []) {
+        if (surface.surfaceId) surfaces.set(surface.surfaceId, surface);
+    }
     const names: string[] = [];
-    for (const e of entries) {
-        const m = e?.match;
-        if (!m || m.kind !== "method_name_equals") continue;
-        if (typeof m.value === "string" && m.value.trim()) {
-            names.push(m.value.trim());
+    for (const binding of ruleFile.bindings || []) {
+        if (binding.role !== role || !binding.surfaceId) continue;
+        const surface = surfaces.get(binding.surfaceId);
+        if (!surface) continue;
+        const name = memberNameFromCanonicalApiId(surface.canonicalApiId);
+        if (typeof name === "string" && name.trim()) {
+            names.push(name.trim());
         }
     }
     return names;
+}
+
+function memberNameFromCanonicalApiId(canonicalApiId: unknown): string | undefined {
+    const parsed = parseCanonicalApiId(String(canonicalApiId || "").trim());
+    if (!parsed) return undefined;
+    const parts = parsed.member.split(":").map(part => part.trim()).filter(Boolean);
+    return parts[parts.length - 1] || undefined;
 }
 
 function readRuleFile(rulePath: string): HarmonyRuleFileShape {
@@ -404,9 +414,9 @@ function buildAnchorProfile(rulePaths: HarmonyBenchRulePaths): HarmonyAnchorProf
     const transferSet = new Set<string>();
 
     for (const f of files) {
-        for (const name of collectMethodNameEquals(f.sinks)) sinkSet.add(name);
-        for (const name of collectMethodNameEquals(f.sources)) sourceSet.add(name);
-        for (const name of collectMethodNameEquals(f.transfers)) transferSet.add(name);
+        for (const name of collectRoleSurfaceNames(f, "sink")) sinkSet.add(name);
+        for (const name of collectRoleSurfaceNames(f, "source")) sourceSet.add(name);
+        for (const name of collectRoleSurfaceNames(f, "transfer")) transferSet.add(name);
     }
 
     sinkSet.add("Sink");

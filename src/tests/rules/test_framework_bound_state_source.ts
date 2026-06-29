@@ -5,18 +5,12 @@ import { TaintPropagationEngine } from "../../core/orchestration/TaintPropagatio
 import { loadRuleSet } from "../../core/rules/RuleLoader";
 import { SinkRule, SourceRule } from "../../core/rules/RuleSchema";
 import { createIsolatedCaseView, ensureDir } from "../helpers/ExecutionHandoffContractSupport";
+import { projectApiEffectAssetFromMethod } from "../helpers/ApiEffectTestAssets";
+import type { AssetDocumentBase } from "../../core/assets/schema";
 
 function assert(condition: unknown, message: string): asserts condition {
     if (!condition) throw new Error(message);
 }
-
-const SINK_RULES: SinkRule[] = [
-    {
-        id: "sink.fixture.bound_state.arg0",
-        match: { kind: "method_name_equals", value: "Sink" },
-        target: { endpoint: "arg0" },
-    },
-];
 
 function buildScene(projectDir: string): Scene {
     const config = new SceneConfig();
@@ -31,14 +25,38 @@ function findEntry(scene: Scene, name: string): any {
     return scene.getMethods().find(method => method.getName?.() === name);
 }
 
-async function detectFlow(sourceDir: string, caseName: string, entryName: string, sourceRules: SourceRule[]): Promise<{ seedCount: number; flowCount: number }> {
+function buildSinkRules(scene: Scene): { rules: SinkRule[]; assets: AssetDocumentBase[] } {
+    const sinkMethod = findEntry(scene, "Sink");
+    assert(sinkMethod, "sink method not found: Sink");
+    const sinkEffect = projectApiEffectAssetFromMethod({
+        id: "sink.fixture.bound_state.arg0",
+        role: "sink",
+        method: sinkMethod,
+        endpoint: { base: { kind: "arg", index: 0 } },
+        sinkKind: "test",
+    });
+    return {
+        assets: [sinkEffect.asset],
+        rules: [{
+        id: "sink.fixture.bound_state.arg0",
+        match: { kind: "canonical_api_id_equals", value: sinkEffect.canonicalApiDescriptor.canonicalApiId },
+        apiEffect: sinkEffect.apiEffect,
+        target: { endpoint: "arg0" },
+        }],
+    };
+}
+
+async function detectFlow(sourceDir: string, caseName: string, entryName: string, sourceRules: SourceRule[], apiAssets: AssetDocumentBase[]): Promise<{ seedCount: number; flowCount: number }> {
     const caseViewRoot = path.resolve("tmp/test_runs/security/framework_bound_state_source/latest/case_views");
     ensureDir(caseViewRoot);
     const caseDir = createIsolatedCaseView(sourceDir, caseName, caseViewRoot);
     const scene = buildScene(caseDir);
     const entryMethod = findEntry(scene, entryName);
     assert(entryMethod, `entry not found: ${entryName}`);
-    const engine = new TaintPropagationEngine(scene, 1);
+    const sinkRules = buildSinkRules(scene);
+    const engine = new TaintPropagationEngine(scene, 1, {
+        apiAssets: [...apiAssets, ...sinkRules.assets],
+    });
     engine.verbose = false;
     await engine.buildPAG({
         entryModel: "explicit",
@@ -46,7 +64,7 @@ async function detectFlow(sourceDir: string, caseName: string, entryName: string
     });
     engine.setActiveReachableMethodSignatures(undefined, { mergeExplicitEntryScope: false });
     const seedInfo = engine.propagateWithSourceRules(sourceRules);
-    const flows = engine.detectSinksByRules(SINK_RULES);
+    const flows = engine.detectSinksByRules(sinkRules.rules);
     return { seedCount: seedInfo.seedCount, flowCount: flows.length };
 }
 
@@ -55,7 +73,7 @@ async function main(): Promise<void> {
     const loaded = loadRuleSet({
         kernelRulePath: path.resolve("tests/rules/minimal.rules.json"),
         ruleCatalogPath: path.resolve("src/models"),
-        autoDiscoverLayers: false,
+        autoDiscoverRuleSources: false,
         allowMissingProject: true,
     });
     const boundStateRules = (loaded.ruleSet.sources || [])
@@ -68,6 +86,7 @@ async function main(): Promise<void> {
         "textinput_bound_state_001_T",
         "textinput_bound_state_001_T",
         boundStateRules,
+        loaded.assets,
     );
     assert(positive.seedCount > 0, `expected bound-state seed, got ${positive.seedCount}`);
     assert(positive.flowCount > 0, `expected bound-state flow, got ${positive.flowCount}`);
@@ -77,6 +96,7 @@ async function main(): Promise<void> {
         "textinput_plain_value_002_F",
         "textinput_plain_value_002_F",
         boundStateRules,
+        loaded.assets,
     );
     assert(negative.seedCount === 0, `plain value should not seed bound-state source, got ${negative.seedCount}`);
     assert(negative.flowCount === 0, `plain value should not produce flow, got ${negative.flowCount}`);

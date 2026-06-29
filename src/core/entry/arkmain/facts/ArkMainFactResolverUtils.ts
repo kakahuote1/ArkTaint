@@ -4,10 +4,12 @@ import { ArkClass } from "../../../../../arkanalyzer/out/src/core/model/ArkClass
 import { ArkMethod } from "../../../../../arkanalyzer/out/src/core/model/ArkMethod";
 import { ArkMainEntryFact } from "../ArkMainTypes";
 import {
-    ARK_MAIN_ABILITY_BASE_CLASS_NAMES,
-    ARK_MAIN_REACTIVE_ANCHOR_METHOD_NAMES,
-    ARK_MAIN_WATCH_LIKE_DECORATORS,
-} from "../catalog/ArkMainFrameworkCatalog";
+    hasArkMainOfficialComponentDeclarationForMethod,
+    resolveArkMainOfficialLifecycleDeclarationsByMethodKey,
+    resolveArkMainOfficialRuntimeOwnerKindByClassName,
+} from "../catalog/ArkMainOfficialDeclarationCatalog";
+import { arkanalyzerMethodKeyFromArkMethod } from "./ArkMainArkanalyzerMethodKey";
+import type { Scene } from "../../../../../arkanalyzer/out/src/Scene";
 
 export function classInheritsAbility(arkClass: ArkClass): boolean {
     return !!resolveAbilityLikeOwnerKind(arkClass);
@@ -15,21 +17,17 @@ export function classInheritsAbility(arkClass: ArkClass): boolean {
 
 export function resolveAbilityLikeOwnerKind(
     arkClass: ArkClass,
-): "ability_owner" | "stage_owner" | "extension_owner" | undefined {
-    const directKind = classifyAbilityOwnerBaseName(safeGetSuperClassName(arkClass));
+    scene?: Scene,
+): "ability_owner" | "stage_owner" | "extension_owner" | "child_process_owner" | undefined {
+    const directKind = resolveOfficialAbilityOwnerKindFromSdkClass(safeGetSuperClass(arkClass), scene);
     if (directKind) {
         return directKind;
     }
-    let resolved: "ability_owner" | "stage_owner" | "extension_owner" | undefined;
+    let resolved: "ability_owner" | "stage_owner" | "extension_owner" | "child_process_owner" | undefined;
     walkArkMainSuperClasses(arkClass, superClass => {
-        const namedKind = classifyAbilityOwnerBaseName(safeGetClassName(superClass));
-        if (namedKind) {
-            resolved = namedKind;
-            return false;
-        }
-        const inheritedKind = classifyAbilityOwnerBaseName(safeGetSuperClassName(superClass));
-        if (inheritedKind) {
-            resolved = inheritedKind;
+        const officialKind = resolveOfficialAbilityOwnerKindFromSdkClass(superClass, scene);
+        if (officialKind) {
+            resolved = officialKind;
             return false;
         }
         return true;
@@ -145,25 +143,9 @@ export function findReactiveAnchorMethod(cls: ArkClass): ArkMethod | undefined {
 
 export function findReactiveAnchorMethods(cls: ArkClass): ArkMethod[] {
     const methods = cls.getMethods().filter(method => !method.isStatic());
-    const anchors: ArkMethod[] = [];
-    for (const methodName of ARK_MAIN_REACTIVE_ANCHOR_METHOD_NAMES) {
-        const matched = methods.filter(method => method.getName() === methodName);
-        anchors.push(...matched);
-    }
-    if (anchors.length > 0) {
-        return dedupeMethods(anchors);
-    }
-
-    const watchMethods = methods.filter(method =>
-        (method.getDecorators?.() || []).some(decorator => {
-            const kind = normalizeDecoratorKind(decorator?.getKind?.());
-            return !!kind && ARK_MAIN_WATCH_LIKE_DECORATORS.has(kind);
-        }),
-    );
-    if (watchMethods.length > 0) {
-        return dedupeMethods(watchMethods);
-    }
-    return [];
+    return dedupeMethods(methods.filter(method =>
+        hasArkMainOfficialComponentDeclarationForMethod(method.getName?.() || ""),
+    ));
 }
 
 export function collectWatchedFieldWritesFromMethods(
@@ -192,11 +174,15 @@ export function collectDecoratedFieldNames(cls: ArkClass, decoratorKinds: Set<st
     return [...out.values()].sort((a, b) => a.localeCompare(b));
 }
 
+export function isOfficialArkMainWatchDecoratorKind(_kind: string | undefined): boolean {
+    return false;
+}
+
 export function extractWatchTargets(decorators: any[]): string[] {
     const out = new Set<string>();
     for (const decorator of decorators) {
         const kind = normalizeDecoratorKind(decorator?.getKind?.());
-        if (!kind || !ARK_MAIN_WATCH_LIKE_DECORATORS.has(kind)) continue;
+        if (!isOfficialArkMainWatchDecoratorKind(kind)) continue;
         const raw = decorator?.getParam?.() || decorator?.getContent?.() || "";
         const normalized = normalizeDecoratorParam(raw);
         if (normalized) out.add(normalized);
@@ -233,20 +219,40 @@ export function collectThisFieldWrites(method: ArkMethod, watchedFields: Set<str
     return [...out.values()].sort((a, b) => a.localeCompare(b));
 }
 
-function classifyAbilityOwnerBaseName(
-    raw: string | undefined,
-): "ability_owner" | "stage_owner" | "extension_owner" | undefined {
-    const normalized = normalizeClassName(raw);
-    if (!normalized) return undefined;
-    if (normalized === "AbilityStage") {
-        return "stage_owner";
+function resolveOfficialAbilityOwnerKindFromSdkClass(
+    sdkClass: ArkClass | null | undefined,
+    scene?: Scene,
+): "ability_owner" | "stage_owner" | "extension_owner" | "child_process_owner" | undefined {
+    for (const method of sdkClass?.getMethods?.() || []) {
+        const methodKey = arkanalyzerMethodKeyFromArkMethod(method);
+        if (!methodKey) {
+            continue;
+        }
+        for (const declaration of resolveArkMainOfficialLifecycleDeclarationsByMethodKey(methodKey)) {
+            switch (declaration.ownerKind) {
+                case "ability_owner":
+                case "stage_owner":
+                case "extension_owner":
+                case "child_process_owner":
+                    return declaration.ownerKind;
+                default:
+                    break;
+            }
+        }
     }
-    if (normalized.endsWith("ExtensionAbility")) {
-        return "extension_owner";
+    if (scene && isSdkBackedArkMainClass(scene, sdkClass)) {
+        return resolveArkMainOfficialRuntimeOwnerKindByClassName(safeGetClassName(sdkClass));
     }
-    return ARK_MAIN_ABILITY_BASE_CLASS_NAMES.has(normalized)
-        ? "ability_owner"
-        : undefined;
+    return undefined;
+}
+
+function isSdkBackedArkMainClass(scene: Scene, arkClass: ArkClass | null | undefined): boolean {
+    try {
+        const fileSig = arkClass?.getDeclaringArkFile?.()?.getFileSignature?.();
+        return !!fileSig && scene.hasSdkFile(fileSig);
+    } catch {
+        return false;
+    }
 }
 
 function normalizeDecoratorParam(raw: string): string | undefined {
@@ -257,10 +263,6 @@ function normalizeDecoratorParam(raw: string): string | undefined {
     const contentMatch = text.match(/\(\s*['"`]([^'"`]+)['"`]\s*\)/);
     if (contentMatch) return contentMatch[1];
     return text;
-}
-
-function normalizeClassName(raw: string | undefined): string {
-    return (raw || "").replace(/^@/, "").trim();
 }
 
 

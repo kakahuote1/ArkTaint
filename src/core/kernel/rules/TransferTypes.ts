@@ -3,26 +3,19 @@ import { Local } from "../../../../arkanalyzer/out/src/core/base/Local";
 import { TaintFact } from "../model/TaintFact";
 import type {
     RuleEndpoint,
+    RuleEndpointRef,
     RuleEndpointTaintScope,
     RuleInvokeKind,
-    RuleMatchKind as SchemaRuleMatchKind,
+    RuleSlotWriteMode,
     TransferRule
 } from "../../rules/RuleSchema";
 
-export type RuleMatchKind = SchemaRuleMatchKind;
-
 export interface RuntimeRule {
     rule: TransferRule;
-    normalizedMatchValue?: string;
-    exactSignatureMatch?: string;
-    exactDeclaringClassMatch?: string;
 }
 
 export interface RuntimeRuleBucketIndex {
     universal: RuntimeRule[];
-    methodNameEquals: Map<string, RuntimeRule[]>;
-    signatureEquals: Map<string, RuntimeRule[]>;
-    declaringClassEquals: Map<string, RuntimeRule[]>;
 }
 
 export interface TransferExecutionStats {
@@ -36,10 +29,12 @@ export interface TransferExecutionStats {
     resultCount: number;
     elapsedMs: number;
     noCandidateCallsites: TransferNoCandidateCallsite[];
+    siteConsumptions: TransferSemanticSiteConsumption[];
 }
 
 export interface TransferNoCandidateCallsite {
     calleeSignature: string;
+    canonicalApiId?: string;
     method: string;
     invokeKind: RuleInvokeKind;
     argCount: number;
@@ -47,10 +42,40 @@ export interface TransferNoCandidateCallsite {
     count: number;
 }
 
-export interface MethodEntityIndex {
-    signatures: Set<string>;
-    declaringClasses: Set<string>;
-    declaringClassNames: Set<string>;
+export interface TransferEndpointConsumption {
+    endpoint: RuleEndpoint;
+    endpointPath?: string;
+    status: string;
+    reason: string;
+    nodeIds: number[];
+    carrierNodeIds: number[];
+    fieldPath?: string[];
+    materializedExact: boolean;
+}
+
+export interface TransferSemanticSiteConsumption {
+    ruleId: string;
+    canonicalApiId: string;
+    effectSiteId?: string;
+    occurrenceId?: string;
+    rawOccurrenceId?: string;
+    effectAssetId?: string;
+    surfaceId?: string;
+    bindingId?: string;
+    effectTemplateId?: string;
+    callSignature?: string;
+    callerSignature?: string;
+    method?: string;
+    invokeKind?: RuleInvokeKind;
+    sourceFile?: string;
+    scheduled: boolean;
+    fromMatched: boolean;
+    toProjected: boolean;
+    resultCount: number;
+    blockedReason?: string;
+    fromEndpoint?: TransferEndpointConsumption;
+    toEndpoint?: TransferEndpointConsumption;
+    count?: number;
 }
 
 export interface EndpointDescriptor {
@@ -58,12 +83,15 @@ export interface EndpointDescriptor {
     path?: string[];
     pathFrom?: RuleEndpoint;
     slotKind?: string;
+    slotWriteMode?: RuleSlotWriteMode;
     taintScope?: RuleEndpointTaintScope;
+    semanticEndpointKind?: RuleEndpointRef["semanticEndpointKind"];
 }
 
 export interface InvokeSite {
     stmt: any;
     invokeExpr: ArkInstanceInvokeExpr | ArkStaticInvokeExpr | ArkPtrInvokeExpr;
+    callerMethod?: any;
     signature: string;
     methodName: string;
     calleeSignature: string;

@@ -3,7 +3,7 @@ import * as http from "http";
 import * as path from "path";
 import { runSemanticFlowCli } from "../../cli/semanticflow";
 import { writeLlmConfigFile } from "../../cli/llmConfig";
-import { resolvedAsset, ruleTransferAsset, vaultHandoffAsset, withSurfaceModulePath } from "../helpers/SemanticFlowMockAssetDecisions";
+import { resolvedAsset, retargetAssetSurfacesToProjectModule, ruleTransferAsset, vaultHandoffAsset } from "../helpers/SemanticFlowMockAssetDecisions";
 
 function assert(condition: unknown, message: string): asserts condition {
     if (!condition) {
@@ -75,9 +75,9 @@ async function createMockServer(): Promise<{
                     reason: "official ArkMain lifecycle is covered by built-in assets",
                 };
             } else if (surface === "pass" && owner?.includes("Pipe")) {
-                decision = resolvedAsset(withSurfaceModulePath(ruleTransferAsset("Pipe", "pass", 1), modulePath, sourceFile));
+                decision = resolvedAsset(retargetAssetSurfacesToProjectModule(ruleTransferAsset("Pipe", "pass", 1), modulePath, sourceFile));
             } else if (surface === "put" && owner?.includes("Vault")) {
-                decision = resolvedAsset(withSurfaceModulePath(vaultHandoffAsset("semanticflow_auto"), modulePath, sourceFile));
+                decision = resolvedAsset(retargetAssetSurfacesToProjectModule(vaultHandoffAsset("semanticflow_auto"), modulePath, sourceFile));
             } else {
                 decision = {
                     status: "reject",

@@ -6,12 +6,25 @@ import type {
     ModuleSemanticSurfaceRef,
     InternalModuleLoweringIR,
 } from "../../core/kernel/contracts/InternalModuleLoweringIR";
+import type { AssetDocumentBase, AssetSurface } from "../../core/assets/schema";
+import { fromProjectDeclaration } from "../../core/api/identity";
 import type { TaintModule } from "../../core/kernel/contracts/ModuleContract";
 import { compileInternalModuleLoweringIR } from "../../core/orchestration/modules/InternalModuleLoweringIRCompiler";
 import { TaintPropagationEngine } from "../../core/orchestration/TaintPropagationEngine";
-import { loadRuleSet } from "../../core/rules/RuleLoader";
+import { loadRuleSet, type LoadedRuleSet } from "../../core/rules/RuleLoader";
 import { findCaseMethod, resolveCaseMethod } from "../helpers/SyntheticCaseHarness";
 import { resolveTestRunDir, resolveTestRunPath } from "../helpers/TestWorkspaceLayout";
+import { bindExactAssetIdentities } from "../helpers/AssetIdentityTestUtils";
+import harmonyStateModuleAsset from "../../models/kernel/modules/harmony/state";
+import harmonyAppStorageModuleAsset from "../../models/kernel/modules/harmony/appstorage";
+import tsjsContainerModuleAsset from "../../models/kernel/modules/tsjs/container";
+import {
+    buildProjectDeclarationRegistry,
+    parseCanonicalApiId,
+    toCanonicalApiRegistrySnapshot,
+    writeCanonicalApiRegistrySnapshot,
+    type CanonicalApiDeclarationEvidence,
+} from "../../core/api/identity";
 
 function assert(condition: unknown, message: string): asserts condition {
     if (!condition) {
@@ -19,86 +32,754 @@ function assert(condition: unknown, message: string): asserts condition {
     }
 }
 
+function progress(message: string): void {
+    if (process.env.ARKTAINT_TEST_PROGRESS === "1") {
+        console.log(`[internal_module_lowering] ${message}`);
+    }
+}
+
+let cachedFixtureRuleSet: LoadedRuleSet | undefined;
+
 function writeText(filePath: string, content: string): void {
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
     fs.writeFileSync(filePath, content, "utf-8");
 }
 
-function writeFixtureRuleAsset(filePath: string, fixtureId: string): void {
-    writeText(
-        filePath,
-        JSON.stringify({
-            id: `asset.rule.${fixtureId}`,
-            plane: "rule",
-            status: "reviewed",
-            surfaces: [
-                {
-                    surfaceId: `surface.${fixtureId}.Source`,
-                    kind: "invoke",
-                    modulePath: "repo/src/main/ets",
-                    functionName: "Source",
-                    invokeKind: "free-function",
-                    argCount: 0,
-                    confidence: "certain",
-                    provenance: { source: "manual" },
+function capabilityPayload(asset: AssetDocumentBase): Record<string, any> {
+    const template = (asset.effectTemplates || []).find(item => item.kind === "core.capability") as any;
+    if (!template || typeof template.payload !== "object" || template.payload === null) {
+        throw new Error(`module asset ${asset.id} must expose a core.capability payload for this fixture`);
+    }
+    return template.payload as Record<string, any>;
+}
+
+type FixtureInvokeSurface = Extract<AssetSurface, { kind: "invoke" }>;
+
+interface FixtureProjectClassMethodInput {
+    modulePath: string;
+    className: string;
+    methodName: string;
+    parameterTypes: string[];
+    returnType: string;
+    staticMember?: boolean;
+}
+
+function projectClassMethodCanonicalApiId(input: FixtureProjectClassMethodInput): string {
+    const result = fromProjectDeclaration(projectClassMethodDeclaration(input));
+    if (result.status !== "accepted") {
+        throw new Error(`fixture project method identity rejected for ${input.className}.${input.methodName}: ${result.reason}`);
+    }
+    return result.descriptor.canonicalApiId;
+}
+
+function projectClassMethodDeclaration(input: FixtureProjectClassMethodInput): CanonicalApiDeclarationEvidence {
+    const file = syntheticFixtureDeclarationFile(input.modulePath);
+    return {
+        domain: "local",
+        moduleSpecifier: input.modulePath,
+        logicalDeclarationFile: file,
+        exportPath: [{ kind: "namespace", name: input.className }],
+        declarationOwner: {
+            kind: "class",
+            path: [input.className],
+            normalizedName: input.className,
+            arkanalyzerName: input.className,
+        },
+        member: { kind: "method", name: input.methodName, static: !!input.staticMember },
+        invoke: { kind: "call" },
+        signature: {
+            parameters: input.parameterTypes.map((type, index) => ({ index, type: { text: type } })),
+            returnType: { text: input.returnType },
+        },
+        arkanalyzer: {
+            declaringFileName: input.modulePath,
+            declaringNamespacePath: [],
+            declaringClassName: input.className,
+            methodName: input.methodName,
+            parameterTypes: input.parameterTypes,
+            returnType: input.returnType,
+            staticFlag: !!input.staticMember,
+        },
+        declarationLocations: [{ file }],
+    };
+}
+
+function projectClassMethodSurface(
+    surfaceId: string,
+    input: FixtureProjectClassMethodInput,
+): FixtureInvokeSurface {
+    return {
+        surfaceId,
+        kind: "invoke",
+        canonicalApiId: projectClassMethodCanonicalApiId(input),
+        evidence: {
+            arkanalyzer: {
+                methodKey: {
+                    declaringFileName: input.modulePath,
+                    declaringNamespacePath: [],
+                    declaringClassName: input.className,
+                    methodName: input.methodName,
+                    parameterTypes: input.parameterTypes,
+                    returnType: input.returnType,
+                    staticFlag: !!input.staticMember,
                 },
-                {
-                    surfaceId: `surface.${fixtureId}.Sink`,
-                    kind: "invoke",
-                    modulePath: "repo/src/main/ets",
-                    functionName: "Sink",
-                    invokeKind: "free-function",
-                    argCount: 1,
-                    confidence: "certain",
-                    provenance: { source: "manual" },
-                },
-            ],
-            bindings: [
-                {
-                    bindingId: `binding.${fixtureId}.Source.return`,
-                    surfaceId: `surface.${fixtureId}.Source`,
-                    assetId: `asset.rule.${fixtureId}`,
-                    plane: "rule",
-                    role: "source",
-                    endpoint: { base: { kind: "return" } },
-                    effectTemplateRefs: [`template.${fixtureId}.Source.return`],
-                    completeness: "complete",
-                    confidence: "certain",
-                },
-                {
-                    bindingId: `binding.${fixtureId}.Sink.arg0`,
-                    surfaceId: `surface.${fixtureId}.Sink`,
-                    assetId: `asset.rule.${fixtureId}`,
-                    plane: "rule",
-                    role: "sink",
-                    endpoint: { base: { kind: "arg", index: 0 } },
-                    effectTemplateRefs: [`template.${fixtureId}.Sink.arg0`],
-                    completeness: "complete",
-                    confidence: "certain",
-                },
-            ],
-            effectTemplates: [
-                {
-                    id: `template.${fixtureId}.Source.return`,
-                    kind: "rule.source",
-                    sourceKind: "call_return",
-                    value: { base: { kind: "return" } },
-                    confidence: "certain",
-                },
-                {
-                    id: `template.${fixtureId}.Sink.arg0`,
-                    kind: "rule.sink",
-                    sinkKind: "fixture",
-                    value: { base: { kind: "arg", index: 0 } },
-                    confidence: "certain",
-                },
-            ],
-            provenance: {
-                source: "manual",
-                evidenceLocations: [{ file: filePath }],
             },
-        }, null, 2),
+        },
+        confidence: "certain",
+        provenance: { source: "manual" },
+    };
+}
+
+interface FixtureProjectFreeFunctionInput {
+    modulePath: string;
+    functionName: string;
+    parameterTypes: string[];
+    returnType: string;
+}
+
+function projectFreeFunctionCanonicalApiId(input: FixtureProjectFreeFunctionInput): string {
+    const result = fromProjectDeclaration(projectFreeFunctionDeclaration(input));
+    if (result.status !== "accepted") {
+        throw new Error(`fixture project function identity rejected for ${input.functionName}: ${result.reason}`);
+    }
+    return result.descriptor.canonicalApiId;
+}
+
+function projectFreeFunctionDeclaration(input: FixtureProjectFreeFunctionInput): CanonicalApiDeclarationEvidence {
+    const file = syntheticFixtureDeclarationFile(input.modulePath);
+    return {
+        domain: "local",
+        moduleSpecifier: input.modulePath,
+        logicalDeclarationFile: file,
+        exportPath: [{ kind: "default", name: "file" }],
+        declarationOwner: {
+            kind: "namespace",
+            path: ["file"],
+            normalizedName: "file",
+            arkanalyzerName: "file",
+        },
+        member: { kind: "function", name: input.functionName },
+        invoke: { kind: "call" },
+        signature: {
+            parameters: input.parameterTypes.map((type, index) => ({ index, type: { text: type } })),
+            returnType: { text: input.returnType },
+        },
+        arkanalyzer: {
+            declaringFileName: input.modulePath,
+            declaringNamespacePath: [],
+            declaringClassName: "%dflt",
+            methodName: input.functionName,
+            parameterTypes: input.parameterTypes,
+            returnType: input.returnType,
+            staticFlag: true,
+        },
+        declarationLocations: [{ file }],
+    };
+}
+
+function projectFreeFunctionSurface(
+    surfaceId: string,
+    input: FixtureProjectFreeFunctionInput,
+): FixtureInvokeSurface {
+    return {
+        surfaceId,
+        kind: "invoke",
+        canonicalApiId: projectFreeFunctionCanonicalApiId(input),
+        evidence: {
+            arkanalyzer: {
+                methodKey: {
+                    declaringFileName: input.modulePath,
+                    declaringNamespacePath: [],
+                    declaringClassName: "%dflt",
+                    methodName: input.functionName,
+                    parameterTypes: input.parameterTypes,
+                    returnType: input.returnType,
+                    staticFlag: true,
+                },
+            },
+        },
+        confidence: "certain",
+        provenance: { source: "manual" },
+    };
+}
+
+function syntheticFixtureDeclarationFile(modulePath: string): string {
+    const safe = String(modulePath || "test-fixture")
+        .replace(/^@/, "")
+        .replace(/[^A-Za-z0-9_.-]+/g, "_")
+        .replace(/^_+|_+$/g, "") || "test_fixture";
+    return `tests/api/${safe}.d.ts`;
+}
+
+function eventEmitterProjectApiIds(): { on: string[]; emit: string[] } {
+    const eventBus = eventBusMethodInputs();
+    return {
+        on: eventBus.filter(input => input.methodName === "on").map(projectClassMethodCanonicalApiId),
+        emit: eventBus.filter(input => input.methodName === "emit").map(projectClassMethodCanonicalApiId),
+    };
+}
+
+function routerProjectApiIds(): { pushRouteWrapped: string; getRouteParams: string } {
+    const methods = routerMethodInputs();
+    const pushRouteWrapped = methods.find(input => input.methodName === "pushRouteWrapped");
+    const getRouteParams = methods.find(input => input.methodName === "getRouteParams");
+    assert(!!pushRouteWrapped && !!getRouteParams, "router fixture method identities are incomplete");
+    return {
+        pushRouteWrapped: projectClassMethodCanonicalApiId(pushRouteWrapped),
+        getRouteParams: projectClassMethodCanonicalApiId(getRouteParams),
+    };
+}
+
+function keyedStorageProjectApiIds(): { putValue: string[] } {
+    return {
+        putValue: storageMethodInputs().map(projectClassMethodCanonicalApiId),
+    };
+}
+
+function eventBusMethodInputs(): FixtureProjectClassMethodInput[] {
+    return [
+        {
+            modulePath: "repo/src/main/ets/emitter_case.ets",
+            className: "EventBus",
+            methodName: "on",
+            parameterTypes: ["string", "@repo/src/main/ets/emitter_case.ets: EventBus.%AM0(string)"],
+            returnType: "void",
+        },
+        {
+            modulePath: "repo/src/main/ets/emitter_case.ets",
+            className: "EventBus",
+            methodName: "emit",
+            parameterTypes: ["string", "string"],
+            returnType: "void",
+        },
+        {
+            modulePath: "repo/src/main/ets/emitter_scope_case.ets",
+            className: "EventBusA",
+            methodName: "on",
+            parameterTypes: ["string", "@repo/src/main/ets/emitter_scope_case.ets: EventBusA.%AM0(string)"],
+            returnType: "void",
+        },
+        {
+            modulePath: "repo/src/main/ets/emitter_scope_case.ets",
+            className: "EventBusA",
+            methodName: "emit",
+            parameterTypes: ["string", "string"],
+            returnType: "void",
+        },
+        {
+            modulePath: "repo/src/main/ets/emitter_scope_case.ets",
+            className: "EventBusB",
+            methodName: "on",
+            parameterTypes: ["string", "@repo/src/main/ets/emitter_scope_case.ets: EventBusB.%AM0(string)"],
+            returnType: "void",
+        },
+        {
+            modulePath: "repo/src/main/ets/emitter_scope_case.ets",
+            className: "EventBusB",
+            methodName: "emit",
+            parameterTypes: ["string", "string"],
+            returnType: "void",
+        },
+    ];
+}
+
+function routerMethodInputs(): FixtureProjectClassMethodInput[] {
+    return [
+        {
+            modulePath: "repo/src/main/ets/router_unwrap_case.ets",
+            className: "RouterLike",
+            methodName: "pushRouteWrapped",
+            parameterTypes: ["@repo/src/main/ets/router_unwrap_case.ets: RoutePushOptions"],
+            returnType: "void",
+            staticMember: true,
+        },
+        {
+            modulePath: "repo/src/main/ets/router_unwrap_case.ets",
+            className: "RouterLike",
+            methodName: "getRouteParams",
+            parameterTypes: [],
+            returnType: "@repo/src/main/ets/router_unwrap_case.ets: RouteResultParams",
+            staticMember: true,
+        },
+    ];
+}
+
+function storageMethodInputs(): FixtureProjectClassMethodInput[] {
+    return [
+        {
+            modulePath: "repo/src/main/ets/storage_prop_case.ets",
+            className: "StorageHubProp",
+            methodName: "putValue",
+            parameterTypes: ["string", "string"],
+            returnType: "void",
+            staticMember: true,
+        },
+        {
+            modulePath: "repo/src/main/ets/storage_prop_mismatch_case.ets",
+            className: "StorageHubPropMismatch",
+            methodName: "putValue",
+            parameterTypes: ["string", "string"],
+            returnType: "void",
+            staticMember: true,
+        },
+    ];
+}
+
+function bridgeClassMethodInputs(): FixtureProjectClassMethodInput[] {
+    return [
+        {
+            modulePath: "repo/src/main/ets/carrier_case.ets",
+            className: "Bus",
+            methodName: "onMessage",
+            parameterTypes: ["@repo/src/main/ets/carrier_case.ets: Bus.%AM0(string)"],
+            returnType: "void",
+        },
+        {
+            modulePath: "repo/src/main/ets/carrier_case.ets",
+            className: "Bus",
+            methodName: "postMessage",
+            parameterTypes: ["string"],
+            returnType: "void",
+        },
+        {
+            modulePath: "repo/src/main/ets/method_field_state_case.ets",
+            className: "Lifecycle020",
+            methodName: "onCreate",
+            parameterTypes: ["string"],
+            returnType: "void",
+        },
+        {
+            modulePath: "repo/src/main/ets/method_field_state_case.ets",
+            className: "Lifecycle020",
+            methodName: "render",
+            parameterTypes: [],
+            returnType: "void",
+        },
+        {
+            modulePath: "repo/src/main/ets/declarative_case.ets",
+            className: "WatchBox",
+            methodName: "setToken",
+            parameterTypes: ["string"],
+            returnType: "void",
+        },
+        {
+            modulePath: "repo/src/main/ets/declarative_case.ets",
+            className: "WatchBox",
+            methodName: "onTokenChanged",
+            parameterTypes: [],
+            returnType: "void",
+        },
+        {
+            modulePath: "repo/src/main/ets/method_param_case.ets",
+            className: "AbilityContext",
+            methodName: "startAbility",
+            parameterTypes: ["string"],
+            returnType: "void",
+        },
+        {
+            modulePath: "repo/src/main/ets/method_param_case.ets",
+            className: "DemoAbility",
+            methodName: "onCreate",
+            parameterTypes: ["string"],
+            returnType: "void",
+        },
+    ];
+}
+
+function bridgeFreeFunctionInputs(): FixtureProjectFreeFunctionInput[] {
+    return [
+        {
+            modulePath: "repo/src/main/ets/callback_case.ets",
+            functionName: "Register",
+            parameterTypes: ["string", "@repo/src/main/ets/callback_case.ets: %dflt.%AM0(string)"],
+            returnType: "void",
+        },
+        {
+            modulePath: "repo/src/main/ets/keyed_state_case.ets",
+            functionName: "Put",
+            parameterTypes: ["string", "string"],
+            returnType: "void",
+        },
+        {
+            modulePath: "repo/src/main/ets/keyed_state_case.ets",
+            functionName: "Get",
+            parameterTypes: ["string"],
+            returnType: "string",
+        },
+        {
+            modulePath: "repo/src/main/ets/same_address_case.ets",
+            functionName: "PutAddress",
+            parameterTypes: ["string", "string"],
+            returnType: "void",
+        },
+        {
+            modulePath: "repo/src/main/ets/same_address_case.ets",
+            functionName: "GetAddress",
+            parameterTypes: ["string"],
+            returnType: "string",
+        },
+        {
+            modulePath: "repo/src/main/ets/stringify_boundary_case.ets",
+            functionName: "JsonStringify013",
+            parameterTypes: ["@repo/src/main/ets/stringify_boundary_case.ets: StringifyPayload013"],
+            returnType: "string",
+        },
+        {
+            modulePath: "repo/src/main/ets/clone_copy_boundary_case.ets",
+            functionName: "SaveClone014",
+            parameterTypes: ["@repo/src/main/ets/clone_copy_boundary_case.ets: CloneSource014"],
+            returnType: "void",
+        },
+        {
+            modulePath: "repo/src/main/ets/clone_copy_boundary_case.ets",
+            functionName: "LoadClone014",
+            parameterTypes: [],
+            returnType: "@repo/src/main/ets/clone_copy_boundary_case.ets: CloneTarget014",
+        },
+    ];
+}
+
+function projectSemanticSurfaces(fixtureId: string): FixtureInvokeSurface[] {
+    const classSurfaces = [
+        ...eventBusMethodInputs(),
+        ...routerMethodInputs(),
+        ...storageMethodInputs(),
+        ...bridgeClassMethodInputs(),
+    ].map((input, index) => projectClassMethodSurface(
+        `surface.${fixtureId}.semantic.project_api.class.${index}.${input.className}.${input.methodName}`,
+        input,
+    ));
+    const freeFunctionSurfaces = bridgeFreeFunctionInputs().map((input, index) => projectFreeFunctionSurface(
+        `surface.${fixtureId}.semantic.project_api.function.${index}.${input.functionName}`,
+        input,
+    ));
+    return [...classSurfaces, ...freeFunctionSurfaces];
+}
+
+function writeFixtureRuleAsset(filePath: string, fixtureId: string): void {
+    const files = [
+        "callback_case.ets",
+        "carrier_case.ets",
+        "emitter_scope_case.ets",
+        "keyed_state_case.ets",
+        "same_address_case.ets",
+        "method_field_state_case.ets",
+        "declarative_case.ets",
+        "method_param_case.ets",
+        "emitter_case.ets",
+        "router_unwrap_case.ets",
+        "storage_prop_case.ets",
+        "storage_prop_mismatch_case.ets",
+        "provide_consume_case.ets",
+        "container_map_case.ets",
+        "stringify_boundary_case.ets",
+        "clone_copy_boundary_case.ets",
+    ];
+    const ruleSurfaces = files.flatMap((name, index) => {
+        const prefix = `surface.${fixtureId}.${index}`;
+        const modulePath = `repo/src/main/ets/${name}`;
+        return [
+            projectFreeFunctionSurface(`${prefix}.Source`, {
+                modulePath,
+                functionName: "Source",
+                parameterTypes: [],
+                returnType: "string",
+            }),
+            projectFreeFunctionSurface(`${prefix}.Sink`, {
+                modulePath,
+                functionName: "Sink",
+                parameterTypes: ["string"],
+                returnType: "void",
+            }),
+        ];
+    });
+    const surfaces = [...ruleSurfaces, ...projectSemanticSurfaces(fixtureId)];
+    const bindings = files.flatMap((_name, index) => {
+        const prefix = `${fixtureId}.${index}`;
+        return [
+            {
+                bindingId: `binding.${prefix}.Source.return`,
+                surfaceId: `surface.${prefix}.Source`,
+                assetId: `asset.rule.${fixtureId}`,
+                plane: "rule",
+                role: "source",
+                endpoint: { base: { kind: "return" } },
+                effectTemplateRefs: [`template.${prefix}.Source.return`],
+                completeness: "complete",
+                confidence: "certain",
+            },
+            {
+                bindingId: `binding.${prefix}.Sink.arg0`,
+                surfaceId: `surface.${prefix}.Sink`,
+                assetId: `asset.rule.${fixtureId}`,
+                plane: "rule",
+                role: "sink",
+                endpoint: { base: { kind: "arg", index: 0 } },
+                effectTemplateRefs: [`template.${prefix}.Sink.arg0`],
+                completeness: "complete",
+                confidence: "certain",
+            },
+        ];
+    });
+    const effectTemplates = files.flatMap((_name, index) => {
+        const prefix = `${fixtureId}.${index}`;
+        return [
+            {
+                id: `template.${prefix}.Source.return`,
+                kind: "rule.source",
+                sourceKind: "call_return",
+                value: { base: { kind: "return" } },
+                confidence: "certain",
+            },
+            {
+                id: `template.${prefix}.Sink.arg0`,
+                kind: "rule.sink",
+                sinkKind: "fixture",
+                value: { base: { kind: "arg", index: 0 } },
+                confidence: "certain",
+            },
+        ];
+    });
+    const asset = bindExactAssetIdentities({
+        id: `asset.rule.${fixtureId}`,
+        plane: "rule",
+        status: "reviewed",
+        surfaces,
+        bindings,
+        effectTemplates,
+        provenance: {
+            source: "manual",
+            evidenceLocations: [{ file: filePath }],
+        },
+    } as AssetDocumentBase);
+    writeText(filePath, JSON.stringify(asset, null, 2));
+}
+
+function writeFixtureCanonicalRegistry(filePath: string): void {
+    const files = [
+        "callback_case.ets",
+        "carrier_case.ets",
+        "emitter_scope_case.ets",
+        "keyed_state_case.ets",
+        "same_address_case.ets",
+        "method_field_state_case.ets",
+        "declarative_case.ets",
+        "method_param_case.ets",
+        "emitter_case.ets",
+        "router_unwrap_case.ets",
+        "storage_prop_case.ets",
+        "storage_prop_mismatch_case.ets",
+        "provide_consume_case.ets",
+        "container_map_case.ets",
+        "stringify_boundary_case.ets",
+        "clone_copy_boundary_case.ets",
+    ];
+    const declarations: CanonicalApiDeclarationEvidence[] = [];
+    for (const name of files) {
+        const modulePath = `repo/src/main/ets/${name}`;
+        declarations.push(
+            projectFreeFunctionDeclaration({
+                modulePath,
+                functionName: "Source",
+                parameterTypes: [],
+                returnType: "string",
+            }),
+            projectFreeFunctionDeclaration({
+                modulePath,
+                functionName: "Sink",
+                parameterTypes: ["string"],
+                returnType: "void",
+            }),
+        );
+    }
+    declarations.push(
+        ...[
+            ...eventBusMethodInputs(),
+            ...routerMethodInputs(),
+            ...storageMethodInputs(),
+            ...bridgeClassMethodInputs(),
+        ].map(projectClassMethodDeclaration),
+        ...bridgeFreeFunctionInputs().map(projectFreeFunctionDeclaration),
     );
+    const result = buildProjectDeclarationRegistry(declarations);
+    if (!result.ok) {
+        throw new Error(`fixture canonical registry should be valid: ${result.diagnostics.map(item => item.message).join("; ")}`);
+    }
+    writeCanonicalApiRegistrySnapshot(filePath, toCanonicalApiRegistrySnapshot(result));
+}
+
+function moduleIdentityAssetForSpec(spec: InternalModuleLoweringIR, fixtureId: string): AssetDocumentBase {
+    const canonicalApiIds = collectCanonicalApiIds(spec);
+    const projectSurfacesByCanonicalApiId = new Map(
+        projectSemanticSurfaces(fixtureId).map(surface => [surface.canonicalApiId, surface]),
+    );
+    const assetId = `asset.module.${assetIdSegment(spec.id)}`;
+    const surfaces = canonicalApiIds.map((canonicalApiId, index): AssetSurface => {
+        const projectSurface = projectSurfacesByCanonicalApiId.get(canonicalApiId);
+        if (projectSurface) {
+            return {
+                ...projectSurface,
+                surfaceId: `surface.${assetIdSegment(spec.id)}.${String(index + 1).padStart(4, "0")}`,
+            };
+        }
+        const parsed = parseCanonicalApiId(canonicalApiId);
+        assert(!!parsed, `module fixture spec ${spec.id} references invalid canonicalApiId: ${canonicalApiId}`);
+        const kind = parsed.invoke === "decorator"
+            ? "decorator"
+            : parsed.invoke === "new"
+                ? "construct"
+                : "invoke";
+        return {
+            surfaceId: `surface.${assetIdSegment(spec.id)}.${String(index + 1).padStart(4, "0")}`,
+            kind,
+            canonicalApiId,
+            confidence: "certain",
+            provenance: {
+                source: parsed.authority === "official" ? "sdk" : parsed.authority === "project" ? "project" : "manual",
+            },
+        } as AssetSurface;
+    });
+    const templateId = `template.${assetIdSegment(spec.id)}.identity_gate`;
+    const endpointBindings = collectModuleEndpointBindings(spec, surfaces, assetId, templateId);
+    const surfacesWithoutEndpointBindings = surfaces.filter(surface =>
+        !endpointBindings.some(binding => binding.surfaceId === surface.surfaceId),
+    );
+    return bindExactAssetIdentities({
+        id: assetId,
+        plane: "module",
+        status: "reviewed",
+        surfaces,
+        bindings: [
+            ...endpointBindings,
+            ...surfacesWithoutEndpointBindings.map((surface, index) => ({
+            bindingId: `binding.${assetIdSegment(spec.id)}.${String(index + 1).padStart(4, "0")}`,
+            surfaceId: surface.surfaceId,
+            canonicalApiId: surface.canonicalApiId,
+            assetId,
+            plane: "module",
+            role: "module",
+            effectTemplateRefs: [templateId],
+            semanticsFamily: spec.id,
+            completeness: "complete",
+            confidence: "certain",
+            })),
+        ],
+        effectTemplates: [
+            {
+                id: templateId,
+                kind: "core.capability",
+                capability: "module.explicit-ir",
+                payload: {
+                    specId: spec.id,
+                    canonicalApiIds,
+                },
+                confidence: "certain",
+            },
+        ],
+        provenance: {
+            source: "manual",
+        },
+    } as AssetDocumentBase);
+}
+
+function collectModuleEndpointBindings(
+    spec: InternalModuleLoweringIR,
+    surfaces: AssetSurface[],
+    assetId: string,
+    templateId: string,
+): any[] {
+    const surfaceByCanonicalApiId = new Map(surfaces.map(surface => [surface.canonicalApiId, surface]));
+    const bindings: any[] = [];
+    const seen = new Set<string>();
+    const visit = (item: unknown): void => {
+        if (Array.isArray(item)) {
+            for (const child of item) visit(child);
+            return;
+        }
+        if (!item || typeof item !== "object") return;
+        const endpoint = item as Record<string, unknown>;
+        const assetEndpoint = assetEndpointFromModuleEndpoint(endpoint);
+        const surfaceRef = endpoint.surface as any;
+        const canonicalApiId = surfaceRef?.kind === "invoke"
+            ? String(surfaceRef.selector?.canonicalApiId || "")
+            : "";
+        const surface = canonicalApiId ? surfaceByCanonicalApiId.get(canonicalApiId) : undefined;
+        if (surface && assetEndpoint) {
+            const key = `${surface.surfaceId}|${JSON.stringify(assetEndpoint)}`;
+            if (!seen.has(key)) {
+                seen.add(key);
+                bindings.push({
+                    bindingId: `binding.${assetIdSegment(spec.id)}.endpoint.${String(bindings.length + 1).padStart(4, "0")}`,
+                    surfaceId: surface.surfaceId,
+                    canonicalApiId,
+                    assetId,
+                    plane: "module",
+                    role: "module",
+                    endpoint: assetEndpoint,
+                    effectTemplateRefs: [templateId],
+                    semanticsFamily: spec.id,
+                    completeness: "complete",
+                    confidence: "certain",
+                });
+            }
+        }
+        for (const child of Object.values(endpoint)) {
+            visit(child);
+        }
+    };
+    visit(spec);
+    return bindings;
+}
+
+function assetEndpointFromModuleEndpoint(endpoint: Record<string, unknown>): any | undefined {
+    switch (endpoint.slot) {
+        case "arg":
+            return { base: { kind: "arg", index: Number(endpoint.index) } };
+        case "base":
+            return { base: { kind: "receiver" } };
+        case "result":
+            return { base: { kind: "return" } };
+        default:
+            return undefined;
+    }
+}
+
+function collectCanonicalApiIds(value: unknown): string[] {
+    const out = new Set<string>();
+    const visit = (item: unknown, key?: string): void => {
+        if (typeof item === "string") {
+            if (key === "canonicalApiId") {
+                out.add(item);
+            }
+            return;
+        }
+        if (Array.isArray(item)) {
+            for (const child of item) {
+                if (typeof child === "string" && isCanonicalApiIdsField(key)) {
+                    out.add(child);
+                    continue;
+                }
+                visit(child, key);
+            }
+            return;
+        }
+        if (!item || typeof item !== "object") return;
+        for (const [childKey, childValue] of Object.entries(item as Record<string, unknown>)) {
+            visit(childValue, childKey);
+        }
+    };
+    visit(value);
+    return [...out.values()].sort((left, right) => left.localeCompare(right));
+}
+
+function isCanonicalApiIdsField(key: string | undefined): boolean {
+    return key === "canonicalApiIds" || !!key?.endsWith("CanonicalApiIds");
+}
+
+function assetIdSegment(value: string): string {
+    return String(value || "module")
+        .replace(/[^A-Za-z0-9_.-]+/g, "_")
+        .replace(/^_+|_+$/g, "") || "module";
 }
 
 function hasLoweredModule(loadedModuleIds: string[], specId: string): boolean {
@@ -125,6 +806,16 @@ function modulesFromSpec(spec: InternalModuleLoweringIR): TaintModule[] {
     return compileInternalModuleLoweringIR(spec);
 }
 
+function moduleOptionsFromSpec(spec: InternalModuleLoweringIR): { modules: TaintModule[]; moduleAssets: AssetDocumentBase[] } {
+    const canonicalApiIds = collectCanonicalApiIds(spec);
+    return {
+        modules: modulesFromSpec(spec),
+        moduleAssets: canonicalApiIds.length > 0
+            ? [moduleIdentityAssetForSpec(spec, "fixture.internal_module_lowering_ir")]
+            : [],
+    };
+}
+
 function buildScene(projectDir: string): Scene {
     const config = new SceneConfig();
     config.buildFromProjectDir(projectDir);
@@ -134,39 +825,64 @@ function buildScene(projectDir: string): Scene {
     return scene;
 }
 
+function loadFixtureRuleSet(): LoadedRuleSet {
+    if (!cachedFixtureRuleSet) {
+        cachedFixtureRuleSet = loadRuleSet({
+            kernelRulePath: path.resolve("tests/rules/minimal.rules.json"),
+            projectRulePath: path.resolve(resolveTestRunPath("runtime", "module_spec_engine", "fixtures", "project.rules.json")),
+            canonicalApiRegistrySnapshotPath: path.resolve(resolveTestRunPath("runtime", "module_spec_engine", "fixtures", "canonical_api_registry.json")),
+            allowMissingProject: false,
+            autoDiscoverRuleSources: false,
+        });
+    }
+    return cachedFixtureRuleSet;
+}
+
 async function runCase(
     scene: Scene,
     relativePath: string,
     caseName: string,
     options: {
         modules?: TaintModule[];
+        moduleAssets?: AssetDocumentBase[];
     },
 ): Promise<{
     totalFlows: number;
     loadedModuleIds: string[];
     deferredContractCount: number;
+    seedCount: number;
+    sourceRuleHits: Record<string, number>;
+    sourceRuleZeroHitAudit: unknown;
+    moduleStats: Record<string, unknown>;
+    sinkProfile: unknown;
+    sinkAudit: unknown;
+    entryIr: unknown;
 }> {
-    const loaded = loadRuleSet({
-        kernelRulePath: path.resolve("tests/rules/minimal.rules.json"),
-        projectRulePath: path.resolve(resolveTestRunPath("runtime", "module_spec_engine", "fixtures", "project.rules.json")),
-        allowMissingProject: false,
-        autoDiscoverLayers: false,
-    });
+    progress(`prepare ${caseName}`);
+    const loaded = loadFixtureRuleSet();
+    const apiAssets = options.moduleAssets?.length
+        ? [...loaded.assets, ...options.moduleAssets]
+        : loaded.assets;
     const sourceRules = loaded.ruleSet.sources || [];
     const sinkRules = loaded.ruleSet.sinks || [];
     const entry = resolveCaseMethod(scene, relativePath, caseName);
     const entryMethod = findCaseMethod(scene, entry);
     assert(!!entryMethod, `missing entry method: ${caseName}`);
+    progress(`start ${caseName}`);
 
     const engine = new TaintPropagationEngine(scene, 1, {
         includeBuiltinModules: false,
         modules: options.modules,
+        apiAssets,
+        ...(options.moduleAssets?.length ? {} : { assetIdentityIndex: loaded.assetIdentityIndex }),
     });
     engine.verbose = false;
+    progress(`buildPAG ${caseName}`);
     await engine.buildPAG({
         syntheticEntryMethods: [entryMethod!],
         entryModel: "explicit",
     });
+    progress(`reachable ${caseName}`);
     try {
         const reachable = engine.computeReachableMethodSignatures();
         engine.setActiveReachableMethodSignatures(reachable);
@@ -174,44 +890,97 @@ async function runCase(
         engine.setActiveReachableMethodSignatures(undefined);
     }
 
-    engine.propagateWithSourceRules(sourceRules);
+    progress(`propagate ${caseName}`);
+    const seedInfo = engine.propagateWithSourceRules(sourceRules);
+    progress(`detect ${caseName}`);
     const flows = engine.detectSinksByRules(sinkRules);
+    progress(`audit ${caseName}`);
     const audit = engine.getModuleAuditSnapshot();
     const deferredCount = engine.getExecutionHandoffContractSnapshot()?.totalContracts || 0;
+    progress(`done ${caseName} flows=${flows.length} seeds=${seedInfo.seedCount} deferred=${deferredCount}`);
     return {
         totalFlows: flows.length,
         loadedModuleIds: audit.loadedModuleIds,
         deferredContractCount: deferredCount,
+        seedCount: seedInfo.seedCount,
+        sourceRuleHits: seedInfo.sourceRuleHits,
+        sourceRuleZeroHitAudit: seedInfo.sourceRuleZeroHitAudit,
+        moduleStats: audit.moduleStats,
+        sinkProfile: engine.getDetectProfile(),
+        sinkAudit: engine.getSinkDetectionAuditSnapshot(),
+        entryIr: describeMethodIr(entryMethod!),
     };
 }
 
-function invoke(selector: {
+function formatRunCaseDebug(label: string, result: Awaited<ReturnType<typeof runCase>>): string {
+    return [
+        `${label}: flows=${result.totalFlows}`,
+        `seedCount=${result.seedCount}`,
+        `sourceRuleHits=${JSON.stringify(result.sourceRuleHits)}`,
+        `sourceRuleZeroHitAudit=${JSON.stringify(result.sourceRuleZeroHitAudit)}`,
+        `loadedModuleIds=${JSON.stringify(result.loadedModuleIds)}`,
+        `deferredContractCount=${result.deferredContractCount}`,
+        `moduleStats=${JSON.stringify(result.moduleStats)}`,
+        `sinkProfile=${JSON.stringify(result.sinkProfile)}`,
+        `sinkAudit=${JSON.stringify(result.sinkAudit)}`,
+        `entryIr=${JSON.stringify(result.entryIr)}`,
+    ].join("\n");
+}
+
+function describeMethodIr(method: any): unknown[] {
+    return (method.getCfg?.()?.getStmts?.() || []).map((stmt: any) => {
+        const invokeExpr = stmt.containsInvokeExpr?.() ? stmt.getInvokeExpr?.() : undefined;
+        return {
+            stmt: String(stmt.toString?.() || stmt),
+            invokeSig: invokeExpr?.getMethodSignature?.()?.toString?.() || undefined,
+            invokeClass: invokeExpr?.constructor?.name || undefined,
+            args: (invokeExpr?.getArgs?.() || []).map((arg: any) => String(arg.toString?.() || arg)),
+        };
+    });
+}
+
+type FixtureInvokeSelector = {
     methodName?: string;
     declaringClassName?: string;
-    declaringClassIncludes?: string;
-    minArgs?: number;
+    argCount?: number;
     instanceOnly?: boolean;
     staticOnly?: boolean;
-}): ModuleSemanticSurfaceRef {
-    return {
-        kind: "invoke",
-        selector,
-    };
-}
+};
 
-function method(selector: {
+type FixtureMethodSelector = {
     methodSignature?: string;
     methodName?: string;
     declaringClassName?: string;
-    declaringClassIncludes?: string;
-}): ModuleSemanticSurfaceRef {
+};
+
+const fixtureInvokeDeclarations = [
+    ...eventBusMethodInputs().map(input => ({ kind: "class" as const, input })),
+    ...routerMethodInputs().map(input => ({ kind: "class" as const, input })),
+    ...storageMethodInputs().map(input => ({ kind: "class" as const, input })),
+    ...bridgeClassMethodInputs().map(input => ({ kind: "class" as const, input })),
+    ...bridgeFreeFunctionInputs().map(input => ({ kind: "function" as const, input })),
+];
+
+function invoke(selector: FixtureInvokeSelector): ModuleSemanticSurfaceRef {
     return {
-        kind: "method",
-        selector,
+        kind: "invoke",
+        selector: {
+            surfaceKind: "invoke",
+            canonicalApiId: canonicalApiIdForFixtureInvokeSelector(selector),
+        },
     };
 }
 
-function arg(surface: ModuleSemanticSurfaceRef | string, index: number, fieldPath?: string[]) {
+function method(selector: FixtureMethodSelector): ModuleSemanticSurfaceRef {
+    return {
+        kind: "method",
+        selector: {
+            methodSignature: methodSignatureForFixtureMethodSelector(selector),
+        },
+    };
+}
+
+function arg(surface: ModuleSemanticSurfaceRef, index: number, fieldPath?: string[]) {
     return {
         surface,
         slot: "arg" as const,
@@ -220,7 +989,7 @@ function arg(surface: ModuleSemanticSurfaceRef | string, index: number, fieldPat
     };
 }
 
-function result(surface: ModuleSemanticSurfaceRef | string, fieldPath?: string[]) {
+function result(surface: ModuleSemanticSurfaceRef, fieldPath?: string[]) {
     return {
         surface,
         slot: "result" as const,
@@ -228,7 +997,7 @@ function result(surface: ModuleSemanticSurfaceRef | string, fieldPath?: string[]
     };
 }
 
-function callbackParam(surface: ModuleSemanticSurfaceRef | string, callbackArgIndex?: number, paramIndex?: number, fieldPath?: string[]) {
+function callbackParam(surface: ModuleSemanticSurfaceRef, callbackArgIndex?: number, paramIndex?: number, fieldPath?: string[]) {
     return {
         surface,
         slot: "callback_param" as const,
@@ -263,6 +1032,41 @@ function fieldLoad(surface: ModuleSemanticSurfaceRef, fieldName: string, baseThi
     };
 }
 
+function canonicalApiIdForFixtureInvokeSelector(selector: FixtureInvokeSelector): string {
+    const matches = fixtureInvokeDeclarations.filter(item => {
+        const methodName = item.kind === "class" ? item.input.methodName : item.input.functionName;
+        if (selector.methodName && selector.methodName !== methodName) return false;
+        if (selector.argCount !== undefined && selector.argCount !== item.input.parameterTypes.length) return false;
+        if (selector.declaringClassName !== undefined) {
+            if (item.kind !== "class" || item.input.className !== selector.declaringClassName) return false;
+        }
+        if (selector.instanceOnly && (item.kind !== "class" || item.input.staticMember)) return false;
+        if (selector.staticOnly && (item.kind !== "class" || !item.input.staticMember)) return false;
+        return true;
+    });
+    if (matches.length !== 1) {
+        throw new Error(`fixture invoke selector must match exactly one declaration: ${JSON.stringify(selector)} matched ${matches.length}`);
+    }
+    const [match] = matches;
+    return match.kind === "class"
+        ? projectClassMethodCanonicalApiId(match.input)
+        : projectFreeFunctionCanonicalApiId(match.input);
+}
+
+function methodSignatureForFixtureMethodSelector(selector: FixtureMethodSelector): string {
+    if (selector.methodSignature) return selector.methodSignature;
+    const classMatches = bridgeClassMethodInputs().filter(input => {
+        if (selector.methodName && selector.methodName !== input.methodName) return false;
+        if (selector.declaringClassName && selector.declaringClassName !== input.className) return false;
+        return true;
+    });
+    if (classMatches.length !== 1) {
+        throw new Error(`fixture method selector must match exactly one class method: ${JSON.stringify(selector)} matched ${classMatches.length}`);
+    }
+    const [input] = classMatches;
+    return `@${input.modulePath}: ${input.className}.${input.methodName}(${input.parameterTypes.join(", ")})`;
+}
+
 function mainEmit(reason: string, boundary?: "identity" | "serialized_copy" | "clone_copy" | "stringify_result") {
     return {
         reason,
@@ -276,6 +1080,7 @@ async function main(): Promise<void> {
     const repoRoot = resolveTestRunPath("runtime", "module_spec_engine", "fixtures", "repo");
     const sourceDir = path.join(repoRoot, "src", "main", "ets");
     const projectRulePath = resolveTestRunPath("runtime", "module_spec_engine", "fixtures", "project.rules.json");
+    const registryPath = resolveTestRunPath("runtime", "module_spec_engine", "fixtures", "canonical_api_registry.json");
     const callbackSpecFile = resolveTestRunPath("runtime", "module_spec_engine", "fixtures", "callback_spec.json");
     fs.rmSync(root, { recursive: true, force: true });
     fs.mkdirSync(root, { recursive: true });
@@ -733,14 +1538,15 @@ async function main(): Promise<void> {
     );
 
     writeFixtureRuleAsset(projectRulePath, "fixture.internal_module_lowering_ir");
+    writeFixtureCanonicalRegistry(registryPath);
 
     const callbackSpec: InternalModuleLoweringIR = {
         id: "fixture.spec.callback_bridge",
         semantics: [
             {
                 kind: "bridge",
-                from: arg("Register", 0),
-                to: callbackParam("Register", 1),
+                from: arg(invoke({ methodName: "Register", argCount: 2 }), 0),
+                to: callbackParam(invoke({ methodName: "Register", argCount: 2 }), 1),
                 emit: {
                     allowUnreachableTarget: true,
                 },
@@ -756,8 +1562,8 @@ async function main(): Promise<void> {
             {
                 id: "bus_callback",
                 kind: "bridge",
-                from: arg(invoke({ methodName: "postMessage", instanceOnly: true, minArgs: 1 }), 0),
-                to: callbackParam(invoke({ methodName: "onMessage", instanceOnly: true, minArgs: 1 }), 0, 0),
+                from: arg(invoke({ methodName: "postMessage", instanceOnly: true, argCount: 1 }), 0),
+                to: callbackParam(invoke({ methodName: "onMessage", instanceOnly: true, argCount: 1 }), 0, 0),
                 constraints: [
                     {
                         kind: "same_receiver",
@@ -785,20 +1591,20 @@ async function main(): Promise<void> {
                 },
                 writes: [
                     {
-                        from: arg(invoke({ methodName: "Put", minArgs: 2 }), 1),
+                        from: arg(invoke({ methodName: "Put", argCount: 2 }), 1),
                         address: {
                             kind: "endpoint",
-                            endpoint: arg(invoke({ methodName: "Put", minArgs: 2 }), 0),
+                            endpoint: arg(invoke({ methodName: "Put", argCount: 2 }), 0),
                         },
                         emit: mainEmit("Fixture-KeyedState"),
                     },
                 ],
                 reads: [
                     {
-                        to: result(invoke({ methodName: "Get", minArgs: 1 })),
+                        to: result(invoke({ methodName: "Get", argCount: 1 })),
                         address: {
                             kind: "endpoint",
-                            endpoint: arg(invoke({ methodName: "Get", minArgs: 1 }), 0),
+                            endpoint: arg(invoke({ methodName: "Get", argCount: 1 }), 0),
                         },
                         emit: mainEmit("Fixture-KeyedState"),
                     },
@@ -814,18 +1620,18 @@ async function main(): Promise<void> {
             {
                 id: "same_address",
                 kind: "bridge",
-                from: arg(invoke({ methodName: "PutAddress", minArgs: 2 }), 1),
-                to: result(invoke({ methodName: "GetAddress", minArgs: 1 })),
+                from: arg(invoke({ methodName: "PutAddress", argCount: 2 }), 1),
+                to: result(invoke({ methodName: "GetAddress", argCount: 1 })),
                 constraints: [
                     {
                         kind: "same_address",
                         left: {
                             kind: "endpoint",
-                            endpoint: arg(invoke({ methodName: "PutAddress", minArgs: 2 }), 0),
+                            endpoint: arg(invoke({ methodName: "PutAddress", argCount: 2 }), 0),
                         },
                         right: {
                             kind: "endpoint",
-                            endpoint: arg(invoke({ methodName: "GetAddress", minArgs: 1 }), 0),
+                            endpoint: arg(invoke({ methodName: "GetAddress", argCount: 1 }), 0),
                         },
                     },
                 ],
@@ -887,7 +1693,7 @@ async function main(): Promise<void> {
             {
                 kind: "bridge",
                 from: arg(invoke({ methodName: "startAbility" }), 0),
-                to: methodParam(method({ methodName: "onCreate" }), 0),
+                to: methodParam(method({ declaringClassName: "DemoAbility", methodName: "onCreate" }), 0),
                 emit: {
                     allowUnreachableTarget: true,
                 },
@@ -895,6 +1701,7 @@ async function main(): Promise<void> {
         ],
     };
 
+    const emitterApiIds = eventEmitterProjectApiIds();
     const emitterSpec: InternalModuleLoweringIR = {
         id: "fixture.spec.event_emitter",
         description: "Bridge emit(topic, payload) into on(topic, callback).",
@@ -902,8 +1709,8 @@ async function main(): Promise<void> {
             {
                 id: "event_emitter",
                 kind: "event_emitter",
-                onMethods: ["on"],
-                emitMethods: ["emit"],
+                onCanonicalApiIds: emitterApiIds.on,
+                emitCanonicalApiIds: emitterApiIds.emit,
                 payloadArgIndex: 1,
                 callbackArgIndex: 1,
                 callbackParamIndex: 0,
@@ -912,6 +1719,7 @@ async function main(): Promise<void> {
         ],
     };
 
+    const routerApiIds = routerProjectApiIds();
     const routerSpec: InternalModuleLoweringIR = {
         id: "fixture.spec.route_bridge",
         description: "Bridge pushRouteWrapped(options.route/options.params.*) into getRouteParams().*.",
@@ -919,32 +1727,34 @@ async function main(): Promise<void> {
             {
                 id: "route_bridge",
                 kind: "route_bridge",
-                pushMethods: [
+                pushApis: [
                     {
-                        methodName: "pushRouteWrapped",
+                        canonicalApiIds: [routerApiIds.pushRouteWrapped],
                         routeField: "route",
                     },
                 ],
-                getMethods: ["getRouteParams"],
-                routerClassNames: ["RouterLike"],
+                getCanonicalApiIds: [routerApiIds.getRouteParams],
                 payloadUnwrapPrefixes: ["params"],
             },
         ],
     };
 
+    const storageApiIds = keyedStorageProjectApiIds();
+    const appStoragePayload = capabilityPayload(harmonyAppStorageModuleAsset);
+    const statePayload = capabilityPayload(harmonyStateModuleAsset);
+    const containerPayload = capabilityPayload(tsjsContainerModuleAsset);
     const storagePropSpec: InternalModuleLoweringIR = {
         id: "fixture.spec.keyed_storage",
         description: "Bridge StorageHubProp.putValue(key, value) into @StorageProp field reads.",
         semantics: [
             {
                 kind: "keyed_storage",
-                storageClasses: ["StorageHubProp", "StorageHubPropMismatch"],
-                writeMethods: [
-                    { methodName: "putValue", valueIndex: 1 },
+                writeApis: [
+                    { canonicalApiIds: storageApiIds.putValue, valueIndex: 1 },
                 ],
-                readMethods: ["fetchValue"],
-                propDecorators: ["StorageProp"],
-                linkDecorators: [],
+                readCanonicalApiIds: [],
+                propDecoratorCanonicalApiIds: appStoragePayload.propDecoratorCanonicalApiIds,
+                linkDecoratorCanonicalApiIds: appStoragePayload.linkDecoratorCanonicalApiIds,
             },
         ],
     };
@@ -956,12 +1766,11 @@ async function main(): Promise<void> {
             {
                 id: "provide_consume",
                 kind: "state_binding",
-                stateDecorators: ["State"],
-                propDecorators: ["Prop", "Link", "ObjectLink", "Local", "Param", "Once", "Event", "Trace"],
-                linkDecorators: ["Link", "ObjectLink", "Local", "Trace"],
-                provideDecorators: ["Provide"],
-                consumeDecorators: ["Consume"],
-                eventDecorators: ["Event"],
+                stateDecoratorCanonicalApiIds: statePayload.stateDecoratorCanonicalApiIds,
+                propDecoratorCanonicalApiIds: statePayload.propDecoratorCanonicalApiIds,
+                linkDecoratorCanonicalApiIds: statePayload.linkDecoratorCanonicalApiIds,
+                provideDecoratorCanonicalApiIds: statePayload.provideDecoratorCanonicalApiIds,
+                consumeDecoratorCanonicalApiIds: statePayload.consumeDecoratorCanonicalApiIds,
             },
         ],
     };
@@ -975,6 +1784,8 @@ async function main(): Promise<void> {
                 kind: "container",
                 families: ["map"],
                 capabilities: ["store", "load"],
+                mutationCanonicalApiIds: containerPayload.mutationCanonicalApiIds,
+                accessCanonicalApiIds: containerPayload.accessCanonicalApiIds,
             },
         ],
     };
@@ -986,8 +1797,8 @@ async function main(): Promise<void> {
             {
                 id: "stringify_bridge",
                 kind: "bridge",
-                from: arg(invoke({ methodName: "JsonStringify013", minArgs: 1 }), 0, ["token"]),
-                to: result(invoke({ methodName: "JsonStringify013", minArgs: 1 })),
+                from: arg(invoke({ methodName: "JsonStringify013", argCount: 1 }), 0, ["token"]),
+                to: result(invoke({ methodName: "JsonStringify013", argCount: 1 })),
                 emit: mainEmit("Fixture-StringifyBoundary", "stringify_result"),
             },
         ],
@@ -1006,7 +1817,7 @@ async function main(): Promise<void> {
                 },
                 writes: [
                     {
-                        from: arg(invoke({ methodName: "SaveClone014", minArgs: 1 }), 0),
+                        from: arg(invoke({ methodName: "SaveClone014", argCount: 1 }), 0),
                         address: {
                             kind: "literal",
                             value: "clone_slot",
@@ -1016,7 +1827,7 @@ async function main(): Promise<void> {
                 ],
                 reads: [
                     {
-                        to: result(invoke({ methodName: "LoadClone014", minArgs: 0 })),
+                        to: result(invoke({ methodName: "LoadClone014", argCount: 0 })),
                         address: {
                             kind: "literal",
                             value: "clone_slot",
@@ -1088,44 +1899,91 @@ async function main(): Promise<void> {
     ]);
 
     const scene = buildScene(repoRoot);
+    const selectedCase = process.env.ARKTAINT_INTERNAL_MODULE_CASE;
+    if (selectedCase) {
+        const cases: Record<string, { relativePath: string; caseName: string; spec?: InternalModuleLoweringIR }> = {
+            callback: { relativePath: "callback_case.ets", caseName: "callback_case", spec: callbackSpec },
+            carrier: { relativePath: "carrier_case.ets", caseName: "carrier_case", spec: carrierSpec },
+            emitter_scope: { relativePath: "emitter_scope_case.ets", caseName: "emitter_scope_case", spec: emitterSpec },
+            keyed_state: { relativePath: "keyed_state_case.ets", caseName: "keyed_state_case", spec: keyedStateSpec },
+            same_address: { relativePath: "same_address_case.ets", caseName: "same_address_case", spec: sameAddressSpec },
+            method_field_state: { relativePath: "method_field_state_case.ets", caseName: "method_field_state_case", spec: methodFieldStateSpec },
+            declarative: { relativePath: "declarative_case.ets", caseName: "declarative_case", spec: declarativeSpec },
+            method_param: { relativePath: "method_param_case.ets", caseName: "method_param_case", spec: abilitySpec },
+            emitter: { relativePath: "emitter_case.ets", caseName: "emitter_case", spec: emitterSpec },
+            router: { relativePath: "router_unwrap_case.ets", caseName: "router_unwrap_case", spec: routerSpec },
+            storage_prop: { relativePath: "storage_prop_case.ets", caseName: "storage_prop_case", spec: storagePropSpec },
+            storage_prop_mismatch: { relativePath: "storage_prop_mismatch_case.ets", caseName: "storage_prop_mismatch_case", spec: storagePropSpec },
+            provide_consume: { relativePath: "provide_consume_case.ets", caseName: "provide_consume_case", spec: provideConsumeSpec },
+            container: { relativePath: "container_map_case.ets", caseName: "container_map_case", spec: containerSpec },
+            stringify: { relativePath: "stringify_boundary_case.ets", caseName: "stringify_boundary_case", spec: stringifyBoundarySpec },
+            clone_copy: { relativePath: "clone_copy_boundary_case.ets", caseName: "clone_copy_boundary_case", spec: cloneCopyBoundarySpec },
+        };
+        const target = cases[selectedCase];
+        assert(!!target, `unknown ARKTAINT_INTERNAL_MODULE_CASE ${selectedCase}`);
+        const baseline = await runCase(scene, target.relativePath, target.caseName, {});
+        const withSpec = target.spec
+            ? await runCase(scene, target.relativePath, target.caseName, moduleOptionsFromSpec(target.spec))
+            : baseline;
+        if (process.env.ARKTAINT_INTERNAL_MODULE_COMPACT === "1") {
+            console.log(JSON.stringify({
+                case: selectedCase,
+                baselineFlows: baseline.totalFlows,
+                withSpecFlows: withSpec.totalFlows,
+                baselineDeferredContracts: baseline.deferredContractCount,
+                withSpecDeferredContracts: withSpec.deferredContractCount,
+                withSpecEmissionCount: Object.values(withSpec.moduleStats)
+                    .reduce((sum: number, item: any) => sum + Number(item.totalEmissionCount || 0), 0),
+                loadedModuleIds: withSpec.loadedModuleIds,
+            }));
+            return;
+        }
+        console.log(formatRunCaseDebug(`${selectedCase}:baseline`, baseline));
+        console.log(formatRunCaseDebug(`${selectedCase}:withSpec`, withSpec));
+        return;
+    }
 
     const callbackBaseline = await runCase(scene, "callback_case.ets", "callback_case", {});
     const callbackWithFileSpec = await runCase(scene, "callback_case.ets", "callback_case", {
-        modules: modulesFromSpec(callbackSpec),
+        ...moduleOptionsFromSpec(callbackSpec),
     });
     const carrierBaseline = await runCase(scene, "carrier_case.ets", "carrier_case", {});
-    const carrierWithSpec = await runCase(scene, "carrier_case.ets", "carrier_case", { modules: modulesFromSpec(carrierSpec) });
+    const carrierWithSpec = await runCase(scene, "carrier_case.ets", "carrier_case", moduleOptionsFromSpec(carrierSpec));
     const emitterScopeBaseline = await runCase(scene, "emitter_scope_case.ets", "emitter_scope_case", {});
-    const emitterScopeWithSpec = await runCase(scene, "emitter_scope_case.ets", "emitter_scope_case", { modules: modulesFromSpec(emitterSpec) });
+    const emitterScopeWithSpec = await runCase(scene, "emitter_scope_case.ets", "emitter_scope_case", moduleOptionsFromSpec(emitterSpec));
     const keyedStateBaseline = await runCase(scene, "keyed_state_case.ets", "keyed_state_case", {});
-    const keyedStateWithSpec = await runCase(scene, "keyed_state_case.ets", "keyed_state_case", { modules: modulesFromSpec(keyedStateSpec) });
+    const keyedStateWithSpec = await runCase(scene, "keyed_state_case.ets", "keyed_state_case", moduleOptionsFromSpec(keyedStateSpec));
     const sameAddressBaseline = await runCase(scene, "same_address_case.ets", "same_address_case", {});
-    const sameAddressWithSpec = await runCase(scene, "same_address_case.ets", "same_address_case", { modules: modulesFromSpec(sameAddressSpec) });
+    const sameAddressWithSpec = await runCase(scene, "same_address_case.ets", "same_address_case", moduleOptionsFromSpec(sameAddressSpec));
     const methodFieldStateBaseline = await runCase(scene, "method_field_state_case.ets", "method_field_state_case", {});
-    const methodFieldStateWithSpec = await runCase(scene, "method_field_state_case.ets", "method_field_state_case", { modules: modulesFromSpec(methodFieldStateSpec) });
+    const methodFieldStateWithSpec = await runCase(scene, "method_field_state_case.ets", "method_field_state_case", moduleOptionsFromSpec(methodFieldStateSpec));
     const declarativeBaseline = await runCase(scene, "declarative_case.ets", "declarative_case", {});
-    const declarativeWithSpec = await runCase(scene, "declarative_case.ets", "declarative_case", { modules: modulesFromSpec(declarativeSpec) });
+    const declarativeWithSpec = await runCase(scene, "declarative_case.ets", "declarative_case", moduleOptionsFromSpec(declarativeSpec));
     const methodParamBaseline = await runCase(scene, "method_param_case.ets", "method_param_case", {});
-    const methodParamWithSpec = await runCase(scene, "method_param_case.ets", "method_param_case", { modules: modulesFromSpec(abilitySpec) });
+    const methodParamWithSpec = await runCase(scene, "method_param_case.ets", "method_param_case", moduleOptionsFromSpec(abilitySpec));
     const emitterBaseline = await runCase(scene, "emitter_case.ets", "emitter_case", {});
-    const emitterWithSpec = await runCase(scene, "emitter_case.ets", "emitter_case", { modules: modulesFromSpec(emitterSpec) });
+    const emitterWithSpec = await runCase(scene, "emitter_case.ets", "emitter_case", moduleOptionsFromSpec(emitterSpec));
     const routerBaseline = await runCase(scene, "router_unwrap_case.ets", "router_unwrap_case", {});
-    const routerWithSpec = await runCase(scene, "router_unwrap_case.ets", "router_unwrap_case", { modules: modulesFromSpec(routerSpec) });
+    const routerWithSpec = await runCase(scene, "router_unwrap_case.ets", "router_unwrap_case", moduleOptionsFromSpec(routerSpec));
     const storagePropBaseline = await runCase(scene, "storage_prop_case.ets", "storage_prop_case", {});
-    const storagePropWithSpec = await runCase(scene, "storage_prop_case.ets", "storage_prop_case", { modules: modulesFromSpec(storagePropSpec) });
+    const storagePropWithSpec = await runCase(scene, "storage_prop_case.ets", "storage_prop_case", moduleOptionsFromSpec(storagePropSpec));
     const storagePropMismatchBaseline = await runCase(scene, "storage_prop_mismatch_case.ets", "storage_prop_mismatch_case", {});
-    const storagePropMismatchWithSpec = await runCase(scene, "storage_prop_mismatch_case.ets", "storage_prop_mismatch_case", { modules: modulesFromSpec(storagePropSpec) });
+    const storagePropMismatchWithSpec = await runCase(scene, "storage_prop_mismatch_case.ets", "storage_prop_mismatch_case", moduleOptionsFromSpec(storagePropSpec));
     const provideConsumeBaseline = await runCase(scene, "provide_consume_case.ets", "provide_consume_case", {});
-    const provideConsumeWithSpec = await runCase(scene, "provide_consume_case.ets", "provide_consume_case", { modules: modulesFromSpec(provideConsumeSpec) });
+    const provideConsumeWithSpec = await runCase(scene, "provide_consume_case.ets", "provide_consume_case", moduleOptionsFromSpec(provideConsumeSpec));
     const containerBaseline = await runCase(scene, "container_map_case.ets", "container_map_case", {});
-    const containerWithSpec = await runCase(scene, "container_map_case.ets", "container_map_case", { modules: modulesFromSpec(containerSpec) });
+    const containerWithSpec = await runCase(scene, "container_map_case.ets", "container_map_case", moduleOptionsFromSpec(containerSpec));
     const stringifyBaseline = await runCase(scene, "stringify_boundary_case.ets", "stringify_boundary_case", {});
-    const stringifyWithSpec = await runCase(scene, "stringify_boundary_case.ets", "stringify_boundary_case", { modules: modulesFromSpec(stringifyBoundarySpec) });
+    const stringifyWithSpec = await runCase(scene, "stringify_boundary_case.ets", "stringify_boundary_case", moduleOptionsFromSpec(stringifyBoundarySpec));
     const cloneCopyBaseline = await runCase(scene, "clone_copy_boundary_case.ets", "clone_copy_boundary_case", {});
-    const cloneCopyWithSpec = await runCase(scene, "clone_copy_boundary_case.ets", "clone_copy_boundary_case", { modules: modulesFromSpec(cloneCopyBoundarySpec) });
+    const cloneCopyWithSpec = await runCase(scene, "clone_copy_boundary_case.ets", "clone_copy_boundary_case", moduleOptionsFromSpec(cloneCopyBoundarySpec));
 
     assert(callbackBaseline.totalFlows === 0, `callback baseline should have zero flows, got ${callbackBaseline.totalFlows}`);
-    assert(callbackWithFileSpec.totalFlows > 0, `callback file-based InternalModuleLoweringIR should recover flows, got ${callbackWithFileSpec.totalFlows}`);
+    assert(callbackWithFileSpec.totalFlows > 0, [
+        `callback file-based InternalModuleLoweringIR should recover flows, got ${callbackWithFileSpec.totalFlows}`,
+        formatRunCaseDebug("callbackBaseline", callbackBaseline),
+        formatRunCaseDebug("callbackWithFileSpec", callbackWithFileSpec),
+    ].join("\n"));
     assert(hasLoweredModule(callbackWithFileSpec.loadedModuleIds, callbackSpec.id), "callback file-based InternalModuleLoweringIR should appear in loaded module audit ids");
     assert(callbackWithFileSpec.deferredContractCount > callbackBaseline.deferredContractCount, "callback file-based InternalModuleLoweringIR should declare deferred contracts");
 

@@ -3,6 +3,7 @@ import { Scene } from "../../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../../arkanalyzer/out/src/Config";
 import * as fs from 'fs';
 import * as path from 'path';
+import { detectSinksByExactMethodsForTest, resolveUniqueMethodByExactNameForTest, resolveUniqueMethodByExactSignatureForTest } from "../helpers/ExactSinkDetectionTestUtils";
 import {
     buildEngineForCase,
     collectCaseSeedNodes,
@@ -79,7 +80,7 @@ async function runWithK(
             }
 
             engine.propagateWithSeeds(seeds);
-            let flows = engine.detectSinks("Sink");
+            let flows = detectSinksByExactMethodsForTest(engine, resolveUniqueMethodByExactNameForTest(engine, "Sink"));
             let detected = flows.length > 0;
 
             if (detected === expected) {

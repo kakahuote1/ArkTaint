@@ -13,15 +13,39 @@ const observedSurfaces: ObservedSurface[] = [
         observedSurfaceId: "obs.known",
         rawKind: "call",
         location: { file: "Index.ets", line: 1 },
-        analyzerEvidence: { calleeSignature: "@ohos.console: console.[static]log(string)" },
+        analyzerEvidence: {
+            arkanalyzer: {
+                methodKey: {
+                    declaringFileName: "api/@ohos.console.d.ts",
+                    declaringNamespacePath: [],
+                    declaringClassName: "console",
+                    methodName: "log",
+                    parameterTypes: ["string"],
+                    returnType: "void",
+                    staticFlag: true,
+                },
+            },
+        },
         resolutionStatus: "resolved",
     },
     {
         observedSurfaceId: "obs.project.logger",
         rawKind: "call",
         location: { file: "Logger.ets", line: 7 },
-        analyzerEvidence: { receiverType: "Logger", argCount: 1 },
-        resolutionStatus: "partial",
+        analyzerEvidence: {
+            arkanalyzer: {
+                methodKey: {
+                    declaringFileName: "project/Logger.ets",
+                    declaringNamespacePath: [],
+                    declaringClassName: "Logger",
+                    methodName: "info",
+                    parameterTypes: ["string"],
+                    returnType: "void",
+                    staticFlag: true,
+                },
+            },
+        },
+        resolutionStatus: "resolved",
     },
 ];
 

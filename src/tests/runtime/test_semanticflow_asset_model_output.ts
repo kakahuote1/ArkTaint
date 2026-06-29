@@ -1,4 +1,6 @@
 import { parseSemanticFlowAssetModelOutput } from "../../core/semanticflow/SemanticFlowAssetModelOutput";
+import { bindExactAssetIdentities, exactProjectInvokeSurface } from "../helpers/AssetIdentityTestUtils";
+import { normalizeExactTestAsset } from "./SemanticFlowV2TestHelpers";
 
 function assert(condition: unknown, message: string): asserts condition {
     if (!condition) throw new Error(message);
@@ -18,25 +20,26 @@ function expectThrows(fn: () => unknown, contains: string): void {
 function validAssetOutput(): any {
     return {
         status: "done",
-        asset: {
+        asset: normalizeExactTestAsset(bindExactAssetIdentities({
             id: "asset.project.token-cache",
             plane: "module",
             status: "llm-generated",
             surfaces: [
-                {
+                exactProjectInvokeSurface({
                     surfaceId: "surface.TokenCache.save",
-                    kind: "invoke",
                     modulePath: "project/TokenCache",
                     ownerName: "TokenCache",
                     methodName: "save",
                     invokeKind: "static",
                     argCount: 2,
+                    parameterTypes: ["string", "Object"],
+                    returnType: "void",
                     confidence: "likely",
                     provenance: {
                         source: "llm-proposal",
                         location: { file: "TokenCache.ets", line: 3 },
                     },
-                },
+                }),
             ],
             bindings: [
                 {
@@ -47,7 +50,7 @@ function validAssetOutput(): any {
                     role: "handoff",
                     endpoint: { base: { kind: "arg", index: 1 } },
                     effectTemplateRefs: ["template.TokenCache.save.put"],
-                    completeness: "partial",
+                    completeness: "complete",
                     confidence: "likely",
                 },
             ],
@@ -59,18 +62,18 @@ function validAssetOutput(): any {
                         cellKind: "keyed-semantic-slot",
                         family: "project.token_cache",
                         key: [{ kind: "fromLiteralArg", index: 0 }],
-                        precision: "infer",
-                    },
-                    value: { base: { kind: "arg", index: 1 } },
-                    updateStrength: "infer",
-                    confidence: "likely",
+                    precision: "exact",
                 },
+                value: { base: { kind: "arg", index: 1 } },
+                updateStrength: "weak",
+                confidence: "likely",
+            },
             ],
             provenance: {
                 source: "llm",
                 projectId: "project-a",
             },
-        },
+        } as any)),
         rationale: ["TokenCache.save stores arg1 under key arg0."],
     };
 }
@@ -83,28 +86,30 @@ function main(): void {
     const eventEmitterOutput = validAssetOutput();
     eventEmitterOutput.asset.id = "asset.project.eventhub";
     eventEmitterOutput.asset.surfaces = [
-        {
+        exactProjectInvokeSurface({
             surfaceId: "surface.ProjectEventHub.on",
-            kind: "invoke",
             modulePath: "project/EventHub",
             ownerName: "ProjectEventHub",
             methodName: "on",
             invokeKind: "static",
             argCount: 2,
+            parameterTypes: ["string", "EventCallback"],
+            returnType: "void",
             confidence: "likely",
             provenance: { source: "llm-proposal", location: { file: "EventHub.ets", line: 3 } },
-        },
-        {
+        }),
+        exactProjectInvokeSurface({
             surfaceId: "surface.ProjectEventHub.sendEvent",
-            kind: "invoke",
             modulePath: "project/EventHub",
             ownerName: "ProjectEventHub",
             methodName: "sendEvent",
             invokeKind: "static",
             argCount: 1,
+            parameterTypes: ["string"],
+            returnType: "void",
             confidence: "likely",
             provenance: { source: "llm-proposal", location: { file: "EventHub.ets", line: 8 } },
-        },
+        }),
     ];
     eventEmitterOutput.asset.bindings = [
         {
@@ -114,7 +119,7 @@ function main(): void {
             plane: "module",
             role: "handoff",
             effectTemplateRefs: ["template.ProjectEventHub.eventEmitter"],
-            completeness: "partial",
+            completeness: "complete",
             confidence: "likely",
         },
     ];
@@ -122,14 +127,21 @@ function main(): void {
         {
             id: "template.ProjectEventHub.eventEmitter",
             kind: "module.eventEmitter",
-            onMethods: ["on"],
-            emitMethods: ["sendEvent"],
+            onCanonicalApiIds: [],
+            emitCanonicalApiIds: [],
             channelArgIndexes: [0],
             payloadArgIndex: -1,
             callbackArgIndex: 1,
             callbackParamIndex: 0,
             confidence: "likely",
         },
+    ];
+    normalizeExactTestAsset(bindExactAssetIdentities(eventEmitterOutput.asset as any));
+    eventEmitterOutput.asset.effectTemplates[0].onCanonicalApiIds = [
+        requireSurfaceCanonicalApiId(eventEmitterOutput.asset, "on"),
+    ];
+    eventEmitterOutput.asset.effectTemplates[0].emitCanonicalApiIds = [
+        requireSurfaceCanonicalApiId(eventEmitterOutput.asset, "sendEvent"),
     ];
     const parsedEventEmitter = parseSemanticFlowAssetModelOutput(JSON.stringify(eventEmitterOutput));
     assert(parsedEventEmitter.status === "done", "expected module.eventEmitter LLM asset output to parse");
@@ -179,11 +191,20 @@ function main(): void {
     expectThrows(() => parseSemanticFlowAssetModelOutput(JSON.stringify(schemaValidWithoutAnchor)), "is not analyzer-backed");
 
     const schemaValidWithAnchor = parseSemanticFlowAssetModelOutput(JSON.stringify(schemaValidWithoutAnchor), {
-        analyzerBackedSurfaceIds: new Set(["surface.TokenCache.save"]),
+        analyzerBackedSurfaceIds: new Set([schemaValidWithoutAnchor.asset.surfaces[0].surfaceId]),
     });
     assert(schemaValidWithAnchor.status === "done", "schema-valid manual asset should parse with analyzer anchor");
 
     console.log("PASS test_semanticflow_asset_model_output");
+}
+
+function requireSurfaceCanonicalApiId(asset: any, expectedMethodName: string): string {
+    const canonicalApiId = asset.surfaces?.find((surface: any) =>
+        surface.evidence?.arkanalyzer?.methodKey?.methodName === expectedMethodName)?.canonicalApiId;
+    if (!canonicalApiId) {
+        throw new Error(`missing canonicalApiId for ${expectedMethodName}`);
+    }
+    return canonicalApiId;
 }
 
 main();

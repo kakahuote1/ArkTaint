@@ -1,8 +1,10 @@
 import * as path from "path";
 import { defineModule } from "../../core/kernel/contracts/ModuleContract";
+import { createCanonicalApiRegistry } from "../../core/api/identity";
 import { assert } from "../helpers/ExecutionHandoffContractSupport";
 import { buildInferenceScene } from "../helpers/ExecutionHandoffInferenceSupport";
 import { buildEngineForCase, findCaseMethod, resolveCaseMethod } from "../helpers/SyntheticCaseHarness";
+import { projectApiEffectAssetFromMethod } from "../helpers/ApiEffectTestAssets";
 
 function contractHasSyntheticEdge(engine: any, contract: any): boolean {
     const expectedCaller = contract.callerSignature || "";
@@ -27,16 +29,36 @@ function extractUnitName(unitSignature: string): string {
     return unitSignature.slice(lastDot + 1, paren);
 }
 
+function findUnknownAsyncOnReadyMethod(scene: any): any {
+    const methods = scene.getMethods()
+        .filter((method: any) => method.getName?.() === "onReady")
+        .filter((method: any) => String(method.getSignature?.()?.toString?.() || "").includes("UnknownAsync"));
+    assert(methods.length === 1, `expected exactly one UnknownAsync.onReady method, got ${methods.length}`);
+    return methods[0];
+}
+
 async function main(): Promise<void> {
     const projectDir = path.resolve("tests/adhoc/execution_handoff_semantic_module_declared");
     const scene = buildInferenceScene(projectDir);
     const entry = resolveCaseMethod(scene, "module_declared_binding_001_T.ets", "module_declared_binding_001_T");
     const entryMethod = findCaseMethod(scene, entry);
     assert(!!entryMethod, "missing entry method for module_declared_binding_001_T");
+    const onReadyMethod = findUnknownAsyncOnReadyMethod(scene);
+    const onReadyIdentity = projectApiEffectAssetFromMethod({
+        id: "execution_handoff.module_declared.on_ready",
+        role: "transfer",
+        method: onReadyMethod,
+        endpoint: { base: { kind: "arg", index: 0 } },
+    });
+    const onReadyCanonicalApiId = onReadyIdentity.canonicalApiDescriptor.canonicalApiId;
+    const canonicalApiRegistry = createCanonicalApiRegistry([onReadyIdentity.canonicalApiDescriptor]);
 
     const withoutModule = await buildEngineForCase(scene, 1, entryMethod!, {
         verbose: false,
         entryModel: "explicit",
+        engineOptions: {
+            canonicalApiRegistry,
+        },
     });
     const withoutSnapshot = withoutModule.getExecutionHandoffContractSnapshot();
     const withoutDeclaredContract = withoutSnapshot?.contracts.find(item =>
@@ -49,10 +71,7 @@ async function main(): Promise<void> {
         description: "Declare future execution bindings for UnknownAsync.onReady.",
         setup(ctx) {
             for (const invoke of ctx.scan.invokes({
-                declaringClassName: "UnknownAsync",
-                methodName: "onReady",
-                instanceOnly: true,
-                minArgs: 1,
+                canonicalApiId: onReadyCanonicalApiId,
             })) {
                 ctx.deferred.imperativeFromInvoke(invoke, 0, {
                     reason: "Module-declared UnknownAsync.onReady deferred binding",
@@ -65,6 +84,7 @@ async function main(): Promise<void> {
         verbose: false,
         entryModel: "explicit",
         engineOptions: {
+            canonicalApiRegistry,
             modules: [explicitBindingModule],
         },
     });

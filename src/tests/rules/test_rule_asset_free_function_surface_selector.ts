@@ -1,11 +1,14 @@
 import * as path from "path";
 import { Scene } from "../../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../../arkanalyzer/out/src/Config";
+import { PagNode } from "../../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
 import type { AssetDocumentBase } from "../../core/assets/schema";
 import { TaintPropagationEngine } from "../../core/orchestration/TaintPropagationEngine";
 import { lowerRuleAssetsToRuleSet } from "../../core/rules/RuleAssetLowering";
-import type { SinkRule, SourceRule } from "../../core/rules/RuleSchema";
+import type { SinkRule } from "../../core/rules/RuleSchema";
 import { validateRuleSet } from "../../core/rules/RuleValidator";
+import { makeRuleAssetFixture } from "../helpers/RuleAssetFixtureFactory";
+import { exactRuleRuntimeFromAssets, type ExactRuleRuntime } from "./ExactRuleTestUtils";
 
 function assert(condition: unknown, message: string): asserts condition {
     if (!condition) {
@@ -14,106 +17,97 @@ function assert(condition: unknown, message: string): asserts condition {
 }
 
 function freeFunctionSinkAsset(functionName = "sendApi", signatureId?: string): AssetDocumentBase {
-    return {
+    const arkanalyzerSignature = signatureId || `@rule_asset_free_function_surface/free_function_surface.ets: %dflt.${functionName}(string)`;
+    const methodKeyEvidence = methodKeyEvidenceFromSyntheticSignature(arkanalyzerSignature, functionName);
+    return makeRuleAssetFixture({
         id: `asset.project.${functionName}.sink`,
-        plane: "rule",
         status: "official",
-        surfaces: [
+        sinks: [
             {
-                surfaceId: `surface.${functionName}`,
-                kind: "invoke",
-                modulePath: "free_function_surface.ets",
-                functionName,
-                invokeKind: "free-function",
-                argCount: 1,
-                signatureId,
-                confidence: "certain",
-                provenance: {
-                    source: "manual",
-                    location: {
-                        file: "free_function_surface.ets",
-                        line: 1,
-                    },
+                id: `${functionName}.arg0.sink`,
+                target: "arg0",
+                metadata: { family: "project-network" },
+                surface: {
+                    kind: "invoke",
+                    modulePath: "rule_asset_free_function_surface/free_function_surface.ets",
+                    ownerName: "%dflt",
+                    ownerKind: "namespace",
+                    invokeKind: "free-function",
+                    argCount: 1,
+                    parameterTypes: ["string"],
+                    returnType: "void",
+                    functionName,
+                    arkanalyzerDeclaringFileName: methodKeyEvidence.arkanalyzerDeclaringFileName as string,
+                    arkanalyzerDeclaringClassName: methodKeyEvidence.arkanalyzerDeclaringClassName as string,
+                    arkanalyzerMethodName: methodKeyEvidence.arkanalyzerMethodName as string,
+                    arkanalyzerStaticFlag: methodKeyEvidence.arkanalyzerStaticFlag as boolean,
                 },
             },
         ],
-        bindings: [
-            {
-                bindingId: `binding.${functionName}.arg0.sink`,
-                surfaceId: `surface.${functionName}`,
-                assetId: `asset.project.${functionName}.sink`,
-                plane: "rule",
-                role: "sink",
-                endpoint: { base: { kind: "arg", index: 0 } },
-                effectTemplateRefs: [`template.${functionName}.arg0.sink`],
-                semanticsFamily: "project-network",
-                completeness: "complete",
-                confidence: "certain",
-            },
-        ],
-        effectTemplates: [
-            {
-                id: `template.${functionName}.arg0.sink`,
-                kind: "rule.sink",
-                sinkKind: "http-request",
-                value: { base: { kind: "arg", index: 0 } },
-                confidence: "certain",
-            },
-        ],
-        provenance: {
-            source: "manual",
-            evidenceLocations: [
-                {
-                    file: "free_function_surface.ets",
-                    line: 1,
-                },
-            ],
-        },
+    });
+}
+
+function methodKeyEvidenceFromSyntheticSignature(signature: string, functionName: string): Record<string, unknown> {
+    const file = signature.slice(0, signature.indexOf(":")).replace(/^@/, "");
+    const ownerMatch = /:\s*([^.\s]+)\./.exec(signature);
+    const methodMatch = /\.([^.(]+)\(/.exec(signature);
+    return {
+        arkanalyzerDeclaringFileName: file,
+        arkanalyzerDeclaringClassName: ownerMatch?.[1] || "%dflt",
+        arkanalyzerMethodName: methodMatch?.[1] || functionName,
+        arkanalyzerStaticFlag: !(methodMatch?.[1] || functionName).startsWith("%AM"),
     };
 }
 
-async function runCase(scene: Scene, caseMethodName: string, sourceRules: SourceRule[], sinkRules: SinkRule[]): Promise<boolean> {
+function findSeedNodes(engine: TaintPropagationEngine, scene: Scene, methodName: string, localName: string): PagNode[] {
+    const method = scene.getMethods().find(m => m.getName() === methodName);
+    assert(method, `method not found: ${methodName}`);
+    const cfg = method.getCfg();
+    assert(cfg, `cfg not found: ${methodName}`);
+    for (const stmt of cfg.getStmts()) {
+        const left = (stmt as any).getLeftOp?.();
+        if (!left || left.getName?.() !== localName) continue;
+        const nodeIds = engine.pag.getNodesByValue(left);
+        return nodeIds ? [...nodeIds.values()].map(id => engine.pag.getNode(id) as PagNode) : [];
+    }
+    return [];
+}
+
+async function runCase(
+    scene: Scene,
+    caseMethodName: string,
+    sinkRules: SinkRule[],
+    exactRuntime: ExactRuleRuntime,
+): Promise<boolean> {
     const caseMethod = scene.getMethods().find(method => method.getName() === caseMethodName);
     assert(caseMethod, `case method not found: ${caseMethodName}`);
-    const engine = new TaintPropagationEngine(scene, 1);
+    const engine = new TaintPropagationEngine(scene, 1, {
+        ...exactRuntime,
+    });
     engine.verbose = false;
     await engine.buildPAG({ entryModel: "explicit", syntheticEntryMethods: [caseMethod] });
-    engine.propagateWithSourceRules(sourceRules);
+    const seedNodes = findSeedNodes(engine, scene, caseMethodName, "taint_src");
+    assert(seedNodes.length > 0, `${caseMethodName}: expected taint_src seed nodes`);
+    engine.propagateWithSeeds(seedNodes);
     const flows = engine.detectSinksByRules(sinkRules);
-    return flows.some(flow => {
+    const detected = flows.some(flow => {
         const stmt: any = flow.sink;
         const owner = stmt?.getCfg?.()?.getDeclaringMethod?.();
         return owner?.getName?.() === caseMethodName;
     });
+    return detected;
 }
 
 async function main(): Promise<void> {
     const sendApiRuntimeSignature = "@rule_asset_free_function_surface/free_function_surface.ets: %dflt.%AM0(string)";
-    const lowered = lowerRuleAssetsToRuleSet([freeFunctionSinkAsset("sendApi", sendApiRuntimeSignature)]);
+    const sendApiAsset = freeFunctionSinkAsset("sendApi", sendApiRuntimeSignature);
+    const lowered = lowerRuleAssetsToRuleSet([sendApiAsset]);
     assert(lowered.diagnostics.length === 0, `unexpected diagnostics: ${lowered.diagnostics.join("; ")}`);
     assert(lowered.ruleSet.sinks.length === 1, "free-function sink should lower");
     const loweredSink = lowered.ruleSet.sinks[0];
-    assert(loweredSink.match.kind === "signature_equals", "analyzer-backed free-function surface should use exact runtime signature");
-    assert(loweredSink.match.value === sendApiRuntimeSignature, "free-function surface selector should keep the exact analyzer backing signature");
-    assert(loweredSink.match.typeHint === "sendApi", "free-function surface selector should keep the source symbol as typeHint");
-
-    const sourceRules: SourceRule[] = [
-        "free_function_surface_send_001_T",
-        "free_function_surface_sibling_002_F",
-        "free_function_surface_named_003_T",
-        "free_function_surface_named_sibling_004_F",
-    ].map(name => ({
-        id: `source.free_function_surface.entry_param.${name}`,
-        sourceKind: "entry_param",
-        target: "arg0",
-        match: { kind: "method_name_equals", value: name },
-    }));
-    const validation = validateRuleSet({
-        sources: sourceRules,
-        sinks: lowered.ruleSet.sinks,
-        transfers: [],
-    });
-    assert(validation.valid, `rules invalid: ${validation.errors.join("; ")}`);
+    assert(loweredSink.match.kind === "canonical_api_id_equals", "analyzer-backed free-function surface should use canonical identity gate");
+    assert(loweredSink.match.value === loweredSink.apiEffect?.canonicalApiId, "free-function surface gate should use apiEffect canonicalApiId");
+    assert(!("typeHint" in (loweredSink.match as any)), "free-function surface gate must not keep legacy typeHint selector");
 
     const sceneConfig = new SceneConfig();
     sceneConfig.buildFromProjectDir(path.resolve("tests/demo/rule_asset_free_function_surface"));
@@ -121,28 +115,40 @@ async function main(): Promise<void> {
     scene.buildSceneFromProjectDir(sceneConfig);
     scene.inferTypes();
 
+    const validation = validateRuleSet({
+        sources: [],
+        sinks: lowered.ruleSet.sinks,
+        transfers: [],
+    });
+    assert(validation.valid, `rules invalid: ${validation.errors.join("; ")}`);
+
     const positive = await runCase(
         scene,
         "free_function_surface_send_001_T",
-        sourceRules,
         lowered.ruleSet.sinks,
+        exactRuleRuntimeFromAssets([sendApiAsset]),
     );
     const negative = await runCase(
         scene,
         "free_function_surface_sibling_002_F",
-        sourceRules,
         lowered.ruleSet.sinks,
+        exactRuleRuntimeFromAssets([sendApiAsset]),
     );
 
-    assert(positive, "sendApi exported const arrow sink should be detected through surface-derived selector");
-    assert(!negative, "sibling exported const arrow function must not match sendApi surface-derived selector");
+    assert(positive, "sendApi exported const arrow sink should be detected through its canonical surface gate");
+    assert(!negative, "sibling exported const arrow function must not match sendApi canonical surface gate");
 
-    const namedLowered = lowerRuleAssetsToRuleSet([freeFunctionSinkAsset("sendNamedApi")]);
+    const namedAsset = freeFunctionSinkAsset("sendNamedApi");
+    const namedLowered = lowerRuleAssetsToRuleSet([namedAsset]);
     assert(namedLowered.diagnostics.length === 0, `unexpected named diagnostics: ${namedLowered.diagnostics.join("; ")}`);
     assert(namedLowered.ruleSet.sinks.length === 1, "named free-function sink should lower");
-    assert(namedLowered.ruleSet.sinks[0].match.kind === "method_name_equals", "named free-function should use exact method matching");
+    assert(namedLowered.ruleSet.sinks[0].match.kind === "canonical_api_id_equals", "named free-function should use canonical identity gate");
+    assert(
+        namedLowered.ruleSet.sinks[0].match.value === namedLowered.ruleSet.sinks[0].apiEffect?.canonicalApiId,
+        "named free-function should use apiEffect canonicalApiId",
+    );
     const namedValidation = validateRuleSet({
-        sources: sourceRules,
+        sources: [],
         sinks: namedLowered.ruleSet.sinks,
         transfers: [],
     });
@@ -150,17 +156,17 @@ async function main(): Promise<void> {
     const namedPositive = await runCase(
         scene,
         "free_function_surface_named_003_T",
-        sourceRules,
         namedLowered.ruleSet.sinks,
+        exactRuleRuntimeFromAssets([namedAsset]),
     );
     const namedNegative = await runCase(
         scene,
         "free_function_surface_named_sibling_004_F",
-        sourceRules,
         namedLowered.ruleSet.sinks,
+        exactRuleRuntimeFromAssets([namedAsset]),
     );
-    assert(namedPositive, "top-level exported function sink should be detected through surface-derived selector");
-    assert(!namedNegative, "sibling top-level exported function must not match named free-function selector");
+    assert(namedPositive, "top-level exported function sink should be detected through its canonical surface gate");
+    assert(!namedNegative, "sibling top-level exported function must not match named free-function gate");
     console.log("PASS test_rule_asset_free_function_surface_selector");
 }
 

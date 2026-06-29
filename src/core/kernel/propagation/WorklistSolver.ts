@@ -1,12 +1,12 @@
 import { ArkArrayRef, ArkInstanceFieldRef } from "../../../../arkanalyzer/out/src/core/base/Ref";
 import { Pag, PagArrayNode, PagInstanceFieldNode, PagNode, PagStaticFieldNode } from "../../../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
-import { ArkAssignStmt } from "../../../../arkanalyzer/out/src/core/base/Stmt";
+import { ArkAssignStmt, ArkReturnStmt } from "../../../../arkanalyzer/out/src/core/base/Stmt";
 import { Local } from "../../../../arkanalyzer/out/src/core/base/Local";
 import { Constant } from "../../../../arkanalyzer/out/src/core/base/Constant";
 import { Scene } from "../../../../arkanalyzer/out/src/Scene";
 import { ArkMethod } from "../../../../arkanalyzer/out/src/core/model/ArkMethod";
 import { ArkParameterRef } from "../../../../arkanalyzer/out/src/core/base/Ref";
-import { ArkInstanceInvokeExpr, ArkStaticInvokeExpr } from "../../../../arkanalyzer/out/src/core/base/Expr";
+import { ArkAwaitExpr, ArkCastExpr, ArkInstanceInvokeExpr, ArkNewExpr, ArkStaticInvokeExpr } from "../../../../arkanalyzer/out/src/core/base/Expr";
 import { TaintFact } from "../model/TaintFact";
 import { TaintTracker } from "../model/TaintTracker";
 import { FactPredecessorRecord } from "./PropagationTypes";
@@ -14,6 +14,11 @@ import type { CurrentnessCertificate } from "../oclfs";
 import { FieldAccessIndex, FieldPropagationEngine } from "../field";
 import { TaintContextManager, CallEdgeInfo, CallEdgeType } from "../context/TaintContext";
 import { propagateExpressionTaint } from "./ExpressionPropagation";
+import {
+    isConsumableSemanticEndpointProjection,
+    materializeExactPagNodes,
+    projectSemanticEffectEndpoint,
+} from "../contracts/PagNodeResolution";
 import { CaptureEdgeInfo, ReceiverFieldBridgeInfo } from "../builders/CallEdgeMapBuilder";
 import {
     collectDynamicSyntheticConstructorStores,
@@ -25,6 +30,7 @@ import {
 import { WorklistProfiler } from "../debug/WorklistProfiler";
 import { TransferRule } from "../../rules/RuleSchema";
 import { ConfigBasedTransferExecutor, TransferExecutionResult } from "../rules/ConfigBasedTransferExecutor";
+import type { ApiEffectRuntimeIndexLike } from "../../api/effects";
 import type { ModuleRuntime } from "../contracts/ModuleContract";
 import type {
     InternalModuleQueryApi,
@@ -45,8 +51,9 @@ import type {
     MethodReachedEvent,
     TaintFlowEvent,
 } from "../contracts/EnginePluginEvents";
-import { toContainerFieldKey } from "../model/ContainerSlotKeys";
+import { fromContainerFieldKey, toContainerFieldKey } from "../model/ContainerSlotKeys";
 import { getMethodBySignature } from "../contracts/MethodLookup";
+import { diagnoseUnresolvedVirtualDispatch } from "../../substrate/queries/CalleeResolver";
 import {
     collectAliasLocalsForCarrier,
     collectCarrierNodeIdsForValueAtStmt,
@@ -55,7 +62,12 @@ import {
     collectOrdinaryArrayConstructorEffectsFromTaintedLocal,
     collectOrdinaryArrayFromMapperCallbackParamNodeIdsFromTaintedLocal,
     collectOrdinaryArrayHigherOrderEffectsFromTaintedLocal,
+    collectOrdinaryArrayHigherOrderEffectsFromTaintedSlot,
     collectOrdinaryArrayMutationEffectsFromTaintedLocal,
+    collectOrdinaryCollectionLoadEffectsFromTaintedSlot,
+    collectOrdinaryCollectionMutationEffectsFromTaintedLocal,
+    collectOrdinaryPromiseAggregateEffectsFromArraySlot,
+    collectOrdinaryPromiseThenCallbackParamNodeIdsFromTaintedLocal,
     collectOrdinaryStringSplitEffectsFromTaintedLocal,
     collectPreciseArrayLoadNodeIdsFromTaintedLocal,
 } from "../ordinary/OrdinaryArrayPropagation";
@@ -64,8 +76,11 @@ import {
     collectObjectLiteralFieldCaptureFactsFromValue,
     collectOrdinaryClosureLocalReadbackFactsFromParentLocal,
     collectOrdinaryClosureLocalWritebackFactsFromTaintedLocal,
+    collectOrdinaryAwaitResultFactsFromTaintedLocal,
     collectOrdinaryTaintPreservingDestinationLocals,
     collectOrdinaryErrorMessageFactsFromTaintedLocal,
+    collectOrdinaryCopyLikeResultFactsFromTaintedObj,
+    collectOrdinaryCopyLikeScalarResultFactsFromTaintedLocal,
     collectOrdinaryRegexArrayResultFactsFromTaintedLocal,
     collectOrdinarySerializedStringResultFactsFromTaintedLocal,
     resolveOrdinaryArraySlotName,
@@ -90,6 +105,8 @@ import {
     findStoreAnchorStmtForTaintedValue,
     propagateArrayElementLoads,
     propagateCapturedFieldWrites,
+    propagateObjectFromEntriesFieldStoresByObj,
+    propagateQueryResultContainerFactsByObj,
     propagateReflectSetFieldStores,
     propagateRestArrayParam,
 } from "./WorklistFieldPropagation";
@@ -111,6 +128,7 @@ export interface WorklistSolverDeps {
     ensureSyntheticInvokeEdgesForNode?: (nodeId: number) => SyntheticInvokeEdgeInfo[] | undefined;
     fieldToVarIndex: Map<string, Set<number>>;
     transferRules?: TransferRule[];
+    apiEffectRuntimeIndex?: ApiEffectRuntimeIndexLike;
     onTransferRuleHit?: (event: TransferExecutionResult) => void;
     getInitialRuleChainForFact?: (fact: TaintFact) => FactRuleChain;
     onFactRuleChain?: (factId: string, chain: FactRuleChain) => void;
@@ -126,6 +144,7 @@ export interface WorklistSolverDeps {
     onMethodReached?: (event: MethodReachedEvent) => PropagationContributionBatch;
     budget?: WorklistBudget;
     log: (msg: string) => void;
+    progress?: (msg: string) => void;
 }
 
 export interface FactRuleChain {
@@ -148,6 +167,30 @@ export interface WorklistBudgetTruncation {
     elapsedMs: number;
 }
 
+interface CanonicalModuleInvokeSite {
+    stmt: any;
+    invokeExpr: any;
+    callSignature: string;
+    methodName: string;
+    declaringClassName: string;
+    canonicalApiId: string;
+    occurrenceId: string;
+    rawOccurrenceId: string;
+    semanticEffectSites: ReturnType<ApiEffectRuntimeIndexLike["listSemanticEffectSites"]>;
+    args: any[];
+    baseValue?: any;
+    resultValue?: any;
+}
+
+interface ConcreteMethodCandidate {
+    method: ArkMethod;
+    ownerNames: Set<string>;
+}
+
+const concreteMethodCandidatesByNameCache: WeakMap<Scene, Map<string, ConcreteMethodCandidate[]>> = new WeakMap();
+const concreteParameterAssignStmtCache: WeakMap<object, ArkAssignStmt[]> = new WeakMap();
+const unresolvedVirtualDispatchDiagnosticCache: WeakMap<Scene, WeakMap<object, ReturnType<typeof diagnoseUnresolvedVirtualDispatch>>> = new WeakMap();
+
 function cloneFactAcrossAbilityHandoffBoundary(
     targetNode: PagNode,
     fact: TaintFact,
@@ -160,6 +203,25 @@ function cloneFactAcrossAbilityHandoffBoundary(
         currentCtx,
         boundary.preservesFieldPath && fact.field ? [...fact.field] : undefined,
     );
+}
+
+function buildSyntheticCallSourceNodeIdsByCallSiteAndDst(
+    syntheticInvokeEdgeMap: Map<number, SyntheticInvokeEdgeInfo[]>,
+): Map<string, number[]> {
+    const out = new Map<string, number[]>();
+    for (const edges of syntheticInvokeEdgeMap.values()) {
+        for (const edge of edges) {
+            if (edge.type !== CallEdgeType.CALL) continue;
+            const key = syntheticCallArgIndexKey(edge.callSiteId, edge.dstNodeId);
+            if (!out.has(key)) out.set(key, []);
+            out.get(key)!.push(edge.srcNodeId);
+        }
+    }
+    return out;
+}
+
+function syntheticCallArgIndexKey(callSiteId: number, dstNodeId: number): string {
+    return `${callSiteId}|${dstNodeId}`;
 }
 
 function isOrdinaryFieldCarrierRelayCopy(sourceNode: PagNode, targetNode: PagNode): boolean {
@@ -196,6 +258,50 @@ function isSameRelaySourceValue(a: any, b: any): boolean {
     return false;
 }
 
+function containsContainerFieldPath(fieldPath: string[] | undefined): boolean {
+    return !!fieldPath?.some(field => fromContainerFieldKey(field) !== null);
+}
+
+function formatMemoryUsage(): string {
+    const usage = process.memoryUsage();
+    const heap = Math.round(usage.heapUsed / 1024 / 1024);
+    const rss = Math.round(usage.rss / 1024 / 1024);
+    return `heap_mb=${heap} rss_mb=${rss}`;
+}
+
+function resolveReturnEdgeContext(
+    ctxManager: TaintContextManager,
+    currentCtx: number,
+    callSiteId: number,
+    options?: { allowUnambiguousEmptyContext?: boolean },
+): number | undefined {
+    const restoredCtx = ctxManager.restoreCallerContextForCallSite(currentCtx, callSiteId);
+    if (restoredCtx !== undefined) return restoredCtx;
+    if (
+        ctxManager.getTopElement(currentCtx) === -1
+        && (ctxManager.getK() === 0 || options?.allowUnambiguousEmptyContext)
+    ) {
+        return currentCtx;
+    }
+    return undefined;
+}
+
+function canResolveEmptyContextReturnExactly(
+    ctxManager: TaintContextManager,
+    currentCtx: number,
+    returnEdges: CallEdgeInfo[],
+): boolean {
+    if (ctxManager.getTopElement(currentCtx) !== -1) return false;
+    if (ctxManager.getK() === 0) return true;
+    const callSiteIds = new Set<number>();
+    for (const edge of returnEdges) {
+        if (edge.type === CallEdgeType.RETURN) {
+            callSiteIds.add(edge.callSiteId);
+        }
+    }
+    return callSiteIds.size === 1;
+}
+
 export class WorklistSolver {
     private deps: WorklistSolverDeps;
 
@@ -220,6 +326,7 @@ export class WorklistSolver {
             ensureSyntheticInvokeEdgesForNode,
             fieldToVarIndex,
             transferRules,
+            apiEffectRuntimeIndex,
             onTransferRuleHit,
             getInitialRuleChainForFact,
             onFactRuleChain,
@@ -234,10 +341,26 @@ export class WorklistSolver {
             onTaintFlow,
             onMethodReached,
             budget,
-            log
+            log,
+            progress,
         } = this.deps;
         const startedAt = Date.now();
+        const progressLog = progress || (() => undefined);
         let truncated = false;
+        progressLog(`[worklist] precompute start initial=${worklist.length} visited=${visited.size}`);
+        const receiverOwnerNameByCallSiteId = new Map<number, string>();
+        const registerSyntheticReceiverOwners = (edges: SyntheticInvokeEdgeInfo[] | undefined): void => {
+            if (!edges) return;
+            for (const edge of edges) {
+                if (!edge.receiverOwnerName) continue;
+                const existing = receiverOwnerNameByCallSiteId.get(edge.callSiteId);
+                if (existing && !ownerNameMatchesAny(edge.receiverOwnerName, new Set([existing]))) continue;
+                receiverOwnerNameByCallSiteId.set(edge.callSiteId, edge.receiverOwnerName);
+            }
+        };
+        for (const edges of syntheticInvokeEdgeMap.values()) {
+            registerSyntheticReceiverOwners(edges);
+        }
         const maybeTruncate = (): boolean => {
             if (truncated) return true;
             if (!budget) return false;
@@ -259,24 +382,45 @@ export class WorklistSolver {
                 visitedCount: visited.size,
                 elapsedMs,
             };
-            log(`[WorklistBudget] truncated reason=${reason} head=${queueHead} total=${worklist.length} visited=${visited.size} elapsedMs=${elapsedMs}`);
+            progressLog(`[WorklistBudget] truncated reason=${reason} head=${queueHead} total=${worklist.length} visited=${visited.size} elapsedMs=${elapsedMs}`);
             budget.onTruncated?.(event);
             return true;
         };
         const measureSection = <T>(section: string, fn: () => T): T =>
             profiler ? profiler.measure(section, fn) : fn();
+        const measureLoggedSection = <T>(section: string, fn: () => T): T => {
+            const sectionStartedAt = Date.now();
+            progressLog(`[worklist] ${section} start`);
+            const result = measureSection(section, fn);
+            progressLog(`[worklist] ${section} done elapsed_ms=${Date.now() - sectionStartedAt}`);
+            return result;
+        };
         const transferExecutor = measureSection(
             "precompute_transfer_executor",
-            () => new ConfigBasedTransferExecutor(transferRules || [], scene),
+            () => new ConfigBasedTransferExecutor(transferRules || [], scene, apiEffectRuntimeIndex),
         );
-        const unresolvedThisFieldLoadNodeIdsByFieldAndFile = measureSection("precompute_unresolved_this_field", () => buildUnresolvedThisFieldLoadNodeIdsByFieldAndFile(
+        progressLog(`[worklist] precompute_transfer_executor done transfer_rules=${(transferRules || []).length}`);
+        const unresolvedThisFieldLoadNodeIdsByFieldAndFile = measureLoggedSection("precompute_unresolved_this_field", () => buildUnresolvedThisFieldLoadNodeIdsByFieldAndFile(
             scene,
             pag,
             allowedMethodSignatures
         ));
-        const classBySignature = measureSection("precompute_class_index", () => buildClassSignatureIndex(scene));
+        const classBySignature = measureLoggedSection("precompute_class_index", () => buildClassSignatureIndex(scene));
         const classRelationCache = new Map<string, boolean>();
         const preciseArrayLoadCache = new Map<string, number[]>();
+        const syntheticCallSourceNodeIdsByCallSiteAndDst = measureLoggedSection(
+            "precompute_synthetic_call_arg_index",
+            () => buildSyntheticCallSourceNodeIdsByCallSiteAndDst(syntheticInvokeEdgeMap),
+        );
+        const canonicalModuleInvokeSitesByNode = measureLoggedSection(
+            "precompute_module_invoke_sites",
+            () => collectCanonicalModuleInvokeSitesByNode(
+                apiEffectRuntimeIndex,
+                pag,
+                allowedMethodSignatures,
+                classBySignature,
+            ),
+        );
         const fieldPropagationEngine = new FieldPropagationEngine({
             scene,
             pag,
@@ -286,9 +430,12 @@ export class WorklistSolver {
             unresolvedThisFieldLoadNodeIdsByFieldAndFile,
             classRelationCache,
             preciseArrayLoadCache,
+            ctxManager,
+            syntheticCallSourceNodeIdsByCallSiteAndDst,
+            syntheticInvokeEdgeMap,
         });
-        const ordinarySharedStateIndex = measureSection("precompute_shared_state_index", () => buildOrdinarySharedStateIndex(scene, pag));
-        const objectNodeIdsByClassSignature = measureSection("precompute_object_node_class_index", () => {
+        const ordinarySharedStateIndex = measureLoggedSection("precompute_shared_state_index", () => buildOrdinarySharedStateIndex(scene, pag));
+        const objectNodeIdsByClassSignature = measureLoggedSection("precompute_object_node_class_index", () => {
             const out = new Map<string, Set<number>>();
             for (const rawNode of pag.getNodesIter()) {
                 const pagNode = rawNode as PagNode;
@@ -301,6 +448,7 @@ export class WorklistSolver {
             }
             return out;
         });
+        progressLog(`[worklist] precompute done elapsed_ms=${Date.now() - startedAt}`);
         if (unresolvedThisFieldLoadNodeIdsByFieldAndFile.size > 0) {
             let unresolvedLoadCount = 0;
             for (const fileMap of unresolvedThisFieldLoadNodeIdsByFieldAndFile.values()) {
@@ -312,7 +460,8 @@ export class WorklistSolver {
             }
             log(`[Field-Load] unresolved this-field loads fields=${unresolvedThisFieldLoadNodeIdsByFieldAndFile.size}, loads=${unresolvedLoadCount}`);
         }
-        const factRuleChains = new Map<string, FactRuleChain>();
+        const trackFactRuleChains = !!onFactRuleChain;
+        const factRuleChains = trackFactRuleChains ? new Map<string, FactRuleChain>() : undefined;
         const cloneChain = (chain?: FactRuleChain): FactRuleChain => ({
             sourceRuleId: chain?.sourceRuleId,
             transferRuleIds: [...(chain?.transferRuleIds || [])],
@@ -406,12 +555,11 @@ export class WorklistSolver {
                         decl.calleeMethodName,
                     );
                 } else {
-                    const topElem = ctxManager.getTopElement(baseFact.contextID);
-                    if (topElem !== -1 && topElem !== decl.callSiteId) {
-                        targetContextId = baseFact.contextID;
-                    } else {
-                        targetContextId = ctxManager.restoreCallerContext(baseFact.contextID);
+                    const restoredCtx = resolveReturnEdgeContext(ctxManager, baseFact.contextID, decl.callSiteId);
+                    if (restoredCtx === undefined) {
+                        return undefined;
                     }
+                    targetContextId = restoredCtx;
                 }
             }
             return new TaintFact(
@@ -493,12 +641,21 @@ export class WorklistSolver {
         };
         for (const seedFact of worklist) {
             const chain = initialChainForFact(seedFact);
-            factRuleChains.set(seedFact.taintId, chain);
-            onFactRuleChain?.(seedFact.taintId, chain);
+            if (trackFactRuleChains) {
+                factRuleChains!.set(seedFact.taintId, chain);
+                onFactRuleChain?.(seedFact.taintId, chain);
+            }
             onFactObserved?.(seedFact);
         }
         let queueHead = 0;
         profiler?.onQueueSize(worklist.length - queueHead);
+        progressLog(`[worklist] solve loop start total=${worklist.length} visited=${visited.size}`);
+        let visitedKeyChars = 0;
+        let maxVisitedKeyChars = 0;
+        for (const key of visited) {
+            visitedKeyChars += key.length;
+            if (key.length > maxVisitedKeyChars) maxVisitedKeyChars = key.length;
+        }
         const reachedMethodSignatures = new Set<string>();
         const traceWorklist = process.env.ARKTAINT_TRACE_WORKLIST === "1";
         const traceWorklistSections = process.env.ARKTAINT_TRACE_WORKLIST_SECTIONS === "1";
@@ -524,16 +681,27 @@ export class WorklistSolver {
             if (maybeTruncate()) {
                 break;
             }
-            const fact = worklist[queueHead++]!;
+            const now = Date.now();
+            if (queueHead === 0 || queueHead % 250 === 0 || now - lastTraceAt >= 5000) {
+                progressLog(`[worklist] progress head=${queueHead} total=${worklist.length} visited=${visited.size} avg_key_chars=${visited.size > 0 ? Math.round(visitedKeyChars / visited.size) : 0} max_key_chars=${maxVisitedKeyChars} ${formatMemoryUsage()} elapsed_ms=${now - startedAt}`);
+                lastTraceAt = now;
+            }
+            const fact = worklist[queueHead]!;
+            worklist[queueHead] = undefined as any;
+            queueHead++;
             traceSection("dequeue", fact);
             profiler?.onDequeue(worklist.length - queueHead);
             traceGraph?.recordFact(fact);
             const node = fact.node;
             const currentCtx = fact.contextID;
             const factKey = fact.taintId;
-            const currentChain = factRuleChains.get(factKey) || initialChainForFact(fact);
-            factRuleChains.set(factKey, currentChain);
-            onFactRuleChain?.(factKey, currentChain);
+            const currentChain = trackFactRuleChains
+                ? (factRuleChains!.get(factKey) || initialChainForFact(fact))
+                : initialChainForFact(fact);
+            if (trackFactRuleChains) {
+                factRuleChains!.set(factKey, currentChain);
+                onFactRuleChain?.(factKey, currentChain);
+            }
                 if (!isNodeAllowedByReachability(node, allowedMethodSignatures)) {
                 continue;
             }
@@ -616,10 +784,14 @@ export class WorklistSolver {
                     return;
                 }
                 visited.add(newFactKey);
+                visitedKeyChars += newFactKey.length;
+                if (newFactKey.length > maxVisitedKeyChars) maxVisitedKeyChars = newFactKey.length;
                 worklist.push(newFact);
                 const newChain = cloneChain(chainOverride || currentChain);
-                factRuleChains.set(newFactKey, newChain);
-                onFactRuleChain?.(newFactKey, newChain);
+                if (trackFactRuleChains) {
+                    factRuleChains!.set(newFactKey, newChain);
+                    onFactRuleChain?.(newFactKey, newChain);
+                }
                 onFactObserved?.(newFact);
                 profiler?.onEnqueueSuccess(reason, worklist.length - queueHead);
                 traceGraph?.recordEdge(fact, newFact, { reason, status: "emitted" });
@@ -675,35 +847,43 @@ export class WorklistSolver {
                 }, emission.chain, emission.allowUnreachableTarget === true, emission.currentnessCertificates);
             }
 
-            const stmt = (node as any).stmt;
-            if (stmt?.containsInvokeExpr?.() && stmt.getInvokeExpr) {
+            const canonicalModuleInvokeSites = canonicalModuleInvokeSitesByNode.get(node.getID()) || [];
+            if (canonicalModuleInvokeSites.length > 0) {
                 traceSection("module_invoke", fact);
-                const invokeExpr = stmt.getInvokeExpr();
-                const methodSig = invokeExpr?.getMethodSignature?.();
-                const invokeEmissions = measureSection("module_invoke", () => moduleRuntime.emitForInvoke({
-                    scene,
-                    pag,
-                    allowedMethodSignatures,
-                    fieldToVarIndex,
-                    queries: moduleQueries,
-                    log,
-                    fact,
-                    node,
-                    stmt,
-                    invokeExpr,
-                    callSignature: methodSig?.toString?.() || "",
-                    methodName: methodSig?.getMethodSubSignature?.()?.getMethodName?.() || "",
-                    declaringClassName: methodSig?.getDeclaringClassSignature?.()?.getClassName?.() || "",
-                    args: invokeExpr?.getArgs ? invokeExpr.getArgs() : [],
-                    baseValue: invokeExpr?.getBase ? invokeExpr.getBase() : undefined,
-                    resultValue: stmt instanceof ArkAssignStmt ? stmt.getLeftOp?.() : undefined,
-                } as InternalRawModuleInvokeEvent));
-                for (const emission of invokeEmissions) {
-                    const newFact = emission.fact;
-                    tryEnqueue(emission.reason, newFact, () => {
-                        tracker.markTainted(newFact.node.getID(), newFact.contextID, newFact.source, newFact.field, newFact.taintId);
-                        log(`    [${emission.reason}] Tainted node ${newFact.node.getID()} (ctx=${newFact.contextID})`);
-                    }, emission.chain, emission.allowUnreachableTarget === true, emission.currentnessCertificates);
+                const invokedForFact = new Set<string>();
+                for (const canonicalOccurrence of canonicalModuleInvokeSites) {
+                    const invokeKey = `${canonicalOccurrence.occurrenceId}|${canonicalOccurrence.canonicalApiId}`;
+                    if (invokedForFact.has(invokeKey)) continue;
+                    invokedForFact.add(invokeKey);
+                    const invokeEmissions = measureSection("module_invoke", () => moduleRuntime.emitForInvoke({
+                        scene,
+                        pag,
+                        allowedMethodSignatures,
+                        fieldToVarIndex,
+                        queries: moduleQueries,
+                        log,
+                        fact,
+                        node,
+                        stmt: canonicalOccurrence.stmt,
+                        invokeExpr: canonicalOccurrence.invokeExpr,
+                        callSignature: canonicalOccurrence.callSignature,
+                        methodName: canonicalOccurrence.methodName,
+                        declaringClassName: canonicalOccurrence.declaringClassName,
+                        canonicalApiId: canonicalOccurrence.canonicalApiId,
+                        occurrenceId: canonicalOccurrence.occurrenceId,
+                        rawOccurrenceId: canonicalOccurrence.rawOccurrenceId,
+                        semanticEffectSites: canonicalOccurrence.semanticEffectSites,
+                        args: canonicalOccurrence.args,
+                        baseValue: canonicalOccurrence.baseValue,
+                        resultValue: canonicalOccurrence.resultValue,
+                    } as InternalRawModuleInvokeEvent));
+                    for (const emission of invokeEmissions) {
+                        const newFact = emission.fact;
+                        tryEnqueue(emission.reason, newFact, () => {
+                            tracker.markTainted(newFact.node.getID(), newFact.contextID, newFact.source, newFact.field, newFact.taintId);
+                            log(`    [${emission.reason}] Tainted node ${newFact.node.getID()} (ctx=${newFact.contextID})`);
+                        }, emission.chain, emission.allowUnreachableTarget === true, emission.currentnessCertificates);
+                    }
                 }
             }
 
@@ -714,9 +894,11 @@ export class WorklistSolver {
                 for (const bridge of bridgeInfos) {
                     const targetObjectNode = pag.getNode(bridge.targetObjectNodeId) as PagNode;
                     if (!targetObjectNode) continue;
-                    const targetFieldPath = fact.field.length > 1
-                        ? [bridge.targetFieldName, ...fact.field.slice(1)]
-                        : [bridge.targetFieldName];
+                    const targetFieldPath = bridge.pathMode === "append_source_path"
+                        ? [bridge.targetFieldName, ...fact.field]
+                        : fact.field.length > 1
+                            ? [bridge.targetFieldName, ...fact.field.slice(1)]
+                            : [bridge.targetFieldName];
                     const newFact = new TaintFact(
                         targetObjectNode,
                         fact.source,
@@ -733,7 +915,8 @@ export class WorklistSolver {
                         );
                         log(
                             `    [Synthetic-FieldBridge] Obj ${bridge.sourceObjectNodeId}.${bridge.sourceFieldName} `
-                            + `-> Obj ${bridge.targetObjectNodeId}.${bridge.targetFieldName} (ctx=${currentCtx})`
+                            + `-> Obj ${bridge.targetObjectNodeId}.${targetFieldPath.join(".")} `
+                            + `[${bridge.pathMode}] (ctx=${currentCtx})`
                         );
                     });
                 }
@@ -754,6 +937,238 @@ export class WorklistSolver {
                             + `.${newFact.field?.join(".")} (ctx=${currentCtx})`
                         );
                     });
+                }
+
+                const copyLikeResultFacts = collectOrdinaryCopyLikeResultFactsFromTaintedObj(
+                    node.getID(),
+                    fact.field,
+                    fact.source,
+                    currentCtx,
+                    pag,
+                    classBySignature,
+                );
+                for (const newFact of copyLikeResultFacts) {
+                    tryEnqueue("CopyLike-Carrier", newFact, () => {
+                        tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.taintId);
+                        log(
+                            `    [CopyLike-Carrier] Tainted node ${newFact.node.getID()}`
+                            + `${newFact.field?.length ? `.${newFact.field.join(".")}` : ""} from ordinary copy-like carrier`
+                            + ` (ctx=${currentCtx})`
+                        );
+                    });
+                }
+
+                const objectFromEntriesFacts = propagateObjectFromEntriesFieldStoresByObj(
+                    pag,
+                    node.getID(),
+                    fact.field,
+                    fact.source,
+                    currentCtx,
+                    classBySignature,
+                );
+                for (const newFact of objectFromEntriesFacts) {
+                    tryEnqueue("Object-FromEntries-Store", newFact, () => {
+                        tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.taintId);
+                        log(
+                            `    [Object-FromEntries-Store] Tainted Obj ${newFact.node.getID()}`
+                            + `.${newFact.field?.join(".")} from Object.fromEntries pair slot (ctx=${currentCtx})`
+                        );
+                    });
+                }
+
+                const queryResultFacts = propagateQueryResultContainerFactsByObj(
+                    pag,
+                    node.getID(),
+                    fact.field,
+                    fact.source,
+                    currentCtx,
+                    classBySignature,
+                );
+                for (const newFact of queryResultFacts) {
+                    tryEnqueue("Query-Result-Container", newFact, () => {
+                        tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.taintId);
+                        log(
+                            `    [Query-Result-Container] Tainted node ${newFact.node.getID()}`
+                            + `${newFact.field?.length ? `.${newFact.field.join(".")}` : ""} from exact query-result field projection`
+                            + ` (ctx=${currentCtx})`
+                        );
+                    });
+                }
+
+                const ordinaryCollectionLoads = collectOrdinaryCollectionLoadEffectsFromTaintedSlot(
+                    node.getID(),
+                    sourceFieldName,
+                    pag,
+                    scene,
+                );
+                const collectionRemainingFieldPath = fact.field.length > 1 ? fact.field.slice(1) : undefined;
+                for (const targetNodeId of ordinaryCollectionLoads.resultNodeIds) {
+                    const targetNode = pag.getNode(targetNodeId) as PagNode;
+                    if (!targetNode) continue;
+                    const newFact = new TaintFact(
+                        targetNode,
+                        fact.source,
+                        currentCtx,
+                        collectionRemainingFieldPath ? [...collectionRemainingFieldPath] : undefined,
+                    );
+                    tryEnqueue("Collection-Slot-Load", newFact, () => {
+                        tracker.markTainted(targetNodeId, currentCtx, fact.source, newFact.field, newFact.taintId);
+                        log(`    [Collection-Slot-Load] Tainted node ${targetNodeId} from ordinary collection slot ${sourceFieldName} (ctx=${currentCtx})`);
+                    });
+                }
+                for (const targetNodeId of ordinaryCollectionLoads.callbackParamNodeIds) {
+                    const targetNode = pag.getNode(targetNodeId) as PagNode;
+                    if (!targetNode) continue;
+                    const newFact = new TaintFact(
+                        targetNode,
+                        fact.source,
+                        currentCtx,
+                        collectionRemainingFieldPath ? [...collectionRemainingFieldPath] : undefined,
+                    );
+                    tryEnqueue("Collection-Slot-CB", newFact, () => {
+                        tracker.markTainted(targetNodeId, currentCtx, fact.source, newFact.field, newFact.taintId);
+                        log(`    [Collection-Slot-CB] Tainted callback param node ${targetNodeId} from ordinary collection slot ${sourceFieldName} (ctx=${currentCtx})`);
+                    });
+                }
+                for (const store of ordinaryCollectionLoads.resultSlotStores) {
+                    const targetNode = pag.getNode(store.objId) as PagNode;
+                    if (!targetNode) continue;
+                    const newFact = new TaintFact(
+                        targetNode,
+                        fact.source,
+                        currentCtx,
+                        [toContainerFieldKey(store.slot), ...fact.field.slice(1)],
+                    );
+                    tryEnqueue("Collection-View-ResultStore", newFact, () => {
+                        tracker.markTainted(targetNode.getID(), currentCtx, fact.source, newFact.field, newFact.taintId);
+                        log(`    [Collection-View-ResultStore] Tainted Obj ${targetNode.getID()}.${store.slot} from ordinary collection view (ctx=${currentCtx})`);
+                    });
+                }
+
+                const containerSlot = fromContainerFieldKey(sourceFieldName);
+                if (containerSlot && containerSlot.startsWith("arr:")) {
+                    const arrayRemainingFieldPath = fact.field.length > 1 ? fact.field.slice(1) : undefined;
+                    const ordinaryArrayHigherOrderFromSlot = collectOrdinaryArrayHigherOrderEffectsFromTaintedSlot(
+                        node.getID(),
+                        containerSlot,
+                        pag,
+                        scene,
+                    );
+                    for (const targetNodeId of ordinaryArrayHigherOrderFromSlot.callbackParamNodeIds) {
+                        const targetNode = pag.getNode(targetNodeId) as PagNode;
+                        if (!targetNode) continue;
+                        const newFact = new TaintFact(
+                            targetNode,
+                            fact.source,
+                            currentCtx,
+                            arrayRemainingFieldPath ? [...arrayRemainingFieldPath] : undefined,
+                        );
+                        tryEnqueue("Array-Slot-HOF-CB", newFact, () => {
+                            tracker.markTainted(targetNodeId, currentCtx, fact.source, newFact.field, newFact.taintId);
+                            log(`    [Array-Slot-HOF-CB] Tainted callback param node ${targetNodeId} from ordinary array slot ${containerSlot} (ctx=${currentCtx})`);
+                        });
+                    }
+                    for (const targetNodeId of ordinaryArrayHigherOrderFromSlot.resultNodeIds) {
+                        const targetNode = pag.getNode(targetNodeId) as PagNode;
+                        if (!targetNode) continue;
+                        const newFact = new TaintFact(
+                            targetNode,
+                            fact.source,
+                            currentCtx,
+                            arrayRemainingFieldPath ? [...arrayRemainingFieldPath] : undefined,
+                        );
+                        tryEnqueue("Array-Slot-HOF-Result", newFact, () => {
+                            tracker.markTainted(targetNodeId, currentCtx, fact.source, newFact.field, newFact.taintId);
+                            log(`    [Array-Slot-HOF-Result] Tainted result node ${targetNodeId} from ordinary array slot ${containerSlot} (ctx=${currentCtx})`);
+                        });
+                    }
+                    for (const store of ordinaryArrayHigherOrderFromSlot.resultSlotStores) {
+                        const targetNode = pag.getNode(store.objId) as PagNode;
+                        if (!targetNode) continue;
+                        const newFact = new TaintFact(
+                            targetNode,
+                            fact.source,
+                            currentCtx,
+                            [toContainerFieldKey(store.slot), ...fact.field.slice(1)],
+                        );
+                        tryEnqueue("Array-Slot-HOF-ResultStore", newFact, () => {
+                            tracker.markTainted(targetNode.getID(), currentCtx, fact.source, newFact.field, newFact.taintId);
+                            log(`    [Array-Slot-HOF-ResultStore] Tainted Obj ${targetNode.getID()}.${store.slot} from ordinary array higher-order slot flow (ctx=${currentCtx})`);
+                        });
+                    }
+
+                    const promiseAggregateEffects = collectOrdinaryPromiseAggregateEffectsFromArraySlot(
+                        node.getID(),
+                        containerSlot,
+                        pag,
+                        scene,
+                    );
+                    for (const store of promiseAggregateEffects.resultSlotStores) {
+                        const targetNode = pag.getNode(store.objId) as PagNode;
+                        if (!targetNode) continue;
+                        const newFact = new TaintFact(
+                            targetNode,
+                            fact.source,
+                            currentCtx,
+                            [toContainerFieldKey(store.slot), ...fact.field.slice(1)],
+                        );
+                        tryEnqueue("Promise-Aggregate-ResultStore", newFact, () => {
+                            tracker.markTainted(targetNode.getID(), currentCtx, fact.source, newFact.field, newFact.taintId);
+                            log(`    [Promise-Aggregate-ResultStore] Tainted Obj ${targetNode.getID()}.${store.slot} from Promise aggregate result (ctx=${currentCtx})`);
+                        });
+                    }
+                }
+
+                if (!containsContainerFieldPath(fact.field)) {
+                    const carrierAliasLocals = collectAliasLocalsForCarrier(pag, node.getID(), classBySignature);
+                    const carrierFieldStoreSeen = new Set<string>();
+                    for (const aliasLocal of carrierAliasLocals) {
+                        const ordinaryArrayMutation = collectOrdinaryArrayMutationEffectsFromTaintedLocal(aliasLocal, pag);
+                        for (const store of ordinaryArrayMutation.slotStores) {
+                            const targetCarrierId = store.carrierNodeId ?? store.objId;
+                            const key = `array|${targetCarrierId}|${store.slot}|${fact.field.join(".")}`;
+                            if (carrierFieldStoreSeen.has(key)) continue;
+                            carrierFieldStoreSeen.add(key);
+                            const targetNode = pag.getNode(targetCarrierId) as PagNode;
+                            if (!targetNode) continue;
+                            const newFact = new TaintFact(
+                                targetNode,
+                                fact.source,
+                                currentCtx,
+                                [toContainerFieldKey(store.slot), ...fact.field],
+                            );
+                            tryEnqueue("Array-Mutation-CarrierField", newFact, () => {
+                                tracker.markTainted(targetNode.getID(), currentCtx, fact.source, newFact.field, newFact.taintId);
+                                log(
+                                    `    [Array-Mutation-CarrierField] Tainted carrier ${targetNode.getID()}.${store.slot} `
+                                    + `from object carrier field ${fact.field?.join(".")} (obj=${store.objId}, ctx=${currentCtx})`
+                                );
+                            });
+                        }
+
+                        const ordinaryCollectionMutation = collectOrdinaryCollectionMutationEffectsFromTaintedLocal(aliasLocal, pag);
+                        for (const store of ordinaryCollectionMutation.slotStores) {
+                            const targetCarrierId = store.carrierNodeId ?? store.objId;
+                            const key = `collection|${targetCarrierId}|${store.slot}|${fact.field.join(".")}`;
+                            if (carrierFieldStoreSeen.has(key)) continue;
+                            carrierFieldStoreSeen.add(key);
+                            const targetNode = pag.getNode(targetCarrierId) as PagNode;
+                            if (!targetNode) continue;
+                            const newFact = new TaintFact(
+                                targetNode,
+                                fact.source,
+                                currentCtx,
+                                [toContainerFieldKey(store.slot), ...fact.field],
+                            );
+                            tryEnqueue("Collection-Mutation-CarrierField", newFact, () => {
+                                tracker.markTainted(targetNode.getID(), currentCtx, fact.source, newFact.field, newFact.taintId);
+                                log(
+                                    `    [Collection-Mutation-CarrierField] Tainted carrier ${targetNode.getID()}.${store.slot} `
+                                    + `from object carrier field ${fact.field?.join(".")} (obj=${store.objId}, ctx=${currentCtx})`
+                                );
+                            });
+                        }
+                    }
                 }
             }
 
@@ -787,6 +1202,60 @@ export class WorklistSolver {
                 tryEnqueue("CopyLike-Stringify", newFact, () => {
                     tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.taintId);
                     log(`    [CopyLike-Stringify] Tainted serialized result node ${newFact.node.getID()} (ctx=${currentCtx})`);
+                });
+            }
+
+            traceSection("copylike_scalar_result", fact);
+            const copyLikeScalarResultFacts = measureSection("copylike_scalar_result", () => collectOrdinaryCopyLikeScalarResultFactsFromTaintedLocal(
+                node,
+                fact.source,
+                currentCtx,
+                pag,
+                fact.field,
+            ));
+            for (const newFact of copyLikeScalarResultFacts) {
+                tryEnqueue("CopyLike-ScalarResult", newFact, () => {
+                    tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.taintId);
+                    log(`    [CopyLike-ScalarResult] Tainted copy-like result node ${newFact.node.getID()} (ctx=${currentCtx})`);
+                });
+            }
+
+            traceSection("await_result", fact);
+            const awaitResultFacts = measureSection("await_result", () => collectOrdinaryAwaitResultFactsFromTaintedLocal(
+                node,
+                fact.source,
+                currentCtx,
+                pag,
+                fact.field,
+            ));
+            for (const newFact of awaitResultFacts) {
+                tryEnqueue("Await-Result", newFact, () => {
+                    tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.taintId);
+                    log(`    [Await-Result] Tainted awaited result node ${newFact.node.getID()} (ctx=${currentCtx})`);
+                });
+            }
+
+            traceSection("promise_then_callback", fact);
+            const promiseThenCallbackParamNodeIds = measureSection(
+                "promise_then_callback",
+                () => collectOrdinaryPromiseThenCallbackParamNodeIdsFromTaintedLocal(
+                    node,
+                    pag,
+                    scene,
+                ),
+            );
+            for (const targetNodeId of promiseThenCallbackParamNodeIds) {
+                const targetNode = pag.getNode(targetNodeId) as PagNode;
+                if (!targetNode) continue;
+                const newFact = new TaintFact(
+                    targetNode,
+                    fact.source,
+                    currentCtx,
+                    fact.field ? [...fact.field] : undefined,
+                );
+                tryEnqueue("Promise-Then-CB", newFact, () => {
+                    tracker.markTainted(targetNodeId, currentCtx, fact.source, newFact.field, newFact.taintId);
+                    log(`    [Promise-Then-CB] Tainted callback param node ${targetNodeId} from promise result (ctx=${currentCtx})`);
                 });
             }
 
@@ -840,33 +1309,38 @@ export class WorklistSolver {
                     });
                 }
 
-                const closureWritebackFacts = collectOrdinaryClosureLocalWritebackFactsFromTaintedLocal(
-                    node,
-                    fact.source,
-                    currentCtx,
-                    pag,
-                    scene,
-                );
-                for (const newFact of closureWritebackFacts) {
-                    tryEnqueue("Closure-Local-Writeback", newFact, () => {
-                        tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.taintId);
-                        log(`    [Closure-Local-Writeback] Tainted captured local node ${newFact.node.getID()} (ctx=${newFact.contextID})`);
-                    });
-                }
+            }
 
-                const closureReadbackFacts = collectOrdinaryClosureLocalReadbackFactsFromParentLocal(
-                    node,
-                    fact.source,
-                    currentCtx,
-                    pag,
-                    scene,
-                );
-                for (const newFact of closureReadbackFacts) {
-                    tryEnqueue("Closure-Local-Readback", newFact, () => {
-                        tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.taintId);
-                        log(`    [Closure-Local-Readback] Tainted captured read local node ${newFact.node.getID()} (ctx=${newFact.contextID})`);
-                    });
-                }
+            const closureWritebackFacts = collectOrdinaryClosureLocalWritebackFactsFromTaintedLocal(
+                node,
+                fact.source,
+                currentCtx,
+                pag,
+                scene,
+                fact.field,
+            );
+            for (const newFact of closureWritebackFacts) {
+                tryEnqueue("Closure-Local-Writeback", newFact, () => {
+                    tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.taintId);
+                    const fieldSuffix = newFact.field && newFact.field.length > 0 ? `.${newFact.field.join(".")}` : "";
+                    log(`    [Closure-Local-Writeback] Tainted captured local node ${newFact.node.getID()}${fieldSuffix} (ctx=${newFact.contextID})`);
+                });
+            }
+
+            const closureReadbackFacts = collectOrdinaryClosureLocalReadbackFactsFromParentLocal(
+                node,
+                fact.source,
+                currentCtx,
+                pag,
+                scene,
+                fact.field,
+            );
+            for (const newFact of closureReadbackFacts) {
+                tryEnqueue("Closure-Local-Readback", newFact, () => {
+                    tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.taintId);
+                    const fieldSuffix = newFact.field && newFact.field.length > 0 ? `.${newFact.field.join(".")}` : "";
+                    log(`    [Closure-Local-Readback] Tainted captured read local node ${newFact.node.getID()}${fieldSuffix} (ctx=${newFact.contextID})`);
+                });
             }
 
             if (!fact.field || fact.field.length === 0) {
@@ -890,11 +1364,11 @@ export class WorklistSolver {
                     const targetNode = pag.getNode(captureEdge.dstNodeId) as PagNode;
                     let newCtx = currentCtx;
                     if (captureEdge.direction === "backward") {
-                        const topElem = ctxManager.getTopElement(currentCtx);
-                        if (topElem !== -1 && topElem !== captureEdge.callSiteId) {
+                        const restoredCtx = ctxManager.restoreCallerContextForCallSite(currentCtx, captureEdge.callSiteId);
+                        if (restoredCtx === undefined) {
                             continue;
                         }
-                        newCtx = ctxManager.restoreCallerContext(currentCtx);
+                        newCtx = restoredCtx;
                     } else {
                         newCtx = ctxManager.createCalleeContext(
                             currentCtx,
@@ -925,7 +1399,16 @@ export class WorklistSolver {
                 ? (ensureSyntheticInvokeEdgesForNode(node.getID()) || syntheticInvokeEdgeMap.get(node.getID()))
                 : syntheticInvokeEdgeMap.get(node.getID());
             if (syntheticEdges) {
+                registerSyntheticReceiverOwners(syntheticEdges);
                 for (const edge of syntheticEdges) {
+                    if (!isSyntheticReceiverOwnerContextAllowed(
+                        edge,
+                        currentCtx,
+                        ctxManager,
+                        receiverOwnerNameByCallSiteId,
+                    )) {
+                        continue;
+                    }
                     if (fact.field && fact.field.length > 0 && !edge.preserveFieldPath) {
                         continue;
                     }
@@ -938,11 +1421,11 @@ export class WorklistSolver {
                             edge.calleeMethodName
                         );
                     } else if (edge.type === CallEdgeType.RETURN) {
-                        const topElem = ctxManager.getTopElement(currentCtx);
-                        if (topElem !== -1 && topElem !== edge.callSiteId) {
+                        const restoredCtx = resolveReturnEdgeContext(ctxManager, currentCtx, edge.callSiteId);
+                        if (restoredCtx === undefined) {
                             continue;
                         }
-                        newCtx = ctxManager.restoreCallerContext(currentCtx);
+                        newCtx = restoredCtx;
                     }
 
                     const targetNode = pag.getNode(edge.dstNodeId) as PagNode;
@@ -999,6 +1482,9 @@ export class WorklistSolver {
                             targetFieldPath = [info.fieldName];
                         }
                     } else {
+                        if (fact.field && fact.field.length > 0 && !canConstructorStoreSourceCarryNestedFieldPath(pag.getNode(info.srcNodeId) as PagNode | undefined)) {
+                            continue;
+                        }
                         targetFieldPath = fact.field && fact.field.length > 0
                             ? [info.fieldName, ...fact.field]
                             : [info.fieldName];
@@ -1065,6 +1551,24 @@ export class WorklistSolver {
                 }
             }
 
+            const exactVirtualDispatchFacts = collectExactOrdinaryVirtualDispatchParamFacts(
+                scene,
+                pag,
+                node,
+                fact.source,
+                currentCtx,
+                fact.field,
+            );
+            for (const newFact of exactVirtualDispatchFacts) {
+                tryEnqueue("Ordinary-VirtualDispatch-Arg", newFact, () => {
+                    tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.taintId);
+                    log(
+                        `    [Ordinary-VirtualDispatch-Arg] Tainted concrete callee parameter node ${newFact.node.getID()} `
+                        + `(ctx=${newFact.contextID})`
+                    );
+                }, undefined, true);
+            }
+
             if (!fact.field || fact.field.length === 0) {
             const arrayLoadFacts = propagateArrayElementLoads(pag, node, fact.source, currentCtx);
                 for (const newFact of arrayLoadFacts) {
@@ -1100,7 +1604,8 @@ export class WorklistSolver {
                         });
                     }
                     for (const store of ordinaryArrayMutation.slotStores) {
-                        const targetNode = pag.getNode(store.objId) as PagNode;
+                        const targetCarrierId = store.carrierNodeId ?? store.objId;
+                        const targetNode = pag.getNode(targetCarrierId) as PagNode;
                         if (!targetNode) continue;
                         const newFact = new TaintFact(
                             targetNode,
@@ -1110,7 +1615,39 @@ export class WorklistSolver {
                         );
                         tryEnqueue("Array-Mutation-Slot", newFact, () => {
                             tracker.markTainted(targetNode.getID(), currentCtx, fact.source, newFact.field, newFact.taintId);
-                            log(`    [Array-Mutation-Slot] Tainted Obj ${targetNode.getID()}.${store.slot} via ordinary array mutation (ctx=${currentCtx})`);
+                            log(
+                                `    [Array-Mutation-Slot] Tainted carrier ${targetNode.getID()}.${store.slot} `
+                                + `via ordinary array mutation (obj=${store.objId}, ctx=${currentCtx})`
+                            );
+                        });
+                    }
+
+                    const ordinaryCollectionMutation = collectOrdinaryCollectionMutationEffectsFromTaintedLocal(value, pag);
+                    for (const targetNodeId of ordinaryCollectionMutation.baseNodeIds) {
+                        const targetNode = pag.getNode(targetNodeId) as PagNode;
+                        if (!targetNode) continue;
+                        const newFact = new TaintFact(targetNode, fact.source, currentCtx);
+                        tryEnqueue("Collection-Mutation-Base", newFact, () => {
+                            tracker.markTainted(targetNodeId, currentCtx, fact.source, newFact.field, newFact.taintId);
+                            log(`    [Collection-Mutation-Base] Tainted node ${targetNodeId} via ordinary collection mutation (ctx=${currentCtx})`);
+                        });
+                    }
+                    for (const store of ordinaryCollectionMutation.slotStores) {
+                        const targetCarrierId = store.carrierNodeId ?? store.objId;
+                        const targetNode = pag.getNode(targetCarrierId) as PagNode;
+                        if (!targetNode) continue;
+                        const newFact = new TaintFact(
+                            targetNode,
+                            fact.source,
+                            currentCtx,
+                            [toContainerFieldKey(store.slot)],
+                        );
+                        tryEnqueue("Collection-Mutation-Slot", newFact, () => {
+                            tracker.markTainted(targetNode.getID(), currentCtx, fact.source, newFact.field, newFact.taintId);
+                            log(
+                                `    [Collection-Mutation-Slot] Tainted carrier ${targetNode.getID()}.${store.slot} `
+                                + `via ordinary collection mutation (obj=${store.objId}, ctx=${currentCtx})`
+                            );
                         });
                     }
 
@@ -1217,7 +1754,20 @@ export class WorklistSolver {
 
             const copyEdges = node.getOutgoingCopyEdges();
             if (copyEdges) {
-                for (const edge of copyEdges) {
+                const copyEdgeList = Array.from(copyEdges.values ? copyEdges.values() : copyEdges);
+                const returnEdgesForCurrentNode: CallEdgeInfo[] = [];
+                for (const edge of copyEdgeList) {
+                    const edgeInfo = callEdgeMap.get(`${node.getID()}->${edge.getDstID()}`);
+                    if (edgeInfo?.type === CallEdgeType.RETURN) {
+                        returnEdgesForCurrentNode.push(edgeInfo);
+                    }
+                }
+                const allowUnambiguousEmptyReturn = canResolveEmptyContextReturnExactly(
+                    ctxManager,
+                    currentCtx,
+                    returnEdgesForCurrentNode,
+                );
+                for (const edge of copyEdgeList) {
                     if (moduleRuntime.shouldSkipCopyEdge({
                         scene,
                         pag,
@@ -1243,6 +1793,19 @@ export class WorklistSolver {
                     }
 
                     const callEdgeInfo = callEdgeMap.get(edgeKey);
+                    const ordinaryVirtualDispatch = !callEdgeInfo
+                        ? resolveExactOrdinaryVirtualDispatchCopy(scene, node, targetNode)
+                        : undefined;
+                    if (ordinaryVirtualDispatch) {
+                        log(
+                            `    [Ordinary-VirtualDispatch] ${ordinaryVirtualDispatch.ownerName}.${ordinaryVirtualDispatch.methodName} `
+                            + `accepted copy ${node.getID()} -> ${targetNodeId} from exact receiver provenance`
+                        );
+                    }
+                    if (!callEdgeInfo && !ordinaryVirtualDispatch && isUnresolvedVirtualDispatchCopyEdge(scene, node, targetNode)) {
+                        log(`    [Copy-SKIP] Unresolved virtual dispatch copy ${node.getID()} -> ${targetNodeId} has no exact receiver evidence`);
+                        continue;
+                    }
                     if (fact.field && fact.field.length > 0 && !callEdgeInfo && !isOrdinaryFieldCarrierRelayCopy(node, targetNode)) {
                         continue;
                     }
@@ -1258,12 +1821,18 @@ export class WorklistSolver {
                             );
                             log(`    [Call] ${callEdgeInfo.callerMethodName} -> ${callEdgeInfo.calleeMethodName}, ctx: ${currentCtx} -> ${newCtx}`);
                         } else if (callEdgeInfo.type === CallEdgeType.RETURN) {
-                            const topElem = ctxManager.getTopElement(currentCtx);
-                            if (topElem !== -1 && topElem !== callEdgeInfo.callSiteId) {
+                            const restoredCtx = resolveReturnEdgeContext(
+                                ctxManager,
+                                currentCtx,
+                                callEdgeInfo.callSiteId,
+                                { allowUnambiguousEmptyContext: allowUnambiguousEmptyReturn },
+                            );
+                            if (restoredCtx === undefined) {
+                                const topElem = ctxManager.getTopElement(currentCtx);
                                 log(`    [Return-SKIP] ${callEdgeInfo.calleeMethodName} -> ${callEdgeInfo.callerMethodName}, ctx top=${topElem} != callsite=${callEdgeInfo.callSiteId}`);
                                 continue;
                             }
-                            newCtx = ctxManager.restoreCallerContext(currentCtx);
+                            newCtx = restoredCtx;
                             log(`    [Return] ${callEdgeInfo.calleeMethodName} -> ${callEdgeInfo.callerMethodName}, ctx: ${currentCtx} -> ${newCtx}`);
                         }
                         const nodeStmt = (node as any).stmt;
@@ -1290,6 +1859,17 @@ export class WorklistSolver {
                             fact,
                         });
                         applyPluginPropagationBatch(pluginCallEdgeBatch, fact, currentChain, tryEnqueue);
+                    }
+
+                    if (
+                        fact.field
+                        && fact.field.length > 0
+                        && callEdgeInfo
+                        && callEdgeInfo.type === CallEdgeType.CALL
+                        && !canCallTargetCarryNestedFieldPath(targetNode)
+                    ) {
+                        log(`    [Call-Field-SKIP] ${targetNodeId} cannot carry nested field path '${fact.field.join(".")}'`);
+                        continue;
                     }
 
                     const newFact = new TaintFact(
@@ -1450,6 +2030,64 @@ export class WorklistSolver {
                     }
                 }
 
+                const returnFieldFacts = collectReturnFieldWriteBackFacts(
+                    pag,
+                    callEdgeMap,
+                    ctxManager,
+                    node,
+                    fact,
+                    currentCtx,
+                    classBySignature,
+                );
+                for (const newFact of returnFieldFacts) {
+                    tryEnqueue("Return-Field-WriteBack", newFact, () => {
+                        tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.taintId);
+                        log(
+                            `    [Return-Field-WriteBack] node ${node.getID()}.${fact.field?.join(".")} `
+                            + `-> ${newFact.node.getID()}.${newFact.field?.join(".")} (ctx=${currentCtx} -> ${newFact.contextID})`
+                        );
+                    });
+                }
+
+                const returnedPromiseContinuationFacts = collectReturnedPromiseContinuationFacts(
+                    pag,
+                    callEdgeMap,
+                    ctxManager,
+                    scene,
+                    node,
+                    fact,
+                    currentCtx,
+                    classBySignature,
+                );
+                for (const newFact of returnedPromiseContinuationFacts) {
+                    tryEnqueue("Return-Promise-Continuation", newFact, () => {
+                        tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.taintId);
+                        log(
+                            `    [Return-Promise-Continuation] node ${node.getID()}.${fact.field?.join(".")} `
+                            + `-> ${newFact.node.getID()}.${newFact.field?.join(".")} (ctx=${currentCtx} -> ${newFact.contextID})`
+                        );
+                    });
+                }
+
+                const callFieldFacts = collectCallFieldForwardFacts(
+                    pag,
+                    callEdgeMap,
+                    ctxManager,
+                    node,
+                    fact,
+                    currentCtx,
+                    classBySignature,
+                );
+                for (const newFact of callFieldFacts) {
+                    tryEnqueue("Call-Field-Forward", newFact, () => {
+                        tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.taintId);
+                        log(
+                            `    [Call-Field-Forward] node ${node.getID()}.${fact.field?.join(".")} `
+                            + `-> ${newFact.node.getID()}.${newFact.field?.join(".")} (ctx=${currentCtx} -> ${newFact.contextID})`
+                        );
+                    });
+                }
+
             }
 
             if (fact.field && fact.field.length > 0) {
@@ -1533,5 +2171,913 @@ export class WorklistSolver {
 
         }
         worklist.length = 0;
+        progressLog(`[worklist] solve loop done head=${queueHead} visited=${visited.size} elapsed_ms=${Date.now() - startedAt}`);
     }
+}
+
+function collectCanonicalModuleInvokeSitesByNode(
+    apiEffectRuntimeIndex: ApiEffectRuntimeIndexLike | undefined,
+    pag: Pag,
+    allowedMethodSignatures: Set<string> | undefined,
+    classBySignature?: Map<string, any>,
+): Map<number, CanonicalModuleInvokeSite[]> {
+    const out = new Map<number, CanonicalModuleInvokeSite[]>();
+    if (!apiEffectRuntimeIndex) return out;
+    const semanticSitesByOccurrenceKey = new Map<string, ReturnType<ApiEffectRuntimeIndexLike["listSemanticEffectSites"]>>();
+    for (const semanticSite of apiEffectRuntimeIndex.listSemanticEffectSites()) {
+        if (semanticSite.capability !== "module") continue;
+        if (!semanticSite.canonicalApiId || !semanticSite.occurrenceId) continue;
+        const key = `${semanticSite.occurrenceId}|${semanticSite.canonicalApiId}`;
+        const current = semanticSitesByOccurrenceKey.get(key) || [];
+        current.push(semanticSite);
+        semanticSitesByOccurrenceKey.set(key, current);
+    }
+    const seen = new Set<string>();
+    for (const site of apiEffectRuntimeIndex.listCanonicalOccurrenceSites()) {
+        const resolved = site.resolvedOccurrence;
+        if (!resolved || resolved.status !== "accepted" || !resolved.canonicalApiId) continue;
+        if (!site.stmt?.containsInvokeExpr?.() || typeof site.stmt.getInvokeExpr !== "function") continue;
+        if (!apiEffectRuntimeIndex.hasModuleSemanticAssetBinding(resolved.canonicalApiId)) continue;
+        const ownerMethodSignature = site.method?.getSignature?.()?.toString?.() || "";
+        if (allowedMethodSignatures && (!ownerMethodSignature || !allowedMethodSignatures.has(ownerMethodSignature))) {
+            continue;
+        }
+        const invokeExpr = site.stmt.getInvokeExpr();
+        if (!invokeExpr) continue;
+        const key = `${resolved.occurrenceId}|${resolved.canonicalApiId}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const methodSig = invokeExpr.getMethodSignature?.();
+        const args = invokeExpr.getArgs ? invokeExpr.getArgs() : [];
+        const resultValue = site.stmt instanceof ArkAssignStmt ? site.stmt.getLeftOp?.() : undefined;
+        const semanticEffectSites = semanticSitesByOccurrenceKey.get(key) || [];
+        if (semanticEffectSites.length === 0) continue;
+        const candidateNodeIds = new Set<number>();
+        for (const semanticSite of semanticEffectSites) {
+            const projection = projectSemanticEffectEndpoint({
+                pag,
+                semanticSite,
+                endpointSpec: semanticSite.endpointSpec,
+                stmt: site.stmt,
+                invokeExpr,
+                allowNodeCreation: false,
+                consumer: "module",
+            });
+            if (!isConsumableSemanticEndpointProjection(projection)) continue;
+            for (const nodeId of projection.nodeIds) {
+                candidateNodeIds.add(nodeId);
+            }
+            for (const nodeId of projection.carrierNodeIds) {
+                candidateNodeIds.add(nodeId);
+            }
+        }
+        if (candidateNodeIds.size === 0) continue;
+        const invokeSite: CanonicalModuleInvokeSite = {
+            stmt: site.stmt,
+            invokeExpr,
+            callSignature: methodSig?.toString?.() || "",
+            methodName: methodSig?.getMethodSubSignature?.()?.getMethodName?.() || "",
+            declaringClassName: methodSig?.getDeclaringClassSignature?.()?.getClassName?.() || "",
+            canonicalApiId: resolved.canonicalApiId,
+            occurrenceId: resolved.occurrenceId,
+            rawOccurrenceId: resolved.rawOccurrenceId,
+            semanticEffectSites,
+            args,
+            baseValue: invokeExpr.getBase ? invokeExpr.getBase() : undefined,
+            resultValue,
+        };
+        for (const nodeId of candidateNodeIds) {
+            const current = out.get(nodeId) || [];
+            current.push(invokeSite);
+            out.set(nodeId, current);
+        }
+    }
+    return out;
+}
+
+interface ReturnFieldCandidate {
+    dstNodeId: number;
+    callEdgeInfo: CallEdgeInfo;
+}
+
+const MAX_RETURN_PROMISE_CONTINUATION_DEPTH = 8;
+
+function collectReturnFieldCandidates(
+    pag: Pag,
+    callEdgeMap: Map<string, CallEdgeInfo>,
+    carrierNode: PagNode,
+    classBySignature?: Map<string, any>,
+): ReturnFieldCandidate[] {
+    const carrierNodeId = carrierNode.getID();
+    const carrierMethodSignature = resolvePagNodeDeclaringMethodSignature(carrierNode);
+    const out: ReturnFieldCandidate[] = [];
+    const seen = new Set<string>();
+    for (const aliasLocal of collectAliasLocalsForCarrier(pag, carrierNodeId, classBySignature)) {
+        if (carrierMethodSignature && localDeclaringMethodSignature(aliasLocal) !== carrierMethodSignature) continue;
+        const aliasNodes = pag.getNodesByValue(aliasLocal);
+        if (!aliasNodes) continue;
+        for (const srcNodeId of aliasNodes.values()) {
+            const srcNode = pag.getNode(srcNodeId) as PagNode;
+            const copyEdges = srcNode.getOutgoingCopyEdges()?.values();
+            if (!copyEdges) continue;
+            for (const edge of copyEdges) {
+                const dstNodeId = edge.getDstID();
+                const callEdgeInfo = callEdgeMap.get(`${srcNodeId}->${dstNodeId}`);
+                if (!callEdgeInfo || callEdgeInfo.type !== CallEdgeType.RETURN) continue;
+                const key = `${srcNodeId}->${dstNodeId}:${callEdgeInfo.callSiteId}`;
+                if (seen.has(key)) continue;
+                seen.add(key);
+                out.push({ dstNodeId, callEdgeInfo });
+            }
+        }
+    }
+    return out;
+}
+
+function resolveReturnContinuationContext(
+    ctxManager: TaintContextManager,
+    currentCtx: number,
+    callSiteId: number,
+): number | undefined {
+    const restoredCtx = ctxManager.restoreCallerContextForCallSite(currentCtx, callSiteId);
+    if (restoredCtx !== undefined) return restoredCtx;
+    return ctxManager.getTopElement(currentCtx) === -1 ? currentCtx : undefined;
+}
+
+function collectReturnedPromiseContinuationFacts(
+    pag: Pag,
+    callEdgeMap: Map<string, CallEdgeInfo>,
+    ctxManager: TaintContextManager,
+    scene: Scene,
+    carrierNode: PagNode,
+    fact: TaintFact,
+    currentCtx: number,
+    classBySignature?: Map<string, any>,
+): TaintFact[] {
+    if (!fact.field || fact.field.length === 0) return [];
+
+    const trace = process.env.ARKTAINT_TRACE_RETURN_PROMISE_CONTINUATION === "1";
+    const out: TaintFact[] = [];
+    const seenFacts = new Set<string>();
+    const visited = new Set<string>();
+    const initialCandidates = collectReturnFieldCandidates(pag, callEdgeMap, carrierNode, classBySignature);
+    if (trace) {
+        console.log(
+            `[ReturnPromiseContinuation] start carrier=${carrierNode.getID()} field=${fact.field.join(".")} `
+            + `ctx=${currentCtx} initial=${initialCandidates.length}`
+        );
+    }
+    const queue: Array<ReturnFieldCandidate & { sourceCtx: number; depth: number }> =
+        initialCandidates.map(candidate => ({ ...candidate, sourceCtx: currentCtx, depth: 0 }));
+
+    const addFact = (newFact: TaintFact): void => {
+        const key = `${newFact.id}\u0001${newFact.source}`;
+        if (seenFacts.has(key)) return;
+        seenFacts.add(key);
+        out.push(newFact);
+    };
+
+    while (queue.length > 0) {
+        const current = queue.shift()!;
+        const targetCtx = resolveReturnContinuationContext(
+            ctxManager,
+            current.sourceCtx,
+            current.callEdgeInfo.callSiteId,
+        );
+        if (targetCtx === undefined) continue;
+
+        const visitKey = `${current.dstNodeId}@${targetCtx}:${current.depth}`;
+        if (visited.has(visitKey)) continue;
+        visited.add(visitKey);
+
+        const targetNode = pag.getNode(current.dstNodeId) as PagNode;
+        if (!targetNode) continue;
+
+        const awaitFacts = collectOrdinaryAwaitResultFactsFromTaintedLocal(
+            targetNode,
+            fact.source,
+            targetCtx,
+            pag,
+            fact.field,
+        );
+        for (const awaitFact of awaitFacts) {
+            addFact(awaitFact);
+        }
+
+        const callbackParamNodeIds = collectOrdinaryPromiseThenCallbackParamNodeIdsFromTaintedLocal(
+            targetNode,
+            pag,
+            scene,
+        );
+        if (trace) {
+            const stmt = (targetNode as any).getStmt?.() || (targetNode as any).stmt;
+            console.log(
+                `[ReturnPromiseContinuation] visit depth=${current.depth} target=${current.dstNodeId} `
+                + `ctx=${targetCtx} callsite=${current.callEdgeInfo.callSiteId} await=${awaitFacts.length} `
+                + `then=${callbackParamNodeIds.length} stmt=${stmt?.toString?.() || ""}`
+            );
+        }
+        for (const callbackParamNodeId of callbackParamNodeIds) {
+            const callbackParamNode = pag.getNode(callbackParamNodeId) as PagNode;
+            if (!callbackParamNode) continue;
+            addFact(new TaintFact(callbackParamNode, fact.source, targetCtx, [...fact.field]));
+        }
+
+        if (current.depth >= MAX_RETURN_PROMISE_CONTINUATION_DEPTH) continue;
+        const nextCandidates = collectReturnFieldCandidates(
+            pag,
+            callEdgeMap,
+            targetNode,
+            classBySignature,
+        );
+        if (trace && nextCandidates.length > 0) {
+            console.log(
+                `[ReturnPromiseContinuation] recurse target=${current.dstNodeId} next=${nextCandidates.length}`
+            );
+        }
+        for (const nextCandidate of nextCandidates) {
+            queue.push({
+                ...nextCandidate,
+                sourceCtx: targetCtx,
+                depth: current.depth + 1,
+            });
+        }
+    }
+
+    return out;
+}
+
+function collectReturnFieldWriteBackFacts(
+    pag: Pag,
+    callEdgeMap: Map<string, CallEdgeInfo>,
+    ctxManager: TaintContextManager,
+    carrierNode: PagNode,
+    fact: TaintFact,
+    currentCtx: number,
+    classBySignature?: Map<string, any>,
+): TaintFact[] {
+    if (!fact.field || fact.field.length === 0) return [];
+
+    const out: TaintFact[] = [];
+    const seen = new Set<string>();
+    const returnCandidates = collectReturnFieldCandidates(pag, callEdgeMap, carrierNode, classBySignature);
+
+    const allowUnambiguousEmptyReturn = canResolveEmptyContextReturnExactly(
+        ctxManager,
+        currentCtx,
+        returnCandidates.map(candidate => candidate.callEdgeInfo),
+    );
+    for (const candidate of returnCandidates) {
+        const restoredCtx = resolveReturnEdgeContext(
+            ctxManager,
+            currentCtx,
+            candidate.callEdgeInfo.callSiteId,
+            { allowUnambiguousEmptyContext: allowUnambiguousEmptyReturn },
+        );
+        if (restoredCtx === undefined) continue;
+        const targetNode = pag.getNode(candidate.dstNodeId) as PagNode;
+        if (!targetNode) continue;
+        const newFact = new TaintFact(targetNode, fact.source, restoredCtx, [...fact.field]);
+        const key = `${newFact.id}\u0001${newFact.source}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push(newFact);
+    }
+    return out;
+}
+
+function collectCallFieldForwardFacts(
+    pag: Pag,
+    callEdgeMap: Map<string, CallEdgeInfo>,
+    ctxManager: TaintContextManager,
+    carrierNode: PagNode,
+    fact: TaintFact,
+    currentCtx: number,
+    classBySignature?: Map<string, any>,
+): TaintFact[] {
+    if (!fact.field || fact.field.length === 0) return [];
+
+    const out: TaintFact[] = [];
+    const seen = new Set<string>();
+    const carrierNodeId = carrierNode.getID();
+    const carrierMethodSignature = resolvePagNodeDeclaringMethodSignature(carrierNode);
+    for (const aliasLocal of collectAliasLocalsForCarrier(pag, carrierNodeId, classBySignature)) {
+        if (carrierMethodSignature && localDeclaringMethodSignature(aliasLocal) !== carrierMethodSignature) continue;
+        const aliasNodes = pag.getNodesByValue(aliasLocal);
+        if (!aliasNodes) continue;
+        for (const srcNodeId of aliasNodes.values()) {
+            const srcNode = pag.getNode(srcNodeId) as PagNode;
+            const copyEdges = srcNode.getOutgoingCopyEdges()?.values();
+            if (!copyEdges) continue;
+            for (const edge of copyEdges) {
+                const dstNodeId = edge.getDstID();
+                const callEdgeInfo = callEdgeMap.get(`${srcNodeId}->${dstNodeId}`);
+                if (!callEdgeInfo || callEdgeInfo.type !== CallEdgeType.CALL) continue;
+                const targetNode = pag.getNode(dstNodeId) as PagNode;
+                if (!targetNode) continue;
+                if (!canCallTargetCarryNestedFieldPath(targetNode)) continue;
+                const nextCtx = ctxManager.createCalleeContext(
+                    currentCtx,
+                    callEdgeInfo.callSiteId,
+                    callEdgeInfo.callerMethodName,
+                    callEdgeInfo.calleeMethodName,
+                );
+                const newFact = new TaintFact(targetNode, fact.source, nextCtx, [...fact.field]);
+                const key = `${newFact.id}\u0001${newFact.source}`;
+                if (seen.has(key)) continue;
+                seen.add(key);
+                out.push(newFact);
+            }
+        }
+    }
+    return out;
+}
+
+function localDeclaringMethodSignature(local: Local): string {
+    return local.getDeclaringStmt?.()
+        ?.getCfg?.()
+        ?.getDeclaringMethod?.()
+        ?.getSignature?.()
+        ?.toString?.() || "";
+}
+
+interface ExactOrdinaryVirtualDispatchCopy {
+    ownerName: string;
+    methodName: string;
+}
+
+function collectExactOrdinaryVirtualDispatchParamFacts(
+    scene: Scene,
+    pag: Pag,
+    taintedNode: PagNode,
+    source: string,
+    currentCtx: number,
+    fieldPath?: string[],
+): TaintFact[] {
+    const results: TaintFact[] = [];
+    const seen = new Set<string>();
+    const sourceValue = taintedNode.getValue?.();
+    if (!sourceValue) return results;
+    const sourceMethodSig = resolvePagNodeDeclaringMethodSignature(taintedNode);
+    const sourceCfg = taintedNode.getStmt?.()?.getCfg?.()
+        || (sourceValue as any)?.getDeclaringStmt?.()?.getCfg?.()
+        || (sourceMethodSig ? getMethodBySignature(scene, sourceMethodSig)?.getCfg?.() : undefined);
+    if (!sourceCfg) return results;
+
+    for (const stmt of sourceCfg.getStmts?.() || []) {
+        if (!stmt.containsInvokeExpr?.()) continue;
+        const invokeExpr = stmt.getInvokeExpr?.();
+        if (!(invokeExpr instanceof ArkInstanceInvokeExpr)) continue;
+        const gap = diagnoseUnresolvedVirtualDispatchCached(scene, invokeExpr);
+        if (!gap || !gap.methodName) continue;
+
+        const args = invokeExpr.getArgs?.() || [];
+        const argIndex = args.findIndex((arg: any) => isSameUnresolvedVirtualArgument(sourceCfg, sourceValue, arg));
+        if (argIndex < 0) continue;
+
+        const ownerNames = resolveExactConcreteOwnerNamesForValue(
+            scene,
+            invokeExpr.getBase?.(),
+            stmt,
+            new Set<string>(),
+        );
+        if (!ownerNames || ownerNames.size !== 1) continue;
+        const ownerName = [...ownerNames][0];
+        const callee = resolveUniqueConcreteMethod(scene, ownerName, gap.methodName, args.length);
+        if (!callee) continue;
+
+        const targetParamStmt = resolveConcreteCalleeParamForArg(callee, argIndex, true);
+        if (!targetParamStmt) continue;
+        const targetNodeIds = resolveParamNodeIds(pag, targetParamStmt);
+        for (const targetNodeId of targetNodeIds) {
+            const targetNode = pag.getNode(targetNodeId) as PagNode;
+            if (!targetNode) continue;
+            const fact = new TaintFact(
+                targetNode,
+                source,
+                currentCtx,
+                fieldPath && fieldPath.length > 0 ? [...fieldPath] : undefined,
+            );
+            const key = `${fact.id}\u0001${fact.source}`;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            results.push(fact);
+        }
+    }
+
+    return results;
+}
+
+function resolveExactOrdinaryVirtualDispatchCopy(
+    scene: Scene,
+    sourceNode: PagNode,
+    targetNode: PagNode,
+): ExactOrdinaryVirtualDispatchCopy | undefined {
+    const sourceMethod = resolvePagNodeDeclaringMethodSignature(sourceNode);
+    const targetMethod = resolvePagNodeDeclaringMethodSignature(targetNode);
+    if (!sourceMethod || !targetMethod || sourceMethod === targetMethod) return undefined;
+
+    const sourceValue = sourceNode.getValue?.();
+    if (!sourceValue) return undefined;
+    const sourceCfg = sourceNode.getStmt?.()?.getCfg?.()
+        || (sourceValue as any)?.getDeclaringStmt?.()?.getCfg?.();
+    if (!sourceCfg) return undefined;
+
+    const targetMethodName = targetNode.getStmt?.()?.getCfg?.()?.getDeclaringMethod?.()?.getName?.()
+        || (targetNode.getValue?.() as any)?.getDeclaringStmt?.()?.getCfg?.()?.getDeclaringMethod?.()?.getName?.()
+        || "";
+    if (!targetMethodName) return undefined;
+
+    const targetOwnerNames = resolveMethodOwnerNameCandidates(targetMethod);
+    if (targetOwnerNames.size === 0) return undefined;
+
+    for (const stmt of sourceCfg.getStmts?.() || []) {
+        if (!stmt.containsInvokeExpr?.()) continue;
+        const invokeExpr = stmt.getInvokeExpr?.();
+        if (!(invokeExpr instanceof ArkInstanceInvokeExpr)) continue;
+        const gap = diagnoseUnresolvedVirtualDispatchCached(scene, invokeExpr);
+        if (!gap || gap.methodName !== targetMethodName) continue;
+        const args = invokeExpr.getArgs?.() || [];
+        if (!args.some((arg: any) => isSameUnresolvedVirtualArgument(sourceCfg, sourceValue, arg))) {
+            continue;
+        }
+
+        const ownerNames = resolveExactConcreteOwnerNamesForValue(
+            scene,
+            invokeExpr.getBase?.(),
+            stmt,
+            new Set<string>(),
+        );
+        if (!ownerNames || ownerNames.size !== 1) continue;
+        const ownerName = [...ownerNames][0];
+        if (!ownerNameMatchesAny(ownerName, targetOwnerNames)) continue;
+        return {
+            ownerName,
+            methodName: targetMethodName,
+        };
+    }
+    return undefined;
+}
+
+function diagnoseUnresolvedVirtualDispatchCached(
+    scene: Scene,
+    invokeExpr: any,
+): ReturnType<typeof diagnoseUnresolvedVirtualDispatch> {
+    if (!invokeExpr || typeof invokeExpr !== "object") {
+        return diagnoseUnresolvedVirtualDispatch(scene, invokeExpr);
+    }
+    let byInvoke = unresolvedVirtualDispatchDiagnosticCache.get(scene);
+    if (!byInvoke) {
+        byInvoke = new WeakMap<object, ReturnType<typeof diagnoseUnresolvedVirtualDispatch>>();
+        unresolvedVirtualDispatchDiagnosticCache.set(scene, byInvoke);
+    }
+    const cached = byInvoke.get(invokeExpr);
+    if (cached !== undefined || byInvoke.has(invokeExpr)) {
+        return cached;
+    }
+    const result = diagnoseUnresolvedVirtualDispatch(scene, invokeExpr);
+    byInvoke.set(invokeExpr, result);
+    return result;
+}
+
+function resolveUniqueConcreteMethod(
+    scene: Scene,
+    ownerName: string,
+    methodName: string,
+    argCount: number,
+): any | undefined {
+    const candidates = getConcreteMethodCandidatesByName(scene).get(methodName) || [];
+    const matches = candidates
+        .filter(candidate => ownerNameMatchesAny(ownerName, candidate.ownerNames))
+        .filter(candidate => isConcreteMethodArgCountConsistent(candidate.method, argCount));
+    return matches.length === 1 ? matches[0].method : undefined;
+}
+
+function getConcreteMethodCandidatesByName(scene: Scene): Map<string, ConcreteMethodCandidate[]> {
+    const cached = concreteMethodCandidatesByNameCache.get(scene);
+    if (cached) return cached;
+
+    const index = new Map<string, ConcreteMethodCandidate[]>();
+    for (const method of scene.getMethods()) {
+        if (!method?.getCfg?.()) continue;
+        const methodName = method.getName?.() || "";
+        if (!methodName) continue;
+        const ownerNames = resolveMethodOwnerNameCandidates(method.getSignature?.()?.toString?.() || "");
+        if (!index.has(methodName)) index.set(methodName, []);
+        index.get(methodName)!.push({ method, ownerNames });
+    }
+    concreteMethodCandidatesByNameCache.set(scene, index);
+    return index;
+}
+
+function isConcreteMethodArgCountConsistent(method: any, argCount: number): boolean {
+    const paramStmts = collectConcreteParameterAssignStmts(method);
+    if (paramStmts.length === argCount) return true;
+    if (paramStmts.length === argCount + 1) {
+        const firstParam = paramStmts[0].getRightOp?.();
+        return firstParam instanceof ArkParameterRef && firstParam.getIndex?.() === 0;
+    }
+    return paramStmts.length === 1 && argCount > 1;
+}
+
+function resolveConcreteCalleeParamForArg(
+    method: any,
+    argIndex: number,
+    isInstanceInvoke: boolean,
+): ArkAssignStmt | undefined {
+    const paramStmts = collectConcreteParameterAssignStmts(method);
+    if (paramStmts.length === 0) return undefined;
+    let targetIndex = argIndex;
+    if (isInstanceInvoke && paramStmts.length === argIndex + 2) {
+        const firstParam = paramStmts[0].getRightOp?.();
+        if (firstParam instanceof ArkParameterRef && firstParam.getIndex?.() === 0) {
+            targetIndex = argIndex + 1;
+        }
+    }
+    if (targetIndex < paramStmts.length) return paramStmts[targetIndex];
+    if (paramStmts.length === 1 && argIndex >= 0) return paramStmts[0];
+    return undefined;
+}
+
+function collectConcreteParameterAssignStmts(method: any): ArkAssignStmt[] {
+    if (method && typeof method === "object") {
+        const cached = concreteParameterAssignStmtCache.get(method);
+        if (cached) return cached;
+    }
+    const cfg = method?.getCfg?.();
+    if (!cfg) return [];
+    const paramStmts = cfg.getStmts()
+        .filter((stmt: any) => stmt instanceof ArkAssignStmt && stmt.getRightOp?.() instanceof ArkParameterRef)
+        .sort((left: ArkAssignStmt, right: ArkAssignStmt) => {
+            const leftIndex = (left.getRightOp() as ArkParameterRef).getIndex();
+            const rightIndex = (right.getRightOp() as ArkParameterRef).getIndex();
+            return leftIndex - rightIndex;
+        });
+    if (method && typeof method === "object") {
+        concreteParameterAssignStmtCache.set(method, paramStmts);
+    }
+    return paramStmts;
+}
+
+function resolveParamNodeIds(pag: Pag, paramStmt: ArkAssignStmt): number[] {
+    const out = new Set<number>();
+    const addNodes = (value: any, materialize: boolean): void => {
+        let nodes = pag.getNodesByValue(value);
+        if ((!nodes || nodes.size === 0) && materialize) {
+            nodes = materializeExactPagNodes(pag, value, paramStmt, 0);
+        }
+        if (!nodes) return;
+        for (const nodeId of nodes.values()) out.add(nodeId);
+    };
+    addNodes(paramStmt.getRightOp?.(), true);
+    const leftOp = paramStmt.getLeftOp?.();
+    addNodes(leftOp, true);
+    if (leftOp instanceof Local) {
+        for (const useStmt of leftOp.getUsedStmts?.() || []) {
+            const nodes = materializeExactPagNodes(pag, leftOp, useStmt, 0);
+            if (!nodes) continue;
+            for (const nodeId of nodes.values()) out.add(nodeId);
+        }
+    }
+    return [...out];
+}
+
+function isUnresolvedVirtualDispatchCopyEdge(scene: Scene, sourceNode: PagNode, targetNode: PagNode): boolean {
+    const sourceMethod = resolvePagNodeDeclaringMethodSignature(sourceNode);
+    const targetMethod = resolvePagNodeDeclaringMethodSignature(targetNode);
+    if (!sourceMethod || !targetMethod || sourceMethod === targetMethod) return false;
+
+    const sourceValue = sourceNode.getValue?.();
+    if (!sourceValue) return false;
+    const sourceCfg = sourceNode.getStmt?.()?.getCfg?.()
+        || (sourceValue as any)?.getDeclaringStmt?.()?.getCfg?.();
+    const targetDeclaringMethodName = targetNode.getStmt?.()?.getCfg?.()?.getDeclaringMethod?.()?.getName?.()
+        || (targetNode.getValue?.() as any)?.getDeclaringStmt?.()?.getCfg?.()?.getDeclaringMethod?.()?.getName?.()
+        || "";
+    if (!sourceCfg || !targetDeclaringMethodName) return false;
+
+    for (const stmt of sourceCfg.getStmts?.() || []) {
+        if (!stmt.containsInvokeExpr?.()) continue;
+        const invokeExpr = stmt.getInvokeExpr?.();
+        const gap = diagnoseUnresolvedVirtualDispatchCached(scene, invokeExpr);
+        if (!gap || gap.methodName !== targetDeclaringMethodName) continue;
+        const args = invokeExpr?.getArgs?.() || [];
+        if (args.some((arg: any) => isSameUnresolvedVirtualArgument(sourceCfg, sourceValue, arg))) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function resolveExactConcreteOwnerNamesForValue(
+    scene: Scene,
+    value: any,
+    anchorStmt: any,
+    visiting: Set<string>,
+): Set<string> | undefined {
+    if (!value) return undefined;
+    if (visiting.size > 12) return undefined;
+
+    if (value instanceof ArkNewExpr) {
+        const ownerName = resolveOwnerNameFromTypeText(value.getType?.()?.toString?.() || "")
+            || resolveOwnerNameFromNewText(value.toString?.() || "");
+        return singletonOwnerSet(ownerName);
+    }
+    if (value instanceof ArkCastExpr) {
+        return resolveExactConcreteOwnerNamesForValue(scene, value.getOp?.(), anchorStmt, visiting);
+    }
+    if (value instanceof ArkAwaitExpr) {
+        return resolveExactConcreteOwnerNamesForValue(scene, value.getPromise?.(), anchorStmt, visiting);
+    }
+    if (value instanceof ArkInstanceFieldRef) {
+        return resolveExactThisFieldOwnerNames(scene, value, anchorStmt, visiting);
+    }
+    if (value instanceof ArkInstanceInvokeExpr || value instanceof ArkStaticInvokeExpr) {
+        return resolveExactFactoryReturnOwnerNames(scene, value, visiting);
+    }
+    if (value instanceof Local) {
+        const key = `local:${value.getName?.() || ""}:${value.getDeclaringStmt?.()?.toString?.() || ""}`;
+        if (visiting.has(key)) return undefined;
+        visiting.add(key);
+        try {
+            const directDecl = value.getDeclaringStmt?.();
+            const assignStmt = directDecl instanceof ArkAssignStmt && isSameRelaySourceValue(directDecl.getLeftOp?.(), value)
+                ? directDecl
+                : findLatestAssignStmtForLocalBefore(value, anchorStmt);
+            if (!(assignStmt instanceof ArkAssignStmt) || !isSameRelaySourceValue(assignStmt.getLeftOp?.(), value)) {
+                return undefined;
+            }
+            return resolveExactConcreteOwnerNamesForValue(scene, assignStmt.getRightOp?.(), assignStmt, visiting);
+        } finally {
+            visiting.delete(key);
+        }
+    }
+    return undefined;
+}
+
+function resolveExactFactoryReturnOwnerNames(
+    scene: Scene,
+    invokeExpr: ArkInstanceInvokeExpr | ArkStaticInvokeExpr,
+    visiting: Set<string>,
+): Set<string> | undefined {
+    const methodSig = invokeExpr.getMethodSignature?.()?.toString?.() || "";
+    if (!methodSig || methodSig.includes("%unk")) return undefined;
+    const callee = getMethodBySignature(scene, methodSig);
+    if (!callee?.getCfg?.()) return undefined;
+
+    const calleeKey = `factory:${methodSig}`;
+    if (visiting.has(calleeKey)) return undefined;
+    visiting.add(calleeKey);
+    try {
+        const owners = new Set<string>();
+        for (const retStmt of callee.getReturnStmt?.() || []) {
+            if (!(retStmt instanceof ArkReturnStmt)) continue;
+            const returnedOwners = resolveExactConcreteOwnerNamesForValue(
+                scene,
+                retStmt.getOp?.(),
+                retStmt,
+                visiting,
+            );
+            if (!returnedOwners || returnedOwners.size === 0) return undefined;
+            for (const owner of returnedOwners) owners.add(owner);
+        }
+        return owners.size === 1 ? owners : undefined;
+    } finally {
+        visiting.delete(calleeKey);
+    }
+}
+
+function resolveExactThisFieldOwnerNames(
+    scene: Scene,
+    fieldRef: ArkInstanceFieldRef,
+    anchorStmt: any,
+    visiting: Set<string>,
+): Set<string> | undefined {
+    const base = fieldRef.getBase?.();
+    if (!(base instanceof Local) || base.getName?.() !== "this") return undefined;
+    const fieldName = fieldRef.getFieldSignature?.().getFieldName?.() || fieldRef.getFieldName?.();
+    if (!fieldName) return undefined;
+    const method = anchorStmt?.getCfg?.()?.getDeclaringMethod?.();
+    const arkClass = method?.getDeclaringArkClass?.();
+    if (!arkClass) return undefined;
+
+    const classSig = arkClass.getSignature?.()?.toString?.() || "";
+    const key = `field:${classSig}:${fieldName}`;
+    if (visiting.has(key)) return undefined;
+    visiting.add(key);
+    try {
+        const owners = new Set<string>();
+        for (const field of arkClass.getFields?.() || []) {
+            const candidateName = field?.getSignature?.()?.getFieldName?.() || field?.getName?.();
+            if (candidateName !== fieldName) continue;
+            mergeOwnerSets(owners, resolveOwnerNamesFromFieldInitializer(field));
+        }
+        for (const methodCandidate of arkClass.getMethods?.() || []) {
+            const cfg = methodCandidate?.getCfg?.();
+            if (!cfg) continue;
+            for (const stmt of cfg.getStmts?.() || []) {
+                if (!(stmt instanceof ArkAssignStmt)) continue;
+                const left = stmt.getLeftOp?.();
+                if (!isThisFieldRefNamed(left, fieldName)) continue;
+                const rightOwners = resolveExactConcreteOwnerNamesForValue(scene, stmt.getRightOp?.(), stmt, visiting);
+                if (!rightOwners || rightOwners.size === 0) return undefined;
+                mergeOwnerSets(owners, rightOwners);
+            }
+        }
+        return owners.size === 1 ? owners : undefined;
+    } finally {
+        visiting.delete(key);
+    }
+}
+
+function resolveOwnerNamesFromFieldInitializer(field: any): Set<string> | undefined {
+    const initializer = field?.getInitializer?.();
+    if (!initializer) return undefined;
+    if (initializer instanceof ArkNewExpr) {
+        return singletonOwnerSet(resolveOwnerNameFromTypeText(initializer.getType?.()?.toString?.() || initializer.toString?.() || ""));
+    }
+    const text = initializer.toString?.() || "";
+    const owner = resolveOwnerNameFromNewText(text);
+    return singletonOwnerSet(owner);
+}
+
+function isThisFieldRefNamed(value: any, fieldName: string): boolean {
+    if (!(value instanceof ArkInstanceFieldRef)) return false;
+    const base = value.getBase?.();
+    if (!(base instanceof Local) || base.getName?.() !== "this") return false;
+    const currentName = value.getFieldSignature?.().getFieldName?.() || value.getFieldName?.();
+    return currentName === fieldName;
+}
+
+function mergeOwnerSets(target: Set<string>, source: Set<string> | undefined): void {
+    if (!source) return;
+    for (const item of source) target.add(item);
+}
+
+function singletonOwnerSet(ownerName: string | undefined): Set<string> | undefined {
+    return ownerName ? new Set([ownerName]) : undefined;
+}
+
+function resolveMethodOwnerNameCandidates(methodSignature: string): Set<string> {
+    const out = new Set<string>();
+    const owner = extractOwnerNameFromMethodSignature(methodSignature);
+    if (!owner) return out;
+    out.add(owner);
+    const simple = normalizeOwnerNameForDispatch(owner);
+    if (simple) out.add(simple);
+    return out;
+}
+
+function ownerNameMatchesAny(ownerName: string, candidates: Set<string>): boolean {
+    const normalized = normalizeOwnerNameForDispatch(ownerName);
+    for (const candidate of candidates) {
+        if (ownerName === candidate) return true;
+        if (normalized && normalized === normalizeOwnerNameForDispatch(candidate)) return true;
+    }
+    return false;
+}
+
+function isSyntheticReceiverOwnerContextAllowed(
+    edge: SyntheticInvokeEdgeInfo,
+    currentCtx: number,
+    ctxManager: TaintContextManager,
+    receiverOwnerNameByCallSiteId: Map<number, string>,
+): boolean {
+    const requiredOwner = edge.receiverOwnerName;
+    if (!requiredOwner) return true;
+
+    const callerOwnerCandidates = resolveMethodOwnerNameCandidates(edge.callerSignature || "");
+    const topCallSiteId = ctxManager.getTopElement(currentCtx);
+    if (topCallSiteId !== -1) {
+        const contextOwner = receiverOwnerNameByCallSiteId.get(topCallSiteId);
+        if (contextOwner && ownerNameMatchesAny(requiredOwner, new Set([contextOwner]))) {
+            return true;
+        }
+        return ownerNameMatchesAny(requiredOwner, callerOwnerCandidates);
+    }
+
+    return ownerNameMatchesAny(requiredOwner, callerOwnerCandidates);
+}
+
+function canConstructorStoreSourceCarryNestedFieldPath(sourceNode: PagNode | undefined): boolean {
+    return canCallTargetCarryNestedFieldPath(sourceNode);
+}
+
+function canCallTargetCarryNestedFieldPath(sourceNode: PagNode | undefined): boolean {
+    if (!sourceNode) return false;
+    if (sourceNode instanceof PagArrayNode || sourceNode instanceof PagInstanceFieldNode || sourceNode instanceof PagStaticFieldNode) {
+        return true;
+    }
+    for (const _objId of sourceNode.getPointTo?.() || []) {
+        return true;
+    }
+    if (resolveObjectClassSignatureByNode(sourceNode)) {
+        return true;
+    }
+    const value: any = sourceNode.getValue?.();
+    const typeText = value?.getType?.()?.toString?.() || "";
+    if (!typeText) return false;
+    const normalized = typeText.trim();
+    if (/^(string|number|boolean|bigint|symbol|null|undefined|void|any|unknown)$/i.test(normalized)) {
+        return false;
+    }
+    if (isGenericTypeParameterCarrier(normalized)) {
+        return true;
+    }
+    if (normalized.includes("%unk")) {
+        return false;
+    }
+    if (/\b(Array|Map|Set|Record|Object|Promise)\b/.test(normalized)) {
+        return true;
+    }
+    return normalized.includes("@");
+}
+
+function isGenericTypeParameterCarrier(normalizedTypeText: string): boolean {
+    return /^[A-Z]$/.test(normalizedTypeText);
+}
+
+function extractOwnerNameFromMethodSignature(methodSignature: string): string | undefined {
+    const text = String(methodSignature || "");
+    const openIdx = text.indexOf("(");
+    const methodDotIdx = text.lastIndexOf(".", openIdx >= 0 ? openIdx : text.length);
+    if (methodDotIdx < 0) return undefined;
+    const colonIdx = text.lastIndexOf(":", methodDotIdx);
+    const owner = text.slice(colonIdx >= 0 ? colonIdx + 1 : 0, methodDotIdx).replace(/\[static\]/g, "").trim();
+    return owner || undefined;
+}
+
+function resolveOwnerNameFromTypeText(raw: string): string | undefined {
+    const text = String(raw || "").trim();
+    if (!text || text.includes("%unk")) return undefined;
+    const classSigMatch = text.match(/@[^:>]+:\s*([A-Za-z_$][A-Za-z0-9_$]*)/);
+    if (classSigMatch?.[1]) return classSigMatch[1];
+    const genericMatch = text.match(/\b([A-Z][A-Za-z0-9_$]*)\s*(?:<|$)/);
+    return genericMatch?.[1];
+}
+
+function resolveOwnerNameFromNewText(raw: string): string | undefined {
+    const text = String(raw || "").trim();
+    const matched = text.match(/\bnew\s+([A-Za-z_$][A-Za-z0-9_$]*)\b/);
+    return matched?.[1] || resolveOwnerNameFromTypeText(text);
+}
+
+function normalizeOwnerNameForDispatch(raw: string): string {
+    const text = String(raw || "").replace(/\[static\]/g, "").trim();
+    if (!text) return "";
+    const slashIdx = text.lastIndexOf("/");
+    const dotIdx = text.lastIndexOf(".");
+    const colonIdx = text.lastIndexOf(":");
+    const cutIdx = Math.max(slashIdx, dotIdx, colonIdx);
+    return cutIdx >= 0 ? text.slice(cutIdx + 1).trim() : text;
+}
+
+function findLatestAssignStmtForLocalBefore(local: Local, anchorStmt: any): ArkAssignStmt | undefined {
+    const cfg = anchorStmt?.getCfg?.() || local.getDeclaringStmt?.()?.getCfg?.();
+    const stmts = cfg?.getStmts?.();
+    if (!stmts) return undefined;
+
+    let latest: ArkAssignStmt | undefined;
+    for (const stmt of stmts) {
+        if (stmt === anchorStmt) {
+            if (stmt instanceof ArkAssignStmt && isSameRelaySourceValue(stmt.getLeftOp?.(), local)) {
+                latest = stmt;
+            }
+            break;
+        }
+        if (!(stmt instanceof ArkAssignStmt)) continue;
+        if (!isSameRelaySourceValue(stmt.getLeftOp?.(), local)) continue;
+        latest = stmt;
+    }
+    return latest;
+}
+
+function isSameUnresolvedVirtualArgument(sourceCfg: any, sourceValue: any, arg: any): boolean {
+    if (isSameRelaySourceValue(sourceValue, arg)) return true;
+    if (sourceValue instanceof ArkParameterRef && arg instanceof Local) {
+        const argDecl = arg.getDeclaringStmt?.();
+        if (argDecl instanceof ArkAssignStmt && isSameRelaySourceValue(argDecl.getRightOp?.(), sourceValue)) {
+            return true;
+        }
+    }
+    if (sourceValue instanceof Local && arg instanceof ArkParameterRef) {
+        const sourceDecl = sourceValue.getDeclaringStmt?.();
+        if (sourceDecl instanceof ArkAssignStmt && isSameRelaySourceValue(sourceDecl.getRightOp?.(), arg)) {
+            return true;
+        }
+    }
+    for (const stmt of sourceCfg?.getStmts?.() || []) {
+        if (!(stmt instanceof ArkAssignStmt)) continue;
+        const left = stmt.getLeftOp?.();
+        const right = stmt.getRightOp?.();
+        if (isSameRelaySourceValue(left, arg) && isSameRelaySourceValue(right, sourceValue)) return true;
+        if (isSameRelaySourceValue(right, arg) && isSameRelaySourceValue(left, sourceValue)) return true;
+    }
+    return false;
+}
+
+function resolvePagNodeDeclaringMethodSignature(node: PagNode): string | undefined {
+    const stmtMethodSig = node.getStmt?.()?.getCfg?.()?.getDeclaringMethod?.()?.getSignature?.()?.toString?.();
+    if (stmtMethodSig) return stmtMethodSig;
+    return (node.getValue?.() as any)?.getDeclaringStmt?.()?.getCfg?.()?.getDeclaringMethod?.()?.getSignature?.()?.toString?.();
 }

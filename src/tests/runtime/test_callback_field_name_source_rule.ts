@@ -1,5 +1,6 @@
 import { lowerRuleAssetsToRuleSet } from "../../core/rules/RuleAssetLowering";
 import { assert, makeRuleAsset } from "./SemanticFlowV2TestHelpers";
+import { exactProjectInvokeSurface } from "../helpers/AssetIdentityTestUtils";
 
 function main(): void {
     const asset = makeRuleAsset("asset.project.callback-source");
@@ -22,32 +23,35 @@ function main(): void {
     asset.bindings[0].effectTemplateRefs = ["asset.project.callback-source.effect"];
     const lowered = lowerRuleAssetsToRuleSet([asset]);
     assert(lowered.ruleSet.sources.length === 1, "expected callback endpoint source lowering");
-    assert(lowered.ruleSet.sources[0].target === "arg1" || (lowered.ruleSet.sources[0].target as any).endpoint === "arg1", "expected callback arg endpoint lowering");
+    const directSource = lowered.ruleSet.sources[0] as any;
+    assert(directSource.target?.endpoint === "arg1", "expected callback arg endpoint lowering");
+    assert(directSource.target?.path?.join(".") === "data.token", "expected callback access path lowering");
     assert(
-        lowered.ruleSet.sources[0].callbackArgIndexes?.join(",") === "0",
-        "direct callbackArg endpoint must lower callback locator to callbackArgIndexes",
+        lowered.ruleSet.sources[0].match.kind === "canonical_api_id_equals"
+            && lowered.ruleSet.sources[0].match.value === lowered.ruleSet.sources[0].apiEffect?.canonicalApiId,
+        "direct callbackArg endpoint must lower to canonical identity gate",
     );
     assert(
-        lowered.ruleSet.sources[0].callbackResolution === "direct_arg",
-        "direct callbackArg endpoint must use direct_arg callback resolution",
+        directSource.callbackArgIndexes === undefined
+            && directSource.callbackFieldNames === undefined
+            && directSource.callbackResolution === undefined,
+        "callback locator must not be lowered to removed SourceRule compatibility fields",
     );
 
     const optionAsset = makeRuleAsset("asset.project.option-callback-source");
     optionAsset.status = "reviewed";
     optionAsset.provenance.source = "manual";
-    optionAsset.surfaces[0] = {
+    optionAsset.surfaces[0] = exactProjectInvokeSurface({
         surfaceId: `${optionAsset.id}.component.surface`,
-        kind: "invoke",
         modulePath: "components/chat/ChatComponents.ets",
-        functionName: "ChatInputMenuView",
+        ownerName: "file",
+        methodName: "ChatInputMenuView",
         invokeKind: "free-function",
-        argCount: 1,
+        parameterTypes: ["ChatInputMenuViewOptions"],
+        returnType: "void",
         confidence: "likely",
-        provenance: {
-            source: "llm-proposal",
-            location: { file: "components/chat/ChatView.ets", line: 539 },
-        },
-    };
+        provenanceSource: "llm-proposal",
+    });
     optionAsset.bindings[0].surfaceId = `${optionAsset.id}.component.surface`;
     optionAsset.bindings[0].role = "source";
     optionAsset.bindings[0].endpoint = {
@@ -71,28 +75,28 @@ function main(): void {
         },
     ];
     optionAsset.bindings[0].effectTemplateRefs = ["asset.project.option-callback-source.effect"];
+    optionAsset.bindings[0].canonicalApiId = optionAsset.surfaces[0].canonicalApiId;
     const loweredOption = lowerRuleAssetsToRuleSet([optionAsset]);
     assert(loweredOption.ruleSet.sources.length === 1, "expected option callback endpoint source lowering");
+    const optionSource = loweredOption.ruleSet.sources[0] as any;
     assert(
-        loweredOption.ruleSet.sources[0].callbackArgIndexes?.join(",") === "0",
-        "option callback endpoint must lower option object base arg index",
+        loweredOption.ruleSet.sources[0].target === "arg0",
+        "option callback endpoint must lower callback payload arg to rule endpoint",
     );
     assert(
-        loweredOption.ruleSet.sources[0].callbackFieldNames?.join(",") === "onSendMessage",
-        "option callback endpoint must lower callback access path to callbackFieldNames",
+        optionSource.callbackArgIndexes === undefined
+            && optionSource.callbackFieldNames === undefined
+            && optionSource.callbackResolution === undefined,
+        "option callback locator must not be lowered to removed SourceRule compatibility fields",
     );
     assert(
-        loweredOption.ruleSet.sources[0].callbackResolution === "known_option",
-        "option callback endpoint must use known_option callback resolution",
+        loweredOption.ruleSet.sources[0].match.kind === "canonical_api_id_equals"
+            && loweredOption.ruleSet.sources[0].match.value === loweredOption.ruleSet.sources[0].apiEffect?.canonicalApiId,
+        "caller-backed component callback source must lower to canonical identity gate",
     );
     assert(
-        loweredOption.ruleSet.sources[0].match.kind === "method_name_equals"
-            && loweredOption.ruleSet.sources[0].match.value === "ChatInputMenuView",
-        "caller-backed component callback source must lower to method-name selector",
-    );
-    assert(
-        loweredOption.ruleSet.sources[0].scope?.file?.value === "components/chat/ChatView.ets",
-        "caller-backed component callback source must be scoped to the analyzer-backed callsite file",
+        optionSource.scope === undefined,
+        "caller-backed component callback source must not carry caller file runtime scope",
     );
 
     console.log("PASS test_callback_field_name_source_rule");

@@ -2,15 +2,18 @@ import * as fs from "fs";
 import * as path from "path";
 import { Scene } from "../../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../../arkanalyzer/out/src/Config";
-import type { AssetDocumentBase } from "../../core/assets/schema";
+import type { AssetDocumentBase, AssetSurface } from "../../core/assets/schema";
 import { lowerModuleAssetToInternalModuleLoweringIR } from "../../core/kernel/contracts/ModuleAssetLowering";
 import type { TaintModule } from "../../core/kernel/contracts/ModuleContract";
 import { compileInternalModuleLoweringIR } from "../../core/orchestration/modules/InternalModuleLoweringIRCompiler";
 import { TaintPropagationEngine } from "../../core/orchestration/TaintPropagationEngine";
-import { buildFrameworkBoundStateSourceRules } from "../../core/rules/FrameworkCallbackSourceCatalog";
 import type { SinkRule, SourceRule } from "../../core/rules/RuleSchema";
 import { findCaseMethod, resolveCaseMethod } from "../helpers/SyntheticCaseHarness";
 import { resolveTestRunDir, resolveTestRunPath } from "../helpers/TestWorkspaceLayout";
+import { bindExactAssetIdentities } from "../helpers/AssetIdentityTestUtils";
+import { canonicalApiIdFromTestDeclaration, indexedTestParameters } from "../helpers/CanonicalApiTestDeclarations";
+import { projectApiEffectAssetFromMethod, type TestApiEffectAsset } from "../helpers/ApiEffectTestAssets";
+import { exactRuleRuntimeFromAssets } from "../rules/ExactRuleTestUtils";
 
 function assert(condition: unknown, message: string): asserts condition {
     if (!condition) throw new Error(message);
@@ -21,27 +24,159 @@ function writeText(filePath: string, content: string): void {
     fs.writeFileSync(filePath, content, "utf-8");
 }
 
-function buildAuthHeadersPasswordFieldSourceRules(): SourceRule[] {
-    return [{
-        id: "source.fixture.buildAuthHeaders.password_field",
-        sourceKind: "field_read",
-        target: "result",
-        match: { kind: "method_name_equals", value: "buildAuthHeaders" },
-        calleeScope: {
-            methodName: { mode: "equals", value: "password" },
+function projectInvokeSurface(input: {
+    surfaceId: string;
+    moduleSpecifier: string;
+    owner: string;
+    member: string;
+    staticFlag?: boolean;
+    parameters: string[];
+    returns: string;
+    sourceFile?: string;
+    confidence?: "certain" | "likely" | "unknown";
+}): AssetSurface {
+    const declarationFile = input.moduleSpecifier;
+    const methodKey = {
+        declaringFileName: declarationFile,
+        declaringNamespacePath: [],
+        declaringClassName: input.owner,
+        methodName: input.member,
+        parameterTypes: [...input.parameters],
+        returnType: input.returns,
+        staticFlag: input.staticFlag === true,
+    };
+    const canonicalApiId = canonicalApiIdFromTestDeclaration({
+        authority: "project",
+        domain: "local",
+        moduleSpecifier: input.moduleSpecifier,
+        logicalDeclarationFile: declarationFile,
+        exportPath: [{ kind: "namespace", name: input.owner }],
+        declarationOwner: {
+            kind: "class",
+            path: [input.owner],
+            normalizedName: input.owner,
+            arkanalyzerName: input.owner,
         },
-    }];
+        member: { kind: "method", name: input.member, static: input.staticFlag === true },
+        invoke: { kind: "call" },
+        signature: {
+            parameters: indexedTestParameters(input.parameters),
+            returnType: { text: input.returns },
+        },
+        arkanalyzer: methodKey,
+        declarationLocations: [{ file: declarationFile }],
+    });
+    return {
+        surfaceId: input.surfaceId,
+        kind: "invoke",
+        canonicalApiId,
+        evidence: { arkanalyzer: { methodKey } },
+        confidence: input.confidence || "likely",
+        provenance: { source: "llm-proposal", location: { file: input.sourceFile || declarationFile } },
+    };
 }
 
-function buildTaintSrcLocalSourceRule(methodName: string): SourceRule {
-    return {
-        id: `source.fixture.local.${methodName}.taint_src`,
-        sourceKind: "seed_local_name",
-        target: "result",
-        match: { kind: "field_name_equals", value: "taint_src" },
-        scope: {
-            methodName: { mode: "equals", value: methodName },
+function projectConstructSurface(input: {
+    surfaceId: string;
+    moduleSpecifier: string;
+    owner: string;
+    parameters: string[];
+    returns: string;
+    sourceFile?: string;
+    confidence?: "certain" | "likely" | "unknown";
+}): AssetSurface {
+    const declarationFile = input.moduleSpecifier;
+    const methodKey = {
+        declaringFileName: declarationFile,
+        declaringNamespacePath: [],
+        declaringClassName: input.owner,
+        methodName: "constructor",
+        parameterTypes: [...input.parameters],
+        returnType: input.returns,
+        staticFlag: true,
+    };
+    const canonicalApiId = canonicalApiIdFromTestDeclaration({
+        authority: "project",
+        domain: "local",
+        moduleSpecifier: input.moduleSpecifier,
+        logicalDeclarationFile: declarationFile,
+        exportPath: [{ kind: "namespace", name: input.owner }],
+        declarationOwner: {
+            kind: "class",
+            path: [input.owner],
+            normalizedName: input.owner,
+            arkanalyzerName: input.owner,
         },
+        member: { kind: "constructor", name: "constructor" },
+        invoke: { kind: "new" },
+        signature: {
+            parameters: indexedTestParameters(input.parameters),
+            returnType: { text: input.returns },
+        },
+        arkanalyzer: methodKey,
+        declarationLocations: [{ file: declarationFile }],
+    });
+    return {
+        surfaceId: input.surfaceId,
+        kind: "construct",
+        canonicalApiId,
+        evidence: { arkanalyzer: { methodKey } },
+        confidence: input.confidence || "likely",
+        provenance: { source: "llm-proposal", location: { file: input.sourceFile || declarationFile } },
+    };
+}
+
+interface SourceRulePack {
+    rules: SourceRule[];
+    assets: AssetDocumentBase[];
+}
+
+function buildAuthHeadersPasswordFieldSourceRules(scene: Scene): SourceRulePack {
+    const methods = scene.getMethods().filter(method => method.getName?.() === "buildAuthHeaders");
+    assert(methods.length > 0, "buildAuthHeaders methods not found");
+    const effects = methods.map((method, index) => projectApiEffectAssetFromMethod({
+        id: `source.fixture.buildAuthHeaders.password_field.${index}`,
+        role: "source",
+        method,
+        endpoint: { base: { kind: "receiver" }, accessPath: ["config", "password"] },
+        sourceKind: "field_read",
+    }));
+    return sourceRulePackFromEffects(effects, "field_read", { endpoint: "base", path: ["config", "password"] });
+}
+
+function buildFixtureTextInputBoundStateSourceRules(scene: Scene): SourceRulePack {
+    const methods = scene.getMethods().filter(method =>
+        method.getName?.() === "create"
+        && String(method.getSignature?.()?.toString?.() || "").includes("TextInput")
+    );
+    assert(methods.length > 0, "TextInput.create method not found");
+    const effects = methods.map((method, index) => projectApiEffectAssetFromMethod({
+        id: `source.fixture.textinput.bound_state.text.${index}`,
+        role: "source",
+        method,
+        endpoint: { base: { kind: "arg", index: 0 }, accessPath: ["text"] },
+        sourceKind: "bound_state",
+    }));
+    return sourceRulePackFromEffects(effects, "bound_state", { endpoint: "arg0", path: ["text"] });
+}
+
+function sourceRulePackFromEffects(
+    effects: TestApiEffectAsset[],
+    sourceKind: SourceRule["sourceKind"],
+    target: SourceRule["target"],
+): SourceRulePack {
+    return {
+        rules: effects.map((effect, index) => ({
+            id: `source.fixture.exact.${sourceKind}.${index}`,
+            sourceKind,
+            target,
+            match: {
+                kind: "canonical_api_id_equals",
+                value: effect.canonicalApiDescriptor.canonicalApiId,
+            },
+            apiEffect: effect.apiEffect,
+        })),
+        assets: effects.map(effect => effect.asset),
     };
 }
 
@@ -58,30 +193,26 @@ function projectHandoffAsset(): AssetDocumentBase {
     return {
         id: "project.PreferenceBridge.module",
         plane: "module",
-        status: "schema-valid",
+        status: "reviewed",
         surfaces: [
-            {
+            projectInvokeSurface({
                 surfaceId: "surface.PreferenceBridge.save",
-                kind: "invoke",
-                modulePath: "src/main/ets/preference_case.ets",
-                ownerName: "PreferenceBridge",
-                methodName: "save",
-                invokeKind: "instance",
-                argCount: 3,
-                confidence: "likely",
-                provenance: { source: "llm-proposal", location: { file: "preference_case.ets" } },
-            },
-            {
+                moduleSpecifier: "fixture/src/main/ets/preference_case.ets",
+                owner: "PreferenceBridge",
+                member: "save",
+                parameters: ["string", "string", "string"],
+                returns: "void",
+                sourceFile: "preference_case.ets",
+            }),
+            projectInvokeSurface({
                 surfaceId: "surface.PreferenceBridge.load",
-                kind: "invoke",
-                modulePath: "src/main/ets/preference_case.ets",
-                ownerName: "PreferenceBridge",
-                methodName: "load",
-                invokeKind: "instance",
-                argCount: 2,
-                confidence: "likely",
-                provenance: { source: "llm-proposal", location: { file: "preference_case.ets" } },
-            },
+                moduleSpecifier: "fixture/src/main/ets/preference_case.ets",
+                owner: "PreferenceBridge",
+                member: "load",
+                parameters: ["string", "string"],
+                returns: "string",
+                sourceFile: "preference_case.ets",
+            }),
         ],
         bindings: [
             {
@@ -93,7 +224,7 @@ function projectHandoffAsset(): AssetDocumentBase {
                 endpoint: { base: { kind: "arg", index: 2 } },
                 effectTemplateRefs: ["template.PreferenceBridge.save.put"],
                 semanticsFamily: "fixture.preference",
-                completeness: "partial",
+                completeness: "complete",
                 confidence: "likely",
             },
             {
@@ -105,7 +236,7 @@ function projectHandoffAsset(): AssetDocumentBase {
                 endpoint: { base: { kind: "promiseResult" } },
                 effectTemplateRefs: ["template.PreferenceBridge.load.get"],
                 semanticsFamily: "fixture.preference",
-                completeness: "partial",
+                completeness: "complete",
                 confidence: "likely",
             },
         ],
@@ -120,10 +251,10 @@ function projectHandoffAsset(): AssetDocumentBase {
                         { kind: "fromEndpoint", endpoint: { base: { kind: "arg", index: 0 } } },
                         { kind: "fromEndpoint", endpoint: { base: { kind: "arg", index: 1 } } },
                     ],
-                    precision: "infer",
+                    precision: "exact",
                 },
                 value: { base: { kind: "arg", index: 2 } },
-                updateStrength: "infer",
+                updateStrength: "strong",
                 confidence: "likely",
             },
             {
@@ -136,7 +267,7 @@ function projectHandoffAsset(): AssetDocumentBase {
                         { kind: "fromEndpoint", endpoint: { base: { kind: "arg", index: 0 } } },
                         { kind: "fromEndpoint", endpoint: { base: { kind: "arg", index: 1 } } },
                     ],
-                    precision: "infer",
+                    precision: "exact",
                 },
                 target: { base: { kind: "promiseResult" } },
                 confidence: "likely",
@@ -153,30 +284,28 @@ function projectStaticHandoffAsset(): AssetDocumentBase {
     return {
         id: "project.StaticPreferenceBridge.module",
         plane: "module",
-        status: "schema-valid",
+        status: "reviewed",
         surfaces: [
-            {
+            projectInvokeSurface({
                 surfaceId: "surface.StaticPreferenceBridge.save",
-                kind: "invoke",
-                modulePath: "entry/src/main/ets/preference_case.ets",
-                ownerName: "StaticPreferenceBridge",
-                methodName: "save",
-                invokeKind: "static",
-                argCount: 3,
-                confidence: "likely",
-                provenance: { source: "llm-proposal", location: { file: "preference_case.ets" } },
-            },
-            {
+                moduleSpecifier: "fixture/src/main/ets/preference_case.ets",
+                owner: "StaticPreferenceBridge",
+                member: "save",
+                staticFlag: true,
+                parameters: ["string", "string", "string"],
+                returns: "void",
+                sourceFile: "preference_case.ets",
+            }),
+            projectInvokeSurface({
                 surfaceId: "surface.StaticPreferenceBridge.load",
-                kind: "invoke",
-                modulePath: "entry/src/main/ets/preference_case.ets",
-                ownerName: "StaticPreferenceBridge",
-                methodName: "load",
-                invokeKind: "static",
-                argCount: 2,
-                confidence: "likely",
-                provenance: { source: "llm-proposal", location: { file: "preference_case.ets" } },
-            },
+                moduleSpecifier: "fixture/src/main/ets/preference_case.ets",
+                owner: "StaticPreferenceBridge",
+                member: "load",
+                staticFlag: true,
+                parameters: ["string", "string"],
+                returns: "string",
+                sourceFile: "preference_case.ets",
+            }),
         ],
         bindings: [
             {
@@ -188,7 +317,7 @@ function projectStaticHandoffAsset(): AssetDocumentBase {
                 endpoint: { base: { kind: "arg", index: 2 } },
                 effectTemplateRefs: ["template.StaticPreferenceBridge.save.put"],
                 semanticsFamily: "fixture.static_preference",
-                completeness: "partial",
+                completeness: "complete",
                 confidence: "likely",
             },
             {
@@ -200,7 +329,7 @@ function projectStaticHandoffAsset(): AssetDocumentBase {
                 endpoint: { base: { kind: "return" } },
                 effectTemplateRefs: ["template.StaticPreferenceBridge.load.get"],
                 semanticsFamily: "fixture.static_preference",
-                completeness: "partial",
+                completeness: "complete",
                 confidence: "likely",
             },
         ],
@@ -215,10 +344,10 @@ function projectStaticHandoffAsset(): AssetDocumentBase {
                         { kind: "fromEndpoint", endpoint: { base: { kind: "arg", index: 0 } } },
                         { kind: "fromEndpoint", endpoint: { base: { kind: "arg", index: 1 } } },
                     ],
-                    precision: "infer",
+                    precision: "exact",
                 },
                 value: { base: { kind: "arg", index: 2 } },
-                updateStrength: "infer",
+                updateStrength: "strong",
                 confidence: "likely",
             },
             {
@@ -231,7 +360,7 @@ function projectStaticHandoffAsset(): AssetDocumentBase {
                         { kind: "fromEndpoint", endpoint: { base: { kind: "arg", index: 0 } } },
                         { kind: "fromEndpoint", endpoint: { base: { kind: "arg", index: 1 } } },
                     ],
-                    precision: "infer",
+                    precision: "exact",
                 },
                 target: { base: { kind: "return" } },
                 confidence: "likely",
@@ -248,41 +377,38 @@ function projectNamespaceHandoffAsset(): AssetDocumentBase {
     return {
         id: "project.ExternalPreferenceBridge.module",
         plane: "module",
-        status: "schema-valid",
+        status: "reviewed",
         surfaces: [
-            {
+            projectInvokeSurface({
                 surfaceId: "surface.ExternalPreferenceBridge.save",
-                kind: "invoke",
-                modulePath: "external_preference_bridge",
-                ownerName: "ExternalPreferenceBridge",
-                methodName: "save",
-                invokeKind: "namespace",
-                argCount: 3,
-                confidence: "likely",
-                provenance: { source: "llm-proposal", location: { file: "preference_case.ets" } },
-            },
-            {
+                moduleSpecifier: "./external_preference_bridge",
+                owner: "ExternalPreferenceBridge",
+                member: "save",
+                staticFlag: true,
+                parameters: ["string", "string", "string"],
+                returns: "void",
+                sourceFile: "preference_case.ets",
+            }),
+            projectInvokeSurface({
                 surfaceId: "surface.ExternalPreferenceBridge.load",
-                kind: "invoke",
-                modulePath: "external_preference_bridge",
-                ownerName: "ExternalPreferenceBridge",
-                methodName: "load",
-                invokeKind: "namespace",
-                argCount: 2,
-                confidence: "likely",
-                provenance: { source: "llm-proposal", location: { file: "preference_case.ets" } },
-            },
-            {
+                moduleSpecifier: "./external_preference_bridge",
+                owner: "ExternalPreferenceBridge",
+                member: "load",
+                staticFlag: true,
+                parameters: ["string", "string"],
+                returns: "string",
+                sourceFile: "preference_case.ets",
+            }),
+            projectInvokeSurface({
                 surfaceId: "surface.ExternalPreferenceBridge.loadAsync",
-                kind: "invoke",
-                modulePath: "external_preference_bridge",
-                ownerName: "ExternalPreferenceBridge",
-                methodName: "loadAsync",
-                invokeKind: "namespace",
-                argCount: 2,
-                confidence: "likely",
-                provenance: { source: "llm-proposal", location: { file: "preference_case.ets" } },
-            },
+                moduleSpecifier: "./external_preference_bridge",
+                owner: "ExternalPreferenceBridge",
+                member: "loadAsync",
+                staticFlag: true,
+                parameters: ["string", "string"],
+                returns: "string",
+                sourceFile: "preference_case.ets",
+            }),
         ],
         bindings: [
             {
@@ -294,7 +420,7 @@ function projectNamespaceHandoffAsset(): AssetDocumentBase {
                 endpoint: { base: { kind: "arg", index: 2 } },
                 effectTemplateRefs: ["template.ExternalPreferenceBridge.save.put"],
                 semanticsFamily: "fixture.external_preference",
-                completeness: "partial",
+                completeness: "complete",
                 confidence: "likely",
             },
             {
@@ -306,7 +432,7 @@ function projectNamespaceHandoffAsset(): AssetDocumentBase {
                 endpoint: { base: { kind: "return" } },
                 effectTemplateRefs: ["template.ExternalPreferenceBridge.load.get"],
                 semanticsFamily: "fixture.external_preference",
-                completeness: "partial",
+                completeness: "complete",
                 confidence: "likely",
             },
             {
@@ -318,7 +444,7 @@ function projectNamespaceHandoffAsset(): AssetDocumentBase {
                 endpoint: { base: { kind: "promiseResult" } },
                 effectTemplateRefs: ["template.ExternalPreferenceBridge.loadAsync.get"],
                 semanticsFamily: "fixture.external_preference",
-                completeness: "partial",
+                completeness: "complete",
                 confidence: "likely",
             },
         ],
@@ -333,10 +459,10 @@ function projectNamespaceHandoffAsset(): AssetDocumentBase {
                         { kind: "fromEndpoint", endpoint: { base: { kind: "arg", index: 0 } } },
                         { kind: "fromEndpoint", endpoint: { base: { kind: "arg", index: 1 } } },
                     ],
-                    precision: "infer",
+                    precision: "exact",
                 },
                 value: { base: { kind: "arg", index: 2 } },
-                updateStrength: "infer",
+                updateStrength: "strong",
                 confidence: "likely",
             },
             {
@@ -349,7 +475,7 @@ function projectNamespaceHandoffAsset(): AssetDocumentBase {
                         { kind: "fromEndpoint", endpoint: { base: { kind: "arg", index: 0 } } },
                         { kind: "fromEndpoint", endpoint: { base: { kind: "arg", index: 1 } } },
                     ],
-                    precision: "infer",
+                    precision: "exact",
                 },
                 target: { base: { kind: "return" } },
                 confidence: "likely",
@@ -364,7 +490,7 @@ function projectNamespaceHandoffAsset(): AssetDocumentBase {
                         { kind: "fromEndpoint", endpoint: { base: { kind: "arg", index: 0 } } },
                         { kind: "fromEndpoint", endpoint: { base: { kind: "arg", index: 1 } } },
                     ],
-                    precision: "infer",
+                    precision: "exact",
                 },
                 target: { base: { kind: "promiseResult" } },
                 confidence: "likely",
@@ -381,30 +507,26 @@ function projectObjectFieldHandoffAsset(): AssetDocumentBase {
     return {
         id: "project.ReceiverFieldCarrier.module",
         plane: "module",
-        status: "schema-valid",
+        status: "reviewed",
         surfaces: [
-            {
+            projectInvokeSurface({
                 surfaceId: "surface.ReceiverFieldCarrier.buildAuthHeaders",
-                kind: "invoke",
-                modulePath: "entry/src/main/ets/preference_case.ets",
-                ownerName: "ReceiverFieldCarrierFixture",
-                methodName: "buildAuthHeaders",
-                invokeKind: "instance",
-                argCount: 1,
-                confidence: "likely",
-                provenance: { source: "llm-proposal", location: { file: "preference_case.ets" } },
-            },
-            {
+                moduleSpecifier: "fixture/src/main/ets/preference_case.ets",
+                owner: "ReceiverFieldCarrierFixture",
+                member: "buildAuthHeaders",
+                parameters: ["string"],
+                returns: "string",
+                sourceFile: "preference_case.ets",
+            }),
+            projectInvokeSurface({
                 surfaceId: "surface.ReceiverFieldCarrier.request",
-                kind: "invoke",
-                modulePath: "entry/src/main/ets/preference_case.ets",
-                ownerName: "ReceiverFieldCarrierFixture",
-                methodName: "_request",
-                invokeKind: "instance",
-                argCount: 0,
-                confidence: "likely",
-                provenance: { source: "llm-proposal", location: { file: "preference_case.ets" } },
-            },
+                moduleSpecifier: "fixture/src/main/ets/preference_case.ets",
+                owner: "ReceiverFieldCarrierFixture",
+                member: "_request",
+                parameters: [],
+                returns: "void",
+                sourceFile: "preference_case.ets",
+            }),
         ],
         bindings: [
             {
@@ -416,7 +538,7 @@ function projectObjectFieldHandoffAsset(): AssetDocumentBase {
                 endpoint: { base: { kind: "return" } },
                 effectTemplateRefs: ["template.ReceiverFieldCarrier.authHeaders.put"],
                 semanticsFamily: "fixture.receiver_field",
-                completeness: "partial",
+                completeness: "complete",
                 confidence: "likely",
             },
             {
@@ -428,7 +550,7 @@ function projectObjectFieldHandoffAsset(): AssetDocumentBase {
                 endpoint: { base: { kind: "receiver" }, accessPath: ["authHeaders"] },
                 effectTemplateRefs: ["template.ReceiverFieldCarrier.authHeaders.get"],
                 semanticsFamily: "fixture.receiver_field",
-                completeness: "partial",
+                completeness: "complete",
                 confidence: "likely",
             },
         ],
@@ -444,7 +566,7 @@ function projectObjectFieldHandoffAsset(): AssetDocumentBase {
                     precision: "exact",
                 },
                 value: { base: { kind: "return" } },
-                updateStrength: "infer",
+                updateStrength: "strong",
                 confidence: "likely",
             },
             {
@@ -472,30 +594,26 @@ function projectReceiverConfigAuthHeaderAsset(): AssetDocumentBase {
     return {
         id: "project.ConfigAuthCarrier.module",
         plane: "module",
-        status: "schema-valid",
+        status: "reviewed",
         surfaces: [
-            {
+            projectInvokeSurface({
                 surfaceId: "surface.ConfigAuthCarrier.buildAuthHeaders",
-                kind: "invoke",
-                modulePath: "entry/src/main/ets/preference_case.ets",
-                ownerName: "ConfigAuthCarrierFixture",
-                methodName: "buildAuthHeaders",
-                invokeKind: "instance",
-                argCount: 0,
-                confidence: "likely",
-                provenance: { source: "llm-proposal", location: { file: "preference_case.ets" } },
-            },
-            {
+                moduleSpecifier: "fixture/src/main/ets/preference_case.ets",
+                owner: "ConfigAuthCarrierFixture",
+                member: "buildAuthHeaders",
+                parameters: [],
+                returns: "string",
+                sourceFile: "preference_case.ets",
+            }),
+            projectInvokeSurface({
                 surfaceId: "surface.ConfigAuthCarrier.request",
-                kind: "invoke",
-                modulePath: "entry/src/main/ets/preference_case.ets",
-                ownerName: "ConfigAuthCarrierFixture",
-                methodName: "_request",
-                invokeKind: "instance",
-                argCount: 0,
-                confidence: "likely",
-                provenance: { source: "llm-proposal", location: { file: "preference_case.ets" } },
-            },
+                moduleSpecifier: "fixture/src/main/ets/preference_case.ets",
+                owner: "ConfigAuthCarrierFixture",
+                member: "_request",
+                parameters: [],
+                returns: "void",
+                sourceFile: "preference_case.ets",
+            }),
         ],
         bindings: [
             {
@@ -507,7 +625,7 @@ function projectReceiverConfigAuthHeaderAsset(): AssetDocumentBase {
                 endpoint: { base: { kind: "receiver" }, accessPath: ["config", "password"] },
                 effectTemplateRefs: ["template.ConfigAuthCarrier.authHeaders.put"],
                 semanticsFamily: "fixture.config_auth_carrier",
-                completeness: "partial",
+                completeness: "complete",
                 confidence: "likely",
             },
             {
@@ -519,7 +637,7 @@ function projectReceiverConfigAuthHeaderAsset(): AssetDocumentBase {
                 endpoint: { base: { kind: "receiver" }, accessPath: ["authHeaders"] },
                 effectTemplateRefs: ["template.ConfigAuthCarrier.authHeaders.get"],
                 semanticsFamily: "fixture.config_auth_carrier",
-                completeness: "partial",
+                completeness: "complete",
                 confidence: "likely",
             },
         ],
@@ -535,7 +653,7 @@ function projectReceiverConfigAuthHeaderAsset(): AssetDocumentBase {
                     precision: "exact",
                 },
                 value: { base: { kind: "receiver" }, accessPath: ["config", "password"] },
-                updateStrength: "infer",
+                updateStrength: "strong",
                 confidence: "likely",
             },
             {
@@ -563,30 +681,26 @@ function projectWebDavLikeAuthHeaderAsset(): AssetDocumentBase {
     return {
         id: "project.WebDavLikeAuthCarrier.module",
         plane: "module",
-        status: "schema-valid",
+        status: "reviewed",
         surfaces: [
-            {
+            projectInvokeSurface({
                 surfaceId: "surface.WebDavLikeAuthCarrier.buildAuthHeaders",
-                kind: "invoke",
-                modulePath: "entry/src/main/ets/preference_case.ets",
-                ownerName: "WebDavLikeAuthCarrierFixture",
-                methodName: "buildAuthHeaders",
-                invokeKind: "instance",
-                argCount: 0,
-                confidence: "likely",
-                provenance: { source: "llm-proposal", location: { file: "preference_case.ets" } },
-            },
-            {
+                moduleSpecifier: "fixture/src/main/ets/preference_case.ets",
+                owner: "WebDavLikeAuthCarrierFixture",
+                member: "buildAuthHeaders",
+                parameters: [],
+                returns: "string",
+                sourceFile: "preference_case.ets",
+            }),
+            projectInvokeSurface({
                 surfaceId: "surface.WebDavLikeAuthCarrier.request",
-                kind: "invoke",
-                modulePath: "entry/src/main/ets/preference_case.ets",
-                ownerName: "WebDavLikeAuthCarrierFixture",
-                methodName: "_request",
-                invokeKind: "instance",
-                argCount: 0,
-                confidence: "likely",
-                provenance: { source: "llm-proposal", location: { file: "preference_case.ets" } },
-            },
+                moduleSpecifier: "fixture/src/main/ets/preference_case.ets",
+                owner: "WebDavLikeAuthCarrierFixture",
+                member: "_request",
+                parameters: [],
+                returns: "void",
+                sourceFile: "preference_case.ets",
+            }),
         ],
         bindings: [
             {
@@ -598,7 +712,7 @@ function projectWebDavLikeAuthHeaderAsset(): AssetDocumentBase {
                 endpoint: { base: { kind: "receiver" }, accessPath: ["config", "password"] },
                 effectTemplateRefs: ["template.WebDavLikeAuthCarrier.authHeaders.put"],
                 semanticsFamily: "fixture.webdav_like_auth_carrier",
-                completeness: "partial",
+                completeness: "complete",
                 confidence: "likely",
             },
             {
@@ -610,7 +724,7 @@ function projectWebDavLikeAuthHeaderAsset(): AssetDocumentBase {
                 endpoint: { base: { kind: "receiver" }, accessPath: ["authHeaders"] },
                 effectTemplateRefs: ["template.WebDavLikeAuthCarrier.authHeaders.get"],
                 semanticsFamily: "fixture.webdav_like_auth_carrier",
-                completeness: "partial",
+                completeness: "complete",
                 confidence: "likely",
             },
         ],
@@ -654,30 +768,26 @@ function projectWebDavRealisticAuthHeaderAsset(): AssetDocumentBase {
     return {
         id: "project.WebDavRealisticAuthCarrier.module",
         plane: "module",
-        status: "schema-valid",
+        status: "reviewed",
         surfaces: [
-            {
+            projectInvokeSurface({
                 surfaceId: "surface.WebDavRealisticAuthCarrier.buildAuthHeaders",
-                kind: "invoke",
-                modulePath: "entry/src/main/ets/preference_case.ets",
-                ownerName: "WebDavRealisticAuthCarrierFixture",
-                methodName: "buildAuthHeaders",
-                invokeKind: "instance",
-                argCount: 0,
-                confidence: "likely",
-                provenance: { source: "llm-proposal", location: { file: "preference_case.ets" } },
-            },
-            {
+                moduleSpecifier: "fixture/src/main/ets/preference_case.ets",
+                owner: "WebDavRealisticAuthCarrierFixture",
+                member: "buildAuthHeaders",
+                parameters: [],
+                returns: "@fixture/src/main/ets/preference_case.ets: %AC7",
+                sourceFile: "preference_case.ets",
+            }),
+            projectInvokeSurface({
                 surfaceId: "surface.WebDavRealisticAuthCarrier.request",
-                kind: "invoke",
-                modulePath: "entry/src/main/ets/preference_case.ets",
-                ownerName: "WebDavRealisticAuthCarrierFixture",
-                methodName: "_request",
-                invokeKind: "instance",
-                argCount: 0,
-                confidence: "likely",
-                provenance: { source: "llm-proposal", location: { file: "preference_case.ets" } },
-            },
+                moduleSpecifier: "fixture/src/main/ets/preference_case.ets",
+                owner: "WebDavRealisticAuthCarrierFixture",
+                member: "_request",
+                parameters: [],
+                returns: "void",
+                sourceFile: "preference_case.ets",
+            }),
         ],
         bindings: [
             {
@@ -689,7 +799,7 @@ function projectWebDavRealisticAuthHeaderAsset(): AssetDocumentBase {
                 endpoint: { base: { kind: "receiver" }, accessPath: ["config", "password"] },
                 effectTemplateRefs: ["template.WebDavRealisticAuthCarrier.authHeaders.put"],
                 semanticsFamily: "fixture.webdav_realistic_auth_carrier",
-                completeness: "partial",
+                completeness: "complete",
                 confidence: "likely",
             },
             {
@@ -701,7 +811,7 @@ function projectWebDavRealisticAuthHeaderAsset(): AssetDocumentBase {
                 endpoint: { base: { kind: "receiver" }, accessPath: ["authHeaders"] },
                 effectTemplateRefs: ["template.WebDavRealisticAuthCarrier.authHeaders.get"],
                 semanticsFamily: "fixture.webdav_realistic_auth_carrier",
-                completeness: "partial",
+                completeness: "complete",
                 confidence: "likely",
             },
         ],
@@ -745,28 +855,25 @@ function projectConstructorConfigAuthHeaderAsset(): AssetDocumentBase {
     return {
         id: "project.ConstructorConfigAuthCarrier.module",
         plane: "module",
-        status: "schema-valid",
+        status: "reviewed",
         surfaces: [
-            {
+            projectConstructSurface({
                 surfaceId: "surface.ConstructorConfigAuthCarrier.constructor",
-                kind: "construct",
-                modulePath: "entry/src/main/ets/preference_case.ets",
-                className: "ConstructorConfigAuthCarrierFixture",
-                argCount: 1,
-                confidence: "likely",
-                provenance: { source: "llm-proposal", location: { file: "preference_case.ets" } },
-            },
-            {
+                moduleSpecifier: "fixture/src/main/ets/preference_case.ets",
+                owner: "ConstructorConfigAuthCarrierFixture",
+                parameters: ["@fixture/src/main/ets/preference_case.ets: %AC2"],
+                returns: "@fixture/src/main/ets/preference_case.ets: ConstructorConfigAuthCarrierFixture",
+                sourceFile: "preference_case.ets",
+            }),
+            projectInvokeSurface({
                 surfaceId: "surface.ConstructorConfigAuthCarrier.request",
-                kind: "invoke",
-                modulePath: "entry/src/main/ets/preference_case.ets",
-                ownerName: "ConstructorConfigAuthCarrierFixture",
-                methodName: "_request",
-                invokeKind: "instance",
-                argCount: 0,
-                confidence: "likely",
-                provenance: { source: "llm-proposal", location: { file: "preference_case.ets" } },
-            },
+                moduleSpecifier: "fixture/src/main/ets/preference_case.ets",
+                owner: "ConstructorConfigAuthCarrierFixture",
+                member: "_request",
+                parameters: [],
+                returns: "void",
+                sourceFile: "preference_case.ets",
+            }),
         ],
         bindings: [
             {
@@ -778,7 +885,7 @@ function projectConstructorConfigAuthHeaderAsset(): AssetDocumentBase {
                 endpoint: { base: { kind: "arg", index: 0 }, accessPath: ["password"] },
                 effectTemplateRefs: ["template.ConstructorConfigAuthCarrier.authHeaders.put"],
                 semanticsFamily: "fixture.constructor_config_auth_carrier",
-                completeness: "partial",
+                completeness: "complete",
                 confidence: "likely",
             },
             {
@@ -790,7 +897,7 @@ function projectConstructorConfigAuthHeaderAsset(): AssetDocumentBase {
                 endpoint: { base: { kind: "receiver" }, accessPath: ["authHeaders"] },
                 effectTemplateRefs: ["template.ConstructorConfigAuthCarrier.authHeaders.get"],
                 semanticsFamily: "fixture.constructor_config_auth_carrier",
-                completeness: "partial",
+                completeness: "complete",
                 confidence: "likely",
             },
         ],
@@ -831,44 +938,56 @@ function projectConstructorConfigAuthHeaderAsset(): AssetDocumentBase {
 }
 
 function projectEventEmitterAsset(): AssetDocumentBase {
-    return {
+    const asset: AssetDocumentBase = {
         id: "project.ProjectEventHub.eventEmitter",
         plane: "module",
-        status: "schema-valid",
+        status: "reviewed",
         surfaces: [
-            {
+            projectInvokeSurface({
                 surfaceId: "surface.ProjectEventHub.on",
-                kind: "invoke",
-                modulePath: "src/main/ets/event_hub_case.ets",
-                ownerName: "ProjectEventHub",
-                methodName: "on",
-                invokeKind: "static",
-                argCount: 2,
-                confidence: "likely",
-                provenance: { source: "llm-proposal", location: { file: "event_hub_case.ets" } },
-            },
-            {
+                moduleSpecifier: "fixture/src/main/ets/preference_case.ets",
+                owner: "ProjectEventHub",
+                member: "on",
+                staticFlag: true,
+                parameters: [
+                    "@fixture/src/main/ets/preference_case.ets: EventKey",
+                    "@fixture/src/main/ets/preference_case.ets: ProjectEventHub.%AM0(boolean)",
+                ],
+                returns: "void",
+                sourceFile: "event_hub_case.ets",
+            }),
+            projectInvokeSurface({
                 surfaceId: "surface.ProjectEventHub.sendEvent",
-                kind: "invoke",
-                modulePath: "src/main/ets/event_hub_case.ets",
-                ownerName: "ProjectEventHub",
-                methodName: "sendEvent",
-                invokeKind: "static",
-                argCount: 1,
-                confidence: "likely",
-                provenance: { source: "llm-proposal", location: { file: "event_hub_case.ets" } },
-            },
+                moduleSpecifier: "fixture/src/main/ets/preference_case.ets",
+                owner: "ProjectEventHub",
+                member: "sendEvent",
+                staticFlag: true,
+                parameters: ["@fixture/src/main/ets/preference_case.ets: EventKey", "boolean"],
+                returns: "void",
+                sourceFile: "event_hub_case.ets",
+            }),
         ],
         bindings: [
             {
-                bindingId: "binding.ProjectEventHub.eventEmitter",
+                bindingId: "binding.ProjectEventHub.eventEmitter.on",
                 surfaceId: "surface.ProjectEventHub.on",
                 assetId: "project.ProjectEventHub.eventEmitter",
                 plane: "module",
                 role: "handoff",
                 effectTemplateRefs: ["template.ProjectEventHub.eventEmitter"],
                 semanticsFamily: "project.eventhub",
-                completeness: "partial",
+                completeness: "complete",
+                confidence: "likely",
+            },
+            {
+                bindingId: "binding.ProjectEventHub.eventEmitter.emit",
+                surfaceId: "surface.ProjectEventHub.sendEvent",
+                assetId: "project.ProjectEventHub.eventEmitter",
+                plane: "module",
+                role: "handoff",
+                effectTemplateRefs: ["template.ProjectEventHub.eventEmitter"],
+                semanticsFamily: "project.eventhub",
+                completeness: "complete",
                 confidence: "likely",
             },
         ],
@@ -876,8 +995,8 @@ function projectEventEmitterAsset(): AssetDocumentBase {
             {
                 id: "template.ProjectEventHub.eventEmitter",
                 kind: "module.eventEmitter",
-                onMethods: ["on"],
-                emitMethods: ["sendEvent"],
+                onCanonicalApiIds: [],
+                emitCanonicalApiIds: [],
                 channelArgIndexes: [0],
                 payloadArgIndex: -1,
                 callbackArgIndex: 1,
@@ -890,35 +1009,120 @@ function projectEventEmitterAsset(): AssetDocumentBase {
             projectId: "event_hub_fixture",
         },
     };
+    const onCanonicalApiId = requireSurfaceCanonicalApiId(asset, "surface.ProjectEventHub.on");
+    const emitCanonicalApiId = requireSurfaceCanonicalApiId(asset, "surface.ProjectEventHub.sendEvent");
+    const template = asset.effectTemplates?.find(item => item.id === "template.ProjectEventHub.eventEmitter") as any;
+    template.onCanonicalApiIds = [onCanonicalApiId];
+    template.emitCanonicalApiIds = [emitCanonicalApiId];
+    return asset;
+}
+
+function requireSurfaceCanonicalApiId(asset: AssetDocumentBase, surfaceId: string): string {
+    const canonicalApiId = asset.surfaces?.find(surface => surface.surfaceId === surfaceId)?.canonicalApiId;
+    if (!canonicalApiId) {
+        throw new Error(`missing canonicalApiId for ${surfaceId}`);
+    }
+    return canonicalApiId;
+}
+
+const TEST_MODULE_API_ASSETS = Symbol("testModuleApiAssets");
+
+function attachApiAssets(modules: TaintModule[], assets: AssetDocumentBase[]): TaintModule[] {
+    for (const module of modules) {
+        Object.defineProperty(module, TEST_MODULE_API_ASSETS, {
+            value: [...assets],
+            enumerable: false,
+            configurable: true,
+        });
+    }
+    return modules;
+}
+
+function apiAssetsForModules(modules: TaintModule[]): AssetDocumentBase[] {
+    const byId = new Map<string, AssetDocumentBase>();
+    for (const module of modules) {
+        for (const asset of ((module as any)[TEST_MODULE_API_ASSETS] || []) as AssetDocumentBase[]) {
+            if (asset?.id && !byId.has(asset.id)) {
+                byId.set(asset.id, asset);
+            }
+        }
+    }
+    return [...byId.values()];
+}
+
+function findLocalSeedNodes(engine: TaintPropagationEngine, scene: Scene, methodName: string, localName: string): any[] {
+    const methods = scene.getMethods().filter(item =>
+        item.getName?.() === methodName
+        || String(item.getSignature?.()?.toString?.() || "").includes(methodName)
+    );
+    assert(methods.length > 0, `seed method not found: ${methodName}`);
+    const nodes: any[] = [];
+    for (const method of methods) {
+        const cfg = method.getCfg?.();
+        if (!cfg) continue;
+        const bodyLocal = method.getBody?.()?.getLocals?.()?.get(localName);
+        if (bodyLocal) {
+            const nodeIds = engine.pag.getNodesByValue(bodyLocal);
+            if (nodeIds) {
+                for (const id of nodeIds.values()) {
+                    const node = engine.pag.getNode(id);
+                    if (node && !nodes.includes(node)) nodes.push(node);
+                }
+            }
+        }
+        for (const stmt of cfg.getStmts?.() || []) {
+            const rawStmt = stmt as any;
+            const candidates = [rawStmt.getLeftOp?.(), rawStmt.getRightOp?.()];
+            for (const candidate of candidates) {
+                if (!candidate || candidate.getName?.() !== localName) continue;
+                const nodeIds = engine.pag.getNodesByValue(candidate);
+                if (!nodeIds) continue;
+                for (const id of nodeIds.values()) {
+                    const node = engine.pag.getNode(id);
+                    if (node && !nodes.includes(node)) nodes.push(node);
+                }
+            }
+        }
+    }
+    return nodes;
 }
 
 async function runCase(
     scene: Scene,
     caseName: string,
     modules: TaintModule[],
-    options: { expectFlow?: boolean; sourceRules?: SourceRule[] } = {},
+    options: { expectFlow?: boolean; sourceRulePack?: SourceRulePack; localSeedMethods?: string[]; apiAssets?: AssetDocumentBase[] } = {},
 ): Promise<number> {
-    const sourceRules: SourceRule[] = options.sourceRules || [{
-        id: `source.fixture.entry.${caseName}`,
-        sourceKind: "seed_local_name",
-        target: "result",
-        match: { kind: "field_name_equals", value: "taint_src" },
-        scope: {
-            methodName: { mode: "equals", value: caseName },
-        },
-    }];
+    if (process.env.ARKTAINT_TEST_PROGRESS === "1") {
+        console.error(`[module_handoff_test] start case=${caseName}`);
+    }
+    const sourceRules: SourceRule[] = options.sourceRulePack?.rules || [];
+    const sinkEffect = buildSinkEffect(scene);
     const sinkRules: SinkRule[] = [{
         id: "sink.fixture.Sink.arg0",
-        match: { kind: "method_name_equals", value: "Sink", argCount: 1 },
-        target: "arg0",
+        match: {
+            kind: "canonical_api_id_equals",
+            value: sinkEffect.canonicalApiDescriptor.canonicalApiId,
+        },
+        apiEffect: sinkEffect.apiEffect,
+        target: { endpoint: "arg0" },
     }];
     const entry = resolveCaseMethod(scene, "preference_case.ets", caseName);
     const entryMethod = findCaseMethod(scene, entry);
     assert(!!entryMethod, `missing entry method: ${caseName}`);
 
+    const apiAssets = [
+        ...(options.apiAssets || apiAssetsForModules(modules)),
+        sinkEffect.asset,
+        ...(options.sourceRulePack?.assets || []),
+    ];
+    const exactRuntime = exactRuleRuntimeFromAssets(apiAssets, [sinkEffect.canonicalApiDescriptor]);
     const engine = new TaintPropagationEngine(scene, 1, {
         includeBuiltinModules: false,
         modules,
+        apiAssets,
+        canonicalApiRegistry: exactRuntime.canonicalApiRegistry,
+        assetIdentityIndex: exactRuntime.assetIdentityIndex,
     });
     engine.verbose = false;
     await engine.buildPAG({
@@ -931,10 +1135,29 @@ async function runCase(
         engine.setActiveReachableMethodSignatures(undefined);
     }
 
-    const seedInfo = engine.propagateWithSourceRules(sourceRules);
+    const seedInfo = options.sourceRulePack
+        ? engine.propagateWithSourceRules(sourceRules)
+        : (() => {
+            const seedNodes = (options.localSeedMethods || [caseName])
+                .flatMap(methodName => findLocalSeedNodes(engine, scene, methodName, "taint_src"));
+            assert(seedNodes.length > 0, `${caseName}: expected taint_src seed nodes`);
+            engine.propagateWithSeeds(seedNodes);
+            return {
+                seedCount: seedNodes.length,
+                sourceRuleHits: {},
+                sourceSeedAudit: [],
+            };
+        })();
     const flows = engine.detectSinksByRules(sinkRules).length;
+    if (process.env.ARKTAINT_TEST_PROGRESS === "1") {
+        console.error(`[module_handoff_test] done case=${caseName} flows=${flows}`);
+    }
     if ((options.expectFlow ?? caseName.endsWith("_T")) && flows === 0) {
         const audit = engine.getModuleAuditSnapshot();
+        const handoffSnapshot = engine.getExecutionHandoffContractSnapshot();
+        const syntheticEdgeSnapshot = engine.getSyntheticInvokeEdgeSnapshot();
+        const sinkAudit = engine.getSinkDetectionAuditSnapshot();
+        const sinkProfile = engine.getDetectProfile();
         const observedTaintFacts = engine.getObservedTaintFacts();
         const observedFacts = [...observedTaintFacts.entries()]
             .flatMap(([nodeId, facts]) => facts.map(fact => ({
@@ -950,8 +1173,14 @@ async function runCase(
             `seedCount=${seedInfo.seedCount}`,
             `sourceRuleHits=${JSON.stringify(seedInfo.sourceRuleHits)}`,
             `sourceSeedAudit=${JSON.stringify(seedInfo.sourceSeedAudit.slice(0, 40))}`,
+            `sourceRuleZeroHitAudit=${JSON.stringify("sourceRuleZeroHitAudit" in seedInfo && Array.isArray(seedInfo.sourceRuleZeroHitAudit) ? seedInfo.sourceRuleZeroHitAudit.slice(0, 40) : [])}`,
+            `sourceEndpointResolutionAudit=${JSON.stringify("endpointResolutionAudit" in seedInfo && Array.isArray(seedInfo.endpointResolutionAudit) ? seedInfo.endpointResolutionAudit.slice(0, 40) : [])}`,
+            `executionHandoffSnapshot=${JSON.stringify(summarizeExecutionHandoffSnapshot(handoffSnapshot))}`,
+            `syntheticInvokeEdgeSnapshot=${JSON.stringify(syntheticEdgeSnapshot)}`,
             `loadedModuleIds=${JSON.stringify(audit.loadedModuleIds)}`,
             `moduleStats=${JSON.stringify(audit.moduleStats)}`,
+            `sinkProfile=${JSON.stringify(sinkProfile)}`,
+            `sinkAudit=${JSON.stringify(sinkAudit)}`,
             `observedFacts=${JSON.stringify(observedFacts)}`,
             `caseIr=${JSON.stringify(describeMethodIr(scene, caseName))}`,
             `loadUserTemplateIr=${JSON.stringify(describeMethodIr(scene, "BackupConfigFixture.loadUserTemplate_T"))}`,
@@ -964,6 +1193,18 @@ async function runCase(
         ].join("\n"));
     }
     return flows;
+}
+
+function buildSinkEffect(scene: Scene): TestApiEffectAsset {
+    const methods = scene.getMethods().filter(method => method.getName?.() === "Sink");
+    assert(methods.length === 1, `expected one Sink method, found ${methods.length}`);
+    return projectApiEffectAssetFromMethod({
+        id: "sink.fixture.Sink.arg0",
+        role: "sink",
+        method: methods[0],
+        endpoint: { base: { kind: "arg", index: 0 } },
+        sinkKind: "test",
+    });
 }
 
 function describeMethodIr(scene: Scene, signatureNeedle: string): unknown[] {
@@ -1006,6 +1247,25 @@ function describeMethodIr(scene: Scene, signatureNeedle: string): unknown[] {
     });
 }
 
+function summarizeExecutionHandoffSnapshot(snapshot: any): unknown {
+    if (!snapshot) return undefined;
+    return {
+        totalContracts: snapshot.totalContracts,
+        contracts: (snapshot.contracts || []).slice(0, 30).map((contract: any) => ({
+            id: contract.id,
+            callerSignature: contract.callerSignature,
+            unitSignature: contract.unitSignature,
+            lineNo: contract.lineNo,
+            carrierKind: contract.carrierKind,
+            activationLabel: contract.activationLabel,
+            pathLabels: contract.pathLabels,
+            ports: contract.ports,
+            edgeBindingCount: contract.edgeBindingCount,
+            triggerLabel: contract.declarativeTriggerLabel,
+        })),
+    };
+}
+
 async function main(): Promise<void> {
     const root = resolveTestRunDir("runtime", "module_handoff_effect_asset_lowering");
     const repoRoot = resolveTestRunPath("runtime", "module_handoff_effect_asset_lowering", "fixture");
@@ -1013,16 +1273,18 @@ async function main(): Promise<void> {
     fs.rmSync(root, { recursive: true, force: true });
     fs.mkdirSync(root, { recursive: true });
 
-    const eventEmitterLowered = lowerModuleAssetToInternalModuleLoweringIR(projectEventEmitterAsset(), {
-        loadMode: "semanticflow-evaluation",
-    });
-    const eventEmitterSemantic = eventEmitterLowered.semantics.find(semantic => semantic.kind === "event_emitter") as any;
-    assert(eventEmitterSemantic, "module.eventEmitter asset should lower to event_emitter semantic");
-    assert(eventEmitterSemantic.payloadArgIndex === -1, "module.eventEmitter must preserve no-payload dispatch payloadArgIndex=-1");
-    const eventEmitterModules = compileInternalModuleLoweringIR(eventEmitterLowered);
-    assert(eventEmitterModules.some(module => module.id.includes("eventEmitter")), "module.eventEmitter semantic should compile to a runtime module");
+    writeText(path.join(sourceDir, "external_preference_bridge.ets"), [
+        "const ExternalPreferenceBridge = {",
+        "  save(scope: string, key: string, value: string): void {}",
+        "  load(scope: string, key: string): string { return \"clean\"; }",
+        "  async loadAsync(scope: string, key: string): Promise<string> { return \"clean\"; }",
+        "};",
+        "export default ExternalPreferenceBridge;",
+        "",
+    ].join("\n"));
 
     writeText(path.join(sourceDir, "preference_case.ets"), [
+        "import ExternalPreferenceBridge from \"./external_preference_bridge\";",
         "class PreferenceBridge {",
         "  save(scope: string, key: string, value: string): void {}",
         "  load(scope: string, key: string): string { return \"clean\"; }",
@@ -1640,23 +1902,36 @@ async function main(): Promise<void> {
         "",
     ].join("\n"));
 
-    const lowered = lowerModuleAssetToInternalModuleLoweringIR(projectHandoffAsset(), {
+    const scene = buildScene(repoRoot);
+
+    const eventEmitterAsset = bindExactAssetIdentities(projectEventEmitterAsset());
+    const eventEmitterLowered = lowerModuleAssetToInternalModuleLoweringIR(eventEmitterAsset, {
+        loadMode: "semanticflow-evaluation",
+    });
+    const eventEmitterSemantic = eventEmitterLowered.semantics.find(semantic => semantic.kind === "event_emitter") as any;
+    assert(eventEmitterSemantic, "module.eventEmitter asset should lower to event_emitter semantic");
+    assert(eventEmitterSemantic.payloadArgIndex === -1, "module.eventEmitter must preserve no-payload dispatch payloadArgIndex=-1");
+    const eventEmitterModules = attachApiAssets(compileInternalModuleLoweringIR(eventEmitterLowered), [eventEmitterAsset]);
+    assert(eventEmitterModules.some(module => module.id.includes("eventEmitter")), "module.eventEmitter semantic should compile to a runtime module");
+
+    const handoffAsset = bindExactAssetIdentities(projectHandoffAsset());
+    const lowered = lowerModuleAssetToInternalModuleLoweringIR(handoffAsset, {
         loadMode: "semanticflow-evaluation",
     });
     assert(lowered.semantics.some(semantic => semantic.kind === "handoff_effect"), "module handoff asset should lower to handoff_effect semantic");
-    const modules = compileInternalModuleLoweringIR(lowered);
+    const modules = attachApiAssets(compileInternalModuleLoweringIR(lowered), [handoffAsset]);
     assert(modules.some(module => module.id.includes("handoff.effects")), "handoff_effect semantic should compile to a runtime module");
 
-    const scene = buildScene(repoRoot);
     const sameKey = await runCase(scene, "same_key_T", modules);
     const otherKey = await runCase(scene, "other_key_F", modules);
     assert(otherKey === 0, `different key should not recover a flow, got ${otherKey}`);
 
-    const staticLowered = lowerModuleAssetToInternalModuleLoweringIR(projectStaticHandoffAsset(), {
+    const staticHandoffAsset = bindExactAssetIdentities(projectStaticHandoffAsset());
+    const staticLowered = lowerModuleAssetToInternalModuleLoweringIR(staticHandoffAsset, {
         loadMode: "semanticflow-evaluation",
     });
     assert(staticLowered.semantics.some(semantic => semantic.kind === "handoff_effect"), "static module handoff asset should lower to handoff_effect semantic");
-    const staticModules = compileInternalModuleLoweringIR(staticLowered);
+    const staticModules = attachApiAssets(compileInternalModuleLoweringIR(staticLowered), [staticHandoffAsset]);
     assert(staticModules.some(module => module.id.includes("handoff.effects")), "static handoff_effect semantic should compile to a runtime module");
     const staticSameKey = await runCase(scene, "static_same_key_T", staticModules);
     const staticOtherKey = await runCase(scene, "static_other_key_F", staticModules);
@@ -1665,11 +1940,12 @@ async function main(): Promise<void> {
     const staticNamespaceCase = await runCase(scene, "namespace_same_key_T", staticModules, { expectFlow: false });
     assert(staticNamespaceCase === 0, `static asset must not match unresolved namespace-style instance invoke, got ${staticNamespaceCase}`);
 
-    const objectFieldLowered = lowerModuleAssetToInternalModuleLoweringIR(projectObjectFieldHandoffAsset(), {
+    const objectFieldAsset = bindExactAssetIdentities(projectObjectFieldHandoffAsset());
+    const objectFieldLowered = lowerModuleAssetToInternalModuleLoweringIR(objectFieldAsset, {
         loadMode: "semanticflow-evaluation",
     });
     assert(objectFieldLowered.semantics.some(semantic => semantic.kind === "handoff_effect"), "object-field module handoff asset should lower to handoff_effect semantic");
-    const objectFieldModules = compileInternalModuleLoweringIR(objectFieldLowered);
+    const objectFieldModules = attachApiAssets(compileInternalModuleLoweringIR(objectFieldLowered), [objectFieldAsset]);
     assert(objectFieldModules.some(module => module.id.includes("handoff.effects")), "object-field handoff_effect semantic should compile to a runtime module");
     const objectFieldCarrier = await runCase(scene, "object_field_receiver_carrier_T", objectFieldModules);
     const objectFieldOther = await runCase(scene, "object_field_receiver_carrier_other_field_F", objectFieldModules, { expectFlow: false });
@@ -1680,21 +1956,22 @@ async function main(): Promise<void> {
     assert(objectFieldModuleOnly > 0, `object-field module-only carrier should recover a flow, got ${objectFieldModuleOnly}`);
     assert(objectFieldModuleOnlyOther === 0, `object-field module-only carrier must not taint sibling field, got ${objectFieldModuleOnlyOther}`);
 
-    const receiverConfigLowered = lowerModuleAssetToInternalModuleLoweringIR(projectReceiverConfigAuthHeaderAsset(), {
+    const receiverConfigAsset = bindExactAssetIdentities(projectReceiverConfigAuthHeaderAsset());
+    const receiverConfigLowered = lowerModuleAssetToInternalModuleLoweringIR(receiverConfigAsset, {
         loadMode: "semanticflow-evaluation",
     });
     assert(receiverConfigLowered.semantics.some(semantic => semantic.kind === "handoff_effect"), "receiver-config object-field asset should lower to handoff_effect semantic");
-    const receiverConfigModules = compileInternalModuleLoweringIR(receiverConfigLowered);
+    const receiverConfigModules = attachApiAssets(compileInternalModuleLoweringIR(receiverConfigLowered), [receiverConfigAsset]);
     assert(receiverConfigModules.some(module => module.id.includes("handoff.effects")), "receiver-config object-field semantic should compile to a runtime module");
     const receiverConfigPassword = await runCase(scene, "receiver_config_password_to_auth_header_T", receiverConfigModules);
     const receiverConfigServerOnly = await runCase(scene, "receiver_config_server_not_password_F", receiverConfigModules, { expectFlow: false });
     const receiverConfigOtherField = await runCase(scene, "receiver_config_password_other_field_F", receiverConfigModules, { expectFlow: false });
     const receiverConfigMethodBodySource = await runCase(scene, "receiver_config_method_body_field_source_to_auth_header_T", receiverConfigModules, {
-        sourceRules: buildAuthHeadersPasswordFieldSourceRules(),
+        sourceRulePack: buildAuthHeadersPasswordFieldSourceRules(scene),
     });
     const receiverConfigMethodBodyOtherField = await runCase(scene, "receiver_config_method_body_field_source_other_field_F", receiverConfigModules, {
         expectFlow: false,
-        sourceRules: buildAuthHeadersPasswordFieldSourceRules(),
+        sourceRulePack: buildAuthHeadersPasswordFieldSourceRules(scene),
     });
     assert(receiverConfigPassword > 0, `receiver config.password should recover authHeaders flow, got ${receiverConfigPassword}`);
     assert(receiverConfigServerOnly === 0, `receiver config.server must not satisfy config.password carrier, got ${receiverConfigServerOnly}`);
@@ -1702,25 +1979,28 @@ async function main(): Promise<void> {
     assert(receiverConfigMethodBodySource > 0, `callee-body receiver config.password field source should recover authHeaders flow, got ${receiverConfigMethodBodySource}`);
     assert(receiverConfigMethodBodyOtherField === 0, `callee-body receiver config.password field source must not taint sibling output field, got ${receiverConfigMethodBodyOtherField}`);
 
-    const webDavLikeLowered = lowerModuleAssetToInternalModuleLoweringIR(projectWebDavLikeAuthHeaderAsset(), {
+    const webDavLikeAsset = bindExactAssetIdentities(projectWebDavLikeAuthHeaderAsset());
+    const webDavLikeLowered = lowerModuleAssetToInternalModuleLoweringIR(webDavLikeAsset, {
         loadMode: "semanticflow-evaluation",
     });
     assert(webDavLikeLowered.semantics.some(semantic => semantic.kind === "handoff_effect"), "WebDav-like receiver-config asset should lower to handoff_effect semantic");
-    const webDavLikeModules = compileInternalModuleLoweringIR(webDavLikeLowered);
+    const webDavLikeModules = attachApiAssets(compileInternalModuleLoweringIR(webDavLikeLowered), [webDavLikeAsset]);
     assert(webDavLikeModules.some(module => module.id.includes("handoff.effects")), "WebDav-like receiver-config semantic should compile to a runtime module");
 
-    const webDavRealisticLowered = lowerModuleAssetToInternalModuleLoweringIR(projectWebDavRealisticAuthHeaderAsset(), {
+    const webDavRealisticAsset = bindExactAssetIdentities(projectWebDavRealisticAuthHeaderAsset());
+    const webDavRealisticLowered = lowerModuleAssetToInternalModuleLoweringIR(webDavRealisticAsset, {
         loadMode: "semanticflow-evaluation",
     });
     assert(webDavRealisticLowered.semantics.some(semantic => semantic.kind === "handoff_effect"), "WebDav realistic receiver-config asset should lower to handoff_effect semantic");
-    const webDavRealisticModules = compileInternalModuleLoweringIR(webDavRealisticLowered);
+    const webDavRealisticModules = attachApiAssets(compileInternalModuleLoweringIR(webDavRealisticLowered), [webDavRealisticAsset]);
     assert(webDavRealisticModules.some(module => module.id.includes("handoff.effects")), "WebDav realistic receiver-config semantic should compile to a runtime module");
 
-    const constructorConfigLowered = lowerModuleAssetToInternalModuleLoweringIR(projectConstructorConfigAuthHeaderAsset(), {
+    const constructorConfigAsset = bindExactAssetIdentities(projectConstructorConfigAuthHeaderAsset());
+    const constructorConfigLowered = lowerModuleAssetToInternalModuleLoweringIR(constructorConfigAsset, {
         loadMode: "semanticflow-evaluation",
     });
     assert(constructorConfigLowered.semantics.some(semantic => semantic.kind === "handoff_effect"), "constructor-config object-field asset should lower to handoff_effect semantic");
-    const constructorConfigModules = compileInternalModuleLoweringIR(constructorConfigLowered);
+    const constructorConfigModules = attachApiAssets(compileInternalModuleLoweringIR(constructorConfigLowered), [constructorConfigAsset]);
     assert(constructorConfigModules.some(module => module.id.includes("handoff.effects")), "constructor-config object-field semantic should compile to a runtime module");
     const constructorConfigPassword = await runCase(scene, "constructor_config_password_to_auth_header_T", constructorConfigModules);
     const constructorConfigServerOnly = await runCase(scene, "constructor_config_server_not_password_F", constructorConfigModules, { expectFlow: false });
@@ -1729,11 +2009,12 @@ async function main(): Promise<void> {
     assert(constructorConfigServerOnly === 0, `constructor arg0.server must not satisfy arg0.password carrier, got ${constructorConfigServerOnly}`);
     assert(constructorConfigOtherField === 0, `constructor arg0.password must not taint sibling output field, got ${constructorConfigOtherField}`);
 
-    const namespaceLowered = lowerModuleAssetToInternalModuleLoweringIR(projectNamespaceHandoffAsset(), {
+    const namespaceAsset = bindExactAssetIdentities(projectNamespaceHandoffAsset());
+    const namespaceLowered = lowerModuleAssetToInternalModuleLoweringIR(namespaceAsset, {
         loadMode: "semanticflow-evaluation",
     });
     assert(namespaceLowered.semantics.some(semantic => semantic.kind === "handoff_effect"), "namespace module handoff asset should lower to handoff_effect semantic");
-    const namespaceModules = compileInternalModuleLoweringIR(namespaceLowered);
+    const namespaceModules = attachApiAssets(compileInternalModuleLoweringIR(namespaceLowered), [namespaceAsset]);
     assert(namespaceModules.some(module => module.id.includes("handoff.effects")), "namespace handoff_effect semantic should compile to a runtime module");
     const namespaceSameKey = await runCase(scene, "namespace_same_key_T", namespaceModules);
     const namespaceOtherKey = await runCase(scene, "namespace_other_key_F", namespaceModules);
@@ -1744,49 +2025,48 @@ async function main(): Promise<void> {
     assert(namespaceAwaitSameKey > 0, `namespace await same key should recover a flow through promiseResult, got ${namespaceAwaitSameKey}`);
     assert(namespaceAwaitOtherKey === 0, `namespace await different key should not recover a flow, got ${namespaceAwaitOtherKey}`);
     const templateUserField = await runCase(scene, "namespace_await_template_user_field_T", namespaceModules, {
-        sourceRules: [buildTaintSrcLocalSourceRule("loadUserTemplate_T")],
+        localSeedMethods: ["loadUserTemplate_T"],
     });
     const templatePasswordField = await runCase(scene, "namespace_await_template_password_field_T", namespaceModules, {
-        sourceRules: [buildTaintSrcLocalSourceRule("loadPasswordTemplate_T")],
+        localSeedMethods: ["loadPasswordTemplate_T"],
     });
     const templateServerField = await runCase(scene, "namespace_await_template_server_field_T", namespaceModules, {
-        sourceRules: [buildTaintSrcLocalSourceRule("loadServerTemplate_T")],
+        localSeedMethods: ["loadServerTemplate_T"],
     });
     const templateOtherKey = await runCase(scene, "namespace_await_template_other_key_F", namespaceModules, {
-        sourceRules: [buildTaintSrcLocalSourceRule("loadOtherKeyTemplate_F")],
+        localSeedMethods: ["loadOtherKeyTemplate_F"],
     });
     assert(templateUserField > 0, `namespace await template user field should recover a flow, got ${templateUserField}`);
     assert(templatePasswordField > 0, `namespace await template password field should recover a flow, got ${templatePasswordField}`);
     assert(templateServerField > 0, `namespace await template server field should recover a flow, got ${templateServerField}`);
     assert(templateOtherKey === 0, `namespace await template other key should not recover a flow, got ${templateOtherKey}`);
-    const boundStateSourceRules = buildFrameworkBoundStateSourceRules()
-        .filter(rule => rule.id === "source.harmony.input.textinput.text_binding");
-    const boundUserTemplate = await runCase(scene, "namespace_boundstate_handoff_user_template_T", namespaceModules, { sourceRules: boundStateSourceRules });
-    const boundPasswordTemplate = await runCase(scene, "namespace_boundstate_handoff_password_template_T", namespaceModules, { sourceRules: boundStateSourceRules });
-    const boundServerTemplate = await runCase(scene, "namespace_boundstate_handoff_server_template_T", namespaceModules, { sourceRules: boundStateSourceRules });
+    const boundStateSourceRules = buildFixtureTextInputBoundStateSourceRules(scene);
+    const boundUserTemplate = await runCase(scene, "namespace_boundstate_handoff_user_template_T", namespaceModules, { sourceRulePack: boundStateSourceRules });
+    const boundPasswordTemplate = await runCase(scene, "namespace_boundstate_handoff_password_template_T", namespaceModules, { sourceRulePack: boundStateSourceRules });
+    const boundServerTemplate = await runCase(scene, "namespace_boundstate_handoff_server_template_T", namespaceModules, { sourceRulePack: boundStateSourceRules });
     const boundPlainValue = await runCase(scene, "namespace_boundstate_handoff_plain_value_F", namespaceModules, {
         expectFlow: false,
-        sourceRules: boundStateSourceRules,
+        sourceRulePack: boundStateSourceRules,
     });
-    const boundAllFieldsTemplate = await runCase(scene, "namespace_boundstate_handoff_all_fields_template_T", namespaceModules, { sourceRules: boundStateSourceRules });
+    const boundAllFieldsTemplate = await runCase(scene, "namespace_boundstate_handoff_all_fields_template_T", namespaceModules, { sourceRulePack: boundStateSourceRules });
     assert(boundUserTemplate > 0, `bound-state user field should cross project handoff into template sink, got ${boundUserTemplate}`);
     assert(boundPasswordTemplate > 0, `bound-state password field should cross project handoff into template sink, got ${boundPasswordTemplate}`);
     assert(boundServerTemplate > 0, `bound-state server field should cross project handoff into template sink, got ${boundServerTemplate}`);
     assert(boundPlainValue === 0, `plain TextInput value must not seed bound-state handoff flow, got ${boundPlainValue}`);
     assert(boundAllFieldsTemplate >= 3, `three bound-state source occurrences should remain distinguishable at one template sink, got ${boundAllFieldsTemplate}`);
 
-    const boundConstructorPassword = await runCase(scene, "boundstate_constructor_config_password_to_auth_header_T", constructorConfigModules, { sourceRules: boundStateSourceRules });
+    const boundConstructorPassword = await runCase(scene, "boundstate_constructor_config_password_to_auth_header_T", constructorConfigModules, { sourceRulePack: boundStateSourceRules });
     const boundConstructorServerOnly = await runCase(scene, "boundstate_constructor_config_server_not_password_F", constructorConfigModules, {
         expectFlow: false,
-        sourceRules: boundStateSourceRules,
+        sourceRulePack: boundStateSourceRules,
     });
     const boundConstructorPlainValue = await runCase(scene, "boundstate_constructor_config_plain_value_F", constructorConfigModules, {
         expectFlow: false,
-        sourceRules: boundStateSourceRules,
+        sourceRulePack: boundStateSourceRules,
     });
     const boundConstructorOtherField = await runCase(scene, "boundstate_constructor_config_password_other_field_F", constructorConfigModules, {
         expectFlow: false,
-        sourceRules: boundStateSourceRules,
+        sourceRulePack: boundStateSourceRules,
     });
     assert(boundConstructorPassword > 0, `bound-state password should reach constructor arg0.password carrier, got ${boundConstructorPassword}`);
     assert(boundConstructorServerOnly === 0, `bound-state server must not satisfy constructor arg0.password carrier, got ${boundConstructorServerOnly}`);
@@ -1794,36 +2074,36 @@ async function main(): Promise<void> {
     assert(boundConstructorOtherField === 0, `bound-state password must not taint sibling constructor output field, got ${boundConstructorOtherField}`);
 
     const eventConstructorModules = [...eventEmitterModules, ...constructorConfigModules];
-    const eventBoundConstructorPassword = await runCase(scene, "eventhub_boundstate_constructor_config_password_to_auth_header_T", eventConstructorModules, { sourceRules: boundStateSourceRules });
+    const eventBoundConstructorPassword = await runCase(scene, "eventhub_boundstate_constructor_config_password_to_auth_header_T", eventConstructorModules, { sourceRulePack: boundStateSourceRules });
     const eventBoundConstructorServerOnly = await runCase(scene, "eventhub_boundstate_constructor_config_server_not_password_F", eventConstructorModules, {
         expectFlow: false,
-        sourceRules: boundStateSourceRules,
+        sourceRulePack: boundStateSourceRules,
     });
     assert(eventBoundConstructorPassword > 0, `event-bound password should cross EventHub callback into constructor arg0.password carrier, got ${eventBoundConstructorPassword}`);
     assert(eventBoundConstructorServerOnly === 0, `event-bound server must not satisfy constructor arg0.password carrier, got ${eventBoundConstructorServerOnly}`);
 
-    const storageLinkedEventPassword = await runCase(scene, "storage_link_eventhub_constructor_config_password_to_auth_header_T", eventConstructorModules, { sourceRules: boundStateSourceRules });
+    const storageLinkedEventPassword = await runCase(scene, "storage_link_eventhub_constructor_config_password_to_auth_header_T", eventConstructorModules, { sourceRulePack: boundStateSourceRules });
     const storageLinkedEventServerOnly = await runCase(scene, "storage_link_eventhub_constructor_config_server_not_password_F", eventConstructorModules, {
         expectFlow: false,
-        sourceRules: boundStateSourceRules,
+        sourceRulePack: boundStateSourceRules,
     });
     assert(storageLinkedEventPassword > 0, `@StorageLink password should cross EventHub callback into constructor arg0.password carrier, got ${storageLinkedEventPassword}`);
     assert(storageLinkedEventServerOnly === 0, `@StorageLink server must not satisfy constructor arg0.password carrier, got ${storageLinkedEventServerOnly}`);
 
     const eventWebDavLikeModules = [...eventEmitterModules, ...webDavLikeModules];
-    const storageLinkedEventWebDavLikePassword = await runCase(scene, "storage_link_eventhub_webdav_like_password_to_auth_header_T", eventWebDavLikeModules, { sourceRules: boundStateSourceRules });
+    const storageLinkedEventWebDavLikePassword = await runCase(scene, "storage_link_eventhub_webdav_like_password_to_auth_header_T", eventWebDavLikeModules, { sourceRulePack: boundStateSourceRules });
     const storageLinkedEventWebDavLikeServerOnly = await runCase(scene, "storage_link_eventhub_webdav_like_server_not_password_F", eventWebDavLikeModules, {
         expectFlow: false,
-        sourceRules: boundStateSourceRules,
+        sourceRulePack: boundStateSourceRules,
     });
     assert(storageLinkedEventWebDavLikePassword > 0, `@StorageLink password should reach WebDav-like buildAuthHeaders receiver config carrier, got ${storageLinkedEventWebDavLikePassword}`);
     assert(storageLinkedEventWebDavLikeServerOnly === 0, `@StorageLink server must not satisfy WebDav-like receiver config password carrier, got ${storageLinkedEventWebDavLikeServerOnly}`);
 
     const eventWebDavRealisticModules = [...eventEmitterModules, ...webDavRealisticModules];
-    const storageLinkedEventWebDavRealisticPassword = await runCase(scene, "storage_link_eventhub_webdav_realistic_password_to_auth_header_T", eventWebDavRealisticModules, { sourceRules: boundStateSourceRules });
+    const storageLinkedEventWebDavRealisticPassword = await runCase(scene, "storage_link_eventhub_webdav_realistic_password_to_auth_header_T", eventWebDavRealisticModules, { sourceRulePack: boundStateSourceRules });
     const storageLinkedEventWebDavRealisticServerOnly = await runCase(scene, "storage_link_eventhub_webdav_realistic_server_not_password_F", eventWebDavRealisticModules, {
         expectFlow: false,
-        sourceRules: boundStateSourceRules,
+        sourceRulePack: boundStateSourceRules,
     });
     assert(storageLinkedEventWebDavRealisticPassword > 0, `@StorageLink password should reach realistic WebDav buildAuthHeaders receiver config carrier, got ${storageLinkedEventWebDavRealisticPassword}`);
     assert(storageLinkedEventWebDavRealisticServerOnly === 0, `@StorageLink server must not satisfy realistic WebDav receiver config password carrier, got ${storageLinkedEventWebDavRealisticServerOnly}`);

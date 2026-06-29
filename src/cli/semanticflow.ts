@@ -20,6 +20,7 @@ import { runAnalyze } from "./analyzeRunner";
 import type { AnalyzeEntryModel, AnalyzeProfile, CliOptions, ReportMode } from "./analyzeCliOptions";
 import type { SemanticFlowProgressEvent } from "../core/semanticflow/SemanticFlowPipeline";
 import { filterKnownSemanticFlowRuleCandidates } from "./semanticflowKnownRuleCandidates";
+import { assertValidCanonicalApiId } from "../core/api/identity";
 import { normalizeSemanticFlowSessionCacheMode, SemanticFlowSessionCache } from "../core/semanticflow/SemanticFlowSessionCache";
 import {
     normalizeSemanticFlowRuleInputCandidatesWithTrace,
@@ -904,6 +905,9 @@ const SEMANTICFLOW_CALL_SHAPE_RE = /\.\s*[A-Za-z_$][\w$]*\s*\(/;
 export function classifySemanticFlowRuleCandidateForModeling(
     item: NormalizedCallsiteItem,
 ): Pick<SemanticFlowModelingQueueEntry, "tier" | "reasons"> {
+    if (!acceptedSemanticFlowCanonicalApiId(item)) {
+        return { tier: "need-more-evidence", reasons: ["canonical-api-id-missing"] };
+    }
     const method = String(item.method || "").toLowerCase();
     const sig = String(item.callee_signature || "").toLowerCase();
     const origin = String((item as any).candidateOrigin || "").trim();
@@ -1030,7 +1034,7 @@ function semanticFlowCandidateTieBreaker(left: NormalizedCallsiteItem, right: No
     return leftDeclaredOwner - rightDeclaredOwner
         || leftReturned - rightReturned
         || semanticFlowModelingDiversityKey(left).localeCompare(semanticFlowModelingDiversityKey(right))
-        || String(left.callee_signature || "").localeCompare(String(right.callee_signature || ""));
+        || semanticFlowModelingItemKey(left).localeCompare(semanticFlowModelingItemKey(right));
 }
 
 function hasSemanticFlowDeclaredOwnerEvidence(item: NormalizedCallsiteItem): boolean {
@@ -1136,7 +1140,7 @@ function compareKeyedStateWriteCompanions(left: NormalizedCallsiteItem, right: N
         || leftIsOrdinary - rightIsOrdinary
         || leftWrites - rightWrites
         || leftDeletes - rightDeletes
-        || String(left.callee_signature || "").localeCompare(String(right.callee_signature || ""));
+        || semanticFlowModelingItemKey(left).localeCompare(semanticFlowModelingItemKey(right));
 }
 
 function findContextLinkedSemanticFlowCandidates(
@@ -1501,6 +1505,10 @@ function isReturnedValueSemanticFocus(semanticFocus: string): boolean {
 }
 
 function semanticFlowModelingPairKey(item: NormalizedCallsiteItem): string {
+    const canonicalApiId = acceptedSemanticFlowCanonicalApiId(item);
+    if (canonicalApiId) {
+        return canonicalApiId;
+    }
     return [
         item.callee_signature || "",
         item.method || "",
@@ -1515,6 +1523,10 @@ function semanticFlowModelingItemKey(item: NormalizedCallsiteItem): string {
 }
 
 function semanticFlowDeclaredOwnerAlternativeKey(item: NormalizedCallsiteItem): string | undefined {
+    const canonicalApiId = acceptedSemanticFlowCanonicalApiId(item);
+    if (canonicalApiId) {
+        return `${canonicalApiId}|${String((item as any).semanticFocus || "")}`;
+    }
     const origin = String((item as any).candidateOrigin || "").trim();
     if (!isApiModelingRecallOrigin(origin)) {
         return undefined;
@@ -1551,10 +1563,27 @@ function semanticFlowImplementationOwnerForAlternative(item: NormalizedCallsiteI
 }
 
 function semanticFlowModelingDiversityKey(item: NormalizedCallsiteItem): string {
+    const canonicalApiId = acceptedSemanticFlowCanonicalApiId(item);
+    if (canonicalApiId) {
+        return canonicalApiId;
+    }
     const sourceFile = String(item.sourceFile || "").replace(/\\/g, "/").toLowerCase();
     const owner = extractSemanticFlowOwnerFromSignature(String(item.callee_signature || ""))
         || sourceFile;
     return `${sourceFile}|${owner.toLowerCase()}`;
+}
+
+function acceptedSemanticFlowCanonicalApiId(item: NormalizedCallsiteItem): string | undefined {
+    const canonicalApiId = String((item as any).canonicalApiId || "").trim();
+    if (!canonicalApiId) {
+        return undefined;
+    }
+    try {
+        assertValidCanonicalApiId(canonicalApiId);
+        return canonicalApiId;
+    } catch {
+        return undefined;
+    }
 }
 
 function extractSemanticFlowOwnerFromSignature(signature: string): string | undefined {
@@ -1771,6 +1800,7 @@ function buildAnalyzeOptions(
         profile: overrides.profile || options.profile,
         entryModel: overrides.entryModel || options.entryModel || "arkMain",
         reportMode: overrides.reportMode || options.reportMode,
+        flowMode: overrides.flowMode || "postsolve",
         k: overrides.k ?? options.k,
         maxEntries: overrides.maxEntries ?? options.maxEntries,
         outputDir,
@@ -1803,7 +1833,7 @@ function buildAnalyzeOptions(
         pluginDryRun: overrides.pluginDryRun || false,
         pluginAudit: overrides.pluginAudit || false,
         ruleOptions: {
-            autoDiscoverLayers: true,
+            autoDiscoverRuleSources: true,
             ...(overrides.ruleOptions || {}),
         },
     };
@@ -1823,7 +1853,7 @@ async function runBootstrapAnalyze(options: SemanticFlowCliOptions): Promise<Boo
         enabledModels: options.enabledModels || [],
         disabledModels: options.disabledModels || [],
         ruleOptions: {
-            autoDiscoverLayers: true,
+            autoDiscoverRuleSources: true,
             ruleCatalogPath: options.modelRoots?.[0],
             ruleCatalogPaths: options.modelRoots,
         },
@@ -1959,7 +1989,7 @@ async function runFinalAnalyze(
                 enabledModels: [...new Set([...(options.enabledModels || []), options.publishModel])],
                 disabledModels: options.disabledModels || [],
                 ruleOptions: {
-                    autoDiscoverLayers: true,
+                    autoDiscoverRuleSources: true,
                     ruleCatalogPath: options.modelRoots?.[0],
                     ruleCatalogPaths: options.modelRoots,
                 },
@@ -1968,7 +1998,7 @@ async function runFinalAnalyze(
                 enabledModels: [...new Set([...(options.enabledModels || []), aggregatePaths.generatedModelProjectId])],
                 disabledModels: options.disabledModels || [],
                 ruleOptions: {
-                    autoDiscoverLayers: true,
+                    autoDiscoverRuleSources: true,
                     ruleCatalogPath: aggregatePaths.generatedModelRoot,
                     ruleCatalogPaths: [
                         aggregatePaths.generatedModelRoot,

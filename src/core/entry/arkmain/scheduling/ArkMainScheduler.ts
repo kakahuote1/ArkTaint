@@ -70,7 +70,7 @@ export function buildArkMainSchedule(
                 continue;
             }
             const before = active.size;
-            activateMethod(active, edge.toMethod, getArkMainTargetPhase(edge.edgeFamily), round, edge);
+            activateMethod(active, edge.toMethod, edge.phaseHint, round, edge);
             if (active.size > before) {
                 changed = true;
                 continue;

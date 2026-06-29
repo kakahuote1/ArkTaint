@@ -1,8 +1,9 @@
 import { Scene } from "../../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../../arkanalyzer/out/src/Config";
+import type { TaintEngineOptions } from "../../core/orchestration/TaintPropagationEngine";
 import { loadRuleSet } from "../../core/rules/RuleLoader";
 import { SinkRule, SourceRule } from "../../core/rules/RuleSchema";
-import { buildEngineForCase, findCaseMethod, resolveCaseMethod } from "../helpers/SyntheticCaseHarness";
+import { buildEngineForCase, collectCaseSeedNodes, engineOptionsFromLoadedRuleSet, findCaseMethod, resolveCaseMethod } from "../helpers/SyntheticCaseHarness";
 import { resolveSuiteCaseExpectation } from "../helpers/SuiteExpectationResolver";
 import * as fs from "fs";
 import * as path from "path";
@@ -96,8 +97,9 @@ async function runCase(
     scene: Scene,
     caseName: string,
     options: CliOptions,
-    sourceRules: SourceRule[],
-    sinkRules: SinkRule[]
+    _sourceRules: SourceRule[],
+    sinkRules: SinkRule[],
+    engineOptions: TaintEngineOptions,
 ): Promise<CaseResult> {
     const expected = resolveSuiteCaseExpectation("harmony_state_mgmt", caseName);
     const entry = resolveCaseMethod(scene, `${caseName}.ets`, caseName);
@@ -115,6 +117,7 @@ async function runCase(
     }
     const engine = await buildEngineForCase(scene, options.k, entryMethod, {
         engineOptions: {
+            ...engineOptions,
             disabledModuleIds: options.disableModule ? ["harmony.state"] : [],
         },
         verbose: false,
@@ -126,7 +129,8 @@ async function runCase(
         engine.setActiveReachableMethodSignatures(undefined);
     }
 
-    const seedInfo = engine.propagateWithSourceRules(sourceRules);
+    const seedNodes = collectCaseSeedNodes(engine, entryMethod);
+    engine.propagateWithSeeds(seedNodes);
     const flows = engine.detectSinksByRules(sinkRules);
     const detected = flows.length > 0;
     const sinkFieldPaths = flows
@@ -147,7 +151,7 @@ async function runCase(
         detected,
         flowCount: flows.length,
         sinkFieldPaths,
-        seedCount: seedInfo.seedCount,
+        seedCount: seedNodes.length,
         pass,
     };
 }
@@ -168,10 +172,11 @@ async function main(): Promise<void> {
         kernelRulePath: options.kernelRulePath,
         projectRulePath: options.projectRulePath,
         allowMissingProject: false,
-        autoDiscoverLayers: false,
+        autoDiscoverRuleSources: false,
     });
     const sourceRules: SourceRule[] = loaded.ruleSet.sources || [];
     const sinkRules: SinkRule[] = loaded.ruleSet.sinks || [];
+    const engineOptions = engineOptionsFromLoadedRuleSet(loaded);
     console.log(`source_rules_loaded=${sourceRules.length}`);
     console.log(`sink_rules_loaded=${sinkRules.length}`);
 
@@ -187,7 +192,7 @@ async function main(): Promise<void> {
     let passCount = 0;
 
     for (const caseName of cases) {
-        const result = await runCase(scene, caseName, options, sourceRules, sinkRules);
+        const result = await runCase(scene, caseName, options, sourceRules, sinkRules, engineOptions);
         if (result.pass) passCount++;
         results.push(result);
     }

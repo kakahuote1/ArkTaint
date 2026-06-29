@@ -53,12 +53,11 @@ export function parseSemanticFlowAssetModelOutput(
         if (!isObject(parsed.asset)) {
             throw new Error("done output requires asset object");
         }
-        const normalizedAsset = normalizeLlmAssetV2Shorthands(parsed.asset);
-        const validation = validateAssetDocument(normalizedAsset);
+        const validation = validateAssetDocument(parsed.asset);
         if (!validation.valid) {
             throw new Error(`asset output invalid: ${validation.errors.join("; ")}`);
         }
-        const asset = normalizedAsset as unknown as AssetDocumentBase;
+        const asset = parsed.asset as unknown as AssetDocumentBase;
         validateLlmAssetPromotion(asset, options);
         return {
             status: "done",
@@ -97,98 +96,6 @@ export function parseSemanticFlowAssetModelOutput(
         return { status: "reject", reason: parsed.reason };
     }
     throw new Error("semanticflow asset model output status invalid");
-}
-
-function normalizeLlmAssetV2Shorthands(asset: Record<string, unknown>): Record<string, unknown> {
-    const normalized = cloneJsonObject(asset);
-    if (!Array.isArray((normalized as any).bindings)) {
-        return normalized;
-    }
-    for (const binding of (normalized as any).bindings) {
-        if (!isObject(binding)) continue;
-        if (binding.completeness === "incomplete") {
-            binding.completeness = "partial";
-        }
-        normalizeEndpointInPlace(binding.endpoint);
-    }
-    if (!Array.isArray((normalized as any).effectTemplates)) {
-        return normalized;
-    }
-    for (const template of (normalized as any).effectTemplates) {
-        if (!isObject(template)) continue;
-        normalizeEndpointInPlace(template.value);
-        normalizeEndpointInPlace(template.target);
-        normalizeEndpointInPlace(template.from);
-        normalizeEndpointInPlace(template.to);
-        normalizeHandoffHandleInPlace(template.handle);
-        normalizeHandoffHandleInPlace(template.left);
-        normalizeHandoffHandleInPlace(template.right);
-    }
-    return normalized;
-}
-
-function cloneJsonObject(value: Record<string, unknown>): Record<string, unknown> {
-    return JSON.parse(JSON.stringify(value)) as Record<string, unknown>;
-}
-
-function normalizeEndpointInPlace(endpoint: unknown): void {
-    if (!isObject(endpoint)) return;
-    if (Array.isArray((endpoint as any).accessPath) && (endpoint as any).accessPath.length === 0) {
-        delete (endpoint as any).accessPath;
-    }
-    const base = (endpoint as any).base;
-    if (!isObject(base)) return;
-    normalizeEndpointInPlace((base as any).callback?.base);
-}
-
-function normalizeHandoffHandleInPlace(handle: unknown): void {
-    if (!isObject(handle)) return;
-    normalizeHandlePartArrayProperty(handle, "key", true);
-    normalizeHandlePartArrayProperty(handle, "scope", false);
-    normalizeHandlePartArrayProperty(handle, "owner", false);
-    if (!["infer", "exact", "partial", "unknown"].includes(String((handle as any).precision || ""))) {
-        (handle as any).precision = "infer";
-    }
-}
-
-function normalizeHandlePartArrayProperty(handle: Record<string, unknown>, property: "key" | "scope" | "owner", required: boolean): void {
-    const value = handle[property];
-    if (value === undefined) return;
-    if (typeof value === "string") {
-        const text = value.trim();
-        if (!text && !required) {
-            delete handle[property];
-            return;
-        }
-        if (text) {
-            handle[property] = [{ kind: "const", value: text }];
-        }
-        return;
-    }
-    if (value === null && !required) {
-        delete handle[property];
-        return;
-    }
-    if (!Array.isArray(value)) return;
-    if (value.length === 0 && !required) {
-        delete handle[property];
-        return;
-    }
-    handle[property] = value.map(part => normalizeHandlePart(part));
-}
-
-function normalizeHandlePart(part: unknown): unknown {
-    if (typeof part === "string") {
-        return { kind: "const", value: part };
-    }
-    if (!isObject(part)) {
-        return part;
-    }
-    normalizeEndpointInPlace((part as any).endpoint);
-    if (Array.isArray((part as any).accessPath) && (part as any).accessPath.length === 0) {
-        delete (part as any).accessPath;
-    }
-    return part;
 }
 
 function validateLlmAssetPromotion(

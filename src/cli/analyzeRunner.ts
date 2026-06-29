@@ -29,6 +29,8 @@ import {
     resolveAnalyzeOutputLayout,
     writeAnalyzeRunManifest,
 } from "./analyzeOutputLayout";
+import { writeC6DiagnosticArtifacts } from "./c6Diagnostics";
+import { summarizeSemanticEffectLedger } from "../core/api/effects";
 import {
     accumulateRuleHitCounters,
     AnalyzeReport,
@@ -66,12 +68,12 @@ import {
 } from "./ruleFeedback";
 import { buildCurrentAssetCandidateTraceGraph } from "./ruleFeedbackTrace";
 import { injectArkUiSdk } from "../core/substrate/ArkUiSdkConfig";
-import { loadModules } from "../core/orchestration/modules/ModuleLoader";
-import { loadEnginePlugins } from "../core/orchestration/plugins/EnginePluginLoader";
+import { loadModules, type ModuleLoadResult } from "../core/orchestration/modules/ModuleLoader";
+import { loadEnginePlugins, type EnginePluginLoadResult } from "../core/orchestration/plugins/EnginePluginLoader";
 import { loadArkMainSeeds, ArkMainLoadResult } from "../core/entry/arkmain/ArkMainLoader";
 import * as fs from "fs";
 import * as path from "path";
-import { resolveModelSelections } from "./modelSelection";
+import { resolveModelSelections, type ResolvedModelSelections } from "./modelSelection";
 import {
     buildTraceGraph,
     FullTraceRun,
@@ -80,6 +82,12 @@ import {
     TraceGraph,
     writeTraceGraphArtifacts,
 } from "../core/trace/TraceGraph";
+import {
+    emptyOfficialOccurrenceCoverageSnapshot,
+    summarizeOfficialOccurrenceCoverage,
+    type OfficialOccurrenceCoverageSnapshot,
+    type OfficialOccurrenceRecord,
+} from "../core/api/occurrence";
 import {
     buildSourceCandidateCoverageTraceGraph,
     collectSourceCoverageCandidates,
@@ -91,8 +99,13 @@ function verboseAnalyzeLog(message: string): void {
     }
 }
 
-function buildRuleLayerTraceGraph(run: FullTraceRun, loadedRules: LoadedRuleSet): TraceGraph {
-    const gates: TraceGate[] = (loadedRules.layerStatus || []).map((status, index) => {
+function progressAnalyzeLog(enabled: boolean, message: string): void {
+    if (!enabled && process.env.ARKTAINT_VERBOSE_BUILD !== "1") return;
+    console.log(`[analyzeRunner] ${new Date().toISOString()} ${message}`);
+}
+
+function buildRuleSourceTraceGraph(run: FullTraceRun, loadedRules: LoadedRuleSet): TraceGraph {
+    const gates: TraceGate[] = (loadedRules.ruleSourceStatus || []).map((status, index) => {
         const sourceRuleCount = status.sourceRuleCount || 0;
         const sinkRuleCount = status.sinkRuleCount || 0;
         const sanitizerRuleCount = status.sanitizerRuleCount || 0;
@@ -100,25 +113,25 @@ function buildRuleLayerTraceGraph(run: FullTraceRun, loadedRules: LoadedRuleSet)
         const totalRuleCount = sourceRuleCount + sinkRuleCount + sanitizerRuleCount + transferRuleCount;
         const emitted = Boolean(status.applied && totalRuleCount > 0);
         const skippedReason = status.exists === false
-            ? "rule_layer_missing"
+            ? "rule_source_missing"
             : !status.applied
-                ? "rule_layer_not_enabled"
+                ? "rule_source_not_enabled"
                 : emitted
                     ? undefined
-                    : "rule_layer_lowered_zero_rules";
+                    : "rule_source_lowered_zero_rules";
         return {
-            id: `rule_layer:${index}`,
+            id: `rule_source:${index}`,
             label: `${status.name}:${status.packId || status.path}`,
             stage: "asset_lowering",
             producer: "asset",
             gateKind: "asset_lowering",
-            scope: `rule_layer:${status.name}:${status.packId || status.path}`,
+            scope: `rule_source:${status.name}:${status.packId || status.path}`,
             attempted: true,
             matched: Boolean(status.applied),
             emitted,
             skippedReason,
             evidence: {
-                layerName: status.name,
+                sourceName: status.name,
                 path: status.path,
                 source: status.source,
                 packId: status.packId,
@@ -136,7 +149,7 @@ function buildRuleLayerTraceGraph(run: FullTraceRun, loadedRules: LoadedRuleSet)
     return buildTraceGraph(
         {
             ...run,
-            notes: [...(run.notes || []), "rule_layer_asset_lowering_fragment"],
+            notes: [...(run.notes || []), "rule_source_asset_lowering_fragment"],
         },
         [],
         [],
@@ -217,6 +230,14 @@ function accumulatePagNodeResolutionAudit(
     for (const [kind, count] of Object.entries(src.unsupportedValueKinds || {})) {
         dst.unsupportedValueKinds[kind] = (dst.unsupportedValueKinds[kind] || 0) + count;
     }
+    dst.endpointResolutionRecordCount = (dst.endpointResolutionRecordCount || 0)
+        + (src.endpointResolutionRecordCount || src.endpointResolutionRecords?.length || 0);
+    dst.endpointResolutionStatusCounts = dst.endpointResolutionStatusCounts || {};
+    for (const [status, count] of Object.entries(src.endpointResolutionStatusCounts || {})) {
+        dst.endpointResolutionStatusCounts[status as keyof NonNullable<PagNodeResolutionAuditSnapshot["endpointResolutionStatusCounts"]>] =
+            (dst.endpointResolutionStatusCounts[status as keyof NonNullable<PagNodeResolutionAuditSnapshot["endpointResolutionStatusCounts"]>] || 0) + count;
+    }
+    dst.endpointResolutionRecords = [];
 }
 
 function dedupFailureEvents<T extends { message: string }>(
@@ -251,6 +272,125 @@ function appendUniqueStrings(target: string[], incoming: string[]): string[] {
         target.push(value);
     }
     return target;
+}
+
+function transferSiteConsumptionKey(
+    item: AnalyzeReport["summary"]["transferProfile"]["siteConsumptions"][number],
+): string {
+    return [
+        item.ruleId,
+        item.canonicalApiId,
+        item.effectSiteId || "",
+        item.callSignature || "",
+        item.scheduled ? "scheduled" : "not_scheduled",
+        item.fromMatched ? "from_matched" : "from_unmatched",
+        item.toProjected ? "to_projected" : "to_unprojected",
+        item.blockedReason || "",
+        item.fromEndpoint?.status || "",
+        item.fromEndpoint?.reason || "",
+        item.toEndpoint?.status || "",
+        item.toEndpoint?.reason || "",
+    ].join("|");
+}
+
+function cloneTransferSiteConsumption(
+    item: AnalyzeReport["summary"]["transferProfile"]["siteConsumptions"][number],
+): AnalyzeReport["summary"]["transferProfile"]["siteConsumptions"][number] {
+    return {
+        ...item,
+        fromEndpoint: item.fromEndpoint
+            ? {
+                ...item.fromEndpoint,
+                nodeIds: [...item.fromEndpoint.nodeIds],
+                carrierNodeIds: [...item.fromEndpoint.carrierNodeIds],
+                fieldPath: item.fromEndpoint.fieldPath ? [...item.fromEndpoint.fieldPath] : undefined,
+            }
+            : undefined,
+        toEndpoint: item.toEndpoint
+            ? {
+                ...item.toEndpoint,
+                nodeIds: [...item.toEndpoint.nodeIds],
+                carrierNodeIds: [...item.toEndpoint.carrierNodeIds],
+                fieldPath: item.toEndpoint.fieldPath ? [...item.toEndpoint.fieldPath] : undefined,
+            }
+            : undefined,
+        count: item.count || 1,
+    };
+}
+
+function officialOccurrenceCoverageOf(engine: TaintPropagationEngine | undefined): OfficialOccurrenceCoverageSnapshot {
+    return engine?.getOfficialOccurrenceCoverageSnapshot() || emptyOfficialOccurrenceCoverageSnapshot();
+}
+
+function officialOccurrenceLedgerOf(engine: TaintPropagationEngine | undefined): OfficialOccurrenceRecord[] {
+    return engine?.getOfficialOccurrenceLedger() || [];
+}
+
+function semanticEffectLedgerOf(engine: TaintPropagationEngine | undefined) {
+    return engine?.getSemanticEffectLedger() || [];
+}
+
+function writeOfficialOccurrenceArtifacts(
+    layout: ReturnType<typeof resolveAnalyzeOutputLayout>,
+    entries: readonly EntryAnalyzeResult[],
+    coverage: OfficialOccurrenceCoverageSnapshot,
+): void {
+    const lines: string[] = [];
+    const graphLines: string[] = [];
+    for (const entry of entries) {
+        for (const record of entry.officialOccurrenceLedger || []) {
+            lines.push(JSON.stringify({
+                sourceDir: entry.sourceDir,
+                entryName: entry.entryName,
+                ...record,
+            }));
+            graphLines.push(JSON.stringify({
+                sourceDir: entry.sourceDir,
+                entryName: entry.entryName,
+                occurrenceId: record.occurrenceId,
+                rawOccurrenceId: record.rawOccurrenceId,
+                sourceFile: record.sourceFile,
+                sourceLocation: record.sourceLocation,
+                evidenceGraph: record.evidenceGraph,
+            }));
+        }
+    }
+    fs.writeFileSync(
+        layout.officialOccurrenceLedgerJsonlPath,
+        lines.length > 0 ? `${lines.join("\n")}\n` : "",
+        "utf-8",
+    );
+    fs.writeFileSync(
+        layout.officialOccurrenceEvidenceGraphJsonlPath,
+        graphLines.length > 0 ? `${graphLines.join("\n")}\n` : "",
+        "utf-8",
+    );
+    fs.writeFileSync(
+        layout.officialIdentityCoverageJsonPath,
+        JSON.stringify(coverage, null, 2),
+        "utf-8",
+    );
+}
+
+function writeEndpointResolutionArtifacts(
+    layout: ReturnType<typeof resolveAnalyzeOutputLayout>,
+    entries: readonly EntryAnalyzeResult[],
+): void {
+    const lines: string[] = [];
+    for (const entry of entries) {
+        for (const record of entry.pagNodeResolutionAudit.endpointResolutionRecords || []) {
+            lines.push(JSON.stringify({
+                sourceDir: entry.sourceDir,
+                entryName: entry.entryName,
+                ...record,
+            }));
+        }
+    }
+    fs.writeFileSync(
+        layout.endpointResolutionLedgerJsonlPath,
+        lines.length > 0 ? `${lines.join("\n")}\n` : "",
+        "utf-8",
+    );
 }
 
 function buildLoadedFileFingerprint(filePaths: string[]): string {
@@ -452,6 +592,7 @@ function createSourceDirExceptionResult(
         seedStrategies: [],
         sourceSeedAudit: [],
         sourceRuleZeroHitAudit: [],
+        callEdgeMaterializationLedger: [],
         flowCount: 0,
         sinkSamples: [],
         flowRuleTraces: [],
@@ -511,10 +652,28 @@ async function analyzeSourceDir(
             facts: arkMainLoadResult.facts,
         }
         : undefined;
+    const candidateFastMode = options.flowMode === "candidate";
+    const lightFlowMode = candidateFastMode || options.flowMode === "raw";
+    const analysisAuditEnabled = !lightFlowMode;
+    const traceGraphEnabled = !lightFlowMode;
+    const progressLog = (message: string): void => progressAnalyzeLog(lightFlowMode, message);
     try {
+        progressLog(`[entry] sourceDir=${sourceDir || "."} engine_create start`);
         engine = new TaintPropagationEngine(scene, options.k, {
+            apiAssets: loadedRules.assets,
+            assetIdentityIndex: loadedRules.assetIdentityIndex,
+            canonicalApiRegistry: loadedRules.canonicalApiRegistry,
             transferRules: loadedRules.ruleSet.transfers || [],
             executionHandoff: options.executionHandoff,
+            currentness: options.currentness,
+            provenanceRecording: lightFlowMode ? "disabled" : "enabled",
+            factIdTracking: lightFlowMode ? "disabled" : "enabled",
+            flowRuleChainTracking: lightFlowMode ? "disabled" : "enabled",
+            progressOutput: lightFlowMode ? "enabled" : "disabled",
+            arkMainEntryClosure: candidateFastMode ? "scheduledOnly" : "full",
+            reachabilityDirectExpansion: "enabled",
+            receiverFieldBridgeMap: candidateFastMode ? "disabled" : "enabled",
+            syntheticInvokeMaterialization: candidateFastMode ? "disabled" : "enabled",
             moduleRoots: options.modelRoots,
             semanticflowEvaluationModelRoots: options.semanticflowEvaluationModelRoots,
             enabledModuleProjects: resolvedSelections.enabledModuleProjects,
@@ -534,14 +693,14 @@ async function analyzeSourceDir(
                 }
                 : undefined,
             debug: {
-                enableWorklistProfile: true,
-                enableTraceGraph: true,
+                enableWorklistProfile: !lightFlowMode,
+                enableTraceGraph: traceGraphEnabled,
                 traceRun: {
                     runId: `entry:${sourceDir || "."}:${Date.now()}`,
                     project: options.repo,
                     engineVersion: "arktaint",
                     assetVersion: buildRuleFingerprint(loadedRules),
-                    configHash: `${options.profile}|k=${options.k}|entry=${options.entryModel || "arkMain"}`,
+                    configHash: `${options.profile}|k=${options.k}|entry=${options.entryModel || "arkMain"}|handoff=${options.executionHandoff || "enabled"}|currentness=${options.currentness || "enabled"}`,
                     llmSession: options.llmSessionCacheDir,
                     status: "partial",
                     notes: [`sourceDir=${sourceDir || "."}`],
@@ -573,21 +732,27 @@ async function analyzeSourceDir(
             },
         });
         engine.verbose = process.env.ARKTAINT_VERBOSE_BUILD === "1";
+        progressLog(`[entry] sourceDir=${sourceDir || "."} engine_create done`);
         const buildPagT0 = process.hrtime.bigint();
+        progressLog(`[entry] sourceDir=${sourceDir || "."} buildPAG start`);
         verboseAnalyzeLog(`buildPAG start source_dir=${sourceDir || "."}`);
         await engine.buildPAG({ entryModel: options.entryModel || "arkMain" });
         stageProfile.buildPagMs = elapsedMsSince(buildPagT0);
         stageProfile.buildPagProfile = engine.getPagBuildProfileSnapshot();
+        progressLog(`[entry] sourceDir=${sourceDir || "."} buildPAG done elapsed_ms=${Math.round(stageProfile.buildPagMs)}`);
         verboseAnalyzeLog(`buildPAG done source_dir=${sourceDir || "."} elapsed_ms=${Math.round(stageProfile.buildPagMs)}`);
 
         const activeReachableMethodSignatures = engine.getActiveReachableMethodSignatures();
         let reachableMethodSignatures = activeReachableMethodSignatures;
         if (!activeReachableMethodSignatures) {
+            progressLog(`[entry] sourceDir=${sourceDir || "."} reachable recompute start`);
             verboseAnalyzeLog(`reachable recompute start source_dir=${sourceDir || "."}`);
             reachableMethodSignatures = engine.computeReachableMethodSignatures();
             engine.setActiveReachableMethodSignatures(reachableMethodSignatures);
+            progressLog(`[entry] sourceDir=${sourceDir || "."} reachable recompute done count=${reachableMethodSignatures.size}`);
             verboseAnalyzeLog(`reachable recompute done source_dir=${sourceDir || "."} count=${reachableMethodSignatures.size}`);
         } else {
+            progressLog(`[entry] sourceDir=${sourceDir || "."} reachable reused count=${reachableMethodSignatures.size}`);
             verboseAnalyzeLog(`reachable reused source_dir=${sourceDir || "."} count=${reachableMethodSignatures.size}`);
         }
         const executionHandoffContractSnapshot = engine.getExecutionHandoffContractSnapshot();
@@ -603,10 +768,12 @@ async function analyzeSourceDir(
         const seedLocalNames = new Set<string>();
         const seedStrategies = new Set<string>();
         const sourceSeedT0 = process.hrtime.bigint();
+        progressLog(`[entry] sourceDir=${sourceDir || "."} source_rule_propagation start`);
         verboseAnalyzeLog(`source rule propagation start source_dir=${sourceDir || "."}`);
         const sourceRuleResult = engine.propagateWithSourceRules(getAnalyzeSourceRules(loadedRules));
         stageProfile.propagateRuleSeedMs = elapsedMsSince(sourceSeedT0);
         stageProfile.sourceRulePropagationProfile = engine.getSourceRulePropagationProfileSnapshot();
+        progressLog(`[entry] sourceDir=${sourceDir || "."} source_rule_propagation done elapsed_ms=${Math.round(stageProfile.propagateRuleSeedMs)} seeds=${sourceRuleResult.seedCount}`);
         verboseAnalyzeLog(
             `source rule propagation done source_dir=${sourceDir || "."} elapsed_ms=${Math.round(stageProfile.propagateRuleSeedMs)} seeds=${sourceRuleResult.seedCount}`,
         );
@@ -619,6 +786,7 @@ async function analyzeSourceDir(
 
         if (seedCount === 0) {
             stageProfile.totalMs = elapsedMsSince(t0);
+        progressLog(`[entry] sourceDir=${sourceDir || "."} done status=no_seed elapsed_ms=${Math.round(stageProfile.totalMs)}`);
         return {
             sourceDir,
             entryName: arkMainEntryName,
@@ -628,8 +796,12 @@ async function analyzeSourceDir(
             seedCount: 0,
             seedLocalNames: [],
             seedStrategies: [],
-            sourceSeedAudit: [],
-            sourceRuleZeroHitAudit: [],
+            sourceSeedAudit: analysisAuditEnabled ? sourceRuleResult.sourceSeedAudit : [],
+            sourceRuleZeroHitAudit: analysisAuditEnabled ? sourceRuleResult.sourceRuleZeroHitAudit : [],
+            officialOccurrenceCoverage: analysisAuditEnabled ? officialOccurrenceCoverageOf(engine) : undefined,
+            officialOccurrenceLedger: analysisAuditEnabled ? officialOccurrenceLedgerOf(engine) : [],
+            semanticEffectLedger: analysisAuditEnabled ? semanticEffectLedgerOf(engine) : [],
+            callEdgeMaterializationLedger: analysisAuditEnabled ? engine.getCallEdgeMaterializationLedger() : [],
             flowCount: 0,
             sinkSamples: [],
             flowRuleTraces: [],
@@ -642,16 +814,20 @@ async function analyzeSourceDir(
                 sinkDetectionAudit: { entries: [], overflowCount: 0 },
                 stageProfile,
                 transferNoHitReasons: ["no_source_seed"],
-                pagNodeResolutionAudit: engine.getPagNodeResolutionAuditSnapshot(),
+                pagNodeResolutionAudit: analysisAuditEnabled
+                    ? engine.getPagNodeResolutionAuditSnapshot()
+                    : emptyPagNodeResolutionAuditSnapshot(),
                 executionHandoffAudit,
-                moduleAudit: engine.getModuleAuditSnapshot(),
-                enginePluginAudit: engine.getEnginePluginAuditSnapshot(),
+                moduleAudit: analysisAuditEnabled ? engine.getModuleAuditSnapshot() : emptyModuleAuditSnapshot(),
+                enginePluginAudit: analysisAuditEnabled ? engine.getEnginePluginAuditSnapshot() : emptyEnginePluginAuditSnapshot(),
                 arkMainSeeds: engine.getArkMainSeedReport(),
-                traceGraph: engine.getTraceGraphSnapshot({
-                    project: options.repo,
-                    status: "completed",
-                    notes: [`sourceDir=${sourceDir || "."}`, "no_source_seed"],
-                }),
+                traceGraph: traceGraphEnabled
+                    ? engine.getTraceGraphSnapshot({
+                        project: options.repo,
+                        status: "completed",
+                        notes: [`sourceDir=${sourceDir || "."}`, "no_source_seed"],
+                    })
+                    : undefined,
                 elapsedMs: stageProfile.totalMs
             };
         }
@@ -661,6 +837,7 @@ async function analyzeSourceDir(
         let detectElapsedMs = 0;
         const detectT0 = process.hrtime.bigint();
         engine.resetDetectProfile();
+        progressLog(`[entry] sourceDir=${sourceDir || "."} detect start`);
         verboseAnalyzeLog(`detect start source_dir=${sourceDir || "."}`);
         const detectStopPolicy = options.profile === "fast"
             ? {
@@ -672,7 +849,7 @@ async function analyzeSourceDir(
                 maxFlowsPerEntry: undefined,
             };
         detected = detectFlows(engine, loadedRules, {
-            detailed: options.reportMode === "full",
+            detailed: !lightFlowMode && options.reportMode === "full",
             stopOnFirstFlow: detectStopPolicy.stopOnFirstFlow,
             maxFlowsPerEntry: detectStopPolicy.maxFlowsPerEntry,
             applyPreSinkSanitizers: false,
@@ -680,6 +857,7 @@ async function analyzeSourceDir(
         const detectedFlows = detected.flows;
         detectProfile = engine.getDetectProfile();
         detectElapsedMs = elapsedMsSince(detectT0);
+        progressLog(`[entry] sourceDir=${sourceDir || "."} detect done elapsed_ms=${Math.round(detectElapsedMs)} flows=${detected.totalFlowCount}`);
         verboseAnalyzeLog(
             `detect done source_dir=${sourceDir || "."} elapsed_ms=${Math.round(detectElapsedMs)} flows=${detected.totalFlowCount}`,
         );
@@ -701,22 +879,27 @@ async function analyzeSourceDir(
             reachableMethodCount: engine.getActiveReachableMethodSignatures()?.size,
         });
         const postProcessT0 = process.hrtime.bigint();
-        const materializeOptions = options.profile === "fast"
-            ? {
-                maxPaths: 16,
-                maxDepth: 64,
-                maxDagFacts: 2000,
-                maxDagEdges: 5000,
-                maxElapsedMs: 1500,
-            }
-            : {
-                maxPaths: 128,
-                maxDepth: 128,
-            };
-        const postsolveResults = engine.evaluatePostsolveFlowResults(detectedFlows, {
-            sanitizerRules: loadedRules.ruleSet.sanitizers || [],
-            materialize: materializeOptions,
-        });
+        progressLog(`[entry] sourceDir=${sourceDir || "."} postprocess start flow_mode=${options.flowMode}`);
+        if (lightFlowMode) {
+            transferNoHitReasons.push(`flow_mode_${options.flowMode}_postsolve_skipped`);
+        }
+        const postsolveResults = lightFlowMode
+            ? { survivingFlows: detectedFlows, results: [] }
+            : engine.evaluatePostsolveFlowResults(detectedFlows, {
+                sanitizerRules: loadedRules.ruleSet.sanitizers || [],
+                materialize: options.profile === "fast"
+                    ? {
+                        maxPaths: 16,
+                        maxDepth: 64,
+                        maxDagFacts: 2000,
+                        maxDagEdges: 5000,
+                        maxElapsedMs: 1500,
+                    }
+                    : {
+                        maxPaths: 128,
+                        maxDepth: 128,
+                    },
+            });
         const survivingFlows = postsolveResults.survivingFlows;
         const survivingSinkTexts = new Set<string>(survivingFlows.map(flow => flow.sink.toString()));
         const survivingSinkSamples = (detected?.sinkSamples || []).filter(sample =>
@@ -754,24 +937,34 @@ async function analyzeSourceDir(
             value?: string;
         }> = [];
         let observedTaintFactOverflowCount = 0;
-        const maxObservedTaintFactsForTrace = 50000;
-        for (const [nodeId, facts] of engine.getObservedTaintFacts().entries()) {
-            for (const fact of facts) {
-                if (observedTaintFacts.length >= maxObservedTaintFactsForTrace) {
-                    observedTaintFactOverflowCount++;
-                    continue;
+        const maxObservedTaintFactsForTrace = lightFlowMode ? 0 : 50000;
+        if (maxObservedTaintFactsForTrace > 0) {
+            for (const [nodeId, facts] of engine.getObservedTaintFacts().entries()) {
+                for (const fact of facts) {
+                    if (observedTaintFacts.length >= maxObservedTaintFactsForTrace) {
+                        observedTaintFactOverflowCount++;
+                        continue;
+                    }
+                    observedTaintFacts.push({
+                        factId: fact.taintId,
+                        nodeId,
+                        fieldPath: fact.field ? [...fact.field] : undefined,
+                        source: fact.source,
+                        value: String(fact.node.getValue?.()?.toString?.() || ""),
+                    });
                 }
-                observedTaintFacts.push({
-                    factId: fact.taintId,
-                    nodeId,
-                    fieldPath: fact.field ? [...fact.field] : undefined,
-                    source: fact.source,
-                    value: String(fact.node.getValue?.()?.toString?.() || ""),
-                });
             }
         }
+        const reportTransferProfile = lightFlowMode
+            ? {
+                ...transferProfile,
+                noCandidateCallsites: [],
+                siteConsumptions: [],
+            }
+            : transferProfile;
         stageProfile.postProcessMs = elapsedMsSince(postProcessT0);
         stageProfile.totalMs = elapsedMsSince(t0);
+        progressLog(`[entry] sourceDir=${sourceDir || "."} postprocess done elapsed_ms=${Math.round(stageProfile.postProcessMs)} total_ms=${Math.round(stageProfile.totalMs)} flows=${survivingFlows.length}`);
         return {
             sourceDir,
             entryName: arkMainEntryName,
@@ -781,8 +974,12 @@ async function analyzeSourceDir(
             seedCount,
             seedLocalNames: [...seedLocalNames].sort(),
             seedStrategies: [...seedStrategies].sort(),
-            sourceSeedAudit: sourceRuleResult.sourceSeedAudit,
-            sourceRuleZeroHitAudit: sourceRuleResult.sourceRuleZeroHitAudit,
+            sourceSeedAudit: analysisAuditEnabled ? sourceRuleResult.sourceSeedAudit : [],
+            sourceRuleZeroHitAudit: analysisAuditEnabled ? sourceRuleResult.sourceRuleZeroHitAudit : [],
+            officialOccurrenceCoverage: analysisAuditEnabled ? officialOccurrenceCoverageOf(engine) : undefined,
+            officialOccurrenceLedger: analysisAuditEnabled ? officialOccurrenceLedgerOf(engine) : [],
+            semanticEffectLedger: analysisAuditEnabled ? semanticEffectLedgerOf(engine) : [],
+            callEdgeMaterializationLedger: analysisAuditEnabled ? engine.getCallEdgeMaterializationLedger() : [],
             observedTaintFacts,
             observedTaintFactOverflowCount,
             flowCount: survivingFlows.length,
@@ -806,23 +1003,29 @@ async function analyzeSourceDir(
             postsolveResults: postsolveResults.results,
             ruleHits,
             ruleHitEndpoints,
-            transferProfile,
+            transferProfile: reportTransferProfile,
             detectProfile,
-            sinkDetectionAudit: engine.getSinkDetectionAuditSnapshot(),
+            sinkDetectionAudit: analysisAuditEnabled
+                ? engine.getSinkDetectionAuditSnapshot()
+                : { entries: [], overflowCount: 0 },
             stageProfile,
             transferNoHitReasons,
-            pagNodeResolutionAudit: engine.getPagNodeResolutionAuditSnapshot(),
+            pagNodeResolutionAudit: analysisAuditEnabled
+                ? engine.getPagNodeResolutionAuditSnapshot()
+                : emptyPagNodeResolutionAuditSnapshot(),
             executionHandoffAudit,
-            moduleAudit: engine.getModuleAuditSnapshot(),
-            enginePluginAudit: engine.getEnginePluginAuditSnapshot(),
+            moduleAudit: analysisAuditEnabled ? engine.getModuleAuditSnapshot() : emptyModuleAuditSnapshot(),
+            enginePluginAudit: analysisAuditEnabled ? engine.getEnginePluginAuditSnapshot() : emptyEnginePluginAuditSnapshot(),
             arkMainSeeds: engine.getArkMainSeedReport(),
             worklistProfile,
             worklistTruncation,
-            traceGraph: engine.getTraceGraphSnapshot({
-                project: options.repo,
-                status: worklistTruncation ? "partial" : "completed",
-                notes: [`sourceDir=${sourceDir || "."}`],
-            }),
+            traceGraph: traceGraphEnabled
+                ? engine.getTraceGraphSnapshot({
+                    project: options.repo,
+                    status: worklistTruncation ? "partial" : "completed",
+                    notes: [`sourceDir=${sourceDir || "."}`],
+                })
+                : undefined,
             elapsedMs: stageProfile.totalMs,
         };
     } catch (err: any) {
@@ -838,6 +1041,10 @@ async function analyzeSourceDir(
             seedStrategies: [],
             sourceSeedAudit: [],
             sourceRuleZeroHitAudit: [],
+            officialOccurrenceCoverage: analysisAuditEnabled ? officialOccurrenceCoverageOf(engine) : undefined,
+            officialOccurrenceLedger: analysisAuditEnabled ? officialOccurrenceLedgerOf(engine) : [],
+            semanticEffectLedger: analysisAuditEnabled ? semanticEffectLedgerOf(engine) : [],
+            callEdgeMaterializationLedger: analysisAuditEnabled ? engine?.getCallEdgeMaterializationLedger() || [] : [],
             flowCount: 0,
             sinkSamples: [],
             flowRuleTraces: [],
@@ -847,10 +1054,14 @@ async function analyzeSourceDir(
             ruleHitEndpoints: emptyRuleHitCounters(),
             transferProfile: emptyTransferProfile(),
             detectProfile: emptyDetectProfile(),
-            sinkDetectionAudit: engine?.getSinkDetectionAuditSnapshot() || { entries: [], overflowCount: 0 },
+            sinkDetectionAudit: analysisAuditEnabled
+                ? engine?.getSinkDetectionAuditSnapshot() || { entries: [], overflowCount: 0 }
+                : { entries: [], overflowCount: 0 },
             stageProfile,
             transferNoHitReasons: ["analyze_exception"],
-            pagNodeResolutionAudit: engine?.getPagNodeResolutionAuditSnapshot() || emptyPagNodeResolutionAuditSnapshot(),
+            pagNodeResolutionAudit: analysisAuditEnabled
+                ? engine?.getPagNodeResolutionAuditSnapshot() || emptyPagNodeResolutionAuditSnapshot()
+                : emptyPagNodeResolutionAuditSnapshot(),
             executionHandoffAudit: engine
                 ? {
                     contracts: engine.getExecutionHandoffContractSnapshot()?.totalContracts || 0,
@@ -859,14 +1070,16 @@ async function analyzeSourceDir(
                     syntheticCallees: engine.getSyntheticInvokeEdgeSnapshot().calleeSignatures.length || 0,
                 }
                 : emptyExecutionHandoffAudit(),
-            moduleAudit: engine?.getModuleAuditSnapshot() || emptyModuleAuditSnapshot(),
-            enginePluginAudit: engine?.getEnginePluginAuditSnapshot() || emptyEnginePluginAuditSnapshot(),
+            moduleAudit: analysisAuditEnabled ? engine?.getModuleAuditSnapshot() || emptyModuleAuditSnapshot() : emptyModuleAuditSnapshot(),
+            enginePluginAudit: analysisAuditEnabled ? engine?.getEnginePluginAuditSnapshot() || emptyEnginePluginAuditSnapshot() : emptyEnginePluginAuditSnapshot(),
             arkMainSeeds: engine?.getArkMainSeedReport(),
-            traceGraph: engine?.getTraceGraphSnapshot({
-                project: options.repo,
-                status: "failed",
-                notes: [`sourceDir=${sourceDir || "."}`, "analyze_exception"],
-            }),
+            traceGraph: traceGraphEnabled
+                ? engine?.getTraceGraphSnapshot({
+                    project: options.repo,
+                    status: "failed",
+                    notes: [`sourceDir=${sourceDir || "."}`, "analyze_exception"],
+                })
+                : undefined,
             elapsedMs: stageProfile.totalMs,
             error: formatAnalyzeErrorMessage(err),
             errorStack: formatAnalyzeErrorStack(err),
@@ -882,11 +1095,17 @@ export interface AnalyzeRunResult {
     diagnosticsTextPath: string;
 }
 
-export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult> {
-    const analyzeStart = process.hrtime.bigint();
-    const memoryTracker = createAnalyzeMemoryTracker();
-    const stageProfile = emptyAnalyzeStageProfile();
-    ConfigBasedTransferExecutor.resetSceneRuleCacheStats();
+export interface AnalyzeRuntime {
+    resolvedSelections: ResolvedModelSelections;
+    pluginDirs: string[];
+    pluginFiles: string[];
+    moduleResult: ModuleLoadResult;
+    enginePluginResult: EnginePluginLoadResult;
+    loadedRules: LoadedRuleSet;
+    ruleLoadMs: number;
+}
+
+export function prepareAnalyzeRuntime(options: CliOptions): AnalyzeRuntime {
     const modelSelectionRoots = [
         ...(options.modelRoots || []),
         ...(options.semanticflowEvaluationModelRoots || []),
@@ -899,7 +1118,6 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
     });
     const pluginDirs = (options.pluginPaths || []).filter(p => fs.existsSync(p) && fs.statSync(p).isDirectory());
     const pluginFiles = (options.pluginPaths || []).filter(p => fs.existsSync(p) && fs.statSync(p).isFile());
-    const arkMainWarningSet = new Set<string>();
     const moduleResult = loadModules({
         moduleRoots: options.modelRoots || [],
         semanticflowEvaluationModelRoots: options.semanticflowEvaluationModelRoots,
@@ -918,7 +1136,36 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
         ...resolvedSelections.ruleOptions,
         semanticflowEvaluationModelRoots: options.semanticflowEvaluationModelRoots,
     });
-    stageProfile.ruleLoadMs = elapsedMsSince(ruleLoadT0);
+    const ruleLoadMs = elapsedMsSince(ruleLoadT0);
+    return {
+        resolvedSelections,
+        pluginDirs,
+        pluginFiles,
+        moduleResult,
+        enginePluginResult,
+        loadedRules,
+        ruleLoadMs,
+    };
+}
+
+export async function runAnalyze(options: CliOptions, preloadedRuntime?: AnalyzeRuntime): Promise<AnalyzeRunResult> {
+    const analyzeStart = process.hrtime.bigint();
+    const memoryTracker = createAnalyzeMemoryTracker();
+    const stageProfile = emptyAnalyzeStageProfile();
+    const lightFlowMode = options.flowMode === "candidate" || options.flowMode === "raw";
+    const traceGraphEnabled = !lightFlowMode;
+    ConfigBasedTransferExecutor.resetSceneRuleCacheStats();
+    const runtimeWasPreloaded = !!preloadedRuntime;
+    const runtime = preloadedRuntime || prepareAnalyzeRuntime(options);
+    const resolvedSelections = runtime.resolvedSelections;
+    const pluginDirs = runtime.pluginDirs;
+    const pluginFiles = runtime.pluginFiles;
+    const moduleResult = runtime.moduleResult;
+    const enginePluginResult = runtime.enginePluginResult;
+    const loadedRules = runtime.loadedRules;
+    const arkMainWarningSet = new Set<string>();
+    stageProfile.ruleLoadMs = runtimeWasPreloaded ? 0 : runtime.ruleLoadMs;
+    progressAnalyzeLog(lightFlowMode, `[analyze] rule_load ${runtimeWasPreloaded ? "reused" : "done"} elapsed_ms=${Math.round(stageProfile.ruleLoadMs)}`);
     memoryTracker.sample();
     if (options.showLoadWarnings !== false) {
         for (const warning of loadedRules.warnings) {
@@ -951,6 +1198,7 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
         pluginDryRun: options.pluginDryRun === true,
         stopOnFirstFlow: options.stopOnFirstFlow,
         maxFlowsPerEntry: options.maxFlowsPerEntry ?? null,
+        flowMode: options.flowMode,
         analyzerImplementationFingerprint: buildAnalyzerImplementationFingerprint(),
         analysisCoreVersion: "handoff-sensitive-provenance-postsolve-v3-endpoint-scoped-sink-family",
     });
@@ -967,7 +1215,7 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
     // Reusing entry-level incremental results would mix old propagation facts into
     // the current Trace Graph, so trace-enabled analysis deliberately bypasses
     // entry cache reads and writes.
-    const traceGraphRequiresFreshEntries = true;
+    const traceGraphRequiresFreshEntries = traceGraphEnabled;
     const useIncrementalEntryCache = options.incremental && !traceGraphRequiresFreshEntries;
     const incrementalCache = useIncrementalEntryCache
         ? loadIncrementalCache<EntryAnalyzeResult>(incrementalCachePath, incrementalCacheScope)
@@ -995,15 +1243,19 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
             try {
                 stageProfile.sceneCacheMissCount++;
                 const sceneBuildT0 = process.hrtime.bigint();
+                progressAnalyzeLog(lightFlowMode, `[analyze] sourceDir=${sourceDir} scene_config start`);
                 traceAnalyzeBuild(`[analyze] sourceDir=${sourceDir} scene_config start`);
                 const config = new SceneConfig();
                 config.buildFromProjectDir(sourceAbs);
                 injectArkUiSdk(config);
+                progressAnalyzeLog(lightFlowMode, `[analyze] sourceDir=${sourceDir} scene_build start`);
                 traceAnalyzeBuild(`[analyze] sourceDir=${sourceDir} scene_build start`);
                 scene = new Scene();
                 scene.buildSceneFromProjectDir(config);
+                progressAnalyzeLog(lightFlowMode, `[analyze] sourceDir=${sourceDir} infer_types start`);
                 traceAnalyzeBuild(`[analyze] sourceDir=${sourceDir} infer_types start`);
                 scene.inferTypes();
+                progressAnalyzeLog(lightFlowMode, `[analyze] sourceDir=${sourceDir} arkmain_load start`);
                 traceAnalyzeBuild(`[analyze] sourceDir=${sourceDir} arkmain_load start`);
                 arkMainLoad = loadArkMainSeeds(scene, {
                     arkMainRoots: options.modelRoots,
@@ -1011,6 +1263,7 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
                     disabledArkMainProjects: resolvedSelections.disabledArkMainProjects,
                     semanticflowEvaluationModelRoots: options.semanticflowEvaluationModelRoots,
                 });
+                progressAnalyzeLog(lightFlowMode, `[analyze] sourceDir=${sourceDir} arkmain_load done`);
                 traceAnalyzeBuild(`[analyze] sourceDir=${sourceDir} arkmain_load done`);
                 for (const warning of arkMainLoad.warnings) {
                     if (arkMainWarningSet.has(warning)) {
@@ -1022,6 +1275,7 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
                     }
                 }
                 stageProfile.sceneBuildMs += elapsedMsSince(sceneBuildT0);
+                progressAnalyzeLog(lightFlowMode, `[analyze] sourceDir=${sourceDir} scene_total done elapsed_ms=${Math.round(elapsedMsSince(sceneBuildT0))}`);
                 memoryTracker.sample();
                 sourceContextCache.set(sourceAbs, { scene, arkMainLoad });
             } catch (error) {
@@ -1063,6 +1317,7 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
     }
 
     stageProfile.entryParallelTaskCount = pendingTasks.length;
+    progressAnalyzeLog(lightFlowMode, `[analyze] entry_tasks start count=${pendingTasks.length} concurrency=${options.concurrency}`);
     const pendingResults = await mapWithConcurrency(
         pendingTasks,
         options.concurrency,
@@ -1079,7 +1334,9 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
             );
         }
     );
+    progressAnalyzeLog(lightFlowMode, `[analyze] entry_tasks done count=${pendingResults.length}`);
 
+    progressAnalyzeLog(lightFlowMode, "[analyze] entry_results merge start");
     for (let i = 0; i < pendingTasks.length; i++) {
         const task = pendingTasks[i];
         const entryResult = pendingResults[i];
@@ -1098,14 +1355,19 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
         }
         memoryTracker.sample();
     }
+    progressAnalyzeLog(lightFlowMode, "[analyze] entry_results merge done");
 
     const entries: EntryAnalyzeResult[] = orderedEntries.filter((e): e is EntryAnalyzeResult => !!e);
 
+    const aggregateStartedAt = process.hrtime.bigint();
+    progressAnalyzeLog(lightFlowMode, `[analyze] aggregate_summary start entries=${entries.length}`);
     const statusCount: Record<string, number> = {};
     let okEntries = 0;
     let withSeeds = 0;
     let withFlows = 0;
+    let withPartialFlows = 0;
     let totalFlows = 0;
+    let partialFlows = 0;
     const ruleHits = emptyRuleHitCounters();
     const ruleHitEndpoints = emptyRuleHitCounters();
     const transferProfile = {
@@ -1120,8 +1382,10 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
         elapsedMs: 0,
         elapsedShareAvg: 0,
         noCandidateCallsites: [] as AnalyzeReport["summary"]["transferProfile"]["noCandidateCallsites"],
+        siteConsumptions: [] as AnalyzeReport["summary"]["transferProfile"]["siteConsumptions"],
     };
     const noCandidateSummaryMap = new Map<string, AnalyzeReport["summary"]["transferProfile"]["noCandidateCallsites"][number]>();
+    const transferSiteConsumptionMap = new Map<string, AnalyzeReport["summary"]["transferProfile"]["siteConsumptions"][number]>();
     const detectProfile = emptyDetectProfile();
     const pagNodeResolutionAudit = emptyPagNodeResolutionAuditSnapshot();
     const executionHandoffAudit = emptyExecutionHandoffAudit();
@@ -1153,8 +1417,15 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
         statusCount[e.status] = (statusCount[e.status] || 0) + 1;
         if (e.status === "ok") okEntries++;
         if (e.seedCount > 0) withSeeds++;
-        if (e.flowCount > 0) withFlows++;
-        totalFlows += e.flowCount;
+        if (e.flowCount > 0) {
+            if (e.status === "budget_exceeded") {
+                withPartialFlows++;
+                partialFlows += e.flowCount;
+            } else {
+                withFlows++;
+                totalFlows += e.flowCount;
+            }
+        }
         accumulateRuleHitCounters(ruleHits, e.ruleHits);
         accumulateRuleHitCounters(ruleHitEndpoints, e.ruleHitEndpoints);
         transferProfile.factCount += e.transferProfile.factCount;
@@ -1167,13 +1438,25 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
         transferProfile.resultCount += e.transferProfile.resultCount;
         transferProfile.elapsedMs += e.transferProfile.elapsedMs;
         transferProfile.elapsedShareAvg += e.transferProfile.elapsedShare;
-        for (const site of e.transferProfile.noCandidateCallsites || []) {
-            const key = `${site.calleeSignature}|${site.method}|${site.invokeKind}|${site.argCount}|${site.sourceFile}`;
-            const existing = noCandidateSummaryMap.get(key);
-            if (existing) {
-                existing.count += site.count;
-            } else {
-                noCandidateSummaryMap.set(key, { ...site });
+        if (!lightFlowMode) {
+            for (const site of e.transferProfile.noCandidateCallsites || []) {
+                const key = `${site.calleeSignature}|${site.method}|${site.invokeKind}|${site.argCount}|${site.sourceFile}`;
+                const existing = noCandidateSummaryMap.get(key);
+                if (existing) {
+                    existing.count += site.count;
+                } else {
+                    noCandidateSummaryMap.set(key, { ...site });
+                }
+            }
+            for (const item of e.transferProfile.siteConsumptions || []) {
+                const key = transferSiteConsumptionKey(item);
+                const existing = transferSiteConsumptionMap.get(key);
+                if (existing) {
+                    existing.count = (existing.count || 1) + (item.count || 1);
+                    existing.resultCount += item.resultCount;
+                } else {
+                    transferSiteConsumptionMap.set(key, cloneTransferSiteConsumption(item));
+                }
             }
         }
         detectProfile.detectCallCount += e.detectProfile.detectCallCount;
@@ -1181,7 +1464,7 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
         detectProfile.reachableMethodsVisited += e.detectProfile.reachableMethodsVisited;
         detectProfile.stmtsVisited += e.detectProfile.stmtsVisited;
         detectProfile.invokeStmtsVisited += e.detectProfile.invokeStmtsVisited;
-        detectProfile.signatureMatchedInvokeCount += e.detectProfile.signatureMatchedInvokeCount;
+        detectProfile.effectMatchedInvokeCount += e.detectProfile.effectMatchedInvokeCount;
         detectProfile.constraintRejectedInvokeCount += e.detectProfile.constraintRejectedInvokeCount;
         detectProfile.sinksChecked += e.detectProfile.sinksChecked;
         detectProfile.candidateCount += e.detectProfile.candidateCount;
@@ -1191,54 +1474,57 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
         detectProfile.fieldPathHitCount += e.detectProfile.fieldPathHitCount;
         detectProfile.sanitizerGuardCheckCount += e.detectProfile.sanitizerGuardCheckCount;
         detectProfile.sanitizerGuardHitCount += e.detectProfile.sanitizerGuardHitCount;
-        detectProfile.signatureMatchMs += e.detectProfile.signatureMatchMs;
+        detectProfile.effectMatchMs += e.detectProfile.effectMatchMs;
         detectProfile.candidateResolveMs += e.detectProfile.candidateResolveMs;
         detectProfile.taintEvalMs += e.detectProfile.taintEvalMs;
         detectProfile.sanitizerGuardMs += e.detectProfile.sanitizerGuardMs;
         detectProfile.traversalMs += e.detectProfile.traversalMs;
         detectProfile.totalMs += e.detectProfile.totalMs;
-        accumulatePagNodeResolutionAudit(pagNodeResolutionAudit, e.pagNodeResolutionAudit);
+        if (!lightFlowMode) {
+            accumulatePagNodeResolutionAudit(pagNodeResolutionAudit, e.pagNodeResolutionAudit);
+        }
         executionHandoffAudit.contracts += e.executionHandoffAudit.contracts;
         executionHandoffAudit.syntheticEdges += e.executionHandoffAudit.syntheticEdges;
         executionHandoffAudit.syntheticCallers += e.executionHandoffAudit.syntheticCallers;
         executionHandoffAudit.syntheticCallees += e.executionHandoffAudit.syntheticCallees;
-        for (const moduleId of e.moduleAudit.loadedModuleIds) {
-            loadedModuleIdSet.add(moduleId);
-        }
-        for (const moduleId of e.moduleAudit.failedModuleIds) {
-            failedModuleIdSet.add(moduleId);
-        }
-        for (const pluginName of e.enginePluginAudit.loadedPluginNames) {
-            loadedPluginNameSet.add(pluginName);
-        }
-        for (const pluginName of e.enginePluginAudit.failedPluginNames) {
-            failedPluginNameSet.add(pluginName);
-        }
-        for (const [moduleId, stats] of Object.entries(e.moduleAudit.moduleStats || {})) {
-            const current = moduleAuditSummary.modules[moduleId];
-            if (!current) {
-                moduleAuditSummary.modules[moduleId] = {
-                    ...stats,
-                    recentDebugMessages: [...stats.recentDebugMessages],
-                    emissionSamples: (stats.emissionSamples || []).map(sample => ({
-                        ...sample,
-                        sourceFieldPath: sample.sourceFieldPath ? [...sample.sourceFieldPath] : undefined,
-                        targetFieldPath: sample.targetFieldPath ? [...sample.targetFieldPath] : undefined,
-                    })),
-                };
-                continue;
+        if (!lightFlowMode) {
+            for (const moduleId of e.moduleAudit.loadedModuleIds) {
+                loadedModuleIdSet.add(moduleId);
             }
-            current.sourcePath = current.sourcePath || stats.sourcePath;
-            current.factHookCalls += stats.factHookCalls;
-            current.invokeHookCalls += stats.invokeHookCalls;
-            current.copyEdgeChecks += stats.copyEdgeChecks;
-            current.factHookMs += stats.factHookMs;
-            current.invokeHookMs += stats.invokeHookMs;
-            current.copyEdgeMs += stats.copyEdgeMs;
-            current.factEmissionCount += stats.factEmissionCount;
-            current.invokeEmissionCount += stats.invokeEmissionCount;
-            current.totalEmissionCount += stats.totalEmissionCount;
-            current.skipCopyEdgeCount += stats.skipCopyEdgeCount;
+            for (const moduleId of e.moduleAudit.failedModuleIds) {
+                failedModuleIdSet.add(moduleId);
+            }
+            for (const pluginName of e.enginePluginAudit.loadedPluginNames) {
+                loadedPluginNameSet.add(pluginName);
+            }
+            for (const pluginName of e.enginePluginAudit.failedPluginNames) {
+                failedPluginNameSet.add(pluginName);
+            }
+            for (const [moduleId, stats] of Object.entries(e.moduleAudit.moduleStats || {})) {
+                const current = moduleAuditSummary.modules[moduleId];
+                if (!current) {
+                    moduleAuditSummary.modules[moduleId] = {
+                        ...stats,
+                        recentDebugMessages: [...stats.recentDebugMessages],
+                        emissionSamples: (stats.emissionSamples || []).map(sample => ({
+                            ...sample,
+                            sourceFieldPath: sample.sourceFieldPath ? [...sample.sourceFieldPath] : undefined,
+                            targetFieldPath: sample.targetFieldPath ? [...sample.targetFieldPath] : undefined,
+                        })),
+                    };
+                    continue;
+                }
+                current.sourcePath = current.sourcePath || stats.sourcePath;
+                current.factHookCalls += stats.factHookCalls;
+                current.invokeHookCalls += stats.invokeHookCalls;
+                current.copyEdgeChecks += stats.copyEdgeChecks;
+                current.factHookMs += stats.factHookMs;
+                current.invokeHookMs += stats.invokeHookMs;
+                current.copyEdgeMs += stats.copyEdgeMs;
+                current.factEmissionCount += stats.factEmissionCount;
+                current.invokeEmissionCount += stats.invokeEmissionCount;
+                current.totalEmissionCount += stats.totalEmissionCount;
+                current.skipCopyEdgeCount += stats.skipCopyEdgeCount;
                 current.debugHitCount += stats.debugHitCount;
                 current.debugSkipCount += stats.debugSkipCount;
                 current.debugLogCount += stats.debugLogCount;
@@ -1258,64 +1544,68 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
                     current.recentDebugMessages,
                     stats.recentDebugMessages,
                 );
-        }
-        for (const [pluginName, stats] of Object.entries(e.enginePluginAudit.pluginStats || {})) {
-            const current = pluginAuditSummary.plugins[pluginName];
-            if (!current) {
-                pluginAuditSummary.plugins[pluginName] = {
-                    ...stats,
-                    detectionCheckNames: [...stats.detectionCheckNames],
-                };
-                continue;
             }
-            current.description = current.description || stats.description;
-            current.sourcePath = current.sourcePath || stats.sourcePath;
-            current.startHookCalls += stats.startHookCalls;
-            current.entryHookCalls += stats.entryHookCalls;
-            current.propagationHookCalls += stats.propagationHookCalls;
-            current.detectionHookCalls += stats.detectionHookCalls;
-            current.resultHookCalls += stats.resultHookCalls;
-            current.finishHookCalls += stats.finishHookCalls;
-            current.sourceRulesAdded += stats.sourceRulesAdded;
-            current.sinkRulesAdded += stats.sinkRulesAdded;
-            current.transferRulesAdded += stats.transferRulesAdded;
-            current.sanitizerRulesAdded += stats.sanitizerRulesAdded;
-            current.optionOverrideCount += stats.optionOverrideCount;
-            current.entryAdds += stats.entryAdds;
-            current.entryReplaceUsed = current.entryReplaceUsed || stats.entryReplaceUsed;
-            current.callEdgeObserverCount += stats.callEdgeObserverCount;
-            current.taintFlowObserverCount += stats.taintFlowObserverCount;
-            current.methodReachedObserverCount += stats.methodReachedObserverCount;
-            current.propagationReplaceUsed = current.propagationReplaceUsed || stats.propagationReplaceUsed;
-            current.addedFlowCount += stats.addedFlowCount;
-            current.addedBridgeCount += stats.addedBridgeCount;
-            current.addedSyntheticEdgeCount += stats.addedSyntheticEdgeCount;
-            current.enqueuedFactCount += stats.enqueuedFactCount;
-            current.detectionCheckNames = appendUniqueStrings(
-                current.detectionCheckNames,
-                stats.detectionCheckNames,
-            );
-            current.detectionCheckRunCount += stats.detectionCheckRunCount;
-            current.detectionReplaceUsed = current.detectionReplaceUsed || stats.detectionReplaceUsed;
-            current.resultFilterCount += stats.resultFilterCount;
-            current.resultTransformCount += stats.resultTransformCount;
-            current.resultAddedFindingCount += stats.resultAddedFindingCount;
+            for (const [pluginName, stats] of Object.entries(e.enginePluginAudit.pluginStats || {})) {
+                const current = pluginAuditSummary.plugins[pluginName];
+                if (!current) {
+                    pluginAuditSummary.plugins[pluginName] = {
+                        ...stats,
+                        detectionCheckNames: [...stats.detectionCheckNames],
+                    };
+                    continue;
+                }
+                current.description = current.description || stats.description;
+                current.sourcePath = current.sourcePath || stats.sourcePath;
+                current.startHookCalls += stats.startHookCalls;
+                current.entryHookCalls += stats.entryHookCalls;
+                current.propagationHookCalls += stats.propagationHookCalls;
+                current.detectionHookCalls += stats.detectionHookCalls;
+                current.resultHookCalls += stats.resultHookCalls;
+                current.finishHookCalls += stats.finishHookCalls;
+                current.sourceRulesAdded += stats.sourceRulesAdded;
+                current.sinkRulesAdded += stats.sinkRulesAdded;
+                current.transferRulesAdded += stats.transferRulesAdded;
+                current.sanitizerRulesAdded += stats.sanitizerRulesAdded;
+                current.optionOverrideCount += stats.optionOverrideCount;
+                current.entryAdds += stats.entryAdds;
+                current.entryReplaceUsed = current.entryReplaceUsed || stats.entryReplaceUsed;
+                current.callEdgeObserverCount += stats.callEdgeObserverCount;
+                current.taintFlowObserverCount += stats.taintFlowObserverCount;
+                current.methodReachedObserverCount += stats.methodReachedObserverCount;
+                current.propagationReplaceUsed = current.propagationReplaceUsed || stats.propagationReplaceUsed;
+                current.addedFlowCount += stats.addedFlowCount;
+                current.addedBridgeCount += stats.addedBridgeCount;
+                current.addedSyntheticEdgeCount += stats.addedSyntheticEdgeCount;
+                current.enqueuedFactCount += stats.enqueuedFactCount;
+                current.detectionCheckNames = appendUniqueStrings(
+                    current.detectionCheckNames,
+                    stats.detectionCheckNames,
+                );
+                current.detectionCheckRunCount += stats.detectionCheckRunCount;
+                current.detectionReplaceUsed = current.detectionReplaceUsed || stats.detectionReplaceUsed;
+                current.resultFilterCount += stats.resultFilterCount;
+                current.resultTransformCount += stats.resultTransformCount;
+                current.resultAddedFindingCount += stats.resultAddedFindingCount;
+            }
         }
         if (e.arkMainSeeds) {
             arkMainSeedSummary.enabled = arkMainSeedSummary.enabled || e.arkMainSeeds.enabled;
             arkMainSeedSummary.methodCount = Math.max(arkMainSeedSummary.methodCount, e.arkMainSeeds.methodCount || 0);
             arkMainSeedSummary.factCount = Math.max(arkMainSeedSummary.factCount, e.arkMainSeeds.factCount || 0);
         }
-        if (e.status === "exception") {
+        if (!lightFlowMode && e.status === "exception") {
             diagnostics.systemFailures.push(buildEntryAnalyzeFailureEvent(e));
         }
-        diagnostics.moduleRuntimeFailures.push(...e.moduleAudit.failureEvents);
-        diagnostics.enginePluginRuntimeFailures.push(...e.enginePluginAudit.failureEvents);
+        if (!lightFlowMode) {
+            diagnostics.moduleRuntimeFailures.push(...e.moduleAudit.failureEvents);
+            diagnostics.enginePluginRuntimeFailures.push(...e.enginePluginAudit.failureEvents);
+        }
         transferShareCount++;
         for (const reason of e.transferNoHitReasons) {
             transferNoHitReasons[reason] = (transferNoHitReasons[reason] || 0) + 1;
         }
     }
+    progressAnalyzeLog(lightFlowMode, `[analyze] aggregate_entries done elapsed_ms=${Math.round(elapsedMsSince(aggregateStartedAt))}`);
     diagnostics.moduleLoadIssues = moduleResult.loadIssues.map(issue => ({ ...issue }));
     diagnostics.enginePluginLoadIssues = enginePluginResult.loadIssues.map(issue => ({ ...issue }));
     diagnostics.moduleRuntimeFailures = dedupFailureEvents(
@@ -1334,31 +1624,63 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
     pluginAuditSummary.loadedPluginNames = [...loadedPluginNameSet].sort((a, b) => a.localeCompare(b));
     pluginAuditSummary.failedPluginNames = [...failedPluginNameSet].sort((a, b) => a.localeCompare(b));
     const diagnosticItems = normalizeDiagnosticsItems(diagnostics);
+    progressAnalyzeLog(lightFlowMode, `[analyze] aggregate_diagnostics done elapsed_ms=${Math.round(elapsedMsSince(aggregateStartedAt))}`);
     transferProfile.noCandidateCallsites = [...noCandidateSummaryMap.values()]
         .sort((a, b) => b.count - a.count || a.calleeSignature.localeCompare(b.calleeSignature))
         .slice(0, 200);
-    const reportEntries = entries.map(e => toReportEntry(e, options.reportMode));
-    const ruleFeedback = buildRuleFeedback(
-        options.repo,
-        loadedRules,
-        ruleHits,
-        sourceContextCache,
-        entries,
-        {
-            includeCoverageScan: options.reportMode === "full",
-        },
-    );
+    transferProfile.siteConsumptions = [...transferSiteConsumptionMap.values()]
+        .sort((a, b) =>
+            (b.count || 1) - (a.count || 1)
+            || a.ruleId.localeCompare(b.ruleId)
+            || (a.callSignature || "").localeCompare(b.callSignature || ""))
+        .slice(0, 500);
+    const analysisAuditEnabled = !lightFlowMode;
+    const officialOccurrenceRecords = analysisAuditEnabled
+        ? entries.flatMap(entry => entry.officialOccurrenceLedger || [])
+        : [];
+    const officialIdentityCoverage = summarizeOfficialOccurrenceCoverage(officialOccurrenceRecords);
+    const semanticEffectLedgerRows = analysisAuditEnabled
+        ? entries.flatMap(entry => entry.semanticEffectLedger || [])
+        : [];
+    const semanticEffectLedgerSummary = summarizeSemanticEffectLedger(semanticEffectLedgerRows);
+    progressAnalyzeLog(lightFlowMode, `[analyze] aggregate_ledgers done elapsed_ms=${Math.round(elapsedMsSince(aggregateStartedAt))}`);
+    const reportEntries = entries.map(e => toReportEntry(e, lightFlowMode ? "light" : options.reportMode));
+    progressAnalyzeLog(lightFlowMode, `[analyze] report_entries done entries=${reportEntries.length} elapsed_ms=${Math.round(elapsedMsSince(aggregateStartedAt))}`);
+    const ruleFeedback = analysisAuditEnabled
+        ? buildRuleFeedback(
+            options.repo,
+            loadedRules,
+            ruleHits,
+            sourceContextCache,
+            entries,
+            {
+                includeCoverageScan: options.reportMode === "full",
+            },
+        )
+        : {
+            zeroHitRules: emptyRuleHitCounters(),
+            sourceZeroHitAudit: [],
+            ruleHitRanking: {
+                source: [],
+                sink: [],
+                transfer: [],
+            },
+            uncoveredHighFrequencyInvokes: [],
+            noCandidateCallsites: [],
+        };
+    progressAnalyzeLog(lightFlowMode, `[analyze] rule_feedback done enabled=${analysisAuditEnabled} elapsed_ms=${Math.round(elapsedMsSince(aggregateStartedAt))}`);
 
     const report: AnalyzeReport = {
         generatedAt: new Date().toISOString(),
         repo: options.repo,
         sourceDirs: options.sourceDirs,
         profile: options.profile,
-        reportMode: options.reportMode,
+        reportMode: lightFlowMode ? "light" : options.reportMode,
+        flowMode: options.flowMode,
         k: options.k,
         maxEntries: options.maxEntries,
-        ruleLayers: loadedRules.appliedLayerOrder,
-        ruleLayerStatus: loadedRules.layerStatus.map(s => ({
+        ruleSources: loadedRules.appliedRuleSources,
+        ruleSourceStatus: loadedRules.ruleSourceStatus.map(s => ({
             name: s.name,
             path: s.path,
             applied: s.applied,
@@ -1377,7 +1699,9 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
             okEntries,
             withSeeds,
             withFlows,
+            withPartialFlows,
             totalFlows,
+            partialFlows,
             statusCount,
             ruleHits,
             ruleHitEndpoints,
@@ -1412,11 +1736,44 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
                 totalMs: 0,
             },
             transferNoHitReasons,
+            officialIdentityCoverage,
+            semanticEffectLedgerSummary,
             ruleFeedback,
         },
         entries: reportEntries,
     };
+    if (lightFlowMode) {
+        report.summary.transferProfile.noCandidateCallsites = [];
+        report.summary.transferProfile.siteConsumptions = [];
+        report.summary.pagNodeResolutionAudit = emptyPagNodeResolutionAuditSnapshot();
+        report.summary.officialIdentityCoverage = emptyOfficialOccurrenceCoverageSnapshot();
+        report.summary.semanticEffectLedgerSummary = summarizeSemanticEffectLedger([]);
+        report.summary.moduleAudit = {
+            loadedModuleIds: [],
+            failedModuleIds: [],
+            discoveredModuleProjects: [],
+            enabledModuleProjects: [],
+            modules: {},
+        };
+        report.summary.pluginAudit = {
+            loadedPluginNames: [],
+            failedPluginNames: [],
+            plugins: {},
+        };
+        report.summary.ruleFeedback = {
+            zeroHitRules: emptyRuleHitCounters(),
+            sourceZeroHitAudit: [],
+            ruleHitRanking: {
+                source: [],
+                sink: [],
+                transfer: [],
+            },
+            uncoveredHighFrequencyInvokes: [],
+            noCandidateCallsites: [],
+        };
+    }
     const reportWriteT0 = process.hrtime.bigint();
+    progressAnalyzeLog(lightFlowMode, "[analyze] report_write start");
     const outputLayout = resolveAnalyzeOutputLayout(options.outputDir);
     ensureAnalyzeOutputLayout(outputLayout);
     if (useIncrementalEntryCache) {
@@ -1424,19 +1781,28 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
     }
     const jsonPath = outputLayout.summaryJsonPath;
     const mdPath = outputLayout.summaryMarkdownPath;
-    fs.writeFileSync(jsonPath, JSON.stringify(report, null, 2), "utf-8");
-    fs.writeFileSync(mdPath, renderMarkdownReport(report), "utf-8");
-    report.summary.stageProfile.reportWriteMs = Number(elapsedMsSince(reportWriteT0).toFixed(3));
-    report.summary.stageProfile.totalMs = Number(elapsedMsSince(analyzeStart).toFixed(3));
     const transferSceneCacheStats = ConfigBasedTransferExecutor.getSceneRuleCacheStats();
     report.summary.stageProfile.transferSceneRuleCacheHitCount = transferSceneCacheStats.hitCount;
     report.summary.stageProfile.transferSceneRuleCacheMissCount = transferSceneCacheStats.missCount;
     report.summary.stageProfile.transferSceneRuleCacheDisabledCount = transferSceneCacheStats.disabledCount;
     report.summary.memoryProfile = memoryTracker.stop();
-    fs.writeFileSync(jsonPath, JSON.stringify(report, null, 2), "utf-8");
+    report.summary.stageProfile.totalMs = Number(elapsedMsSince(analyzeStart).toFixed(3));
+    const jsonIndent = lightFlowMode ? 0 : 2;
+    fs.writeFileSync(jsonPath, JSON.stringify(report, null, jsonIndent), "utf-8");
     fs.writeFileSync(mdPath, renderMarkdownReport(report), "utf-8");
-    writeNoCandidateCallsiteArtifacts(report, options.outputDir);
-    const noCandidateClassificationArtifacts = writeNoCandidateCallsiteClassificationArtifacts(report, loadedRules, options.outputDir);
+    report.summary.stageProfile.reportWriteMs = Number(elapsedMsSince(reportWriteT0).toFixed(3));
+    report.summary.stageProfile.totalMs = Number(elapsedMsSince(analyzeStart).toFixed(3));
+    if (!lightFlowMode) {
+        fs.writeFileSync(jsonPath, JSON.stringify(report, null, jsonIndent), "utf-8");
+        fs.writeFileSync(mdPath, renderMarkdownReport(report), "utf-8");
+    }
+    progressAnalyzeLog(lightFlowMode, `[analyze] report_write done elapsed_ms=${Math.round(report.summary.stageProfile.reportWriteMs)} total_ms=${Math.round(report.summary.stageProfile.totalMs)} total_flows=${report.summary.totalFlows}`);
+    if (analysisAuditEnabled) {
+        writeOfficialOccurrenceArtifacts(outputLayout, entries, report.summary.officialIdentityCoverage);
+        writeEndpointResolutionArtifacts(outputLayout, entries);
+        writeC6DiagnosticArtifacts(outputLayout, entries, report);
+        writeNoCandidateCallsiteArtifacts(report, options.outputDir);
+    }
     const diagnosticsArtifacts = writeDiagnosticsArtifacts(outputLayout.diagnosticsDir, report.summary.diagnostics);
     if (options.pluginAudit) {
         const pluginAuditPayload = {
@@ -1452,42 +1818,31 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
         };
         fs.writeFileSync(outputLayout.pluginAuditJsonPath, JSON.stringify(pluginAuditPayload, null, 2), "utf-8");
     }
-    const entryRecoveryGates: TraceGate[] = entries.map((entry, index) => ({
-        id: `gate:entry_recovery:${index + 1}`,
-        stage: "entry_recovery",
-        producer: "entry",
-        gateKind: "entry_recovery",
-        scope: `entry:${entry.sourceDir}:${entry.entryName}`,
-        attempted: true,
-        matched: entry.status !== "no_entry" && entry.status !== "exception",
-        emitted: entry.status === "ok" || entry.status === "no_seed" || entry.status === "budget_exceeded",
-        skippedReason: entry.status === "no_entry" || entry.status === "no_body" ? entry.status : undefined,
-        blockedReason: entry.status === "exception" ? entry.error || "entry_exception" : undefined,
-        evidence: {
-            sourceDir: entry.sourceDir,
-            entryName: entry.entryName,
-            entryPathHint: entry.entryPathHint,
-            status: entry.status,
-            seedCount: entry.seedCount,
-            flowCount: entry.flowCount,
-            fromCache: entry.fromCache,
-        },
-    }));
-    const entryRecoveryGraph = buildTraceGraph({
-        runId: `entry-recovery:${path.basename(options.repo)}:${Date.now()}`,
-        project: options.repo,
-        engineVersion: "arktaint",
-        assetVersion: ruleFingerprint,
-        configHash: analysisFingerprint,
-        llmSession: options.llmSessionCacheDir,
-        startedAt: report.generatedAt,
-        completedAt: new Date().toISOString(),
-        status: report.summary.statusCount.exception ? "partial" : "completed",
-        notes: ["entry_recovery_coverage_fragment"],
-    }, [], [], entryRecoveryGates);
-    const currentAssetCandidateGraph = buildCurrentAssetCandidateTraceGraph({
-        run: {
-            runId: `current-assets-candidates:${path.basename(options.repo)}:${Date.now()}`,
+    if (traceGraphEnabled) {
+        const noCandidateClassificationArtifacts = writeNoCandidateCallsiteClassificationArtifacts(report, loadedRules, options.outputDir);
+        const entryRecoveryGates: TraceGate[] = entries.map((entry, index) => ({
+            id: `gate:entry_recovery:${index + 1}`,
+            stage: "entry_recovery",
+            producer: "entry",
+            gateKind: "entry_recovery",
+            scope: `entry:${entry.sourceDir}:${entry.entryName}`,
+            attempted: true,
+            matched: entry.status !== "no_entry" && entry.status !== "exception",
+            emitted: entry.status === "ok" || entry.status === "no_seed" || entry.status === "budget_exceeded",
+            skippedReason: entry.status === "no_entry" || entry.status === "no_body" ? entry.status : undefined,
+            blockedReason: entry.status === "exception" ? entry.error || "entry_exception" : undefined,
+            evidence: {
+                sourceDir: entry.sourceDir,
+                entryName: entry.entryName,
+                entryPathHint: entry.entryPathHint,
+                status: entry.status,
+                seedCount: entry.seedCount,
+                flowCount: entry.flowCount,
+                fromCache: entry.fromCache,
+            },
+        }));
+        const entryRecoveryGraph = buildTraceGraph({
+            runId: `entry-recovery:${path.basename(options.repo)}:${Date.now()}`,
             project: options.repo,
             engineVersion: "arktaint",
             assetVersion: ruleFingerprint,
@@ -1495,65 +1850,80 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
             llmSession: options.llmSessionCacheDir,
             startedAt: report.generatedAt,
             completedAt: new Date().toISOString(),
-            status: "completed",
-            notes: ["current_assets_api_modeling_candidate_coverage_fragment"],
-        },
-        report,
-        artifacts: noCandidateClassificationArtifacts,
-    });
-    const sourceCandidateCoverageGraphs = [...sourceContextCache.entries()].map(([sourceAbs, context], index) => {
-        const sourceDir = path.relative(options.repo, sourceAbs) || ".";
-        return {
-            graph: buildSourceCandidateCoverageTraceGraph({
-                run: {
-                    runId: `source-candidates:${path.basename(options.repo)}:${index + 1}:${Date.now()}`,
-                    project: options.repo,
-                    engineVersion: "arktaint",
-                    assetVersion: ruleFingerprint,
-                    configHash: analysisFingerprint,
-                    llmSession: options.llmSessionCacheDir,
-                    startedAt: report.generatedAt,
-                    completedAt: new Date().toISOString(),
-                    status: "completed",
-                    notes: ["source_candidate_coverage_fragment", `sourceDir=${sourceDir}`],
-                },
-                sourceDir,
-                candidates: collectSourceCoverageCandidates(context.scene),
-            }),
-            prefix: `source_candidates${index}`,
+            status: report.summary.statusCount.exception ? "partial" : "completed",
+            notes: ["entry_recovery_coverage_fragment"],
+        }, [], [], entryRecoveryGates);
+        const currentAssetCandidateGraph = buildCurrentAssetCandidateTraceGraph({
+            run: {
+                runId: `current-assets-candidates:${path.basename(options.repo)}:${Date.now()}`,
+                project: options.repo,
+                engineVersion: "arktaint",
+                assetVersion: ruleFingerprint,
+                configHash: analysisFingerprint,
+                llmSession: options.llmSessionCacheDir,
+                startedAt: report.generatedAt,
+                completedAt: new Date().toISOString(),
+                status: "completed",
+                notes: ["current_assets_api_modeling_candidate_coverage_fragment"],
+            },
+            report,
+            artifacts: noCandidateClassificationArtifacts,
+        });
+        const sourceCandidateCoverageGraphs = [...sourceContextCache.entries()].map(([sourceAbs, context], index) => {
+            const sourceDir = path.relative(options.repo, sourceAbs) || ".";
+            return {
+                graph: buildSourceCandidateCoverageTraceGraph({
+                    run: {
+                        runId: `source-candidates:${path.basename(options.repo)}:${index + 1}:${Date.now()}`,
+                        project: options.repo,
+                        engineVersion: "arktaint",
+                        assetVersion: ruleFingerprint,
+                        configHash: analysisFingerprint,
+                        llmSession: options.llmSessionCacheDir,
+                        startedAt: report.generatedAt,
+                        completedAt: new Date().toISOString(),
+                        status: "completed",
+                        notes: ["source_candidate_coverage_fragment", `sourceDir=${sourceDir}`],
+                    },
+                    sourceDir,
+                    candidates: collectSourceCoverageCandidates(context.scene),
+                }),
+                prefix: `source_candidates${index}`,
+            };
+        });
+        const entryTraceGraphs = entries
+            .map((entry, index) => entry.traceGraph ? { graph: entry.traceGraph, prefix: `entry${index}` } : undefined)
+            .filter((item): item is { graph: TraceGraph; prefix: string } => !!item);
+        const cachedTraceMissingCount = entries.filter(entry => entry.fromCache && !entry.traceGraph).length;
+        const runTrace: FullTraceRun = {
+            runId: `full:${path.basename(options.repo)}:${Date.now()}`,
+            project: options.repo,
+            engineVersion: "arktaint",
+            assetVersion: ruleFingerprint,
+            configHash: analysisFingerprint,
+            llmSession: options.llmSessionCacheDir,
+            startedAt: report.generatedAt,
+            completedAt: new Date().toISOString(),
+            status: cachedTraceMissingCount > 0 || report.summary.statusCount.exception ? "partial" : "completed",
+            notes: [
+                `sourceDirs=${options.sourceDirs.length}`,
+                `entryGraphs=${entryTraceGraphs.length}`,
+                ...(cachedTraceMissingCount > 0 ? [`cachedEntriesWithoutTrace=${cachedTraceMissingCount}`] : []),
+            ],
         };
-    });
-    const entryTraceGraphs = entries
-        .map((entry, index) => entry.traceGraph ? { graph: entry.traceGraph, prefix: `entry${index}` } : undefined)
-        .filter((item): item is { graph: TraceGraph; prefix: string } => !!item);
-    const cachedTraceMissingCount = entries.filter(entry => entry.fromCache && !entry.traceGraph).length;
-    const runTrace: FullTraceRun = {
-        runId: `full:${path.basename(options.repo)}:${Date.now()}`,
-        project: options.repo,
-        engineVersion: "arktaint",
-        assetVersion: ruleFingerprint,
-        configHash: analysisFingerprint,
-        llmSession: options.llmSessionCacheDir,
-        startedAt: report.generatedAt,
-        completedAt: new Date().toISOString(),
-        status: cachedTraceMissingCount > 0 || report.summary.statusCount.exception ? "partial" : "completed",
-        notes: [
-            `sourceDirs=${options.sourceDirs.length}`,
-            `entryGraphs=${entryTraceGraphs.length}`,
-            ...(cachedTraceMissingCount > 0 ? [`cachedEntriesWithoutTrace=${cachedTraceMissingCount}`] : []),
-        ],
-    };
-    const traceGraph = mergeTraceGraphs(runTrace, [
-        ...entryTraceGraphs,
-        { graph: buildRuleLayerTraceGraph(runTrace, loadedRules), prefix: "rule_layers" },
-        { graph: entryRecoveryGraph, prefix: "entry_recovery" },
-        { graph: currentAssetCandidateGraph, prefix: "current_assets_candidates" },
-        ...sourceCandidateCoverageGraphs,
-    ]);
-    writeTraceGraphArtifacts(outputLayout.traceGraphDir, traceGraph);
+        const traceGraph = mergeTraceGraphs(runTrace, [
+            ...entryTraceGraphs,
+            { graph: buildRuleSourceTraceGraph(runTrace, loadedRules), prefix: "rule_sources" },
+            { graph: entryRecoveryGraph, prefix: "entry_recovery" },
+            { graph: currentAssetCandidateGraph, prefix: "current_assets_candidates" },
+            ...sourceCandidateCoverageGraphs,
+        ]);
+        writeTraceGraphArtifacts(outputLayout.traceGraphDir, traceGraph);
+    }
     writeAnalyzeRunManifest(outputLayout, report, {
         pluginAuditEnabled: options.pluginAudit,
-        traceGraphEnabled: true,
+        traceGraphEnabled,
+        analysisAuditEnabled,
     });
 
     return {

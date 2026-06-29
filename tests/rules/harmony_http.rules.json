@@ -4,75 +4,313 @@
   "status": "official",
   "surfaces": [
     {
-      "surfaceId": "surface.source.harmony_http.entry_param",
-      "kind": "access",
-      "modulePath": "@arktaint/local",
-      "ownerName": "LocalBinding",
-      "propertyName": "source.harmony_http.entry_param",
-      "accessKind": "read",
-      "receiverKind": "namespace",
-      "confidence": "likely",
+      "surfaceId": "surface.source.harmony_http.entry_param.method.http_async_callback_003_T.method.http_async_callback_003_T.method.http_async_callback_003_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_http%2Fhttp_async_callback_003_T.ets:file=harmony_http%2Fhttp_async_callback_003_T.ets:export=entry%3Acomponent.http_async_callback_003_T:decl=entry%3Acomponent.http_async_callback_003_T:member=lifecycle%3Atest.case.http_async_callback_003_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "harmony_http/http_async_callback_003_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_http/http_async_callback_003_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "http_async_callback_003_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony_http.entry_param.method.http_callback_safe_007_F.method.http_callback_safe_007_F.method.http_callback_safe_007_F",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_http%2Fhttp_callback_safe_007_F.ets:file=harmony_http%2Fhttp_callback_safe_007_F.ets:export=entry%3Acomponent.http_callback_safe_007_F:decl=entry%3Acomponent.http_callback_safe_007_F:member=lifecycle%3Atest.case.http_callback_safe_007_F:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_http/http_callback_safe_007_F.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_http/http_callback_safe_007_F.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "http_callback_safe_007_F",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony_http.entry_param.method.http_request_body_001_T.method.http_request_body_001_T.method.http_request_body_001_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_http%2Fhttp_request_body_001_T.ets:file=harmony_http%2Fhttp_request_body_001_T.ets:export=entry%3Acomponent.http_request_body_001_T:decl=entry%3Acomponent.http_request_body_001_T:member=lifecycle%3Atest.case.http_request_body_001_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_http/http_request_body_001_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_http/http_request_body_001_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "http_request_body_001_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony_http.entry_param.method.http_request_extraData_010_T.method.http_request_extraData_010_T.method.http_request_extraData_010_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_http%2Fhttp_request_extraData_010_T.ets:file=harmony_http%2Fhttp_request_extraData_010_T.ets:export=entry%3Acomponent.http_request_extraData_010_T:decl=entry%3Acomponent.http_request_extraData_010_T:member=lifecycle%3Atest.case.http_request_extraData_010_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_http/http_request_extraData_010_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_http/http_request_extraData_010_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "http_request_extraData_010_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony_http.entry_param.method.http_request_extraData_sibling_011_F.method.http_request_extraData_sibling_011_F.method.http_request_extraData_sibling_011_F",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_http%2Fhttp_request_extraData_sibling_011_F.ets:file=harmony_http%2Fhttp_request_extraData_sibling_011_F.ets:export=entry%3Acomponent.http_request_extraData_sibling_011_F:decl=entry%3Acomponent.http_request_extraData_sibling_011_F:member=lifecycle%3Atest.case.http_request_extraData_sibling_011_F:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_http/http_request_extraData_sibling_011_F.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_http/http_request_extraData_sibling_011_F.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "http_request_extraData_sibling_011_F",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony_http.entry_param.method.http_request_mismatch_005_F.method.http_request_mismatch_005_F.method.http_request_mismatch_005_F",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_http%2Fhttp_request_mismatch_005_F.ets:file=harmony_http%2Fhttp_request_mismatch_005_F.ets:export=entry%3Acomponent.http_request_mismatch_005_F:decl=entry%3Acomponent.http_request_mismatch_005_F:member=lifecycle%3Atest.case.http_request_mismatch_005_F:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_http/http_request_mismatch_005_F.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_http/http_request_mismatch_005_F.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "http_request_mismatch_005_F",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony_http.entry_param.method.http_response_source_002_T.method.http_response_source_002_T.method.http_response_source_002_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_http%2Fhttp_response_source_002_T.ets:file=harmony_http%2Fhttp_response_source_002_T.ets:export=entry%3Acomponent.http_response_source_002_T:decl=entry%3Acomponent.http_response_source_002_T:member=lifecycle%3Atest.case.http_response_source_002_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_http/http_response_source_002_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_http/http_response_source_002_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "http_response_source_002_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony_http.entry_param.method.http_two_calls_006_T.method.http_two_calls_006_T.method.http_two_calls_006_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_http%2Fhttp_two_calls_006_T.ets:file=harmony_http%2Fhttp_two_calls_006_T.ets:export=entry%3Acomponent.http_two_calls_006_T:decl=entry%3Acomponent.http_two_calls_006_T:member=lifecycle%3Atest.case.http_two_calls_006_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_http/http_two_calls_006_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_http/http_two_calls_006_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "http_two_calls_006_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
       }
     },
     {
       "surfaceId": "surface.source.harmony_http.request_async_callback_arg0",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "requestAsync",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "harmony_http/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=harmony_http%2Ftaint_mock.ts:file=harmony_http%2Ftaint_mock.ts:export=namespace%3AHttp:decl=class%3AHttp:member=method%3Ainstance%3ArequestAsync:invoke=call:params=0%3Astring%2C1%3A%40harmony_http%2Ftaint_mock.ts%3A%20Http.%25AM1(any):ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_http/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "Http",
+            "methodName": "requestAsync",
+            "parameterTypes": [
+              "string",
+              "@harmony_http/taint_mock.ts: Http.%AM1(any)"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
       }
     },
     {
       "surfaceId": "surface.sink.harmony_http.mock_sink",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "Sink",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "harmony_http/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=harmony_http%2Ftaint_mock.ts:file=harmony_http%2Ftaint_mock.ts:export=namespace%3Ataint.%25dflt:decl=namespace%3Ataint.%25dflt:member=function%3ASink:invoke=call:params=0%3Aany:ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_http/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "taint.%dflt",
+            "methodName": "Sink",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "void",
+            "staticFlag": true
+          }
+        }
       }
     },
     {
       "surfaceId": "surface.transfer.harmony_http.request_arg_to_result",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "Http",
-      "methodName": "request",
-      "invokeKind": "instance",
-      "argCount": 2,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "harmony_http/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=harmony_http%2Ftaint_mock.ts:file=harmony_http%2Ftaint_mock.ts:export=namespace%3AHttp:decl=class%3AHttp:member=method%3Ainstance%3Arequest:invoke=call:params=0%3Astring%2C1%3Aany%2C2%3A%40harmony_http%2Ftaint_mock.ts%3A%20Http.%25AM0(any%2C%20any):ret=any",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_http/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "Http",
+            "methodName": "request",
+            "parameterTypes": [
+              "string",
+              "any",
+              "@harmony_http/taint_mock.ts: Http.%AM0(any, any)"
+            ],
+            "returnType": "any",
+            "staticFlag": false
+          }
+        }
       }
     }
   ],
   "bindings": [
     {
       "bindingId": "binding.source.harmony_http.entry_param.0.method.http_async_callback_003_T",
-      "surfaceId": "surface.source.harmony_http.entry_param",
+      "surfaceId": "surface.source.harmony_http.entry_param.method.http_async_callback_003_T.method.http_async_callback_003_T.method.http_async_callback_003_T",
       "assetId": "asset.rule.test.harmony_http",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "http_async_callback_003_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "http_async_callback_003_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -83,25 +321,16 @@
         "template.source.harmony_http.entry_param.for.source.harmony_http.entry_param.0.method.http_async_callback_003_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_http%2Fhttp_async_callback_003_T.ets:file=harmony_http%2Fhttp_async_callback_003_T.ets:export=entry%3Acomponent.http_async_callback_003_T:decl=entry%3Acomponent.http_async_callback_003_T:member=lifecycle%3Atest.case.http_async_callback_003_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony_http.entry_param.0.method.http_callback_safe_007_F",
-      "surfaceId": "surface.source.harmony_http.entry_param",
+      "surfaceId": "surface.source.harmony_http.entry_param.method.http_callback_safe_007_F.method.http_callback_safe_007_F.method.http_callback_safe_007_F",
       "assetId": "asset.rule.test.harmony_http",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "http_callback_safe_007_F",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "http_callback_safe_007_F.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -112,25 +341,16 @@
         "template.source.harmony_http.entry_param.for.source.harmony_http.entry_param.0.method.http_callback_safe_007_F"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_http%2Fhttp_callback_safe_007_F.ets:file=harmony_http%2Fhttp_callback_safe_007_F.ets:export=entry%3Acomponent.http_callback_safe_007_F:decl=entry%3Acomponent.http_callback_safe_007_F:member=lifecycle%3Atest.case.http_callback_safe_007_F:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony_http.entry_param.0.method.http_request_body_001_T",
-      "surfaceId": "surface.source.harmony_http.entry_param",
+      "surfaceId": "surface.source.harmony_http.entry_param.method.http_request_body_001_T.method.http_request_body_001_T.method.http_request_body_001_T",
       "assetId": "asset.rule.test.harmony_http",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "http_request_body_001_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "http_request_body_001_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -141,25 +361,16 @@
         "template.source.harmony_http.entry_param.for.source.harmony_http.entry_param.0.method.http_request_body_001_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_http%2Fhttp_request_body_001_T.ets:file=harmony_http%2Fhttp_request_body_001_T.ets:export=entry%3Acomponent.http_request_body_001_T:decl=entry%3Acomponent.http_request_body_001_T:member=lifecycle%3Atest.case.http_request_body_001_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony_http.entry_param.0.method.http_request_extraData_010_T",
-      "surfaceId": "surface.source.harmony_http.entry_param",
+      "surfaceId": "surface.source.harmony_http.entry_param.method.http_request_extraData_010_T.method.http_request_extraData_010_T.method.http_request_extraData_010_T",
       "assetId": "asset.rule.test.harmony_http",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "http_request_extraData_010_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "http_request_extraData_010_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -170,25 +381,16 @@
         "template.source.harmony_http.entry_param.for.source.harmony_http.entry_param.0.method.http_request_extraData_010_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_http%2Fhttp_request_extraData_010_T.ets:file=harmony_http%2Fhttp_request_extraData_010_T.ets:export=entry%3Acomponent.http_request_extraData_010_T:decl=entry%3Acomponent.http_request_extraData_010_T:member=lifecycle%3Atest.case.http_request_extraData_010_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony_http.entry_param.0.method.http_request_extraData_sibling_011_F",
-      "surfaceId": "surface.source.harmony_http.entry_param",
+      "surfaceId": "surface.source.harmony_http.entry_param.method.http_request_extraData_sibling_011_F.method.http_request_extraData_sibling_011_F.method.http_request_extraData_sibling_011_F",
       "assetId": "asset.rule.test.harmony_http",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "http_request_extraData_sibling_011_F",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "http_request_extraData_sibling_011_F.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -199,25 +401,16 @@
         "template.source.harmony_http.entry_param.for.source.harmony_http.entry_param.0.method.http_request_extraData_sibling_011_F"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_http%2Fhttp_request_extraData_sibling_011_F.ets:file=harmony_http%2Fhttp_request_extraData_sibling_011_F.ets:export=entry%3Acomponent.http_request_extraData_sibling_011_F:decl=entry%3Acomponent.http_request_extraData_sibling_011_F:member=lifecycle%3Atest.case.http_request_extraData_sibling_011_F:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony_http.entry_param.0.method.http_request_mismatch_005_F",
-      "surfaceId": "surface.source.harmony_http.entry_param",
+      "surfaceId": "surface.source.harmony_http.entry_param.method.http_request_mismatch_005_F.method.http_request_mismatch_005_F.method.http_request_mismatch_005_F",
       "assetId": "asset.rule.test.harmony_http",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "http_request_mismatch_005_F",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "http_request_mismatch_005_F.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -228,25 +421,16 @@
         "template.source.harmony_http.entry_param.for.source.harmony_http.entry_param.0.method.http_request_mismatch_005_F"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_http%2Fhttp_request_mismatch_005_F.ets:file=harmony_http%2Fhttp_request_mismatch_005_F.ets:export=entry%3Acomponent.http_request_mismatch_005_F:decl=entry%3Acomponent.http_request_mismatch_005_F:member=lifecycle%3Atest.case.http_request_mismatch_005_F:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony_http.entry_param.0.method.http_response_source_002_T",
-      "surfaceId": "surface.source.harmony_http.entry_param",
+      "surfaceId": "surface.source.harmony_http.entry_param.method.http_response_source_002_T.method.http_response_source_002_T.method.http_response_source_002_T",
       "assetId": "asset.rule.test.harmony_http",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "http_response_source_002_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "http_response_source_002_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -257,25 +441,16 @@
         "template.source.harmony_http.entry_param.for.source.harmony_http.entry_param.0.method.http_response_source_002_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_http%2Fhttp_response_source_002_T.ets:file=harmony_http%2Fhttp_response_source_002_T.ets:export=entry%3Acomponent.http_response_source_002_T:decl=entry%3Acomponent.http_response_source_002_T:member=lifecycle%3Atest.case.http_response_source_002_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony_http.entry_param.0.method.http_two_calls_006_T",
-      "surfaceId": "surface.source.harmony_http.entry_param",
+      "surfaceId": "surface.source.harmony_http.entry_param.method.http_two_calls_006_T.method.http_two_calls_006_T.method.http_two_calls_006_T",
       "assetId": "asset.rule.test.harmony_http",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "http_two_calls_006_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "http_two_calls_006_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -286,8 +461,9 @@
         "template.source.harmony_http.entry_param.for.source.harmony_http.entry_param.0.method.http_two_calls_006_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_http%2Fhttp_two_calls_006_T.ets:file=harmony_http%2Fhttp_two_calls_006_T.ets:export=entry%3Acomponent.http_two_calls_006_T:decl=entry%3Acomponent.http_two_calls_006_T:member=lifecycle%3Atest.case.http_two_calls_006_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony_http.request_async_callback_arg0.0",
@@ -295,10 +471,6 @@
       "assetId": "asset.rule.test.harmony_http",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "requestAsync"
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -309,9 +481,10 @@
         "template.source.harmony_http.request_async_callback_arg0"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely",
-      "metadata": {}
+      "completeness": "complete",
+      "confidence": "certain",
+      "metadata": {},
+      "canonicalApiId": "api:project:local:module=harmony_http%2Ftaint_mock.ts:file=harmony_http%2Ftaint_mock.ts:export=namespace%3AHttp:decl=class%3AHttp:member=method%3Ainstance%3ArequestAsync:invoke=call:params=0%3Astring%2C1%3A%40harmony_http%2Ftaint_mock.ts%3A%20Http.%25AM1(any):ret=void"
     },
     {
       "bindingId": "binding.sink.harmony_http.mock_sink.0",
@@ -319,10 +492,6 @@
       "assetId": "asset.rule.test.harmony_http",
       "plane": "rule",
       "role": "sink",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "Sink"
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -333,9 +502,10 @@
         "template.sink.harmony_http.mock_sink"
       ],
       "semanticsFamily": "sink",
-      "completeness": "partial",
-      "confidence": "likely",
-      "metadata": {}
+      "completeness": "complete",
+      "confidence": "certain",
+      "metadata": {},
+      "canonicalApiId": "api:project:local:module=harmony_http%2Ftaint_mock.ts:file=harmony_http%2Ftaint_mock.ts:export=namespace%3Ataint.%25dflt:decl=namespace%3Ataint.%25dflt:member=function%3ASink:invoke=call:params=0%3Aany:ret=void"
     },
     {
       "bindingId": "binding.transfer.harmony_http.request_arg_to_result.0",
@@ -343,13 +513,6 @@
       "assetId": "asset.rule.test.harmony_http",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "request",
-        "invokeKind": "instance",
-        "argCount": 2,
-        "typeHint": "Http"
-      },
       "effectTemplateRefs": [
         "template.transfer.harmony_http.request_arg_to_result"
       ],
@@ -357,55 +520,12 @@
       "metadata": {
         "description": "Model request(url, data): request payload taints response object in benchmark."
       },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_http%2Ftaint_mock.ts:file=harmony_http%2Ftaint_mock.ts:export=namespace%3AHttp:decl=class%3AHttp:member=method%3Ainstance%3Arequest:invoke=call:params=0%3Astring%2C1%3Aany%2C2%3A%40harmony_http%2Ftaint_mock.ts%3A%20Http.%25AM0(any%2C%20any):ret=any"
     }
   ],
   "effectTemplates": [
-    {
-      "id": "template.source.harmony_http.request_async_callback_arg0",
-      "confidence": "certain",
-      "kind": "rule.source",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sourceKind": "callback_param"
-    },
-    {
-      "id": "template.sink.harmony_http.mock_sink",
-      "confidence": "certain",
-      "kind": "rule.sink",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sinkKind": "sink"
-    },
-    {
-      "id": "template.transfer.harmony_http.request_arg_to_result",
-      "confidence": "certain",
-      "kind": "rule.transfer",
-      "from": {
-        "endpoint": {
-          "base": {
-            "kind": "arg",
-            "index": 1
-          }
-        },
-        "taintScope": "contained-values"
-      },
-      "to": {
-        "base": {
-          "kind": "return"
-        }
-      },
-      "transferKind": "transfer"
-    },
     {
       "id": "template.source.harmony_http.entry_param.for.source.harmony_http.entry_param.0.method.http_async_callback_003_T",
       "confidence": "certain",
@@ -501,6 +621,50 @@
         }
       },
       "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony_http.request_async_callback_arg0",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "callback_param"
+    },
+    {
+      "id": "template.sink.harmony_http.mock_sink",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "sink"
+    },
+    {
+      "id": "template.transfer.harmony_http.request_arg_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "endpoint": {
+          "base": {
+            "kind": "arg",
+            "index": 1
+          }
+        },
+        "taintScope": "contained-values"
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
     }
   ],
   "provenance": {

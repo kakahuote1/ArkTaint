@@ -606,7 +606,7 @@ async function main(): Promise<void> {
             kernelRulePath,
             ruleCatalogPath,
             projectRulePath,
-            autoDiscoverLayers: false,
+            autoDiscoverRuleSources: false,
             allowMissingProject: false,
             allowMissingCandidate: true,
         });

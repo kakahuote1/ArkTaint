@@ -1,4 +1,5 @@
-import type { AssetDocumentBase } from "../../core/assets/schema";
+import type { AssetDocumentBase, AssetSurface } from "../../core/assets/schema";
+import { fromProjectDeclaration } from "../../core/api/identity";
 
 export function resolvedAsset(asset: AssetDocumentBase): Record<string, unknown> {
     return {
@@ -8,7 +9,7 @@ export function resolvedAsset(asset: AssetDocumentBase): Record<string, unknown>
     };
 }
 
-export function withSurfaceModulePath(
+export function retargetAssetSurfacesToProjectModule(
     asset: AssetDocumentBase,
     modulePath: string | undefined,
     sourceFile?: string,
@@ -16,19 +17,33 @@ export function withSurfaceModulePath(
     if (!modulePath) {
         return asset;
     }
+    const retargetedSurfaces = (asset.surfaces || []).map(surface => surface.kind === "invoke"
+        ? retargetInvokeSurface(surface, modulePath, sourceFile)
+        : surface);
+    const surfaceIdMap = new Map<string, AssetSurface>();
+    for (const surface of retargetedSurfaces) {
+        surfaceIdMap.set(surface.surfaceId, surface);
+    }
+    const oldToNewSurfaceId = new Map<string, string>();
+    for (let index = 0; index < (asset.surfaces || []).length; index++) {
+        const oldSurface = asset.surfaces![index];
+        const newSurface = retargetedSurfaces[index];
+        if (oldSurface?.surfaceId && newSurface?.surfaceId) {
+            oldToNewSurfaceId.set(oldSurface.surfaceId, newSurface.surfaceId);
+        }
+    }
     return {
         ...asset,
-        surfaces: (asset.surfaces || []).map(surface => surface.kind === "invoke"
-            ? {
-                ...surface,
-                modulePath,
-                provenance: {
-                    ...(surface.provenance || {}),
-                    source: surface.provenance.source,
-                    location: sourceFile ? { file: sourceFile } : surface.provenance?.location,
-                },
-            }
-            : surface),
+        surfaces: retargetedSurfaces,
+        bindings: (asset.bindings || []).map(binding => {
+            const retargetedSurfaceId = oldToNewSurfaceId.get(binding.surfaceId) || binding.surfaceId;
+            const retargeted = surfaceIdMap.get(retargetedSurfaceId);
+            return {
+                ...binding,
+                surfaceId: retargetedSurfaceId,
+                canonicalApiId: retargeted?.canonicalApiId || binding.canonicalApiId,
+            };
+        }),
     };
 }
 
@@ -68,57 +83,44 @@ export function ruleTransferAsset(owner: string, methodName: string, argCount: n
 
 export function vaultHandoffAsset(projectId = "semanticflow_test"): AssetDocumentBase {
     const id = `asset.test.${projectId}.vault.handoff`;
+    const putSurface = {
+        ...invokeSurface(`${id}.put.surface`, "project/Vault", "Vault", "put", ["string", "SyntheticTaintValue"], "void"),
+        confidence: "likely" as const,
+    };
+    const getSurface = {
+        ...invokeSurface(`${id}.get.surface`, "project/Vault", "Vault", "get", ["string"], "SyntheticTaintValue"),
+        confidence: "likely" as const,
+    };
     return {
         id,
         plane: "module",
         status: "llm-generated",
-        surfaces: [
-            {
-                surfaceId: `${id}.put.surface`,
-                kind: "invoke",
-                modulePath: "project/Vault",
-                ownerName: "Vault",
-                methodName: "put",
-                invokeKind: "instance",
-                argCount: 2,
-                confidence: "likely",
-                provenance: { source: "llm-proposal", location: { file: "Vault.ets" } },
-            },
-            {
-                surfaceId: `${id}.get.surface`,
-                kind: "invoke",
-                modulePath: "project/Vault",
-                ownerName: "Vault",
-                methodName: "get",
-                invokeKind: "instance",
-                argCount: 1,
-                confidence: "likely",
-                provenance: { source: "llm-proposal", location: { file: "Vault.ets" } },
-            },
-        ],
+        surfaces: [putSurface, getSurface],
         bindings: [
             {
                 bindingId: `${id}.put.binding`,
-                surfaceId: `${id}.put.surface`,
+                surfaceId: putSurface.surfaceId,
+                canonicalApiId: putSurface.canonicalApiId,
                 assetId: id,
                 plane: "module",
                 role: "handoff",
                 endpoint: { base: { kind: "arg", index: 1 } },
                 effectTemplateRefs: [`${id}.put.effect`],
                 semanticsFamily: "project-keyed-storage",
-                completeness: "partial",
+                completeness: "complete",
                 confidence: "likely",
             },
             {
                 bindingId: `${id}.get.binding`,
-                surfaceId: `${id}.get.surface`,
+                surfaceId: getSurface.surfaceId,
+                canonicalApiId: getSurface.canonicalApiId,
                 assetId: id,
                 plane: "module",
                 role: "handoff",
                 endpoint: { base: { kind: "return" } },
                 effectTemplateRefs: [`${id}.get.effect`],
                 semanticsFamily: "project-keyed-storage",
-                completeness: "partial",
+                completeness: "complete",
                 confidence: "likely",
             },
         ],
@@ -131,10 +133,10 @@ export function vaultHandoffAsset(projectId = "semanticflow_test"): AssetDocumen
                     family: "project.vault",
                     owner: [{ kind: "const", value: "Vault" }],
                     key: [{ kind: "fromLiteralArg", index: 0 }],
-                    precision: "infer",
+                    precision: "exact",
                 },
                 value: { base: { kind: "arg", index: 1 } },
-                updateStrength: "infer",
+                updateStrength: "strong",
                 confidence: "likely",
             },
             {
@@ -145,7 +147,7 @@ export function vaultHandoffAsset(projectId = "semanticflow_test"): AssetDocumen
                     family: "project.vault",
                     owner: [{ kind: "const", value: "Vault" }],
                     key: [{ kind: "fromLiteralArg", index: 0 }],
-                    precision: "infer",
+                    precision: "exact",
                 },
                 target: { base: { kind: "return" } },
                 confidence: "likely",
@@ -163,24 +165,26 @@ function invokeRuleAsset(
     role: "source" | "sink" | "transfer",
     effect: any,
 ): AssetDocumentBase {
+    const surface = {
+        ...invokeSurface(
+            `${id}.surface`,
+            `project/${owner}`,
+            owner,
+            methodName,
+            Array.from({ length: argCount }, (_unused, index) => `SyntheticArg${index}`),
+            role === "source" || role === "transfer" ? "SyntheticTaintValue" : "void",
+        ),
+        confidence: "likely" as const,
+    };
     return {
         id,
         plane: "rule",
         status: "llm-generated",
-        surfaces: [{
-            surfaceId: `${id}.surface`,
-            kind: "invoke",
-            modulePath: `project/${owner}`,
-            ownerName: owner,
-            methodName,
-            invokeKind: "instance",
-            argCount,
-            confidence: "likely",
-            provenance: { source: "llm-proposal", location: { file: `${owner}.ets` } },
-        }],
+        surfaces: [surface],
         bindings: [{
             bindingId: `${id}.binding`,
-            surfaceId: `${id}.surface`,
+            surfaceId: surface.surfaceId,
+            canonicalApiId: surface.canonicalApiId,
             assetId: id,
             plane: "rule",
             role,
@@ -193,4 +197,112 @@ function invokeRuleAsset(
         effectTemplates: [effect],
         provenance: { source: "llm", projectId: "semanticflow_test" },
     };
+}
+
+function invokeSurface(
+    surfaceId: string,
+    modulePath: string,
+    ownerName: string,
+    methodName: string,
+    parameterTypes: string[],
+    returnType: string,
+): AssetSurface {
+    const canonicalApiId = canonicalApiIdFromProjectDeclaration(modulePath, ownerName, methodName, parameterTypes, returnType);
+    return {
+        surfaceId: `surface:${canonicalApiId}`,
+        kind: "invoke",
+        canonicalApiId,
+        evidence: {
+            arkanalyzer: {
+                methodKey: {
+                    declaringFileName: modulePath,
+                    declaringNamespacePath: [],
+                    declaringClassName: ownerName,
+                    methodName,
+                    parameterTypes,
+                    returnType,
+                    staticFlag: false,
+                },
+            },
+        },
+        confidence: "likely",
+        provenance: { source: "llm-proposal", location: { file: `${ownerName}.ets` } },
+    };
+}
+
+function retargetInvokeSurface(
+    surface: AssetSurface,
+    modulePath: string,
+    sourceFile?: string,
+): AssetSurface {
+    const methodKey = surface.evidence?.arkanalyzer?.methodKey;
+    if (!methodKey) {
+        throw new Error(`cannot retarget ${surface.surfaceId}: missing exact arkanalyzer methodKey`);
+    }
+    const canonicalApiId = canonicalApiIdFromProjectDeclaration(
+        modulePath,
+        methodKey.declaringClassName,
+        methodKey.methodName,
+        methodKey.parameterTypes,
+        methodKey.returnType,
+    );
+    return {
+        ...surface,
+        surfaceId: `surface:${canonicalApiId}`,
+        canonicalApiId,
+        evidence: {
+            arkanalyzer: {
+                methodKey: {
+                    ...methodKey,
+                    declaringFileName: modulePath,
+                },
+            },
+        },
+        provenance: {
+            ...(surface.provenance || {}),
+            source: surface.provenance.source,
+            location: sourceFile ? { file: sourceFile } : surface.provenance?.location,
+        },
+    };
+}
+
+function canonicalApiIdFromProjectDeclaration(
+    modulePath: string,
+    ownerName: string,
+    methodName: string,
+    parameterTypes: string[],
+    returnType: string,
+): string {
+    const result = fromProjectDeclaration({
+        domain: "local",
+        moduleSpecifier: modulePath,
+        logicalDeclarationFile: modulePath,
+        exportPath: [{ kind: "namespace", name: ownerName }],
+        declarationOwner: {
+            kind: "class",
+            path: [ownerName],
+            normalizedName: ownerName,
+            arkanalyzerName: ownerName,
+        },
+        member: { kind: "method", name: methodName, static: false },
+        invoke: { kind: "call" },
+        signature: {
+            parameters: parameterTypes.map((type, index) => ({ index, type: { text: type } })),
+            returnType: { text: returnType },
+        },
+        arkanalyzer: {
+            declaringFileName: modulePath,
+            declaringNamespacePath: [],
+            declaringClassName: ownerName,
+            methodName,
+            parameterTypes,
+            returnType,
+            staticFlag: false,
+        },
+        declarationLocations: [{ file: modulePath }],
+    });
+    if (result.status !== "accepted") {
+        throw new Error(`mock semanticflow canonical identity rejected for ${ownerName}.${methodName}: ${result.reason}`);
+    }
+    return result.descriptor.canonicalApiId;
 }

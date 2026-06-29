@@ -158,6 +158,7 @@ interface DirectCallbackBridgeInternalModuleLoweringIR {
     type: "direct_callback_bridge";
     surface: ModuleInvokeSurfaceSelector;
     source: Extract<ModuleNodeSlotSelector, { kind: "arg" | "base" | "result" }>;
+    sourceGuard?: Extract<ModuleNodeSlotSelector, { kind: "arg" | "base" | "result" }>;
     target: Extract<ModuleNodeSlotSelector, { kind: "callback_param" }>;
     deferredBinding?: ModuleImperativeDeferredBindingSpec;
     emit?: ModuleBridgeEmitSpec;
@@ -170,6 +171,7 @@ interface DirectNodeBridgeInternalModuleLoweringIR {
     type: "direct_node_bridge";
     surface: ModuleInvokeSurfaceSelector;
     source: Extract<ModuleNodeSlotSelector, { kind: "arg" | "base" | "result" }>;
+    sourceGuard?: Extract<ModuleNodeSlotSelector, { kind: "arg" | "base" | "result" }>;
     target: Extract<ModuleNodeSlotSelector, { kind: "arg" | "base" | "result" }>;
     emit?: ModuleBridgeEmitSpec;
 }
@@ -321,7 +323,6 @@ interface DecoratedFieldMetaAddressKeySpec {
     kind: "decorated_field_meta";
     surface: ModuleDecoratedFieldSurfaceSelector;
     source: ModuleDecoratedFieldAddressSource;
-    decoratorKind?: string;
 }
 
 type AddressKeySpec =
@@ -620,34 +621,7 @@ function resolveBridgeSourceNodeIds(
     call: ModuleScannedInvoke,
     selector: Extract<ModuleNodeSlotSelector, { kind: "arg" | "base" | "result" }>,
 ): number[] {
-    const out = new Set<number>(resolveInvokeNodeIds(call, selector));
-    switch (selector.kind) {
-        case "arg":
-            for (const nodeId of call.argCarrierNodeIds(selector.index)) {
-                out.add(nodeId);
-            }
-            for (const nodeId of call.argObjectNodeIds(selector.index)) {
-                out.add(nodeId);
-            }
-            break;
-        case "base":
-            for (const nodeId of call.baseCarrierNodeIds()) {
-                out.add(nodeId);
-            }
-            for (const nodeId of call.baseObjectNodeIds()) {
-                out.add(nodeId);
-            }
-            break;
-        case "result":
-            for (const nodeId of call.resultCarrierNodeIds()) {
-                out.add(nodeId);
-            }
-            for (const nodeId of call.resultNodeIds()) {
-                out.add(nodeId);
-            }
-            break;
-    }
-    return [...out.values()];
+    return call.semanticEndpointNodeIds(selector);
 }
 
 function hasIntersection(left: Iterable<number>, right: Iterable<number>): boolean {
@@ -731,84 +705,22 @@ function toDeferredBindingOptions(spec: ModuleImperativeDeferredBindingSpec): {
 function matchesInvokeSurface(
     surface: ModuleInvokeSurfaceSelector,
     call: {
-        signature: string;
-        methodName: string;
-        declaringClassName: string;
-        baseLocalName?: string;
-        argCount: number;
-        isInstanceInvoke?: boolean;
+        canonicalApiId?: string;
     },
 ): boolean {
-    if (surface.methodName && surface.methodName !== call.methodName) return false;
-    if (surface.modulePath && !modulePathMatchesSignature(surface.modulePath, call.signature)) return false;
-    if (surface.declaringClassName && surface.declaringClassName !== call.declaringClassName) return false;
-    if (surface.declaringClassIncludes && !call.declaringClassName.includes(surface.declaringClassIncludes)) return false;
-    if (surface.baseLocalName && surface.baseLocalName !== call.baseLocalName) return false;
-    if (surface.baseLocalNames && surface.baseLocalNames.length > 0) {
-        if (!call.baseLocalName || !surface.baseLocalNames.includes(call.baseLocalName)) return false;
-    }
-    if (surface.signature && surface.signature !== call.signature) return false;
-    if (surface.signatureIncludes && !call.signature.includes(surface.signatureIncludes)) return false;
-    if (surface.argCount !== undefined && call.argCount !== surface.argCount) return false;
-    if (surface.minArgs !== undefined && call.argCount < surface.minArgs) return false;
-    if (surface.instanceOnly && call.isInstanceInvoke === false) return false;
-    if (surface.staticOnly && call.isInstanceInvoke === true) return false;
-    return true;
-}
-
-function modulePathMatchesSignature(modulePath: string, signature: string): boolean {
-    const expected = normalizeModulePathForSelector(modulePath);
-    const match = String(signature || "").match(/@([^:>]+):/);
-    const actual = normalizeModulePathForSelector(match?.[1] || "");
-    const expectedSource = normalizeArkTsSourceSuffix(expected);
-    const actualSource = normalizeArkTsSourceSuffix(actual);
-    return !!expected
-        && !!actual
-        && (
-            actual === expected
-            || actual.endsWith(`/${expected}`)
-            || expected.endsWith(`/${actual}`)
-            || (!!expectedSource && !!actualSource && expectedSource === actualSource)
-        );
-}
-
-function normalizeModulePathForSelector(pathValue: string): string {
-    return String(pathValue || "")
-        .replace(/^@/, "")
-        .replace(/\\/g, "/")
-        .replace(/^\/+|\/+$/g, "")
-        .toLowerCase();
-}
-
-function normalizeArkTsSourceSuffix(pathValue: string): string | undefined {
-    const normalized = normalizeModulePathForSelector(pathValue);
-    if (!normalized) return undefined;
-    const markers = [
-        "/src/main/ets/",
-        "/src/ohostest/ets/",
-        "/src/test/ets/",
-        "/ets/",
-    ];
-    for (const marker of markers) {
-        const index = normalized.lastIndexOf(marker);
-        if (index >= 0) {
-            return normalized.slice(index + marker.length);
-        }
-    }
-    if (normalized.startsWith("ets/")) {
-        return normalized.slice("ets/".length);
-    }
-    return undefined;
+    const canonicalApiId = String(surface.canonicalApiId || "").trim();
+    return !!canonicalApiId && call.canonicalApiId === canonicalApiId;
 }
 
 function matchesEventInvokeSurface(surface: ModuleInvokeSurfaceSelector, event: ModuleInvokeEvent): boolean {
     return matchesInvokeSurface(surface, {
-        signature: event.call.signature,
-        methodName: event.call.methodName,
-        declaringClassName: event.call.declaringClassName,
-        argCount: event.call.argCount,
-        isInstanceInvoke: event.raw.baseValue !== undefined,
+        canonicalApiId: event.call.canonicalApiId,
     });
+}
+
+function canonicalApiIdsFromInvokeSurface(surface: ModuleInvokeSurfaceSelector): Set<string> {
+    const canonicalApiId = String(surface.canonicalApiId || "").trim();
+    return canonicalApiId ? new Set([canonicalApiId]) : new Set();
 }
 
 function matchesInvokeFactSlot(event: ModuleInvokeEvent, selector: ModuleInvokeValueSlotSelector): boolean {
@@ -826,15 +738,9 @@ function matchesMethodSelector(
     selector: ModuleMethodSelector,
     method: {
         signature: string;
-        methodName: string;
-        declaringClassName: string;
     },
 ): boolean {
-    if (selector.methodSignature && selector.methodSignature !== method.signature) return false;
-    if (selector.methodName && selector.methodName !== method.methodName) return false;
-    if (selector.declaringClassName && selector.declaringClassName !== method.declaringClassName) return false;
-    if (selector.declaringClassIncludes && !method.declaringClassName.includes(selector.declaringClassIncludes)) return false;
-    return true;
+    return !!selector.methodSignature && selector.methodSignature === method.signature;
 }
 
 function resolveMethodMeta(method: any): {
@@ -1003,14 +909,8 @@ function resolveCarrierSetNodeIds(ctx: any, selector: ModuleCarrierSetSelector):
         case "method_this":
             for (const method of ctx.methods.all()) {
                 const signature = method?.getSignature?.()?.toString?.() || "";
-                const methodName = method?.getName?.() || "";
-                const declaringClassName = method?.getDeclaringArkClass?.()?.getName?.()
-                    || method?.getSignature?.()?.getDeclaringClassSignature?.()?.getClassName?.()
-                    || "";
                 if (!matchesMethodSelector(selector.method, {
                     signature,
-                    methodName,
-                    declaringClassName,
                 })) {
                     continue;
                 }
@@ -1027,9 +927,6 @@ function resolveCarrierSetNodeIds(ctx: any, selector: ModuleCarrierSetSelector):
         case "method_param":
             for (const binding of ctx.scan.parameterBindings({
                 ownerMethodSignature: selector.method.methodSignature,
-                ownerMethodName: selector.method.methodName,
-                declaringClassName: selector.method.declaringClassName,
-                declaringClassIncludes: selector.method.declaringClassIncludes,
                 paramIndex: selector.paramIndex,
             })) {
                 for (const nodeId of binding.localObjectNodeIds()) {
@@ -1068,9 +965,6 @@ function resolveFieldLoadTargetNodeIds(
         const out = new Set<number>();
         for (const binding of ctx.scan.parameterBindings({
             ownerMethodSignature: target.method.methodSignature,
-            ownerMethodName: target.method.methodName,
-            declaringClassName: target.method.declaringClassName,
-            declaringClassIncludes: target.method.declaringClassIncludes,
             paramIndex: target.paramIndex,
         })) {
             for (const nodeId of binding.localNodeIds()) {
@@ -1092,9 +986,6 @@ function resolveFieldLoadTargetNodeIds(
         fieldName: target.fieldName,
         baseThisOnly: true,
         ownerMethodSignature: target.method.methodSignature,
-        ownerMethodName: target.method.methodName,
-        declaringClassName: target.method.declaringClassName,
-        declaringClassIncludes: target.method.declaringClassIncludes,
     };
     const out = new Set<number>();
     for (const load of ctx.scan.fieldLoads(filter)) {
@@ -1213,68 +1104,65 @@ function emitToCallbackTarget(
     if (!callbackValue) return undefined;
     const options = { allowUnreachableTarget };
     const explicitFieldPath = resolveExplicitFieldPath(event, target.fieldPath);
+    const targetNodeIds = event.callbacks.paramNodeIds(callbackValue, target.paramIndex, { maxCandidates: target.maxCandidates });
     if (boundary === "clone_copy") {
         switch (target.mode || "generic") {
             case "current_field_tail":
-                return event.callbacks.loadLikeCurrentFieldTailToParam(callbackValue, target.paramIndex, reason, options);
+                return event.emit.loadLikeCurrentFieldTailToNodes(targetNodeIds, reason, options);
             case "explicit_field":
-                return event.callbacks.loadLikeToParam(callbackValue, target.paramIndex, reason, explicitFieldPath || [], options);
+                return event.emit.loadLikeToNodes(targetNodeIds, reason, explicitFieldPath || [], options);
             case "load_like":
-                return event.callbacks.loadLikeToParam(callbackValue, target.paramIndex, reason, explicitFieldPath, options);
+                return event.emit.loadLikeToNodes(targetNodeIds, reason, explicitFieldPath, options);
             case "load_like_current_tail":
-                return event.callbacks.loadLikeCurrentFieldTailToParam(callbackValue, target.paramIndex, reason, options);
+                return event.emit.loadLikeCurrentFieldTailToNodes(targetNodeIds, reason, options);
             case "generic":
             case "preserve_current":
             default:
-                return event.callbacks.loadLikeToParam(callbackValue, target.paramIndex, reason, event.current.cloneField(), options);
+                return event.emit.loadLikeToNodes(targetNodeIds, reason, event.current.cloneField(), options);
         }
     }
     if (boundary === "stringify_result") {
         const collector = event.emit.collector();
-        collector.push(event.callbacks.toParam(callbackValue, target.paramIndex, reason, options));
+        collector.push(event.emit.toNodes(targetNodeIds, reason, options));
         switch (target.mode || "generic") {
             case "current_field_tail":
-                collector.push(event.callbacks.toCurrentFieldTailParam(callbackValue, target.paramIndex, reason, options));
+                collector.push(event.emit.toCurrentFieldTailNodes(targetNodeIds, reason, options));
                 break;
             case "explicit_field":
-                collector.push(event.callbacks.toFieldParam(callbackValue, target.paramIndex, explicitFieldPath || [], reason, options));
+                collector.push(event.emit.toFields(targetNodeIds, explicitFieldPath || [], reason, options));
                 break;
             case "load_like": {
-                const targetNodeIds = event.callbacks.paramNodeIds(callbackValue, target.paramIndex, { maxCandidates: target.maxCandidates });
                 collector.push(event.emit.loadLikeToNodes(targetNodeIds, reason, explicitFieldPath, options));
                 break;
             }
             case "load_like_current_tail": {
-                const targetNodeIds = event.callbacks.paramNodeIds(callbackValue, target.paramIndex, { maxCandidates: target.maxCandidates });
                 collector.push(event.emit.loadLikeCurrentFieldTailToNodes(targetNodeIds, reason, options));
                 break;
             }
             case "generic":
             case "preserve_current":
             default:
-                collector.push(event.callbacks.preserveToParam(callbackValue, target.paramIndex, reason, options));
+                collector.push(event.emit.preserveToNodes(targetNodeIds, reason, options));
                 break;
         }
         return collector.done();
     }
     switch (target.mode || "generic") {
         case "preserve_current":
-            return event.callbacks.preserveToParam(callbackValue, target.paramIndex, reason, options);
+            return event.emit.preserveToNodes(targetNodeIds, reason, options);
         case "current_field_tail":
-            return event.callbacks.toCurrentFieldTailParam(callbackValue, target.paramIndex, reason, options);
+            return event.emit.toCurrentFieldTailNodes(targetNodeIds, reason, options);
         case "explicit_field":
-            return event.callbacks.toFieldParam(callbackValue, target.paramIndex, explicitFieldPath || [], reason, options);
+            return event.emit.toFields(targetNodeIds, explicitFieldPath || [], reason, options);
         case "load_like": {
-            const targetNodeIds = event.callbacks.paramNodeIds(callbackValue, target.paramIndex, { maxCandidates: target.maxCandidates });
             return event.emit.loadLikeToNodes(targetNodeIds, reason, explicitFieldPath, options);
         }
         case "load_like_current_tail": {
-            const targetNodeIds = event.callbacks.paramNodeIds(callbackValue, target.paramIndex, { maxCandidates: target.maxCandidates });
             return event.emit.loadLikeCurrentFieldTailToNodes(targetNodeIds, reason, options);
         }
         case "generic":
         default:
-            return event.callbacks.toParam(callbackValue, target.paramIndex, reason, options);
+            return event.emit.toNodes(targetNodeIds, reason, options);
     }
 }
 
@@ -1340,15 +1228,9 @@ function resolveMethodBySignature(scene: any, signature: string): any | undefine
 }
 
 function resolveMethodBySelector(scene: any, selector: ModuleMethodSelector): any | undefined {
-    if (selector.methodSignature) {
-        return resolveMethodBySignature(scene, selector.methodSignature);
-    }
-    const matches = (scene?.getMethods?.() || [])
-        .filter((method: any) => matchesMethodSelector(selector, resolveMethodMeta(method)));
-    if (matches.length === 1) {
-        return matches[0];
-    }
-    return undefined;
+    return selector.methodSignature
+        ? resolveMethodBySignature(scene, selector.methodSignature)
+        : undefined;
 }
 
 function resolveAnchorStmt(ctx: any, spec: DeclarativeBindingInternalModuleLoweringIR, sourceMethod: any): any | undefined {
@@ -1363,18 +1245,9 @@ function resolveAnchorStmt(ctx: any, spec: DeclarativeBindingInternalModuleLower
     if (spec.anchor?.anchorInvoke) {
         for (const stmt of stmts) {
             if (!stmt?.containsInvokeExpr?.()) continue;
-            const invokeExpr = stmt.getInvokeExpr?.();
-            const signature = invokeExpr?.getMethodSignature?.()?.toString?.() || "";
-            const methodName = invokeExpr?.getMethodSignature?.()?.getMethodSubSignature?.()?.getMethodName?.() || "";
-            const declaringClassName = invokeExpr?.getMethodSignature?.()?.getDeclaringClassSignature?.()?.getClassName?.() || "";
-            const argCount = invokeExpr?.getArgs?.()?.length || 0;
-            const isInstanceInvoke = typeof invokeExpr?.getBase === "function";
+            const canonicalApiId = selectCanonicalApiIdForAnchorInvoke(ctx.raw, stmt, spec.anchor.anchorInvoke);
             if (matchesInvokeSurface(spec.anchor.anchorInvoke, {
-                signature,
-                methodName,
-                declaringClassName,
-                argCount,
-                isInstanceInvoke,
+                canonicalApiId,
             })) {
                 return stmt;
             }
@@ -1384,6 +1257,20 @@ function resolveAnchorStmt(ctx: any, spec: DeclarativeBindingInternalModuleLower
         return stmts[spec.anchor.stmtIndex];
     }
     return stmts[0];
+}
+
+function selectCanonicalApiIdForAnchorInvoke(
+    raw: { canonicalApiOccurrences?: Array<{ stmt: any; canonicalApiId: string }> } | undefined,
+    stmt: any,
+    surface: ModuleInvokeSurfaceSelector,
+): string | undefined {
+    const expected = canonicalApiIdsFromInvokeSurface(surface);
+    if (expected.size === 0) return undefined;
+    for (const occurrence of raw?.canonicalApiOccurrences || []) {
+        if (occurrence.stmt !== stmt) continue;
+        if (expected.has(occurrence.canonicalApiId)) return occurrence.canonicalApiId;
+    }
+    return undefined;
 }
 
 interface ResolvedDecoratedFieldFacts {
@@ -1417,8 +1304,6 @@ function ensureDecoratedFieldAddressBucket(
 function resolveDecoratedFieldAddressKeys(
     field: {
         fieldName: string;
-        decoratorKinds(): string[];
-        decoratorParams(kind: string): string[];
     },
     address: LiteralAddressKeySpec | DecoratedFieldMetaAddressKeySpec,
 ): string[] {
@@ -1429,22 +1314,7 @@ function resolveDecoratedFieldAddressKeys(
     if (address.source === "field_name") {
         return field.fieldName ? [field.fieldName] : [];
     }
-
-    const decoratorKinds = address.decoratorKind
-        ? [address.decoratorKind]
-        : field.decoratorKinds();
-    const params = [...new Set(
-        decoratorKinds
-            .flatMap(kind => field.decoratorParams(kind))
-            .map(item => String(item || "").trim())
-            .filter(Boolean),
-    )];
-    if (params.length > 0) {
-        return params;
-    }
-    if (address.source === "decorator_param_or_field_name" && field.fieldName) {
-        return [field.fieldName];
-    }
+    if (address.source === "decorator_param_or_field_name" && field.fieldName) return [field.fieldName];
     return [];
 }
 
@@ -1465,7 +1335,10 @@ function resolveDecoratedFieldFacts(
             continue;
         }
 
-        for (const method of ctx.methods.byClassName(field.className)) {
+        for (const method of ctx.methods.all()) {
+            if (resolveMethodMeta(method).declaringClassName !== field.className) {
+                continue;
+            }
             const thisLocal = resolveMethodThisLocal(method);
             if (!thisLocal) continue;
             for (const objectNodeId of ctx.analysis.objectNodeIdsForValue(thisLocal)) {
@@ -1630,7 +1503,9 @@ function compileKeyedBridgeModule(spec: KeyedBridgeInternalModuleLoweringIR): Ta
                 }
             }
 
-            const handoff = createHandoffPropagationSession(effects);
+            const handoff = createHandoffPropagationSession(effects, {
+                currentnessAnalysis: ctx.raw.currentnessAnalysis,
+            });
             return {
                 onFact(event) {
                     return handoff.emitForFact(event);
@@ -1760,7 +1635,9 @@ function compileScopedAddressedBridgeModule(spec: ScopedAddressedBridgeInternalM
                 }
             }
 
-            const handoff = createHandoffPropagationSession(effects);
+            const handoff = createHandoffPropagationSession(effects, {
+                currentnessAnalysis: ctx.raw.currentnessAnalysis,
+            });
             return {
                 onFact(event) {
                     return handoff.emitForFact(event);
@@ -1911,7 +1788,9 @@ function compileSemanticAddressedBridgeModule(spec: SemanticAddressedBridgeInter
                 }
             }
 
-            const handoff = createHandoffPropagationSession(effects);
+            const handoff = createHandoffPropagationSession(effects, {
+                currentnessAnalysis: ctx.raw.currentnessAnalysis,
+            });
             return {
                 onFact(event) {
                     return handoff.emitForFact(event);
@@ -1932,9 +1811,6 @@ function compileCrossMethodParamBridgeModule(spec: CrossMethodParamBridgeInterna
             const targetNodeIds = new Set<number>();
             for (const binding of ctx.scan.parameterBindings({
                 ownerMethodSignature: spec.targetMethod.methodSignature,
-                ownerMethodName: spec.targetMethod.methodName,
-                declaringClassName: spec.targetMethod.declaringClassName,
-                declaringClassIncludes: spec.targetMethod.declaringClassIncludes,
                 paramIndex: spec.targetParamIndex,
             })) {
                 for (const nodeId of binding.localNodeIds()) {
@@ -1976,6 +1852,9 @@ function compileDirectNodeBridgeModule(spec: DirectNodeBridgeInternalModuleLower
         setup(ctx) {
             const relay = ctx.bridge.nodeRelay();
             for (const call of ctx.scan.invokes({ ...spec.surface })) {
+                if (spec.sourceGuard && resolveBridgeSourceNodeIds(call, spec.sourceGuard).length === 0) {
+                    continue;
+                }
                 const sourceNodeIds = resolveBridgeSourceNodeIds(call, spec.source);
                 const targetNodeIds = resolveInvokeNodeIds(call, spec.target);
                 if (sourceNodeIds.length === 0) continue;
@@ -2000,12 +1879,44 @@ function compileDirectCallbackBridgeModule(spec: DirectCallbackBridgeInternalMod
         setup(ctx) {
             const relay = ctx.bridge.nodeRelay();
             for (const call of ctx.scan.invokes({ ...spec.surface })) {
-                const sourceNodeIds = resolveBridgeSourceNodeIds(call, spec.source);
-                const targetNodeIds = resolveInvokeNodeIds(call, spec.target);
-                if (sourceNodeIds.length === 0) continue;
-                if (targetNodeIds.length === 0) continue;
-                relay.connectMany(sourceNodeIds, targetNodeIds);
-                if (spec.deferredBinding?.kind === "imperative") {
+                if (spec.sourceGuard && resolveBridgeSourceNodeIds(call, spec.sourceGuard).length === 0) {
+                    continue;
+                }
+                let connected = false;
+                const sourceRest = spec.source.kind === "arg" && spec.source.rest === true;
+                const targetRest = spec.target.rest === true;
+                if (sourceRest || targetRest) {
+                    invariant(
+                        spec.source.kind === "arg" && sourceRest && targetRest,
+                        `module spec ${spec.id} rest callback bridge requires arg(rest) -> callback_param(rest)`,
+                    );
+                    const startArgIndex = spec.source.index;
+                    const startParamIndex = spec.target.paramIndex;
+                    const argCount = call.args().length;
+                    for (let offset = 0; startArgIndex + offset < argCount; offset++) {
+                        const sourceNodeIds = resolveInvokeNodeIds(call, {
+                            ...spec.source,
+                            index: startArgIndex + offset,
+                            rest: false,
+                        });
+                        const targetNodeIds = resolveInvokeNodeIds(call, {
+                            ...spec.target,
+                            paramIndex: startParamIndex + offset,
+                            rest: false,
+                        });
+                        if (sourceNodeIds.length === 0 || targetNodeIds.length === 0) continue;
+                        relay.connectMany(sourceNodeIds, targetNodeIds);
+                        connected = true;
+                    }
+                } else {
+                    const sourceNodeIds = resolveBridgeSourceNodeIds(call, spec.source);
+                    const targetNodeIds = resolveInvokeNodeIds(call, spec.target);
+                    if (sourceNodeIds.length === 0) continue;
+                    if (targetNodeIds.length === 0) continue;
+                    relay.connectMany(sourceNodeIds, targetNodeIds);
+                    connected = true;
+                }
+                if (connected && spec.deferredBinding?.kind === "imperative") {
                     ctx.deferred.imperativeFromInvoke(
                         call,
                         spec.deferredBinding.callbackArgIndex,
@@ -2097,8 +2008,6 @@ function compileMethodFieldWriteModule(spec: MethodFieldWriteInternalModuleLower
                 const meta = resolveMethodMeta(method);
                 if (!matchesMethodSelector(spec.method, {
                     signature: meta.signature,
-                    methodName: meta.methodName,
-                    declaringClassName: meta.declaringClassName,
                 })) {
                     continue;
                 }
@@ -2484,7 +2393,6 @@ function resolveAddressSpec(
             kind: "decorated_field_meta",
             surface: { ...surface.selector },
             source: transfer.addressMeta!.source,
-            decoratorKind: transfer.addressMeta!.decoratorKind,
         };
     }
     const addressPort = requirePort(index, spec, transfer.addressFrom!);
@@ -2557,7 +2465,7 @@ function toInvokeValueSelector(
 function toNodeSlotSelector(port: ModulePort): ModuleNodeSlotSelector {
     switch (port.kind) {
         case "invoke_arg":
-            return { kind: "arg", index: port.index, nodeKind: port.nodeKind };
+            return { kind: "arg", index: port.index, nodeKind: port.nodeKind, rest: port.rest === true };
         case "invoke_base":
             return { kind: "base", nodeKind: port.nodeKind };
         case "invoke_result":
@@ -2568,6 +2476,7 @@ function toNodeSlotSelector(port: ModulePort): ModuleNodeSlotSelector {
                 callbackArgIndex: port.callbackArgIndex,
                 paramIndex: port.paramIndex,
                 maxCandidates: port.maxCandidates,
+                rest: port.rest === true,
             };
         default:
             invariant(false, `unsupported node slot port kind ${(port as any)?.kind}`);
@@ -2729,13 +2638,27 @@ function lowerPortToPortTransfer(
 ): LoweredInternalModuleLoweringIR {
     const fromPort = requirePort(index, spec, transfer.fromPort);
     const toPort = requirePort(index, spec, transfer.toPort);
+    const sourceGuardPort = transfer.sourceGuardPort
+        ? requirePort(index, spec, transfer.sourceGuardPort)
+        : undefined;
     const fromSurface = requireInvokeSurfaceForPort(index, spec, fromPort);
     const toInvokeSurface = toPort.kind === "method_param"
         ? undefined
         : requireInvokeSurfaceForPort(index, spec, toPort);
+    if (sourceGuardPort) {
+        invariant(isInvokeValuePort(sourceGuardPort), `module spec ${spec.id} transfer '${transfer.id}' source guard must be invoke_arg/base/result`);
+        const guardSurface = requireInvokeSurfaceForPort(index, spec, sourceGuardPort);
+        invariant(guardSurface.id === fromSurface.id, `module spec ${spec.id} transfer '${transfer.id}' source guard must share source invoke surface`);
+    }
 
     if (transfer.association) {
         invariant(!!toInvokeSurface, `module spec ${spec.id} transfer '${transfer.id}' association-based bridge requires invoke-surface target`);
+        invariant(
+            !(fromPort.kind === "invoke_arg" && fromPort.rest === true)
+                && !(toPort.kind === "callback_param" && toPort.rest === true)
+                && !(toPort.kind === "invoke_arg" && toPort.rest === true),
+            `module spec ${spec.id} transfer '${transfer.id}' rest ports are only supported for direct callback bridges`,
+        );
         const association = requireAssociation(index, spec, transfer.association);
         invariant(association.kind === "same_carrier", `module spec ${spec.id} transfer '${transfer.id}' only supports same_carrier association`);
         const leftCarrierPort = requirePort(index, spec, association.leftPort);
@@ -2767,6 +2690,12 @@ function lowerPortToPortTransfer(
     if (toPort.kind === "callback_param") {
         invariant(!!toInvokeSurface && fromSurface.id === toInvokeSurface.id, `module spec ${spec.id} transfer '${transfer.id}' callback target without association must share one invoke surface`);
         invariant(isInvokeValuePort(fromPort), `module spec ${spec.id} transfer '${transfer.id}' callback source must be invoke_arg/base/result`);
+        const sourceRest = fromPort.kind === "invoke_arg" && fromPort.rest === true;
+        const targetRest = toPort.rest === true;
+        invariant(
+            sourceRest === targetRest,
+            `module spec ${spec.id} transfer '${transfer.id}' rest callback bridge must mark both source arg and target callback_param as rest`,
+        );
         return {
             id: buildLoweredModuleId(spec.id, `transfer.${transfer.id}`),
             description: `${spec.description} [${transfer.id}]`,
@@ -2774,6 +2703,9 @@ function lowerPortToPortTransfer(
             type: "direct_callback_bridge",
             surface: { ...fromSurface.selector },
             source: toNodeSlotSelector(fromPort) as Extract<ModuleNodeSlotSelector, { kind: "arg" | "base" | "result" }>,
+            sourceGuard: sourceGuardPort
+                ? toNodeSlotSelector(sourceGuardPort) as Extract<ModuleNodeSlotSelector, { kind: "arg" | "base" | "result" }>
+                : undefined,
             target: toNodeSlotSelector(toPort) as Extract<ModuleNodeSlotSelector, { kind: "callback_param" }>,
             deferredBinding: toDeferredBindingSpec(index, spec, toPort),
             emit: buildBridgeEmitSpec(spec, transfer, "direct_callback_bridge"),
@@ -2782,6 +2714,10 @@ function lowerPortToPortTransfer(
 
     if (toPort.kind === "method_param") {
         invariant(isInvokeValuePort(fromPort), `module spec ${spec.id} transfer '${transfer.id}' method_param source must be invoke_arg/base/result`);
+        invariant(
+            !(fromPort.kind === "invoke_arg" && fromPort.rest === true),
+            `module spec ${spec.id} transfer '${transfer.id}' rest source is only supported for callback_param targets`,
+        );
         const targetSurface = requireMethodSurfaceForPort(index, spec, toPort);
         return {
             id: buildLoweredModuleId(spec.id, `transfer.${transfer.id}`),
@@ -2799,6 +2735,11 @@ function lowerPortToPortTransfer(
     invariant(!!toInvokeSurface && fromSurface.id === toInvokeSurface.id, `module spec ${spec.id} transfer '${transfer.id}' direct invoke transfer must stay within one invoke surface`);
     invariant(isInvokeValuePort(fromPort), `module spec ${spec.id} transfer '${transfer.id}' source must be invoke_arg/base/result`);
     invariant(isInvokeValuePort(toPort), `module spec ${spec.id} transfer '${transfer.id}' target must be invoke_arg/base/result`);
+    invariant(
+        !(fromPort.kind === "invoke_arg" && fromPort.rest === true)
+            && !(toPort.kind === "invoke_arg" && toPort.rest === true),
+        `module spec ${spec.id} transfer '${transfer.id}' rest ports are only supported for callback_param targets`,
+    );
     return {
         id: buildLoweredModuleId(spec.id, `transfer.${transfer.id}`),
         description: `${spec.description} [${transfer.id}]`,
@@ -2806,6 +2747,9 @@ function lowerPortToPortTransfer(
         type: "direct_node_bridge",
         surface: { ...fromSurface.selector },
         source: toNodeSlotSelector(fromPort) as Extract<ModuleNodeSlotSelector, { kind: "arg" | "base" | "result" }>,
+        sourceGuard: sourceGuardPort
+            ? toNodeSlotSelector(sourceGuardPort) as Extract<ModuleNodeSlotSelector, { kind: "arg" | "base" | "result" }>
+            : undefined,
         target: toNodeSlotSelector(toPort) as Extract<ModuleNodeSlotSelector, { kind: "arg" | "base" | "result" }>,
         emit: buildBridgeEmitSpec(spec, transfer, "direct_node_bridge"),
     };
@@ -3206,7 +3150,7 @@ function ensureSemanticSurface(
     surfaceIds: Set<string>,
     semanticId: string,
     label: string,
-    surfaceRef: ModuleSemanticSurfaceRef | string,
+    surfaceRef: ModuleSemanticSurfaceRef,
 ): string {
     const normalizedSurfaceRef = normalizeSurfaceRef(surfaceRef);
     const existing = (spec.surfaces || []).find(surface => {
@@ -3294,6 +3238,7 @@ function toRecipeEndpointFromSemantic(
                 kind: "invoke_arg",
                 index: endpoint.index,
                 nodeKind: valueNodeKind,
+                rest: endpoint.rest === true,
                 fieldPath: cloneFieldPathSpec(endpoint.fieldPath),
             };
         case "base":
@@ -3317,6 +3262,7 @@ function toRecipeEndpointFromSemantic(
                 callbackArgIndex: endpoint.callbackArgIndex ?? 0,
                 paramIndex: endpoint.paramIndex ?? 0,
                 maxCandidates: 8,
+                rest: endpoint.rest === true,
                 fieldPath: cloneFieldPathSpec(endpoint.fieldPath),
             };
         case "method_this":
@@ -3378,7 +3324,6 @@ function toRecipeAddressFromSemantic(
                     selector: address.surface,
                 }),
                 source: address.source,
-                decoratorKind: address.decoratorKind,
             };
     }
 }
@@ -3427,6 +3372,7 @@ function buildRecipePort(
                 surface: endpoint.surface,
                 index: endpoint.index,
                 nodeKind: endpoint.nodeKind,
+                rest: endpoint.rest === true,
             };
         case "invoke_base":
             return {
@@ -3450,6 +3396,7 @@ function buildRecipePort(
                 callbackArgIndex: endpoint.callbackArgIndex,
                 paramIndex: endpoint.paramIndex,
                 maxCandidates: endpoint.maxCandidates,
+                rest: endpoint.rest === true,
             };
         case "method_this":
             return {
@@ -3527,7 +3474,6 @@ function applyRecipeAddress(
             kind: "decorated_field_meta",
             surface: address.surface,
             source: address.source,
-            decoratorKind: address.decoratorKind,
         };
         return;
     }
@@ -3643,11 +3589,15 @@ function expandDirectBridgeRecipe(
 ): void {
     const fromPort = addRecipeEndpointPort(spec, surfaceIds, ports, seenPortIds, recipe.id, "from", recipe.from);
     const toPort = addRecipeEndpointPort(spec, surfaceIds, ports, seenPortIds, recipe.id, "to", recipe.to);
+    const sourceGuardPort = recipe.sourceGuard
+        ? addRecipeEndpointPort(spec, surfaceIds, ports, seenPortIds, recipe.id, "sourceGuard", recipe.sourceGuard)
+        : undefined;
     pushUniqueById(transfers, seenTransferIds, {
         id: `${recipe.id}.transfer`,
         kind: "port_to_port",
         fromPort,
         toPort,
+        ...(sourceGuardPort ? { sourceGuardPort } : {}),
         ...buildRecipeTransferBase(recipe.id, recipe.emit),
     }, "transfer", spec.id);
     addRecipeCallbackTrigger(spec, surfaceIds, ports, triggers, seenPortIds, seenTriggerIds, recipe.id, recipe.trigger, toPort);
@@ -4047,6 +3997,9 @@ function expandBridgeSemantic(
             kind: "direct_bridge",
             from,
             to,
+            sourceGuard: semantic.sourceGuard
+                ? toRecipeEndpointFromSemantic(spec, surfaceIds, semantic.id, "sourceGuard", semantic.sourceGuard)
+                : undefined,
             emit: semantic.emit,
             trigger: toRecipeTriggerFromDispatch(spec, surfaceIds, semantic.id, semantic.dispatch),
         },

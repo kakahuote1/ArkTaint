@@ -4,49 +4,310 @@
   "status": "official",
   "surfaces": [
     {
-      "surfaceId": "surface.source.harmony_emitter.entry_param",
-      "kind": "access",
-      "modulePath": "@arktaint/local",
-      "ownerName": "LocalBinding",
-      "propertyName": "source.harmony_emitter.entry_param",
-      "accessKind": "read",
-      "receiverKind": "namespace",
-      "confidence": "likely",
+      "surfaceId": "surface.source.harmony_emitter.entry_param.method.emitter_emit_alias_002_T.method.emitter_emit_alias_002_T.method.emitter_emit_alias_002_T.method.emitter_emit_alias_002_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_emitter%2Femitter_emit_alias_002_T.ets:file=harmony_emitter%2Femitter_emit_alias_002_T.ets:export=entry%3Acomponent.emitter_emit_alias_002_T:decl=entry%3Acomponent.emitter_emit_alias_002_T:member=lifecycle%3Atest.case.emitter_emit_alias_002_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "harmony_emitter/emitter_emit_alias_002_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_emitter/emitter_emit_alias_002_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "emitter_emit_alias_002_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony_emitter.entry_param.method.emitter_emit_multi_003_T.method.emitter_emit_multi_003_T.method.emitter_emit_multi_003_T.method.emitter_emit_multi_003_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_emitter%2Femitter_emit_multi_003_T.ets:file=harmony_emitter%2Femitter_emit_multi_003_T.ets:export=entry%3Acomponent.emitter_emit_multi_003_T:decl=entry%3Acomponent.emitter_emit_multi_003_T:member=lifecycle%3Atest.case.emitter_emit_multi_003_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_emitter/emitter_emit_multi_003_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_emitter/emitter_emit_multi_003_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "emitter_emit_multi_003_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony_emitter.entry_param.method.emitter_emit_nested_004_T.method.emitter_emit_nested_004_T.method.emitter_emit_nested_004_T.method.emitter_emit_nested_004_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_emitter%2Femitter_emit_nested_004_T.ets:file=harmony_emitter%2Femitter_emit_nested_004_T.ets:export=entry%3Acomponent.emitter_emit_nested_004_T:decl=entry%3Acomponent.emitter_emit_nested_004_T:member=lifecycle%3Atest.case.emitter_emit_nested_004_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_emitter/emitter_emit_nested_004_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_emitter/emitter_emit_nested_004_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "emitter_emit_nested_004_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony_emitter.entry_param.method.emitter_emit_on_001_T.method.emitter_emit_on_001_T.method.emitter_emit_on_001_T.method.emitter_emit_on_001_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_emitter%2Femitter_emit_on_001_T.ets:file=harmony_emitter%2Femitter_emit_on_001_T.ets:export=entry%3Acomponent.emitter_emit_on_001_T:decl=entry%3Acomponent.emitter_emit_on_001_T:member=lifecycle%3Atest.case.emitter_emit_on_001_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_emitter/emitter_emit_on_001_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_emitter/emitter_emit_on_001_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "emitter_emit_on_001_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony_emitter.entry_param.method.emitter_unrelated_sink_007_F.method.emitter_unrelated_sink_007_F.method.emitter_unrelated_sink_007_F.method.emitter_unrelated_sink_007_F",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_emitter%2Femitter_unrelated_sink_007_F.ets:file=harmony_emitter%2Femitter_unrelated_sink_007_F.ets:export=entry%3Acomponent.emitter_unrelated_sink_007_F:decl=entry%3Acomponent.emitter_unrelated_sink_007_F:member=lifecycle%3Atest.case.emitter_unrelated_sink_007_F:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_emitter/emitter_unrelated_sink_007_F.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_emitter/emitter_unrelated_sink_007_F.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "emitter_unrelated_sink_007_F",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony_emitter.entry_param.method.emitter_wrong_event_005_F.method.emitter_wrong_event_005_F.method.emitter_wrong_event_005_F.method.emitter_wrong_event_005_F",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_emitter%2Femitter_wrong_event_005_F.ets:file=harmony_emitter%2Femitter_wrong_event_005_F.ets:export=entry%3Acomponent.emitter_wrong_event_005_F:decl=entry%3Acomponent.emitter_wrong_event_005_F:member=lifecycle%3Atest.case.emitter_wrong_event_005_F:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_emitter/emitter_wrong_event_005_F.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_emitter/emitter_wrong_event_005_F.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "emitter_wrong_event_005_F",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony_emitter.entry_param.method.eventhub_context_008_T.method.eventhub_context_008_T.method.eventhub_context_008_T.method.eventhub_context_008_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_emitter%2Feventhub_context_008_T.ets:file=harmony_emitter%2Feventhub_context_008_T.ets:export=entry%3Acomponent.eventhub_context_008_T:decl=entry%3Acomponent.eventhub_context_008_T:member=lifecycle%3Atest.case.eventhub_context_008_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_emitter/eventhub_context_008_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_emitter/eventhub_context_008_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "eventhub_context_008_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony_emitter.entry_param.method.eventhub_context_009_F.method.eventhub_context_009_F.method.eventhub_context_009_F.method.eventhub_context_009_F",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_emitter%2Feventhub_context_009_F.ets:file=harmony_emitter%2Feventhub_context_009_F.ets:export=entry%3Acomponent.eventhub_context_009_F:decl=entry%3Acomponent.eventhub_context_009_F:member=lifecycle%3Atest.case.eventhub_context_009_F:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_emitter/eventhub_context_009_F.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_emitter/eventhub_context_009_F.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "eventhub_context_009_F",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony_emitter.entry_param.method.eventhub_external_010_T.method.eventhub_external_010_T.method.eventhub_external_010_T.method.eventhub_external_010_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_emitter%2Feventhub_external_010_T.ets:file=harmony_emitter%2Feventhub_external_010_T.ets:export=entry%3Acomponent.eventhub_external_010_T:decl=entry%3Acomponent.eventhub_external_010_T:member=lifecycle%3Atest.case.eventhub_external_010_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_emitter/eventhub_external_010_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_emitter/eventhub_external_010_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "eventhub_external_010_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony_emitter.entry_param.method.eventhub_external_011_F.method.eventhub_external_011_F.method.eventhub_external_011_F.method.eventhub_external_011_F",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_emitter%2Feventhub_external_011_F.ets:file=harmony_emitter%2Feventhub_external_011_F.ets:export=entry%3Acomponent.eventhub_external_011_F:decl=entry%3Acomponent.eventhub_external_011_F:member=lifecycle%3Atest.case.eventhub_external_011_F:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_emitter/eventhub_external_011_F.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_emitter/eventhub_external_011_F.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "eventhub_external_011_F",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
       }
     },
     {
       "surfaceId": "surface.sink.harmony_emitter.mock_sink",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "Sink",
-      "invokeKind": "static",
-      "argCount": 1,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "harmony_emitter/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=harmony_emitter%2Ftaint_mock.ts:file=harmony_emitter%2Ftaint_mock.ts:export=namespace%3Ataint.%25dflt:decl=namespace%3Ataint.%25dflt:member=function%3ASink:invoke=call:params=0%3Aany:ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_emitter/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "taint.%dflt",
+            "methodName": "Sink",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "void",
+            "staticFlag": true
+          }
+        }
       }
     }
   ],
   "bindings": [
     {
       "bindingId": "binding.source.harmony_emitter.entry_param.0.method.emitter_emit_alias_002_T",
-      "surfaceId": "surface.source.harmony_emitter.entry_param",
+      "surfaceId": "surface.source.harmony_emitter.entry_param.method.emitter_emit_alias_002_T.method.emitter_emit_alias_002_T.method.emitter_emit_alias_002_T.method.emitter_emit_alias_002_T",
       "assetId": "asset.rule.test.harmony_emitter",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "emitter_emit_alias_002_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "emitter_emit_alias_002_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -57,25 +318,16 @@
         "template.source.harmony_emitter.entry_param.for.source.harmony_emitter.entry_param.0.method.emitter_emit_alias_002_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_emitter%2Femitter_emit_alias_002_T.ets:file=harmony_emitter%2Femitter_emit_alias_002_T.ets:export=entry%3Acomponent.emitter_emit_alias_002_T:decl=entry%3Acomponent.emitter_emit_alias_002_T:member=lifecycle%3Atest.case.emitter_emit_alias_002_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony_emitter.entry_param.0.method.emitter_emit_multi_003_T",
-      "surfaceId": "surface.source.harmony_emitter.entry_param",
+      "surfaceId": "surface.source.harmony_emitter.entry_param.method.emitter_emit_multi_003_T.method.emitter_emit_multi_003_T.method.emitter_emit_multi_003_T.method.emitter_emit_multi_003_T",
       "assetId": "asset.rule.test.harmony_emitter",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "emitter_emit_multi_003_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "emitter_emit_multi_003_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -86,25 +338,16 @@
         "template.source.harmony_emitter.entry_param.for.source.harmony_emitter.entry_param.0.method.emitter_emit_multi_003_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_emitter%2Femitter_emit_multi_003_T.ets:file=harmony_emitter%2Femitter_emit_multi_003_T.ets:export=entry%3Acomponent.emitter_emit_multi_003_T:decl=entry%3Acomponent.emitter_emit_multi_003_T:member=lifecycle%3Atest.case.emitter_emit_multi_003_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony_emitter.entry_param.0.method.emitter_emit_nested_004_T",
-      "surfaceId": "surface.source.harmony_emitter.entry_param",
+      "surfaceId": "surface.source.harmony_emitter.entry_param.method.emitter_emit_nested_004_T.method.emitter_emit_nested_004_T.method.emitter_emit_nested_004_T.method.emitter_emit_nested_004_T",
       "assetId": "asset.rule.test.harmony_emitter",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "emitter_emit_nested_004_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "emitter_emit_nested_004_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -115,25 +358,16 @@
         "template.source.harmony_emitter.entry_param.for.source.harmony_emitter.entry_param.0.method.emitter_emit_nested_004_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_emitter%2Femitter_emit_nested_004_T.ets:file=harmony_emitter%2Femitter_emit_nested_004_T.ets:export=entry%3Acomponent.emitter_emit_nested_004_T:decl=entry%3Acomponent.emitter_emit_nested_004_T:member=lifecycle%3Atest.case.emitter_emit_nested_004_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony_emitter.entry_param.0.method.emitter_emit_on_001_T",
-      "surfaceId": "surface.source.harmony_emitter.entry_param",
+      "surfaceId": "surface.source.harmony_emitter.entry_param.method.emitter_emit_on_001_T.method.emitter_emit_on_001_T.method.emitter_emit_on_001_T.method.emitter_emit_on_001_T",
       "assetId": "asset.rule.test.harmony_emitter",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "emitter_emit_on_001_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "emitter_emit_on_001_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -144,25 +378,16 @@
         "template.source.harmony_emitter.entry_param.for.source.harmony_emitter.entry_param.0.method.emitter_emit_on_001_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_emitter%2Femitter_emit_on_001_T.ets:file=harmony_emitter%2Femitter_emit_on_001_T.ets:export=entry%3Acomponent.emitter_emit_on_001_T:decl=entry%3Acomponent.emitter_emit_on_001_T:member=lifecycle%3Atest.case.emitter_emit_on_001_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony_emitter.entry_param.0.method.emitter_unrelated_sink_007_F",
-      "surfaceId": "surface.source.harmony_emitter.entry_param",
+      "surfaceId": "surface.source.harmony_emitter.entry_param.method.emitter_unrelated_sink_007_F.method.emitter_unrelated_sink_007_F.method.emitter_unrelated_sink_007_F.method.emitter_unrelated_sink_007_F",
       "assetId": "asset.rule.test.harmony_emitter",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "emitter_unrelated_sink_007_F",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "emitter_unrelated_sink_007_F.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -173,25 +398,16 @@
         "template.source.harmony_emitter.entry_param.for.source.harmony_emitter.entry_param.0.method.emitter_unrelated_sink_007_F"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_emitter%2Femitter_unrelated_sink_007_F.ets:file=harmony_emitter%2Femitter_unrelated_sink_007_F.ets:export=entry%3Acomponent.emitter_unrelated_sink_007_F:decl=entry%3Acomponent.emitter_unrelated_sink_007_F:member=lifecycle%3Atest.case.emitter_unrelated_sink_007_F:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony_emitter.entry_param.0.method.emitter_wrong_event_005_F",
-      "surfaceId": "surface.source.harmony_emitter.entry_param",
+      "surfaceId": "surface.source.harmony_emitter.entry_param.method.emitter_wrong_event_005_F.method.emitter_wrong_event_005_F.method.emitter_wrong_event_005_F.method.emitter_wrong_event_005_F",
       "assetId": "asset.rule.test.harmony_emitter",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "emitter_wrong_event_005_F",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "emitter_wrong_event_005_F.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -202,25 +418,16 @@
         "template.source.harmony_emitter.entry_param.for.source.harmony_emitter.entry_param.0.method.emitter_wrong_event_005_F"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_emitter%2Femitter_wrong_event_005_F.ets:file=harmony_emitter%2Femitter_wrong_event_005_F.ets:export=entry%3Acomponent.emitter_wrong_event_005_F:decl=entry%3Acomponent.emitter_wrong_event_005_F:member=lifecycle%3Atest.case.emitter_wrong_event_005_F:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony_emitter.entry_param.0.method.eventhub_context_008_T",
-      "surfaceId": "surface.source.harmony_emitter.entry_param",
+      "surfaceId": "surface.source.harmony_emitter.entry_param.method.eventhub_context_008_T.method.eventhub_context_008_T.method.eventhub_context_008_T.method.eventhub_context_008_T",
       "assetId": "asset.rule.test.harmony_emitter",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "eventhub_context_008_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "eventhub_context_008_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -231,25 +438,16 @@
         "template.source.harmony_emitter.entry_param.for.source.harmony_emitter.entry_param.0.method.eventhub_context_008_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_emitter%2Feventhub_context_008_T.ets:file=harmony_emitter%2Feventhub_context_008_T.ets:export=entry%3Acomponent.eventhub_context_008_T:decl=entry%3Acomponent.eventhub_context_008_T:member=lifecycle%3Atest.case.eventhub_context_008_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony_emitter.entry_param.0.method.eventhub_context_009_F",
-      "surfaceId": "surface.source.harmony_emitter.entry_param",
+      "surfaceId": "surface.source.harmony_emitter.entry_param.method.eventhub_context_009_F.method.eventhub_context_009_F.method.eventhub_context_009_F.method.eventhub_context_009_F",
       "assetId": "asset.rule.test.harmony_emitter",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "eventhub_context_009_F",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "eventhub_context_009_F.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -260,25 +458,16 @@
         "template.source.harmony_emitter.entry_param.for.source.harmony_emitter.entry_param.0.method.eventhub_context_009_F"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_emitter%2Feventhub_context_009_F.ets:file=harmony_emitter%2Feventhub_context_009_F.ets:export=entry%3Acomponent.eventhub_context_009_F:decl=entry%3Acomponent.eventhub_context_009_F:member=lifecycle%3Atest.case.eventhub_context_009_F:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony_emitter.entry_param.0.method.eventhub_external_010_T",
-      "surfaceId": "surface.source.harmony_emitter.entry_param",
+      "surfaceId": "surface.source.harmony_emitter.entry_param.method.eventhub_external_010_T.method.eventhub_external_010_T.method.eventhub_external_010_T.method.eventhub_external_010_T",
       "assetId": "asset.rule.test.harmony_emitter",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "eventhub_external_010_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "eventhub_external_010_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -289,25 +478,16 @@
         "template.source.harmony_emitter.entry_param.for.source.harmony_emitter.entry_param.0.method.eventhub_external_010_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_emitter%2Feventhub_external_010_T.ets:file=harmony_emitter%2Feventhub_external_010_T.ets:export=entry%3Acomponent.eventhub_external_010_T:decl=entry%3Acomponent.eventhub_external_010_T:member=lifecycle%3Atest.case.eventhub_external_010_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony_emitter.entry_param.0.method.eventhub_external_011_F",
-      "surfaceId": "surface.source.harmony_emitter.entry_param",
+      "surfaceId": "surface.source.harmony_emitter.entry_param.method.eventhub_external_011_F.method.eventhub_external_011_F.method.eventhub_external_011_F.method.eventhub_external_011_F",
       "assetId": "asset.rule.test.harmony_emitter",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "eventhub_external_011_F",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "eventhub_external_011_F.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -318,8 +498,9 @@
         "template.source.harmony_emitter.entry_param.for.source.harmony_emitter.entry_param.0.method.eventhub_external_011_F"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_emitter%2Feventhub_external_011_F.ets:file=harmony_emitter%2Feventhub_external_011_F.ets:export=entry%3Acomponent.eventhub_external_011_F:decl=entry%3Acomponent.eventhub_external_011_F:member=lifecycle%3Atest.case.eventhub_external_011_F:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.sink.harmony_emitter.mock_sink.0",
@@ -327,10 +508,6 @@
       "assetId": "asset.rule.test.harmony_emitter",
       "plane": "rule",
       "role": "sink",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "Sink"
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -341,24 +518,13 @@
         "template.sink.harmony_emitter.mock_sink"
       ],
       "semanticsFamily": "sink",
-      "completeness": "partial",
-      "confidence": "likely",
-      "metadata": {}
+      "completeness": "complete",
+      "confidence": "certain",
+      "metadata": {},
+      "canonicalApiId": "api:project:local:module=harmony_emitter%2Ftaint_mock.ts:file=harmony_emitter%2Ftaint_mock.ts:export=namespace%3Ataint.%25dflt:decl=namespace%3Ataint.%25dflt:member=function%3ASink:invoke=call:params=0%3Aany:ret=void"
     }
   ],
   "effectTemplates": [
-    {
-      "id": "template.sink.harmony_emitter.mock_sink",
-      "confidence": "certain",
-      "kind": "rule.sink",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sinkKind": "sink"
-    },
     {
       "id": "template.source.harmony_emitter.entry_param.for.source.harmony_emitter.entry_param.0.method.emitter_emit_alias_002_T",
       "confidence": "certain",
@@ -478,6 +644,18 @@
         }
       },
       "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.sink.harmony_emitter.mock_sink",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "sink"
     }
   ],
   "provenance": {

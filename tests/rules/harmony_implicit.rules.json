@@ -4,49 +4,175 @@
   "status": "official",
   "surfaces": [
     {
-      "surfaceId": "surface.source.harmony_implicit.entry_param",
-      "kind": "access",
-      "modulePath": "@arktaint/local",
-      "ownerName": "LocalBinding",
-      "propertyName": "source.harmony_implicit.entry_param",
-      "accessKind": "read",
-      "receiverKind": "namespace",
-      "confidence": "likely",
+      "surfaceId": "surface.source.harmony_implicit.entry_param.method.implicit_boolean_003_T.method.implicit_boolean_003_T.method.implicit_boolean_003_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_implicit%2Fimplicit_boolean_003_T.ets:file=harmony_implicit%2Fimplicit_boolean_003_T.ets:export=entry%3Acomponent.implicit_boolean_003_T:decl=entry%3Acomponent.implicit_boolean_003_T:member=lifecycle%3Atest.case.implicit_boolean_003_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "harmony_implicit/implicit_boolean_003_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_implicit/implicit_boolean_003_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "implicit_boolean_003_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony_implicit.entry_param.method.implicit_if_flag_001_T.method.implicit_if_flag_001_T.method.implicit_if_flag_001_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_implicit%2Fimplicit_if_flag_001_T.ets:file=harmony_implicit%2Fimplicit_if_flag_001_T.ets:export=entry%3Acomponent.implicit_if_flag_001_T:decl=entry%3Acomponent.implicit_if_flag_001_T:member=lifecycle%3Atest.case.implicit_if_flag_001_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_implicit/implicit_if_flag_001_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_implicit/implicit_if_flag_001_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "implicit_if_flag_001_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony_implicit.entry_param.method.implicit_irrelevant_branch_005_F.method.implicit_irrelevant_branch_005_F.method.implicit_irrelevant_branch_005_F",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_implicit%2Fimplicit_irrelevant_branch_005_F.ets:file=harmony_implicit%2Fimplicit_irrelevant_branch_005_F.ets:export=entry%3Acomponent.implicit_irrelevant_branch_005_F:decl=entry%3Acomponent.implicit_irrelevant_branch_005_F:member=lifecycle%3Atest.case.implicit_irrelevant_branch_005_F:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_implicit/implicit_irrelevant_branch_005_F.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_implicit/implicit_irrelevant_branch_005_F.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "implicit_irrelevant_branch_005_F",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony_implicit.entry_param.method.implicit_safe_text_006_F.method.implicit_safe_text_006_F.method.implicit_safe_text_006_F",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_implicit%2Fimplicit_safe_text_006_F.ets:file=harmony_implicit%2Fimplicit_safe_text_006_F.ets:export=entry%3Acomponent.implicit_safe_text_006_F:decl=entry%3Acomponent.implicit_safe_text_006_F:member=lifecycle%3Atest.case.implicit_safe_text_006_F:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_implicit/implicit_safe_text_006_F.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_implicit/implicit_safe_text_006_F.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "implicit_safe_text_006_F",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony_implicit.entry_param.method.implicit_switch_002_T.method.implicit_switch_002_T.method.implicit_switch_002_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=harmony_implicit%2Fimplicit_switch_002_T.ets:file=harmony_implicit%2Fimplicit_switch_002_T.ets:export=entry%3Acomponent.implicit_switch_002_T:decl=entry%3Acomponent.implicit_switch_002_T:member=lifecycle%3Atest.case.implicit_switch_002_T:invoke=entry:params=0%3Astring:ret=void",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "harmony_implicit/implicit_switch_002_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_implicit/implicit_switch_002_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "implicit_switch_002_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
       }
     },
     {
       "surfaceId": "surface.sink.harmony_implicit.mock_sink",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "Sink",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "harmony_implicit/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=harmony_implicit%2Ftaint_mock.ts:file=harmony_implicit%2Ftaint_mock.ts:export=namespace%3Ataint.%25dflt:decl=namespace%3Ataint.%25dflt:member=function%3ASink:invoke=call:params=0%3Aany:ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "harmony_implicit/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "taint.%dflt",
+            "methodName": "Sink",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "void",
+            "staticFlag": true
+          }
+        }
       }
     }
   ],
   "bindings": [
     {
       "bindingId": "binding.source.harmony_implicit.entry_param.0.method.implicit_boolean_003_T",
-      "surfaceId": "surface.source.harmony_implicit.entry_param",
+      "surfaceId": "surface.source.harmony_implicit.entry_param.method.implicit_boolean_003_T.method.implicit_boolean_003_T.method.implicit_boolean_003_T",
       "assetId": "asset.rule.test.harmony_implicit",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "implicit_boolean_003_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "implicit_boolean_003_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -57,25 +183,16 @@
         "template.source.harmony_implicit.entry_param.for.source.harmony_implicit.entry_param.0.method.implicit_boolean_003_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_implicit%2Fimplicit_boolean_003_T.ets:file=harmony_implicit%2Fimplicit_boolean_003_T.ets:export=entry%3Acomponent.implicit_boolean_003_T:decl=entry%3Acomponent.implicit_boolean_003_T:member=lifecycle%3Atest.case.implicit_boolean_003_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony_implicit.entry_param.0.method.implicit_if_flag_001_T",
-      "surfaceId": "surface.source.harmony_implicit.entry_param",
+      "surfaceId": "surface.source.harmony_implicit.entry_param.method.implicit_if_flag_001_T.method.implicit_if_flag_001_T.method.implicit_if_flag_001_T",
       "assetId": "asset.rule.test.harmony_implicit",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "implicit_if_flag_001_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "implicit_if_flag_001_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -86,25 +203,16 @@
         "template.source.harmony_implicit.entry_param.for.source.harmony_implicit.entry_param.0.method.implicit_if_flag_001_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_implicit%2Fimplicit_if_flag_001_T.ets:file=harmony_implicit%2Fimplicit_if_flag_001_T.ets:export=entry%3Acomponent.implicit_if_flag_001_T:decl=entry%3Acomponent.implicit_if_flag_001_T:member=lifecycle%3Atest.case.implicit_if_flag_001_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony_implicit.entry_param.0.method.implicit_irrelevant_branch_005_F",
-      "surfaceId": "surface.source.harmony_implicit.entry_param",
+      "surfaceId": "surface.source.harmony_implicit.entry_param.method.implicit_irrelevant_branch_005_F.method.implicit_irrelevant_branch_005_F.method.implicit_irrelevant_branch_005_F",
       "assetId": "asset.rule.test.harmony_implicit",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "implicit_irrelevant_branch_005_F",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "implicit_irrelevant_branch_005_F.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -115,25 +223,16 @@
         "template.source.harmony_implicit.entry_param.for.source.harmony_implicit.entry_param.0.method.implicit_irrelevant_branch_005_F"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_implicit%2Fimplicit_irrelevant_branch_005_F.ets:file=harmony_implicit%2Fimplicit_irrelevant_branch_005_F.ets:export=entry%3Acomponent.implicit_irrelevant_branch_005_F:decl=entry%3Acomponent.implicit_irrelevant_branch_005_F:member=lifecycle%3Atest.case.implicit_irrelevant_branch_005_F:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony_implicit.entry_param.0.method.implicit_safe_text_006_F",
-      "surfaceId": "surface.source.harmony_implicit.entry_param",
+      "surfaceId": "surface.source.harmony_implicit.entry_param.method.implicit_safe_text_006_F.method.implicit_safe_text_006_F.method.implicit_safe_text_006_F",
       "assetId": "asset.rule.test.harmony_implicit",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "implicit_safe_text_006_F",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "implicit_safe_text_006_F.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -144,25 +243,16 @@
         "template.source.harmony_implicit.entry_param.for.source.harmony_implicit.entry_param.0.method.implicit_safe_text_006_F"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_implicit%2Fimplicit_safe_text_006_F.ets:file=harmony_implicit%2Fimplicit_safe_text_006_F.ets:export=entry%3Acomponent.implicit_safe_text_006_F:decl=entry%3Acomponent.implicit_safe_text_006_F:member=lifecycle%3Atest.case.implicit_safe_text_006_F:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.harmony_implicit.entry_param.0.method.implicit_switch_002_T",
-      "surfaceId": "surface.source.harmony_implicit.entry_param",
+      "surfaceId": "surface.source.harmony_implicit.entry_param.method.implicit_switch_002_T.method.implicit_switch_002_T.method.implicit_switch_002_T",
       "assetId": "asset.rule.test.harmony_implicit",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "implicit_switch_002_T",
-        "scope": {
-          "file": {
-            "mode": "contains",
-            "value": "implicit_switch_002_T.ets"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -173,8 +263,9 @@
         "template.source.harmony_implicit.entry_param.for.source.harmony_implicit.entry_param.0.method.implicit_switch_002_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=harmony_implicit%2Fimplicit_switch_002_T.ets:file=harmony_implicit%2Fimplicit_switch_002_T.ets:export=entry%3Acomponent.implicit_switch_002_T:decl=entry%3Acomponent.implicit_switch_002_T:member=lifecycle%3Atest.case.implicit_switch_002_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.sink.harmony_implicit.mock_sink.0",
@@ -182,10 +273,6 @@
       "assetId": "asset.rule.test.harmony_implicit",
       "plane": "rule",
       "role": "sink",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "Sink"
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -196,24 +283,13 @@
         "template.sink.harmony_implicit.mock_sink"
       ],
       "semanticsFamily": "sink",
-      "completeness": "partial",
-      "confidence": "likely",
-      "metadata": {}
+      "completeness": "complete",
+      "confidence": "certain",
+      "metadata": {},
+      "canonicalApiId": "api:project:local:module=harmony_implicit%2Ftaint_mock.ts:file=harmony_implicit%2Ftaint_mock.ts:export=namespace%3Ataint.%25dflt:decl=namespace%3Ataint.%25dflt:member=function%3ASink:invoke=call:params=0%3Aany:ret=void"
     }
   ],
   "effectTemplates": [
-    {
-      "id": "template.sink.harmony_implicit.mock_sink",
-      "confidence": "certain",
-      "kind": "rule.sink",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sinkKind": "sink"
-    },
     {
       "id": "template.source.harmony_implicit.entry_param.for.source.harmony_implicit.entry_param.0.method.implicit_boolean_003_T",
       "confidence": "certain",
@@ -273,6 +349,18 @@
         }
       },
       "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.sink.harmony_implicit.mock_sink",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "sink"
     }
   ],
   "provenance": {

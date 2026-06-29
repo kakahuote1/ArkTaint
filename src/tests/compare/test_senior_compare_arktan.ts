@@ -8,6 +8,7 @@ import { ArktanCaseSpec, ensureArktanRunnerScript, runArktanCaseSetRound } from 
 import * as fs from "fs";
 import * as path from "path";
 import { registerMockSdkFiles } from "../helpers/TestSceneBuilder";
+import { detectSinksByExactMethodsForTest, resolveUniqueMethodByExactNameForTest, resolveUniqueMethodByExactSignatureForTest } from "../helpers/ExactSinkDetectionTestUtils";
 import {
     createFormalTestSuite,
     TestFailureSummary,
@@ -350,7 +351,7 @@ async function runArkTaintScenario(
                 if (seeds.length > 0) {
                     engine.propagateWithSeeds(seeds);
                 }
-                const flows = engine.detectSinks("Sink")
+                const flows = detectSinksByExactMethodsForTest(engine, resolveUniqueMethodByExactNameForTest(engine, "Sink"))
                     .filter(flow => flowSinkInCaseMethod(scenario.scene, flow.sink, item.caseMethodName));
                 detected = flows.length > 0;
             } catch (err: any) {

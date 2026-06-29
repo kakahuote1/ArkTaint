@@ -1,6 +1,8 @@
 import { Pag, PagNode } from "../../../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
 import { TaintFact } from "../model/TaintFact";
 import { ModuleEmission } from "./ModuleContract";
+import type { SemanticEndpointProjection } from "./PagNodeResolution";
+import { isConsumableEndpointResolution } from "../../api/effects/EndpointResolutionLedger";
 
 function cloneFieldPath(field?: string[]): string[] | undefined {
     return field && field.length > 0 ? [...field] : undefined;
@@ -110,4 +112,33 @@ export function emitLoadLikeFactsByIds(
     }
 
     return out;
+}
+
+export function emitEndpointProjectionFacts(
+    pag: Pag,
+    projection: SemanticEndpointProjection,
+    source: string,
+    contextID: number,
+    reason: string,
+    field?: string[],
+): ModuleEmission[] {
+    if (!isConsumableEndpointResolution(projection.record)) return [];
+    const fieldPath = cloneFieldPath(field) || cloneFieldPath(projection.fieldPath);
+    if (fieldPath && fieldPath.length > 0) {
+        return emitObjectFieldFactsByIds(
+            pag,
+            projection.carrierNodeIds,
+            source,
+            contextID,
+            reason,
+            fieldPath,
+        );
+    }
+    return emitNodeFactsByIds(
+        pag,
+        projection.nodeIds,
+        source,
+        contextID,
+        reason,
+    );
 }

@@ -1,10 +1,14 @@
-import { ArkArrayRef, ArkInstanceFieldRef } from "../../../../arkanalyzer/out/src/core/base/Ref";
-import { ArkAssignStmt } from "../../../../arkanalyzer/out/src/core/base/Stmt";
+import { ArkArrayRef, ArkInstanceFieldRef, ArkParameterRef } from "../../../../arkanalyzer/out/src/core/base/Ref";
+import { ArkAssignStmt, ArkInvokeStmt } from "../../../../arkanalyzer/out/src/core/base/Stmt";
+import { ArkInstanceInvokeExpr, ArkStaticInvokeExpr } from "../../../../arkanalyzer/out/src/core/base/Expr";
 import { Local } from "../../../../arkanalyzer/out/src/core/base/Local";
+import { Constant } from "../../../../arkanalyzer/out/src/core/base/Constant";
 import { Scene } from "../../../../arkanalyzer/out/src/Scene";
 import { Pag, PagNode } from "../../../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
 import { TaintFact } from "../model/TaintFact";
 import { TaintTracker } from "../model/TaintTracker";
+import { CallEdgeType, TaintContextManager } from "../context/TaintContext";
+import type { SyntheticInvokeEdgeInfo } from "../builders/SyntheticInvokeEdgeBuilder";
 import { fromContainerFieldKey, toContainerFieldKey } from "../model/ContainerSlotKeys";
 import { collectCarrierNodeIdsForValueAtStmt } from "../ordinary/OrdinaryAliasPropagation";
 import { isCarrierFieldPathLiveAtStmt } from "../ordinary/OrdinaryObjectInvalidation";
@@ -20,6 +24,7 @@ import {
     collectOrdinaryCopyLikeResultFactsFromTaintedObj,
     collectFieldStoreFactsFromValue,
     collectNestedArrayStoreFactsFromFieldValue,
+    collectNestedCollectionStoreFactsFromFieldValue,
     collectNestedFieldStoreFactsFromFieldValue,
     collectObjectLiteralFieldCaptureFactsFromObjectField,
     collectObjectLiteralFieldCaptureFactsFromValue,
@@ -30,6 +35,7 @@ import {
     propagateDirectFieldArgUsesByObj,
     propagateDirectFieldLoadsByLocal,
     propagateDirectFieldLoadsByObj,
+    propagateDynamicSelectorFieldMirrorStoresByObj,
     propagateObjectAssignFieldBridgesByObj,
     propagateObjectResultContainerStoresByObj,
     propagateObjectResultLoadsByObj,
@@ -61,6 +67,9 @@ export interface FieldPropagationEngineDeps {
     unresolvedThisFieldLoadNodeIdsByFieldAndFile: ThisFieldLoadNodeIds;
     classRelationCache: Map<string, boolean>;
     preciseArrayLoadCache: Map<string, number[]>;
+    ctxManager?: TaintContextManager;
+    syntheticCallSourceNodeIdsByCallSiteAndDst?: Map<string, number[]>;
+    syntheticInvokeEdgeMap?: Map<number, SyntheticInvokeEdgeInfo[]>;
 }
 
 export interface FieldPropagationRequest {
@@ -267,6 +276,24 @@ export class FieldPropagationEngine {
             });
         }
 
+        for (const newFact of collectNestedCollectionStoreFactsFromFieldValue(node, field, fact.source, currentCtx, pag, classBySignature)) {
+            out.push({
+                stage: "Store-NestedCollection",
+                fact: newFact,
+                message: `    [Store-NestedCollection] Tainted Obj ${newFact.node.getID()}.${newFact.field?.join(".")} (ctx=${newFact.contextID})`,
+                traceSection: "field.store",
+            });
+        }
+
+        for (const newFact of propagateDynamicSelectorFieldMirrorStoresByObj(pag, node.getID(), field, fact.source, currentCtx, this.deps.tracker, classBySignature)) {
+            out.push({
+                stage: "Store-DynamicSelectorField",
+                fact: newFact,
+                message: `    [Store-DynamicSelectorField] Tainted Obj ${newFact.node.getID()}.${newFact.field?.join(".")} via dynamic selector mirror store (ctx=${newFact.contextID})`,
+                traceSection: "field.store",
+            });
+        }
+
         return out;
     }
 
@@ -314,9 +341,7 @@ export class FieldPropagationEngine {
                     preciseTargets.push({ ownerId, destVarId });
                 }
             }
-            if (/^arr:-?\d+$/.test(containerSlot)) {
-                indexedLoadTargets = preciseTargets;
-            } else if (preciseTargets.length > 0) {
+            if (preciseTargets.length > 0) {
                 indexedLoadTargets = preciseTargets;
             }
         }
@@ -412,7 +437,15 @@ export class FieldPropagationEngine {
     ): FieldPropagationEmission[] {
         const { scene, pag } = this.deps;
         const out: FieldPropagationEmission[] = [];
-        for (const targetNodeId of collectOrdinaryArraySlotLoadNodeIds(objId, containerSlot, pag, scene)) {
+        const scopeMethodSignature = resolveMethodSignatureByNode(fact.node);
+        for (const targetNodeId of collectOrdinaryArraySlotLoadNodeIds(
+            objId,
+            containerSlot,
+            pag,
+            scene,
+            scopeMethodSignature,
+            (indexValue, anchorStmt) => this.resolveContextualArrayIndexSlot(indexValue, anchorStmt, currentCtx),
+        )) {
             const targetNode = pag.getNode(targetNodeId) as PagNode;
             if (!targetNode) continue;
             const newFact = new TaintFact(targetNode, fact.source, currentCtx, remainingFieldPath ? [...remainingFieldPath] : undefined);
@@ -424,7 +457,7 @@ export class FieldPropagationEngine {
             });
         }
 
-        const viewEffects = collectOrdinaryArrayViewEffectsBySlot(objId, containerSlot, pag);
+        const viewEffects = collectOrdinaryArrayViewEffectsBySlot(objId, containerSlot, pag, scopeMethodSignature);
         for (const targetNodeId of viewEffects.resultNodeIds) {
             const targetNode = pag.getNode(targetNodeId) as PagNode;
             if (!targetNode) continue;
@@ -448,7 +481,7 @@ export class FieldPropagationEngine {
             });
         }
 
-        const staticViewEffects = collectOrdinaryArrayStaticViewEffectsBySlot(objId, containerSlot, pag);
+        const staticViewEffects = collectOrdinaryArrayStaticViewEffectsBySlot(objId, containerSlot, pag, scopeMethodSignature);
         for (const targetNodeId of staticViewEffects.resultNodeIds) {
             const targetNode = pag.getNode(targetNodeId) as PagNode;
             if (!targetNode) continue;
@@ -485,6 +518,155 @@ export class FieldPropagationEngine {
         }
 
         return out;
+    }
+
+    private resolveContextualArrayIndexSlot(indexValue: any, anchorStmt: ArkAssignStmt, currentCtx: number): string | undefined {
+        const key = this.resolveContextualValueKey(indexValue, anchorStmt, currentCtx, new Set<string>());
+        if (!key || !/^-?\d+$/.test(key)) return undefined;
+        return `arr:${key}`;
+    }
+
+    private resolveContextualValueKey(
+        value: any,
+        anchorStmt: ArkAssignStmt | undefined,
+        currentCtx: number,
+        visiting: Set<string>,
+    ): string | undefined {
+        if (value instanceof Constant) {
+            return normalizeContextLiteralText(value.toString());
+        }
+        if (!(value instanceof Local)) return undefined;
+
+        const localKey = `${value.getName?.() || ""}#${value.getDeclaringStmt?.()?.toString?.() || ""}#${currentCtx}`;
+        if (visiting.has(localKey)) return undefined;
+        visiting.add(localKey);
+
+        const decl = value.getDeclaringStmt?.();
+        if (decl instanceof ArkAssignStmt && decl.getLeftOp?.() === value) {
+            const right = decl.getRightOp?.();
+            if (right instanceof Constant) {
+                return normalizeContextLiteralText(right.toString());
+            }
+            if (right instanceof Local) {
+                return this.resolveContextualValueKey(right, decl, currentCtx, visiting);
+            }
+            if (right instanceof ArkInstanceFieldRef) {
+                return this.resolveLatestFieldStoreValueKey(right, decl, currentCtx, visiting);
+            }
+            if (right instanceof ArkParameterRef) {
+                return this.resolveContextualParameterArgKey(value, currentCtx, visiting);
+            }
+        }
+        return undefined;
+    }
+
+    private resolveLatestFieldStoreValueKey(
+        fieldRef: ArkInstanceFieldRef,
+        anchorStmt: ArkAssignStmt,
+        currentCtx: number,
+        visiting: Set<string>,
+    ): string | undefined {
+        const fieldName = fieldNameOf(fieldRef);
+        if (!fieldName) return undefined;
+        const base = fieldRef.getBase?.();
+        if (!(base instanceof Local)) return undefined;
+
+        const cfg = anchorStmt.getCfg?.() || base.getDeclaringStmt?.()?.getCfg?.();
+        const stmts = cfg?.getStmts?.() || [];
+        let latestValue: any;
+        for (const stmt of stmts) {
+            if (stmt === anchorStmt) break;
+            if (!(stmt instanceof ArkAssignStmt)) continue;
+            const left = stmt.getLeftOp?.();
+            if (!(left instanceof ArkInstanceFieldRef)) continue;
+            if (!sameLocalValue(left.getBase?.(), base)) continue;
+            if (fieldNameOf(left) !== fieldName) continue;
+            latestValue = stmt.getRightOp?.();
+        }
+        if (!latestValue) return undefined;
+        return this.resolveContextualValueKey(latestValue, anchorStmt, currentCtx, visiting);
+    }
+
+    private resolveContextualParameterArgKey(
+        paramLocal: Local,
+        currentCtx: number,
+        visiting: Set<string>,
+    ): string | undefined {
+        const ctxManager = this.deps.ctxManager;
+        const argIndex = this.deps.syntheticCallSourceNodeIdsByCallSiteAndDst;
+        if (!ctxManager || !argIndex) return undefined;
+        const callSiteId = ctxManager.getTopElement(currentCtx);
+        if (callSiteId < 0) return undefined;
+
+        const paramNodes = this.deps.pag.getNodesByValue(paramLocal);
+        if (!paramNodes || paramNodes.size === 0) return undefined;
+        const paramIndex = resolveParameterIndex(paramLocal);
+
+        const resolved = new Set<string>();
+        for (const dstNodeId of paramNodes.values()) {
+            const srcNodeIds = argIndex.get(syntheticCallArgIndexKey(callSiteId, dstNodeId)) || [];
+            if (srcNodeIds.length === 0 && this.deps.syntheticInvokeEdgeMap) {
+                for (const edges of this.deps.syntheticInvokeEdgeMap.values()) {
+                    for (const edge of edges) {
+                        if (edge.type !== CallEdgeType.CALL) continue;
+                        if (edge.callSiteId !== callSiteId || edge.dstNodeId !== dstNodeId) continue;
+                        srcNodeIds.push(edge.srcNodeId);
+                    }
+                }
+            }
+            for (const srcNodeId of srcNodeIds) {
+                const srcNode = this.deps.pag.getNode(srcNodeId) as PagNode;
+                const srcValue = srcNode?.getValue?.();
+                const sourceAnchor = srcNode?.getStmt?.();
+                const fallbackAnchor = paramLocal.getDeclaringStmt?.();
+                const anchorStmt = sourceAnchor instanceof ArkAssignStmt
+                    ? sourceAnchor
+                    : fallbackAnchor instanceof ArkAssignStmt
+                    ? fallbackAnchor
+                    : undefined;
+                const key = this.resolveContextualValueKey(srcValue, anchorStmt, currentCtx, visiting);
+                if (key !== undefined) resolved.add(key);
+            }
+        }
+        if (resolved.size === 0 && paramIndex !== undefined) {
+            const key = this.resolveContextualParameterArgKeyFromCallStmt(paramLocal, paramIndex, callSiteId, currentCtx, visiting);
+            if (key !== undefined) resolved.add(key);
+        }
+
+        return resolved.size === 1 ? [...resolved][0] : undefined;
+    }
+
+    private resolveContextualParameterArgKeyFromCallStmt(
+        paramLocal: Local,
+        paramIndex: number,
+        callSiteId: number,
+        currentCtx: number,
+        visiting: Set<string>,
+    ): string | undefined {
+        const edgeMap = this.deps.syntheticInvokeEdgeMap;
+        if (!edgeMap) return undefined;
+        const declaringMethodName = paramLocal
+            .getDeclaringStmt?.()
+            ?.getCfg?.()
+            ?.getDeclaringMethod?.()
+            ?.getName?.() || "";
+
+        const resolved = new Set<string>();
+        for (const edges of edgeMap.values()) {
+            for (const edge of edges) {
+                if (edge.type !== CallEdgeType.CALL) continue;
+                if (edge.callSiteId !== callSiteId) continue;
+                if (declaringMethodName && edge.calleeMethodName !== declaringMethodName) continue;
+                const srcNode = this.deps.pag.getNode(edge.srcNodeId) as PagNode;
+                const stmt = srcNode?.getStmt?.();
+                const invokeExpr = resolveInvokeExprFromStmt(stmt);
+                const arg = invokeExpr?.getArgs?.()?.[paramIndex];
+                if (!arg) continue;
+                const key = this.resolveContextualValueKey(arg, stmt instanceof ArkAssignStmt ? stmt : undefined, currentCtx, visiting);
+                if (key !== undefined) resolved.add(key);
+            }
+        }
+        return resolved.size === 1 ? [...resolved][0] : undefined;
     }
 
     private emitUnresolvedThisFieldLoads(
@@ -595,4 +777,45 @@ function collectFieldIndexOwnerIds(node: PagNode): number[] {
         add(objId);
     }
     return out;
+}
+
+function fieldNameOf(ref: ArkInstanceFieldRef): string {
+    return ref.getFieldSignature?.().getFieldName?.() || ref.getFieldName?.() || "";
+}
+
+function sameLocalValue(a: any, b: Local): boolean {
+    return a instanceof Local && (a === b || (a.getName?.() || "") === (b.getName?.() || ""));
+}
+
+function syntheticCallArgIndexKey(callSiteId: number, dstNodeId: number): string {
+    return `${callSiteId}|${dstNodeId}`;
+}
+
+function normalizeContextLiteralText(text: string): string {
+    return String(text || "").replace(/^['"`]/, "").replace(/['"`]$/, "");
+}
+
+function resolveParameterIndex(local: Local): number | undefined {
+    const decl = local.getDeclaringStmt?.();
+    if (!(decl instanceof ArkAssignStmt)) return undefined;
+    const right = decl.getRightOp?.();
+    if (!(right instanceof ArkParameterRef)) return undefined;
+    const index = right.getIndex?.();
+    if (Number.isInteger(index)) return index;
+    const matched = String(right.toString?.() || "").match(/parameter(\d+)\s*:/);
+    return matched ? Number(matched[1]) : undefined;
+}
+
+function resolveInvokeExprFromStmt(stmt: any): ArkInstanceInvokeExpr | ArkStaticInvokeExpr | undefined {
+    if (stmt instanceof ArkAssignStmt) {
+        const rightOp = stmt.getRightOp?.();
+        if (rightOp instanceof ArkInstanceInvokeExpr || rightOp instanceof ArkStaticInvokeExpr) return rightOp;
+    }
+    if (stmt instanceof ArkInvokeStmt) {
+        const invokeExpr = stmt.getInvokeExpr?.();
+        if (invokeExpr instanceof ArkInstanceInvokeExpr || invokeExpr instanceof ArkStaticInvokeExpr) return invokeExpr;
+    }
+    const invokeExpr = stmt?.containsInvokeExpr?.() ? stmt.getInvokeExpr?.() : undefined;
+    if (invokeExpr instanceof ArkInstanceInvokeExpr || invokeExpr instanceof ArkStaticInvokeExpr) return invokeExpr;
+    return undefined;
 }

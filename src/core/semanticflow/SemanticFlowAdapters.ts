@@ -1,5 +1,6 @@
 import type { ArkMainEntryCandidate } from "../entry/arkmain/llm/ArkMainEntryCandidateTypes";
 import type { CallsiteContextSlice, NormalizedCallsiteItem } from "../model/callsite/callsiteContextSlices";
+import { assertValidCanonicalApiId } from "../api/identity";
 import type { SemanticFlowPipelineItemInput } from "./SemanticFlowPipeline";
 import { semanticFlowDeclaringClassFromSignature } from "./SemanticFlowRuleCompanions";
 import type {
@@ -19,12 +20,11 @@ export function buildSemanticFlowApiModelingCandidateItem(
     options: SemanticFlowApiModelingCandidateAdapterOptions = {},
 ): SemanticFlowPipelineItemInput {
     const semanticFocus = normalizeSemanticFocus(item);
+    const canonicalApiId = acceptedCandidateCanonicalApiId(item);
     const anchorId = sanitizeKey([
         "api-modeling",
-        item.callee_signature,
+        canonicalApiId || "unresolved",
         item.sourceFile,
-        String(item.argCount),
-        item.invokeKind,
         semanticFocus,
     ].join("."));
 
@@ -35,8 +35,9 @@ export function buildSemanticFlowApiModelingCandidateItem(
     return {
         anchor: {
             id: anchorId,
+            ...(canonicalApiId ? { canonicalApiId } : {}),
             owner: semanticFlowDeclaringClassFromSignature(item.callee_signature),
-            surface: item.method || "unknown",
+            surface: canonicalApiId || item.method || "unknown",
             methodSignature: item.callee_signature,
             filePath: item.sourceFile,
             importSource: item.sourceFile,
@@ -63,41 +64,8 @@ export function buildSemanticFlowApiModelingCandidateItem(
 }
 
 function buildApiModelingArkMainSelector(item: NormalizedCallsiteItem): SemanticFlowArkMainSelector | undefined {
-    if (!hasCandidateBoundary(item, "official_arkmain_entry_evidence")) {
-        return undefined;
-    }
-    const methodName = String(item.method || "").trim();
-    if (!methodName) {
-        return undefined;
-    }
-    const className = semanticFlowDeclaringClassFromSignature(item.callee_signature);
-    return {
-        methodName,
-        parameterTypes: parseSignatureParameterTypes(item.callee_signature, item.argCount),
-        returnType: typeof (item as any).returnType === "string"
-            ? String((item as any).returnType).trim() || undefined
-            : undefined,
-        className,
-    };
-}
-
-function hasCandidateBoundary(item: NormalizedCallsiteItem, boundary: string): boolean {
-    const expected = `candidateBoundary=${boundary}`;
-    return (item.topEntries || []).some(entry => String(entry || "").trim() === expected);
-}
-
-function parseSignatureParameterTypes(signature: string, defaultArgCount?: number): string[] {
-    const text = String(signature || "");
-    const start = text.lastIndexOf("(");
-    const end = text.lastIndexOf(")");
-    if (start >= 0 && end > start) {
-        const body = text.slice(start + 1, end).trim();
-        if (!body) {
-            return [];
-        }
-        return splitTopLevelComma(body).map(part => part.trim() || "Unknown");
-    }
-    return Array.from({ length: Math.max(0, defaultArgCount || 0) }, () => "Unknown");
+    void item;
+    return undefined;
 }
 
 function normalizeStringList(values: unknown): string[] | undefined {
@@ -246,12 +214,17 @@ function buildArkMainOwnerContextSnippet(candidate: ArkMainEntryCandidate): stri
 
 function buildRuleObservations(item: NormalizedCallsiteItem): string[] {
     const observations = [
+        ...(item.canonicalApiId ? [`canonicalApiId=${item.canonicalApiId}`] : ["identityStatus=unresolved"]),
         `signature=${item.callee_signature}`,
         `method=${item.method}`,
         `invokeKind=${item.invokeKind}`,
         `argCount=${item.argCount}`,
         `sourceFile=${item.sourceFile}`,
     ];
+    const canonicalSurface = buildCanonicalApiSurfaceObservation(item);
+    if (canonicalSurface) {
+        observations.push(`canonicalApiSurface=${JSON.stringify(canonicalSurface)}`);
+    }
     if (typeof (item as any).returnType === "string" && (item as any).returnType.trim()) {
         observations.push(`returnType=${String((item as any).returnType).trim()}`);
     }
@@ -460,6 +433,7 @@ function buildRuleSnippets(
                 : `companion-${companion.method || "surface"}`,
             code: companionSnippet && isBridgeCandidate(item)
                 ? [
+                    ...formatCanonicalApiSurfaceSnippetLines(companion),
                     `callee_signature: ${companion.callee_signature}`,
                     `method: ${companion.method}`,
                     `invokeKind: ${companion.invokeKind}`,
@@ -470,6 +444,7 @@ function buildRuleSnippets(
                 ].join("\n")
                 : companionSnippet && inlineCompanionEvidence
                     ? [
+                        ...formatCanonicalApiSurfaceSnippetLines(companion),
                         `callee_signature: ${companion.callee_signature}`,
                         `method: ${companion.method}`,
                         `invokeKind: ${companion.invokeKind}`,
@@ -480,6 +455,7 @@ function buildRuleSnippets(
                         compactMethodEvidenceSnippet(companionSnippet),
                     ].join("\n")
                 : [
+                    ...formatCanonicalApiSurfaceSnippetLines(companion),
                     `callee_signature: ${companion.callee_signature}`,
                     `method: ${companion.method}`,
                     `invokeKind: ${companion.invokeKind}`,
@@ -490,6 +466,60 @@ function buildRuleSnippets(
     }
 
     return snippets;
+}
+
+interface CanonicalApiSurfaceObservation {
+    surfaceId: string;
+    kind: "invoke";
+    canonicalApiId: string;
+    confidence: "certain";
+    provenance: {
+        source: "analyzer";
+        location: { file: string };
+        typeSignature: string;
+    };
+}
+
+function formatCanonicalApiSurfaceSnippetLines(item: NormalizedCallsiteItem): string[] {
+    const surface = buildCanonicalApiSurfaceObservation(item);
+    return surface ? [`canonicalApiSurface: ${JSON.stringify(surface)}`] : [];
+}
+
+function buildCanonicalApiSurfaceObservation(item: NormalizedCallsiteItem): CanonicalApiSurfaceObservation | undefined {
+    const canonicalApiId = acceptedCandidateCanonicalApiId(item);
+    if (!canonicalApiId) return undefined;
+    return cleanDefinedFields({
+        surfaceId: `surface:${canonicalApiId}`,
+        kind: "invoke",
+        canonicalApiId,
+        confidence: "certain",
+        provenance: {
+            source: "analyzer",
+            location: { file: normalizeSlashes(String(item.sourceFile || "")) },
+            typeSignature: item.callee_signature,
+        },
+    }) as CanonicalApiSurfaceObservation;
+}
+
+function acceptedCandidateCanonicalApiId(item: NormalizedCallsiteItem): string | undefined {
+    const value = String((item as any).canonicalApiId || "").trim();
+    if (!value) return undefined;
+    try {
+        assertValidCanonicalApiId(value);
+        return value;
+    } catch {
+        return undefined;
+    }
+}
+
+function cleanDefinedFields<T extends Record<string, unknown>>(value: T): Partial<T> {
+    const out: Partial<T> = {};
+    for (const [key, entry] of Object.entries(value) as Array<[keyof T, T[keyof T]]>) {
+        if (entry !== undefined) {
+            out[key] = entry;
+        }
+    }
+    return out;
 }
 
 function selectRuleCompanionCandidates(item: NormalizedCallsiteItem, companionCandidates: NormalizedCallsiteItem[]): NormalizedCallsiteItem[] {
@@ -645,7 +675,7 @@ function buildFormalParameterObservations(methodSnippet: string): string[] {
         observations.push([
             `formalParam=${param.slot}`,
             `name=${param.name}`,
-            `type=${param.type || "Unknown"}`,
+            ...(param.type ? [`type=${param.type}`] : ["typeStatus=unresolved"]),
             `semanticRole=${semanticRole}`,
         ].join(";"));
         if (semanticRole === "payload" || semanticRole === "header-or-credential-payload") {
@@ -1036,14 +1066,14 @@ function selectBridgeCompanionCandidates(
         .map((companion, index) => ({
             companion,
             index,
-            tier: bridgeCompanionTier(companion),
+            rank: bridgeCompanionRank(companion),
         }))
-        .sort((a, b) => a.tier - b.tier || a.index - b.index)
+        .sort((a, b) => a.rank - b.rank || a.index - b.index)
         .slice(0, 3)
         .map(entry => entry.companion);
 }
 
-function bridgeCompanionTier(companion: NormalizedCallsiteItem): number {
+function bridgeCompanionRank(companion: NormalizedCallsiteItem): number {
     const method = String(companion.method || "").toLowerCase();
     const text = [
         companion.callee_signature,

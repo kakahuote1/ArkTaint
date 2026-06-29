@@ -1,6 +1,5 @@
 import type { AssetPlane, Confidence } from "./CommonTypes";
 import type { AssetEndpoint, AssetGuard } from "./EndpointTypes";
-import type { RuntimeSelector } from "./SelectorTypes";
 
 export type AssetRole =
     | "source"
@@ -8,16 +7,18 @@ export type AssetRole =
     | "sanitizer"
     | "transfer"
     | "handoff"
+    | "module"
+    | "arkmain"
     | "entry"
     | "callback-registration";
 
 export interface AssetBinding {
     bindingId: string;
     surfaceId: string;
+    canonicalApiId?: string;
     assetId: string;
     plane: AssetPlane;
     role: AssetRole;
-    selector?: RuntimeSelector;
     endpoint?: AssetEndpoint;
     guard?: AssetGuard;
     effectTemplateRefs?: string[];
@@ -34,7 +35,5 @@ export interface AssetBindingMetadata {
     tags?: string[];
     category?: string;
     severity?: "low" | "medium" | "high" | "critical";
-    layer?: "kernel" | "project";
     family?: string;
-    tier?: "A" | "B" | "C";
 }

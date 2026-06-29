@@ -202,7 +202,7 @@ function loadRules(spec: SuiteSpec): { sourceRules: SourceRule[]; sinkRules: Sin
         ruleCatalogPath: spec.ruleCatalogPath ? path.resolve(spec.ruleCatalogPath) : undefined,
         projectRulePath: path.resolve(spec.projectRulePath),
         allowMissingProject: false,
-        autoDiscoverLayers: false,
+        autoDiscoverRuleSources: false,
     });
 
     return {

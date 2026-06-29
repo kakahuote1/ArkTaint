@@ -7,10 +7,10 @@ import {
     collectWatchedFieldWritesFromMethods,
     extractWatchTargets,
     findReactiveAnchorMethods,
+    isOfficialArkMainWatchDecoratorKind,
     normalizeDecoratorKind,
 } from "./ArkMainFactResolverUtils";
 import { collectQualifiedDecoratorCandidates } from "./ArkMainStructuralDiscovery";
-import { ARK_MAIN_WATCH_LIKE_DECORATORS } from "../catalog/ArkMainFrameworkCatalog";
 
 export function collectReactiveFacts(scene: Scene, context: ArkMainFactCollectionContext): void {
     const decoratorCandidates = collectQualifiedDecoratorCandidates(scene.getClasses());
@@ -23,7 +23,7 @@ export function collectReactiveFacts(scene: Scene, context: ArkMainFactCollectio
         const decorators = method.getDecorators?.() || [];
         for (const decorator of decorators) {
             const kind = normalizeDecoratorKind(decorator?.getKind?.());
-            if (!kind || !ARK_MAIN_WATCH_LIKE_DECORATORS.has(kind)) continue;
+            if (!isOfficialArkMainWatchDecoratorKind(kind)) continue;
             const ownerName = method.getDeclaringArkClass?.().getName?.() || "";
             context.addFact({
                 phase: "reactive_handoff",
@@ -41,9 +41,8 @@ export function collectReactiveFacts(scene: Scene, context: ArkMainFactCollectio
         }
     }
 
-    // Field-level @Watch: in ArkTS the standard form is
-    //   @State @Watch('handlerMethodName') fieldName: Type
-    // The decorator is on the FIELD, with the handler method name as a parameter.
+    // Field-level watcher declarations are only honored when exact decorator
+    // identity evidence is available through the official asset registry.
     const watchHandlerSigs = new Set(
         context.facts
             .filter(f => f.kind === "watch_handler")
@@ -68,7 +67,7 @@ export function collectReactiveFacts(scene: Scene, context: ArkMainFactCollectio
                     phase: "reactive_handoff",
                     kind: "watch_handler",
                     method: handler,
-                    reason: `Reactive watch handler ${handlerName} bound by @Watch on field ${fieldName}`,
+                    reason: `Reactive watch handler ${handlerName} bound by exact field watcher declaration ${fieldName}`,
                     sourceMethod: handler,
                     watchTargets: [fieldName],
                     entryFamily: "reactive_watch",
@@ -88,7 +87,7 @@ export function collectReactiveFacts(scene: Scene, context: ArkMainFactCollectio
             for (const method of cls.getMethods().filter(candidate => !candidate.isStatic())) {
                 if ((method.getDecorators?.() || []).some(decorator => {
                     const kind = normalizeDecoratorKind(decorator?.getKind?.());
-                    return !!kind && ARK_MAIN_WATCH_LIKE_DECORATORS.has(kind);
+                    return isOfficialArkMainWatchDecoratorKind(kind);
                 })) {
                     continue;
                 }

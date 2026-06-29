@@ -43,12 +43,17 @@ async function main(): Promise<void> {
         makeRuleAsset("asset.rule.kernel.seed", "sources", [
             {
                 id: "source.kernel.seed",
-                match: {
-                    kind: "method_name_equals",
-                    value: "kernelEntry",
-                    invokeKind: "static",
+                surface: {
+                    kind: "invoke",
+                    methodName: "kernelEntry",
+                    modulePath: "kernel_fixture.ets",
+                    ownerName: "file",
+                    ownerKind: "namespace",
+                    returnType: "void",
+                    invokeKind: "free-function",
                     argCount: 1,
-                    scope: { file: { mode: "contains", value: "kernel_fixture.ets" } },
+                    parameterTypes: ["SyntheticArg0"],
+                    scope: { file: { mode: "equals", value: "kernel_fixture.ets" } },
                 },
                 sourceKind: "entry_param",
                 target: "arg0",
@@ -60,12 +65,17 @@ async function main(): Promise<void> {
         makeRuleAsset("asset.rule.kernel.send", "sinks", [
             {
                 id: "sink.kernel.send",
-                match: {
-                    kind: "method_name_equals",
-                    value: "sendKernel",
-                    invokeKind: "static",
+                surface: {
+                    kind: "invoke",
+                    methodName: "sendKernel",
+                    modulePath: "kernel_fixture.ets",
+                    ownerName: "file",
+                    ownerKind: "namespace",
+                    returnType: "void",
+                    invokeKind: "free-function",
                     argCount: 1,
-                    calleeScope: { file: { mode: "contains", value: "kernel_fixture.ets" } },
+                    parameterTypes: ["SyntheticArg0"],
+                    calleeScope: { file: { mode: "equals", value: "kernel_fixture.ets" } },
                 },
             },
         ]),
@@ -79,12 +89,16 @@ async function main(): Promise<void> {
         makeRuleAsset("asset.rule.kernel.flow", "transfers", [
             {
                 id: "transfer.kernel.base_to_result",
-                match: {
-                    kind: "method_name_equals",
-                    value: "kernelTransfer",
+                surface: {
+                    kind: "invoke",
+                    methodName: "kernelTransfer",
+                    modulePath: "kernel_fixture.ets",
+                    ownerName: "KernelFixture",
+                    returnType: "SyntheticTaintValue",
                     invokeKind: "instance",
                     argCount: 1,
-                    calleeScope: { file: { mode: "contains", value: "kernel_fixture.ets" } },
+                    parameterTypes: ["SyntheticArg0"],
+                    calleeScope: { file: { mode: "equals", value: "kernel_fixture.ets" } },
                 },
                 from: "base",
                 to: "result",
@@ -97,12 +111,17 @@ async function main(): Promise<void> {
         makeRuleAsset("asset.rule.project.alpha.source", "sources", [
             {
                 id: "source.project.alpha",
-                match: {
-                    kind: "method_name_equals",
-                    value: "alphaEntry",
-                    invokeKind: "static",
+                surface: {
+                    kind: "invoke",
+                    methodName: "alphaEntry",
+                    modulePath: "alpha_fixture.ets",
+                    ownerName: "file",
+                    ownerKind: "namespace",
+                    returnType: "void",
+                    invokeKind: "free-function",
                     argCount: 1,
-                    scope: { file: { mode: "contains", value: "alpha_fixture.ets" } },
+                    parameterTypes: ["SyntheticArg0"],
+                    scope: { file: { mode: "equals", value: "alpha_fixture.ets" } },
                 },
                 sourceKind: "entry_param",
                 target: "arg0",
@@ -114,12 +133,16 @@ async function main(): Promise<void> {
         makeRuleAsset("asset.rule.project.alpha.transfer", "transfers", [
             {
                 id: "transfer.project.alpha",
-                match: {
-                    kind: "method_name_equals",
-                    value: "alphaTransfer",
+                surface: {
+                    kind: "invoke",
+                    methodName: "alphaTransfer",
+                    modulePath: "alpha_fixture.ets",
+                    ownerName: "AlphaFixture",
+                    returnType: "SyntheticTaintValue",
                     invokeKind: "instance",
                     argCount: 1,
-                    calleeScope: { file: { mode: "contains", value: "alpha_fixture.ets" } },
+                    parameterTypes: ["SyntheticArg0"],
+                    calleeScope: { file: { mode: "equals", value: "alpha_fixture.ets" } },
                 },
                 from: "arg0",
                 to: "result",
@@ -131,19 +154,24 @@ async function main(): Promise<void> {
         makeRuleAsset("asset.rule.project.beta.sink", "sinks", [
             {
                 id: "sink.project.beta",
-                match: {
-                    kind: "method_name_equals",
-                    value: "betaSend",
-                    invokeKind: "static",
+                surface: {
+                    kind: "invoke",
+                    methodName: "betaSend",
+                    modulePath: "beta_fixture.ets",
+                    ownerName: "file",
+                    ownerKind: "namespace",
+                    returnType: "void",
+                    invokeKind: "free-function",
                     argCount: 1,
-                    calleeScope: { file: { mode: "contains", value: "beta_fixture.ets" } },
+                    parameterTypes: ["SyntheticArg0"],
+                    calleeScope: { file: { mode: "equals", value: "beta_fixture.ets" } },
                 },
             },
         ]),
     );
 
     const kernelOnly = loadRuleSet({ ruleCatalogPath: root });
-    assert(kernelOnly.appliedLayerOrder.join(" -> ") === "kernel", "packs should not auto-load by default");
+    assert(kernelOnly.appliedRuleSources.join(" -> ") === "kernel", "packs should not auto-load by default");
     assert(kernelOnly.discoveredRulePacks.includes("sdk_alpha"), "sdk_alpha project pack should be discovered");
     assert(kernelOnly.discoveredRulePacks.includes("sdk_beta"), "sdk_beta project pack should be discovered");
     assert(kernelOnly.enabledRulePacks.length === 0, "no project pack should be enabled by default");
@@ -155,13 +183,13 @@ async function main(): Promise<void> {
         ruleCatalogPath: root,
         enabledRulePacks: ["sdk_alpha"],
     });
-    assert(alphaEnabled.appliedLayerOrder.join(" -> ") === "kernel -> project", "enabled pack should add project layer");
+    assert(alphaEnabled.appliedRuleSources.join(" -> ") === "kernel -> project", "enabled pack should add project rule source");
     assert(alphaEnabled.ruleSet.sources.some(rule => rule.id === "source.project.alpha"), "enabled alpha pack source should load");
     assert(alphaEnabled.ruleSet.transfers.some(rule => rule.id === "transfer.project.alpha"), "enabled alpha pack transfer should load");
     assert(!alphaEnabled.ruleSet.sinks.some(rule => rule.id === "sink.project.beta"), "disabled beta pack should stay absent");
     assert(
-        alphaEnabled.layerStatus.some(status => status.name === "project" && status.packId === "sdk_alpha" && status.applied),
-        "alpha pack should appear as applied project layer status",
+        alphaEnabled.ruleSourceStatus.some(status => status.name === "project" && status.packId === "sdk_alpha" && status.applied),
+        "alpha pack should appear as applied project rule source status",
     );
 
     const betaOnly = loadRuleSet({

@@ -4,17 +4,23 @@
   "status": "official",
   "surfaces": [
     {
-      "surfaceId": "surface.sanitizer.security-crypto-sensitive.sanitizer.08b9a113df1c",
-      "kind": "invoke",
-      "modulePath": "api/@ohos.security.cryptoFramework.d.ts",
-      "ownerName": "cryptoFramework.Mac",
-      "methodName": "doFinal",
-      "invokeKind": "instance",
-      "argCount": 1,
-      "parameterTypes": [
-        "AsyncCallback<DataBlob>"
-      ],
-      "signatureId": "api/@ohos.security.cryptoFramework.d.ts#cryptoFramework.Mac#method#doFinal#2440",
+      "surfaceId": "surface:api:official:openharmony:module=%40ohos.security.cryptoFramework:file=api%2F%40ohos.security.cryptoFramework.d.ts:export=namespace%3AcryptoFramework.Mac:decl=interface%3AcryptoFramework.Mac:member=method%3Ainstance%3AdoFinal:invoke=call:params=0%3AAsyncCallback%3CDataBlob%3E:ret=void",
+      "canonicalApiId": "api:official:openharmony:module=%40ohos.security.cryptoFramework:file=api%2F%40ohos.security.cryptoFramework.d.ts:export=namespace%3AcryptoFramework.Mac:decl=interface%3AcryptoFramework.Mac:member=method%3Ainstance%3AdoFinal:invoke=call:params=0%3AAsyncCallback%3CDataBlob%3E:ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "api/@ohos.security.cryptoFramework.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "cryptoFramework.Mac",
+            "methodName": "doFinal",
+            "parameterTypes": [
+              "AsyncCallback<DataBlob>"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      },
       "confidence": "certain",
       "provenance": {
         "source": "sdk",
@@ -22,20 +28,79 @@
           "file": "api/@ohos.security.cryptoFramework.d.ts",
           "line": 2440
         }
-      }
+      },
+      "kind": "invoke"
     },
     {
-      "surfaceId": "surface.sanitizer.security-crypto-sensitive.sanitizer.31521bb466e6",
-      "kind": "invoke",
-      "modulePath": "api/@ohos.security.cryptoFramework.d.ts",
-      "ownerName": "cryptoFramework.Md",
-      "methodName": "digest",
-      "invokeKind": "instance",
-      "argCount": 1,
-      "parameterTypes": [
-        "AsyncCallback<DataBlob>"
-      ],
-      "signatureId": "api/@ohos.security.cryptoFramework.d.ts#cryptoFramework.Md#method#digest#2759",
+      "surfaceId": "surface:api:official:openharmony:module=%40ohos.security.cryptoFramework:file=api%2F%40ohos.security.cryptoFramework.d.ts:export=namespace%3AcryptoFramework.Mac:decl=interface%3AcryptoFramework.Mac:member=method%3Ainstance%3AdoFinal:invoke=call:params=none:ret=Promise%3CDataBlob%3E",
+      "canonicalApiId": "api:official:openharmony:module=%40ohos.security.cryptoFramework:file=api%2F%40ohos.security.cryptoFramework.d.ts:export=namespace%3AcryptoFramework.Mac:decl=interface%3AcryptoFramework.Mac:member=method%3Ainstance%3AdoFinal:invoke=call:params=none:ret=Promise%3CDataBlob%3E",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "api/@ohos.security.cryptoFramework.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "cryptoFramework.Mac",
+            "methodName": "doFinal",
+            "parameterTypes": [],
+            "returnType": "Promise<DataBlob>",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
+      "provenance": {
+        "source": "sdk",
+        "location": {
+          "file": "api/@ohos.security.cryptoFramework.d.ts",
+          "line": 2472
+        }
+      },
+      "kind": "invoke"
+    },
+    {
+      "surfaceId": "surface:api:official:openharmony:module=%40ohos.security.cryptoFramework:file=api%2F%40ohos.security.cryptoFramework.d.ts:export=namespace%3AcryptoFramework.Mac:decl=interface%3AcryptoFramework.Mac:member=method%3Ainstance%3AdoFinalSync:invoke=call:params=none:ret=DataBlob",
+      "canonicalApiId": "api:official:openharmony:module=%40ohos.security.cryptoFramework:file=api%2F%40ohos.security.cryptoFramework.d.ts:export=namespace%3AcryptoFramework.Mac:decl=interface%3AcryptoFramework.Mac:member=method%3Ainstance%3AdoFinalSync:invoke=call:params=none:ret=DataBlob",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "api/@ohos.security.cryptoFramework.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "cryptoFramework.Mac",
+            "methodName": "doFinalSync",
+            "parameterTypes": [],
+            "returnType": "DataBlob",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
+      "provenance": {
+        "source": "sdk",
+        "location": {
+          "file": "api/@ohos.security.cryptoFramework.d.ts",
+          "line": 2489
+        }
+      },
+      "kind": "invoke"
+    },
+    {
+      "surfaceId": "surface:api:official:openharmony:module=%40ohos.security.cryptoFramework:file=api%2F%40ohos.security.cryptoFramework.d.ts:export=namespace%3AcryptoFramework.Md:decl=interface%3AcryptoFramework.Md:member=method%3Ainstance%3Adigest:invoke=call:params=0%3AAsyncCallback%3CDataBlob%3E:ret=void",
+      "canonicalApiId": "api:official:openharmony:module=%40ohos.security.cryptoFramework:file=api%2F%40ohos.security.cryptoFramework.d.ts:export=namespace%3AcryptoFramework.Md:decl=interface%3AcryptoFramework.Md:member=method%3Ainstance%3Adigest:invoke=call:params=0%3AAsyncCallback%3CDataBlob%3E:ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "api/@ohos.security.cryptoFramework.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "cryptoFramework.Md",
+            "methodName": "digest",
+            "parameterTypes": [
+              "AsyncCallback<DataBlob>"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      },
       "confidence": "certain",
       "provenance": {
         "source": "sdk",
@@ -43,21 +108,80 @@
           "file": "api/@ohos.security.cryptoFramework.d.ts",
           "line": 2759
         }
-      }
+      },
+      "kind": "invoke"
     },
     {
-      "surfaceId": "surface.sanitizer.security-crypto-sensitive.sanitizer.387fc2e3bfc6",
-      "kind": "invoke",
-      "modulePath": "api/@ohos.security.cryptoFramework.d.ts",
-      "ownerName": "cryptoFramework.Sign",
-      "methodName": "sign",
-      "invokeKind": "instance",
-      "argCount": 2,
-      "parameterTypes": [
-        "DataBlob",
-        "AsyncCallback<DataBlob>"
-      ],
-      "signatureId": "api/@ohos.security.cryptoFramework.d.ts#cryptoFramework.Sign#method#sign#4224",
+      "surfaceId": "surface:api:official:openharmony:module=%40ohos.security.cryptoFramework:file=api%2F%40ohos.security.cryptoFramework.d.ts:export=namespace%3AcryptoFramework.Md:decl=interface%3AcryptoFramework.Md:member=method%3Ainstance%3Adigest:invoke=call:params=none:ret=Promise%3CDataBlob%3E",
+      "canonicalApiId": "api:official:openharmony:module=%40ohos.security.cryptoFramework:file=api%2F%40ohos.security.cryptoFramework.d.ts:export=namespace%3AcryptoFramework.Md:decl=interface%3AcryptoFramework.Md:member=method%3Ainstance%3Adigest:invoke=call:params=none:ret=Promise%3CDataBlob%3E",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "api/@ohos.security.cryptoFramework.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "cryptoFramework.Md",
+            "methodName": "digest",
+            "parameterTypes": [],
+            "returnType": "Promise<DataBlob>",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
+      "provenance": {
+        "source": "sdk",
+        "location": {
+          "file": "api/@ohos.security.cryptoFramework.d.ts",
+          "line": 2791
+        }
+      },
+      "kind": "invoke"
+    },
+    {
+      "surfaceId": "surface:api:official:openharmony:module=%40ohos.security.cryptoFramework:file=api%2F%40ohos.security.cryptoFramework.d.ts:export=namespace%3AcryptoFramework.Md:decl=interface%3AcryptoFramework.Md:member=method%3Ainstance%3AdigestSync:invoke=call:params=none:ret=DataBlob",
+      "canonicalApiId": "api:official:openharmony:module=%40ohos.security.cryptoFramework:file=api%2F%40ohos.security.cryptoFramework.d.ts:export=namespace%3AcryptoFramework.Md:decl=interface%3AcryptoFramework.Md:member=method%3Ainstance%3AdigestSync:invoke=call:params=none:ret=DataBlob",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "api/@ohos.security.cryptoFramework.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "cryptoFramework.Md",
+            "methodName": "digestSync",
+            "parameterTypes": [],
+            "returnType": "DataBlob",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
+      "provenance": {
+        "source": "sdk",
+        "location": {
+          "file": "api/@ohos.security.cryptoFramework.d.ts",
+          "line": 2807
+        }
+      },
+      "kind": "invoke"
+    },
+    {
+      "surfaceId": "surface:api:official:openharmony:module=%40ohos.security.cryptoFramework:file=api%2F%40ohos.security.cryptoFramework.d.ts:export=namespace%3AcryptoFramework.Sign:decl=interface%3AcryptoFramework.Sign:member=method%3Ainstance%3Asign:invoke=call:params=0%3ADataBlob%2C1%3AAsyncCallback%3CDataBlob%3E:ret=void",
+      "canonicalApiId": "api:official:openharmony:module=%40ohos.security.cryptoFramework:file=api%2F%40ohos.security.cryptoFramework.d.ts:export=namespace%3AcryptoFramework.Sign:decl=interface%3AcryptoFramework.Sign:member=method%3Ainstance%3Asign:invoke=call:params=0%3ADataBlob%2C1%3AAsyncCallback%3CDataBlob%3E:ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "api/@ohos.security.cryptoFramework.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "cryptoFramework.Sign",
+            "methodName": "sign",
+            "parameterTypes": [
+              "DataBlob",
+              "AsyncCallback<DataBlob>"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      },
       "confidence": "certain",
       "provenance": {
         "source": "sdk",
@@ -65,21 +189,28 @@
           "file": "api/@ohos.security.cryptoFramework.d.ts",
           "line": 4224
         }
-      }
+      },
+      "kind": "invoke"
     },
     {
-      "surfaceId": "surface.sanitizer.security-crypto-sensitive.sanitizer.e742182e0d53",
-      "kind": "invoke",
-      "modulePath": "api/@ohos.security.cryptoFramework.d.ts",
-      "ownerName": "cryptoFramework.Sign",
-      "methodName": "sign",
-      "invokeKind": "instance",
-      "argCount": 2,
-      "parameterTypes": [
-        "DataBlob | null",
-        "AsyncCallback<DataBlob>"
-      ],
-      "signatureId": "api/@ohos.security.cryptoFramework.d.ts#cryptoFramework.Sign#method#sign#4268",
+      "surfaceId": "surface:api:official:openharmony:module=%40ohos.security.cryptoFramework:file=api%2F%40ohos.security.cryptoFramework.d.ts:export=namespace%3AcryptoFramework.Sign:decl=interface%3AcryptoFramework.Sign:member=method%3Ainstance%3Asign:invoke=call:params=0%3ADataBlob%20%7C%20null%2C1%3AAsyncCallback%3CDataBlob%3E:ret=void",
+      "canonicalApiId": "api:official:openharmony:module=%40ohos.security.cryptoFramework:file=api%2F%40ohos.security.cryptoFramework.d.ts:export=namespace%3AcryptoFramework.Sign:decl=interface%3AcryptoFramework.Sign:member=method%3Ainstance%3Asign:invoke=call:params=0%3ADataBlob%20%7C%20null%2C1%3AAsyncCallback%3CDataBlob%3E:ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "api/@ohos.security.cryptoFramework.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "cryptoFramework.Sign",
+            "methodName": "sign",
+            "parameterTypes": [
+              "DataBlob | null",
+              "AsyncCallback<DataBlob>"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      },
       "confidence": "certain",
       "provenance": {
         "source": "sdk",
@@ -87,29 +218,102 @@
           "file": "api/@ohos.security.cryptoFramework.d.ts",
           "line": 4268
         }
-      }
+      },
+      "kind": "invoke"
+    },
+    {
+      "surfaceId": "surface:api:official:openharmony:module=%40ohos.security.cryptoFramework:file=api%2F%40ohos.security.cryptoFramework.d.ts:export=namespace%3AcryptoFramework.Sign:decl=interface%3AcryptoFramework.Sign:member=method%3Ainstance%3Asign:invoke=call:params=0%3ADataBlob:ret=Promise%3CDataBlob%3E",
+      "canonicalApiId": "api:official:openharmony:module=%40ohos.security.cryptoFramework:file=api%2F%40ohos.security.cryptoFramework.d.ts:export=namespace%3AcryptoFramework.Sign:decl=interface%3AcryptoFramework.Sign:member=method%3Ainstance%3Asign:invoke=call:params=0%3ADataBlob:ret=Promise%3CDataBlob%3E",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "api/@ohos.security.cryptoFramework.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "cryptoFramework.Sign",
+            "methodName": "sign",
+            "parameterTypes": [
+              "DataBlob"
+            ],
+            "returnType": "Promise<DataBlob>",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
+      "provenance": {
+        "source": "sdk",
+        "location": {
+          "file": "api/@ohos.security.cryptoFramework.d.ts",
+          "line": 4312
+        }
+      },
+      "kind": "invoke"
+    },
+    {
+      "surfaceId": "surface:api:official:openharmony:module=%40ohos.security.cryptoFramework:file=api%2F%40ohos.security.cryptoFramework.d.ts:export=namespace%3AcryptoFramework.Sign:decl=interface%3AcryptoFramework.Sign:member=method%3Ainstance%3Asign:invoke=call:params=0%3ADataBlob%20%7C%20null:ret=Promise%3CDataBlob%3E",
+      "canonicalApiId": "api:official:openharmony:module=%40ohos.security.cryptoFramework:file=api%2F%40ohos.security.cryptoFramework.d.ts:export=namespace%3AcryptoFramework.Sign:decl=interface%3AcryptoFramework.Sign:member=method%3Ainstance%3Asign:invoke=call:params=0%3ADataBlob%20%7C%20null:ret=Promise%3CDataBlob%3E",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "api/@ohos.security.cryptoFramework.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "cryptoFramework.Sign",
+            "methodName": "sign",
+            "parameterTypes": [
+              "DataBlob | null"
+            ],
+            "returnType": "Promise<DataBlob>",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
+      "provenance": {
+        "source": "sdk",
+        "location": {
+          "file": "api/@ohos.security.cryptoFramework.d.ts",
+          "line": 4356
+        }
+      },
+      "kind": "invoke"
+    },
+    {
+      "surfaceId": "surface:api:official:openharmony:module=%40ohos.security.cryptoFramework:file=api%2F%40ohos.security.cryptoFramework.d.ts:export=namespace%3AcryptoFramework.Sign:decl=interface%3AcryptoFramework.Sign:member=method%3Ainstance%3AsignSync:invoke=call:params=0%3ADataBlob%20%7C%20null:ret=DataBlob",
+      "canonicalApiId": "api:official:openharmony:module=%40ohos.security.cryptoFramework:file=api%2F%40ohos.security.cryptoFramework.d.ts:export=namespace%3AcryptoFramework.Sign:decl=interface%3AcryptoFramework.Sign:member=method%3Ainstance%3AsignSync:invoke=call:params=0%3ADataBlob%20%7C%20null:ret=DataBlob",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "api/@ohos.security.cryptoFramework.d.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "cryptoFramework.Sign",
+            "methodName": "signSync",
+            "parameterTypes": [
+              "DataBlob | null"
+            ],
+            "returnType": "DataBlob",
+            "staticFlag": false
+          }
+        }
+      },
+      "confidence": "certain",
+      "provenance": {
+        "source": "sdk",
+        "location": {
+          "file": "api/@ohos.security.cryptoFramework.d.ts",
+          "line": 4373
+        }
+      },
+      "kind": "invoke"
     }
   ],
   "bindings": [
     {
-      "bindingId": "binding.sanitizer.security-crypto-sensitive.sanitizer.08b9a113df1c",
-      "surfaceId": "surface.sanitizer.security-crypto-sensitive.sanitizer.08b9a113df1c",
+      "bindingId": "binding:asset.rule.kernel.sanitizers.official_declarations:sanitizer:3d5c5e29d500",
+      "surfaceId": "surface:api:official:openharmony:module=%40ohos.security.cryptoFramework:file=api%2F%40ohos.security.cryptoFramework.d.ts:export=namespace%3AcryptoFramework.Mac:decl=interface%3AcryptoFramework.Mac:member=method%3Ainstance%3AdoFinal:invoke=call:params=0%3AAsyncCallback%3CDataBlob%3E:ret=void",
+      "canonicalApiId": "api:official:openharmony:module=%40ohos.security.cryptoFramework:file=api%2F%40ohos.security.cryptoFramework.d.ts:export=namespace%3AcryptoFramework.Mac:decl=interface%3AcryptoFramework.Mac:member=method%3Ainstance%3AdoFinal:invoke=call:params=0%3AAsyncCallback%3CDataBlob%3E:ret=void",
       "assetId": "asset.rule.kernel.sanitizers.official_declarations",
       "plane": "rule",
       "role": "sanitizer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "doFinal",
-        "invokeKind": "instance",
-        "argCount": 1,
-        "typeHint": "cryptoFramework.Mac",
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "cryptoFramework.Mac"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "callbackArg",
@@ -121,39 +325,87 @@
         }
       },
       "effectTemplateRefs": [
-        "template.sanitizer.security-crypto-sensitive.sanitizer.08b9a113df1c"
+        "template:asset.rule.kernel.sanitizers.official_declarations:sanitizer:7bf613afa589"
       ],
       "semanticsFamily": "security-crypto-sensitive",
       "metadata": {
-        "enabled": true,
-        "description": "Official SDK declaration api/@ohos.security.cryptoFramework.d.ts#cryptoFramework.Mac#method#doFinal#2440#1 as sanitizer.",
+        "enabled": false,
+        "description": "Disabled after OSAN-002 manual SDK audit: crypto MAC/digest/sign output is a derived value, not a global sanitizer. Original: Official SDK declaration api/@ohos.security.cryptoFramework.d.ts#cryptoFramework.Mac#method#doFinal#2440#1 as sanitizer.",
         "tags": [
           "harmony",
-          "official-declaration"
+          "official-declaration",
+          "disabled-after-sdk-audit",
+          "osan-002"
         ]
       },
       "completeness": "complete",
       "confidence": "certain"
     },
     {
-      "bindingId": "binding.sanitizer.security-crypto-sensitive.sanitizer.31521bb466e6",
-      "surfaceId": "surface.sanitizer.security-crypto-sensitive.sanitizer.31521bb466e6",
+      "bindingId": "binding:asset.rule.kernel.sanitizers.official_declarations:sanitizer:6ad938fa3225",
+      "surfaceId": "surface:api:official:openharmony:module=%40ohos.security.cryptoFramework:file=api%2F%40ohos.security.cryptoFramework.d.ts:export=namespace%3AcryptoFramework.Mac:decl=interface%3AcryptoFramework.Mac:member=method%3Ainstance%3AdoFinal:invoke=call:params=none:ret=Promise%3CDataBlob%3E",
+      "canonicalApiId": "api:official:openharmony:module=%40ohos.security.cryptoFramework:file=api%2F%40ohos.security.cryptoFramework.d.ts:export=namespace%3AcryptoFramework.Mac:decl=interface%3AcryptoFramework.Mac:member=method%3Ainstance%3AdoFinal:invoke=call:params=none:ret=Promise%3CDataBlob%3E",
       "assetId": "asset.rule.kernel.sanitizers.official_declarations",
       "plane": "rule",
       "role": "sanitizer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "digest",
-        "invokeKind": "instance",
-        "argCount": 1,
-        "typeHint": "cryptoFramework.Md",
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "cryptoFramework.Md"
-          }
+      "endpoint": {
+        "base": {
+          "kind": "promiseResult"
         }
       },
+      "effectTemplateRefs": [
+        "template:asset.rule.kernel.sanitizers.official_declarations:sanitizer:4d99e1b33d71"
+      ],
+      "semanticsFamily": "security-crypto-sensitive",
+      "metadata": {
+        "enabled": false,
+        "description": "Disabled after OSAN-002 manual SDK audit: crypto MAC/digest/sign output is a derived value, not a global sanitizer. Original: Official SDK declaration api/@ohos.security.cryptoFramework.d.ts#cryptoFramework.Mac#method#doFinal#2472#0 as sanitizer.",
+        "tags": [
+          "harmony",
+          "official-declaration",
+          "disabled-after-sdk-audit",
+          "osan-002"
+        ]
+      },
+      "completeness": "complete",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding:asset.rule.kernel.sanitizers.official_declarations:sanitizer:d308bc671924",
+      "surfaceId": "surface:api:official:openharmony:module=%40ohos.security.cryptoFramework:file=api%2F%40ohos.security.cryptoFramework.d.ts:export=namespace%3AcryptoFramework.Mac:decl=interface%3AcryptoFramework.Mac:member=method%3Ainstance%3AdoFinalSync:invoke=call:params=none:ret=DataBlob",
+      "canonicalApiId": "api:official:openharmony:module=%40ohos.security.cryptoFramework:file=api%2F%40ohos.security.cryptoFramework.d.ts:export=namespace%3AcryptoFramework.Mac:decl=interface%3AcryptoFramework.Mac:member=method%3Ainstance%3AdoFinalSync:invoke=call:params=none:ret=DataBlob",
+      "assetId": "asset.rule.kernel.sanitizers.official_declarations",
+      "plane": "rule",
+      "role": "sanitizer",
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template:asset.rule.kernel.sanitizers.official_declarations:sanitizer:e558399cf6c4"
+      ],
+      "semanticsFamily": "security-crypto-sensitive",
+      "metadata": {
+        "enabled": false,
+        "description": "Disabled after OSAN-002 manual SDK audit: crypto MAC/digest/sign output is a derived value, not a global sanitizer. Original: Official SDK declaration api/@ohos.security.cryptoFramework.d.ts#cryptoFramework.Mac#method#doFinalSync#2489#0 as sanitizer.",
+        "tags": [
+          "harmony",
+          "official-declaration",
+          "disabled-after-sdk-audit",
+          "osan-002"
+        ]
+      },
+      "completeness": "complete",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding:asset.rule.kernel.sanitizers.official_declarations:sanitizer:c88d68b4576a",
+      "surfaceId": "surface:api:official:openharmony:module=%40ohos.security.cryptoFramework:file=api%2F%40ohos.security.cryptoFramework.d.ts:export=namespace%3AcryptoFramework.Md:decl=interface%3AcryptoFramework.Md:member=method%3Ainstance%3Adigest:invoke=call:params=0%3AAsyncCallback%3CDataBlob%3E:ret=void",
+      "canonicalApiId": "api:official:openharmony:module=%40ohos.security.cryptoFramework:file=api%2F%40ohos.security.cryptoFramework.d.ts:export=namespace%3AcryptoFramework.Md:decl=interface%3AcryptoFramework.Md:member=method%3Ainstance%3Adigest:invoke=call:params=0%3AAsyncCallback%3CDataBlob%3E:ret=void",
+      "assetId": "asset.rule.kernel.sanitizers.official_declarations",
+      "plane": "rule",
+      "role": "sanitizer",
       "endpoint": {
         "base": {
           "kind": "callbackArg",
@@ -165,39 +417,87 @@
         }
       },
       "effectTemplateRefs": [
-        "template.sanitizer.security-crypto-sensitive.sanitizer.31521bb466e6"
+        "template:asset.rule.kernel.sanitizers.official_declarations:sanitizer:fad3d2a593d1"
       ],
       "semanticsFamily": "security-crypto-sensitive",
       "metadata": {
-        "enabled": true,
-        "description": "Official SDK declaration api/@ohos.security.cryptoFramework.d.ts#cryptoFramework.Md#method#digest#2759#1 as sanitizer.",
+        "enabled": false,
+        "description": "Disabled after OSAN-002 manual SDK audit: crypto MAC/digest/sign output is a derived value, not a global sanitizer. Original: Official SDK declaration api/@ohos.security.cryptoFramework.d.ts#cryptoFramework.Md#method#digest#2759#1 as sanitizer.",
         "tags": [
           "harmony",
-          "official-declaration"
+          "official-declaration",
+          "disabled-after-sdk-audit",
+          "osan-002"
         ]
       },
       "completeness": "complete",
       "confidence": "certain"
     },
     {
-      "bindingId": "binding.sanitizer.security-crypto-sensitive.sanitizer.387fc2e3bfc6",
-      "surfaceId": "surface.sanitizer.security-crypto-sensitive.sanitizer.387fc2e3bfc6",
+      "bindingId": "binding:asset.rule.kernel.sanitizers.official_declarations:sanitizer:88a096504177",
+      "surfaceId": "surface:api:official:openharmony:module=%40ohos.security.cryptoFramework:file=api%2F%40ohos.security.cryptoFramework.d.ts:export=namespace%3AcryptoFramework.Md:decl=interface%3AcryptoFramework.Md:member=method%3Ainstance%3Adigest:invoke=call:params=none:ret=Promise%3CDataBlob%3E",
+      "canonicalApiId": "api:official:openharmony:module=%40ohos.security.cryptoFramework:file=api%2F%40ohos.security.cryptoFramework.d.ts:export=namespace%3AcryptoFramework.Md:decl=interface%3AcryptoFramework.Md:member=method%3Ainstance%3Adigest:invoke=call:params=none:ret=Promise%3CDataBlob%3E",
       "assetId": "asset.rule.kernel.sanitizers.official_declarations",
       "plane": "rule",
       "role": "sanitizer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "sign",
-        "invokeKind": "instance",
-        "argCount": 2,
-        "typeHint": "cryptoFramework.Sign",
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "cryptoFramework.Sign"
-          }
+      "endpoint": {
+        "base": {
+          "kind": "promiseResult"
         }
       },
+      "effectTemplateRefs": [
+        "template:asset.rule.kernel.sanitizers.official_declarations:sanitizer:4fb2d0571a6a"
+      ],
+      "semanticsFamily": "security-crypto-sensitive",
+      "metadata": {
+        "enabled": false,
+        "description": "Disabled after OSAN-002 manual SDK audit: crypto MAC/digest/sign output is a derived value, not a global sanitizer. Original: Official SDK declaration api/@ohos.security.cryptoFramework.d.ts#cryptoFramework.Md#method#digest#2791#0 as sanitizer.",
+        "tags": [
+          "harmony",
+          "official-declaration",
+          "disabled-after-sdk-audit",
+          "osan-002"
+        ]
+      },
+      "completeness": "complete",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding:asset.rule.kernel.sanitizers.official_declarations:sanitizer:28f381dfe803",
+      "surfaceId": "surface:api:official:openharmony:module=%40ohos.security.cryptoFramework:file=api%2F%40ohos.security.cryptoFramework.d.ts:export=namespace%3AcryptoFramework.Md:decl=interface%3AcryptoFramework.Md:member=method%3Ainstance%3AdigestSync:invoke=call:params=none:ret=DataBlob",
+      "canonicalApiId": "api:official:openharmony:module=%40ohos.security.cryptoFramework:file=api%2F%40ohos.security.cryptoFramework.d.ts:export=namespace%3AcryptoFramework.Md:decl=interface%3AcryptoFramework.Md:member=method%3Ainstance%3AdigestSync:invoke=call:params=none:ret=DataBlob",
+      "assetId": "asset.rule.kernel.sanitizers.official_declarations",
+      "plane": "rule",
+      "role": "sanitizer",
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template:asset.rule.kernel.sanitizers.official_declarations:sanitizer:336ef1234892"
+      ],
+      "semanticsFamily": "security-crypto-sensitive",
+      "metadata": {
+        "enabled": false,
+        "description": "Disabled after OSAN-002 manual SDK audit: crypto MAC/digest/sign output is a derived value, not a global sanitizer. Original: Official SDK declaration api/@ohos.security.cryptoFramework.d.ts#cryptoFramework.Md#method#digestSync#2807#0 as sanitizer.",
+        "tags": [
+          "harmony",
+          "official-declaration",
+          "disabled-after-sdk-audit",
+          "osan-002"
+        ]
+      },
+      "completeness": "complete",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding:asset.rule.kernel.sanitizers.official_declarations:sanitizer:7c1d9c8d272d",
+      "surfaceId": "surface:api:official:openharmony:module=%40ohos.security.cryptoFramework:file=api%2F%40ohos.security.cryptoFramework.d.ts:export=namespace%3AcryptoFramework.Sign:decl=interface%3AcryptoFramework.Sign:member=method%3Ainstance%3Asign:invoke=call:params=0%3ADataBlob%2C1%3AAsyncCallback%3CDataBlob%3E:ret=void",
+      "canonicalApiId": "api:official:openharmony:module=%40ohos.security.cryptoFramework:file=api%2F%40ohos.security.cryptoFramework.d.ts:export=namespace%3AcryptoFramework.Sign:decl=interface%3AcryptoFramework.Sign:member=method%3Ainstance%3Asign:invoke=call:params=0%3ADataBlob%2C1%3AAsyncCallback%3CDataBlob%3E:ret=void",
+      "assetId": "asset.rule.kernel.sanitizers.official_declarations",
+      "plane": "rule",
+      "role": "sanitizer",
       "endpoint": {
         "base": {
           "kind": "callbackArg",
@@ -209,39 +509,29 @@
         }
       },
       "effectTemplateRefs": [
-        "template.sanitizer.security-crypto-sensitive.sanitizer.387fc2e3bfc6"
+        "template:asset.rule.kernel.sanitizers.official_declarations:sanitizer:9feab378da66"
       ],
       "semanticsFamily": "security-crypto-sensitive",
       "metadata": {
-        "enabled": true,
-        "description": "Official SDK declaration api/@ohos.security.cryptoFramework.d.ts#cryptoFramework.Sign#method#sign#4224#2 as sanitizer.",
+        "enabled": false,
+        "description": "Disabled after OSAN-002 manual SDK audit: crypto MAC/digest/sign output is a derived value, not a global sanitizer. Original: Official SDK declaration api/@ohos.security.cryptoFramework.d.ts#cryptoFramework.Sign#method#sign#4224#2 as sanitizer.",
         "tags": [
           "harmony",
-          "official-declaration"
+          "official-declaration",
+          "disabled-after-sdk-audit",
+          "osan-002"
         ]
       },
       "completeness": "complete",
       "confidence": "certain"
     },
     {
-      "bindingId": "binding.sanitizer.security-crypto-sensitive.sanitizer.e742182e0d53",
-      "surfaceId": "surface.sanitizer.security-crypto-sensitive.sanitizer.e742182e0d53",
+      "bindingId": "binding:asset.rule.kernel.sanitizers.official_declarations:sanitizer:53ee68f62b6f",
+      "surfaceId": "surface:api:official:openharmony:module=%40ohos.security.cryptoFramework:file=api%2F%40ohos.security.cryptoFramework.d.ts:export=namespace%3AcryptoFramework.Sign:decl=interface%3AcryptoFramework.Sign:member=method%3Ainstance%3Asign:invoke=call:params=0%3ADataBlob%20%7C%20null%2C1%3AAsyncCallback%3CDataBlob%3E:ret=void",
+      "canonicalApiId": "api:official:openharmony:module=%40ohos.security.cryptoFramework:file=api%2F%40ohos.security.cryptoFramework.d.ts:export=namespace%3AcryptoFramework.Sign:decl=interface%3AcryptoFramework.Sign:member=method%3Ainstance%3Asign:invoke=call:params=0%3ADataBlob%20%7C%20null%2C1%3AAsyncCallback%3CDataBlob%3E:ret=void",
       "assetId": "asset.rule.kernel.sanitizers.official_declarations",
       "plane": "rule",
       "role": "sanitizer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "sign",
-        "invokeKind": "instance",
-        "argCount": 2,
-        "typeHint": "cryptoFramework.Sign",
-        "calleeScope": {
-          "className": {
-            "mode": "equals",
-            "value": "cryptoFramework.Sign"
-          }
-        }
-      },
       "endpoint": {
         "base": {
           "kind": "callbackArg",
@@ -253,15 +543,104 @@
         }
       },
       "effectTemplateRefs": [
-        "template.sanitizer.security-crypto-sensitive.sanitizer.e742182e0d53"
+        "template:asset.rule.kernel.sanitizers.official_declarations:sanitizer:242c98c49e46"
       ],
       "semanticsFamily": "security-crypto-sensitive",
       "metadata": {
-        "enabled": true,
-        "description": "Official SDK declaration api/@ohos.security.cryptoFramework.d.ts#cryptoFramework.Sign#method#sign#4268#2 as sanitizer.",
+        "enabled": false,
+        "description": "Disabled after OSAN-002 manual SDK audit: crypto MAC/digest/sign output is a derived value, not a global sanitizer. Original: Official SDK declaration api/@ohos.security.cryptoFramework.d.ts#cryptoFramework.Sign#method#sign#4268#2 as sanitizer.",
         "tags": [
           "harmony",
-          "official-declaration"
+          "official-declaration",
+          "disabled-after-sdk-audit",
+          "osan-002"
+        ]
+      },
+      "completeness": "complete",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding:asset.rule.kernel.sanitizers.official_declarations:sanitizer:f50eae475a20",
+      "surfaceId": "surface:api:official:openharmony:module=%40ohos.security.cryptoFramework:file=api%2F%40ohos.security.cryptoFramework.d.ts:export=namespace%3AcryptoFramework.Sign:decl=interface%3AcryptoFramework.Sign:member=method%3Ainstance%3Asign:invoke=call:params=0%3ADataBlob:ret=Promise%3CDataBlob%3E",
+      "canonicalApiId": "api:official:openharmony:module=%40ohos.security.cryptoFramework:file=api%2F%40ohos.security.cryptoFramework.d.ts:export=namespace%3AcryptoFramework.Sign:decl=interface%3AcryptoFramework.Sign:member=method%3Ainstance%3Asign:invoke=call:params=0%3ADataBlob:ret=Promise%3CDataBlob%3E",
+      "assetId": "asset.rule.kernel.sanitizers.official_declarations",
+      "plane": "rule",
+      "role": "sanitizer",
+      "endpoint": {
+        "base": {
+          "kind": "promiseResult"
+        }
+      },
+      "effectTemplateRefs": [
+        "template:asset.rule.kernel.sanitizers.official_declarations:sanitizer:d2f250262a73"
+      ],
+      "semanticsFamily": "security-crypto-sensitive",
+      "metadata": {
+        "enabled": false,
+        "description": "Disabled after OSAN-002 manual SDK audit: crypto MAC/digest/sign output is a derived value, not a global sanitizer. Original: Official SDK declaration api/@ohos.security.cryptoFramework.d.ts#cryptoFramework.Sign#method#sign#4312#1 as sanitizer.",
+        "tags": [
+          "harmony",
+          "official-declaration",
+          "disabled-after-sdk-audit",
+          "osan-002"
+        ]
+      },
+      "completeness": "complete",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding:asset.rule.kernel.sanitizers.official_declarations:sanitizer:30ea3d6d357b",
+      "surfaceId": "surface:api:official:openharmony:module=%40ohos.security.cryptoFramework:file=api%2F%40ohos.security.cryptoFramework.d.ts:export=namespace%3AcryptoFramework.Sign:decl=interface%3AcryptoFramework.Sign:member=method%3Ainstance%3Asign:invoke=call:params=0%3ADataBlob%20%7C%20null:ret=Promise%3CDataBlob%3E",
+      "canonicalApiId": "api:official:openharmony:module=%40ohos.security.cryptoFramework:file=api%2F%40ohos.security.cryptoFramework.d.ts:export=namespace%3AcryptoFramework.Sign:decl=interface%3AcryptoFramework.Sign:member=method%3Ainstance%3Asign:invoke=call:params=0%3ADataBlob%20%7C%20null:ret=Promise%3CDataBlob%3E",
+      "assetId": "asset.rule.kernel.sanitizers.official_declarations",
+      "plane": "rule",
+      "role": "sanitizer",
+      "endpoint": {
+        "base": {
+          "kind": "promiseResult"
+        }
+      },
+      "effectTemplateRefs": [
+        "template:asset.rule.kernel.sanitizers.official_declarations:sanitizer:92275e06a2ae"
+      ],
+      "semanticsFamily": "security-crypto-sensitive",
+      "metadata": {
+        "enabled": false,
+        "description": "Disabled after OSAN-002 manual SDK audit: crypto MAC/digest/sign output is a derived value, not a global sanitizer. Original: Official SDK declaration api/@ohos.security.cryptoFramework.d.ts#cryptoFramework.Sign#method#sign#4356#1 as sanitizer.",
+        "tags": [
+          "harmony",
+          "official-declaration",
+          "disabled-after-sdk-audit",
+          "osan-002"
+        ]
+      },
+      "completeness": "complete",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding:asset.rule.kernel.sanitizers.official_declarations:sanitizer:e627ba7a32c1",
+      "surfaceId": "surface:api:official:openharmony:module=%40ohos.security.cryptoFramework:file=api%2F%40ohos.security.cryptoFramework.d.ts:export=namespace%3AcryptoFramework.Sign:decl=interface%3AcryptoFramework.Sign:member=method%3Ainstance%3AsignSync:invoke=call:params=0%3ADataBlob%20%7C%20null:ret=DataBlob",
+      "canonicalApiId": "api:official:openharmony:module=%40ohos.security.cryptoFramework:file=api%2F%40ohos.security.cryptoFramework.d.ts:export=namespace%3AcryptoFramework.Sign:decl=interface%3AcryptoFramework.Sign:member=method%3Ainstance%3AsignSync:invoke=call:params=0%3ADataBlob%20%7C%20null:ret=DataBlob",
+      "assetId": "asset.rule.kernel.sanitizers.official_declarations",
+      "plane": "rule",
+      "role": "sanitizer",
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template:asset.rule.kernel.sanitizers.official_declarations:sanitizer:beaa44ce1963"
+      ],
+      "semanticsFamily": "security-crypto-sensitive",
+      "metadata": {
+        "enabled": false,
+        "description": "Disabled after OSAN-002 manual SDK audit: crypto MAC/digest/sign output is a derived value, not a global sanitizer. Original: Official SDK declaration api/@ohos.security.cryptoFramework.d.ts#cryptoFramework.Sign#method#signSync#4373#1 as sanitizer.",
+        "tags": [
+          "harmony",
+          "official-declaration",
+          "disabled-after-sdk-audit",
+          "osan-002"
         ]
       },
       "completeness": "complete",
@@ -270,7 +649,7 @@
   ],
   "effectTemplates": [
     {
-      "id": "template.sanitizer.security-crypto-sensitive.sanitizer.08b9a113df1c",
+      "id": "template:asset.rule.kernel.sanitizers.official_declarations:sanitizer:7bf613afa589",
       "confidence": "certain",
       "kind": "rule.sanitizer",
       "value": {
@@ -287,7 +666,31 @@
       "strength": "strong"
     },
     {
-      "id": "template.sanitizer.security-crypto-sensitive.sanitizer.31521bb466e6",
+      "id": "template:asset.rule.kernel.sanitizers.official_declarations:sanitizer:4d99e1b33d71",
+      "confidence": "certain",
+      "kind": "rule.sanitizer",
+      "value": {
+        "base": {
+          "kind": "promiseResult"
+        }
+      },
+      "sanitizerKind": "security-crypto-sensitive",
+      "strength": "strong"
+    },
+    {
+      "id": "template:asset.rule.kernel.sanitizers.official_declarations:sanitizer:e558399cf6c4",
+      "confidence": "certain",
+      "kind": "rule.sanitizer",
+      "value": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "sanitizerKind": "security-crypto-sensitive",
+      "strength": "strong"
+    },
+    {
+      "id": "template:asset.rule.kernel.sanitizers.official_declarations:sanitizer:fad3d2a593d1",
       "confidence": "certain",
       "kind": "rule.sanitizer",
       "value": {
@@ -304,7 +707,31 @@
       "strength": "strong"
     },
     {
-      "id": "template.sanitizer.security-crypto-sensitive.sanitizer.387fc2e3bfc6",
+      "id": "template:asset.rule.kernel.sanitizers.official_declarations:sanitizer:4fb2d0571a6a",
+      "confidence": "certain",
+      "kind": "rule.sanitizer",
+      "value": {
+        "base": {
+          "kind": "promiseResult"
+        }
+      },
+      "sanitizerKind": "security-crypto-sensitive",
+      "strength": "strong"
+    },
+    {
+      "id": "template:asset.rule.kernel.sanitizers.official_declarations:sanitizer:336ef1234892",
+      "confidence": "certain",
+      "kind": "rule.sanitizer",
+      "value": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "sanitizerKind": "security-crypto-sensitive",
+      "strength": "strong"
+    },
+    {
+      "id": "template:asset.rule.kernel.sanitizers.official_declarations:sanitizer:9feab378da66",
       "confidence": "certain",
       "kind": "rule.sanitizer",
       "value": {
@@ -321,7 +748,7 @@
       "strength": "strong"
     },
     {
-      "id": "template.sanitizer.security-crypto-sensitive.sanitizer.e742182e0d53",
+      "id": "template:asset.rule.kernel.sanitizers.official_declarations:sanitizer:242c98c49e46",
       "confidence": "certain",
       "kind": "rule.sanitizer",
       "value": {
@@ -332,6 +759,42 @@
             "index": 1
           },
           "argIndex": 0
+        }
+      },
+      "sanitizerKind": "security-crypto-sensitive",
+      "strength": "strong"
+    },
+    {
+      "id": "template:asset.rule.kernel.sanitizers.official_declarations:sanitizer:d2f250262a73",
+      "confidence": "certain",
+      "kind": "rule.sanitizer",
+      "value": {
+        "base": {
+          "kind": "promiseResult"
+        }
+      },
+      "sanitizerKind": "security-crypto-sensitive",
+      "strength": "strong"
+    },
+    {
+      "id": "template:asset.rule.kernel.sanitizers.official_declarations:sanitizer:92275e06a2ae",
+      "confidence": "certain",
+      "kind": "rule.sanitizer",
+      "value": {
+        "base": {
+          "kind": "promiseResult"
+        }
+      },
+      "sanitizerKind": "security-crypto-sensitive",
+      "strength": "strong"
+    },
+    {
+      "id": "template:asset.rule.kernel.sanitizers.official_declarations:sanitizer:beaa44ce1963",
+      "confidence": "certain",
+      "kind": "rule.sanitizer",
+      "value": {
+        "base": {
+          "kind": "return"
         }
       },
       "sanitizerKind": "security-crypto-sensitive",

@@ -4,197 +4,549 @@
   "status": "official",
   "surfaces": [
     {
-      "surfaceId": "surface.source.test.entry_param.transfer_rule_result_to_arg0_005_T",
-      "kind": "invoke",
-      "modulePath": "@arktaint/test-transfer",
-      "functionName": "transfer_rule_result_to_arg0_005_T",
-      "invokeKind": "free-function",
-      "argCount": 1,
+      "surfaceId": "surface.source.test.entry_param.transfer_rule_result_to_arg0_005_T.method.transfer_rule_result_to_arg0_005_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=rule_transfer%2Ftransfer_rule_result_to_arg0_005_T.ets:file=rule_transfer%2Ftransfer_rule_result_to_arg0_005_T.ets:export=entry%3Acomponent.transfer_rule_result_to_arg0_005_T:decl=entry%3Acomponent.transfer_rule_result_to_arg0_005_T:member=lifecycle%3Atest.case.transfer_rule_result_to_arg0_005_T:invoke=entry:params=0%3Astring:ret=void",
       "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "rule_transfer/transfer_rule_result_to_arg0_005_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_transfer/transfer_rule_result_to_arg0_005_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "transfer_rule_result_to_arg0_005_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
       }
     },
     {
-      "surfaceId": "surface.source.test.entry_param.transfer_rule_paint_007_F",
-      "kind": "invoke",
-      "modulePath": "@arktaint/test-transfer",
-      "functionName": "transfer_rule_paint_007_F",
-      "invokeKind": "free-function",
-      "argCount": 1,
+      "surfaceId": "surface.source.test.entry_param.transfer_rule_paint_007_F.method.transfer_rule_paint_007_F",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=rule_transfer%2Ftransfer_rule_paint_007_F.ets:file=rule_transfer%2Ftransfer_rule_paint_007_F.ets:export=entry%3Acomponent.transfer_rule_paint_007_F:decl=entry%3Acomponent.transfer_rule_paint_007_F:member=lifecycle%3Atest.case.transfer_rule_paint_007_F:invoke=entry:params=0%3Astring:ret=void",
       "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "rule_transfer/transfer_rule_paint_007_F.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_transfer/transfer_rule_paint_007_F.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "transfer_rule_paint_007_F",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
       }
     },
     {
-      "surfaceId": "surface.source.test.entry_param.transfer_rule_box_006_F",
-      "kind": "invoke",
-      "modulePath": "@arktaint/test-transfer",
-      "functionName": "transfer_rule_box_006_F",
-      "invokeKind": "free-function",
-      "argCount": 1,
+      "surfaceId": "surface.source.test.entry_param.transfer_rule_box_006_F.method.transfer_rule_box_006_F",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=rule_transfer%2Ftransfer_rule_box_006_F.ets:file=rule_transfer%2Ftransfer_rule_box_006_F.ets:export=entry%3Acomponent.transfer_rule_box_006_F:decl=entry%3Acomponent.transfer_rule_box_006_F:member=lifecycle%3Atest.case.transfer_rule_box_006_F:invoke=entry:params=0%3Astring:ret=void",
       "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "rule_transfer/transfer_rule_box_006_F.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_transfer/transfer_rule_box_006_F.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "transfer_rule_box_006_F",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
       }
     },
     {
-      "surfaceId": "surface.source.test.entry_param.transfer_rule_box_001_T",
-      "kind": "invoke",
-      "modulePath": "@arktaint/test-transfer",
-      "functionName": "transfer_rule_box_001_T",
-      "invokeKind": "free-function",
-      "argCount": 1,
+      "surfaceId": "surface.source.test.entry_param.transfer_rule_box_001_T.method.transfer_rule_box_001_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=rule_transfer%2Ftransfer_rule_box_001_T.ets:file=rule_transfer%2Ftransfer_rule_box_001_T.ets:export=entry%3Acomponent.transfer_rule_box_001_T:decl=entry%3Acomponent.transfer_rule_box_001_T:member=lifecycle%3Atest.case.transfer_rule_box_001_T:invoke=entry:params=0%3Astring:ret=void",
       "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "rule_transfer/transfer_rule_box_001_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_transfer/transfer_rule_box_001_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "transfer_rule_box_001_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
       }
     },
     {
-      "surfaceId": "surface.source.test.entry_param.transfer_rule_base_to_arg0_003_T",
-      "kind": "invoke",
-      "modulePath": "@arktaint/test-transfer",
-      "functionName": "transfer_rule_base_to_arg0_003_T",
-      "invokeKind": "free-function",
-      "argCount": 1,
+      "surfaceId": "surface.source.test.entry_param.transfer_rule_base_to_arg0_003_T.method.transfer_rule_base_to_arg0_003_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=rule_transfer%2Ftransfer_rule_base_to_arg0_003_T.ets:file=rule_transfer%2Ftransfer_rule_base_to_arg0_003_T.ets:export=entry%3Acomponent.transfer_rule_base_to_arg0_003_T:decl=entry%3Acomponent.transfer_rule_base_to_arg0_003_T:member=lifecycle%3Atest.case.transfer_rule_base_to_arg0_003_T:invoke=entry:params=0%3Astring:ret=void",
       "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "rule_transfer/transfer_rule_base_to_arg0_003_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_transfer/transfer_rule_base_to_arg0_003_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "transfer_rule_base_to_arg0_003_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
       }
     },
     {
-      "surfaceId": "surface.source.test.entry_param.transfer_rule_arg1_to_result_004_T",
-      "kind": "invoke",
-      "modulePath": "@arktaint/test-transfer",
-      "functionName": "transfer_rule_arg1_to_result_004_T",
-      "invokeKind": "free-function",
-      "argCount": 1,
+      "surfaceId": "surface.source.test.entry_param.transfer_rule_arg1_to_result_004_T.method.transfer_rule_arg1_to_result_004_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=rule_transfer%2Ftransfer_rule_arg1_to_result_004_T.ets:file=rule_transfer%2Ftransfer_rule_arg1_to_result_004_T.ets:export=entry%3Acomponent.transfer_rule_arg1_to_result_004_T:decl=entry%3Acomponent.transfer_rule_arg1_to_result_004_T:member=lifecycle%3Atest.case.transfer_rule_arg1_to_result_004_T:invoke=entry:params=0%3Astring:ret=void",
       "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "rule_transfer/transfer_rule_arg1_to_result_004_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_transfer/transfer_rule_arg1_to_result_004_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "transfer_rule_arg1_to_result_004_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
       }
     },
     {
-      "surfaceId": "surface.source.test.entry_param.transfer_rule_arg1_002_T",
-      "kind": "invoke",
-      "modulePath": "@arktaint/test-transfer",
-      "functionName": "transfer_rule_arg1_002_T",
-      "invokeKind": "free-function",
-      "argCount": 1,
+      "surfaceId": "surface.source.test.entry_param.transfer_rule_arg1_002_T.method.transfer_rule_arg1_002_T",
+      "kind": "entry",
+      "canonicalApiId": "api:project:local:module=rule_transfer%2Ftransfer_rule_arg1_002_T.ets:file=rule_transfer%2Ftransfer_rule_arg1_002_T.ets:export=entry%3Acomponent.transfer_rule_arg1_002_T:decl=entry%3Acomponent.transfer_rule_arg1_002_T:member=lifecycle%3Atest.case.transfer_rule_arg1_002_T:invoke=entry:params=0%3Astring:ret=void",
       "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "rule_transfer/transfer_rule_arg1_002_T.ets"
+        }
+      },
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_transfer/transfer_rule_arg1_002_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "%dflt",
+            "methodName": "transfer_rule_arg1_002_T",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
       }
     },
     {
       "surfaceId": "surface.sink.test.method.Sink",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "methodName": "Sink",
-      "invokeKind": "static",
-      "argCount": 1,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "rule_transfer/taint_mock.ts"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=rule_transfer%2Ftaint_mock.ts:file=rule_transfer%2Ftaint_mock.ts:export=namespace%3Ataint.%25dflt:decl=namespace%3Ataint.%25dflt:member=function%3ASink:invoke=call:params=0%3Aany:ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_transfer/taint_mock.ts",
+            "declaringNamespacePath": [],
+            "declaringClassName": "taint.%dflt",
+            "methodName": "Sink",
+            "parameterTypes": [
+              "any"
+            ],
+            "returnType": "void",
+            "staticFlag": true
+          }
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.test.putData.arg0_to_base",
+      "surfaceId": "surface.transfer.test.putData.arg0_to_base.for.rule_transfer_transfer_rule_box_001_T_ets_Box001_putData_string",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "methodName": "putData",
-      "invokeKind": "instance",
-      "argCount": 1,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "rule_transfer/transfer_rule_box_001_T.ets"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=rule_transfer%2Ftransfer_rule_box_001_T.ets:file=rule_transfer%2Ftransfer_rule_box_001_T.ets:export=namespace%3ABox001:decl=class%3ABox001:member=method%3Ainstance%3AputData:invoke=call:params=0%3Astring:ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_transfer/transfer_rule_box_001_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "Box001",
+            "methodName": "putData",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.test.get.base_to_result",
+      "surfaceId": "surface.transfer.test.putData.arg0_to_base.for.rule_transfer_transfer_rule_box_006_F_ets_Box006_putData_string",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "methodName": "get",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "rule_transfer/transfer_rule_box_006_F.ets"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=rule_transfer%2Ftransfer_rule_box_006_F.ets:file=rule_transfer%2Ftransfer_rule_box_006_F.ets:export=namespace%3ABox006:decl=class%3ABox006:member=method%3Ainstance%3AputData:invoke=call:params=0%3Astring:ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_transfer/transfer_rule_box_006_F.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "Box006",
+            "methodName": "putData",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.test.get.base_to_result.for.rule_transfer_transfer_rule_arg1_002_T_ets_Dict002_get",
+      "kind": "invoke",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "rule_transfer/transfer_rule_arg1_002_T.ets"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=rule_transfer%2Ftransfer_rule_arg1_002_T.ets:file=rule_transfer%2Ftransfer_rule_arg1_002_T.ets:export=namespace%3ADict002:decl=class%3ADict002:member=method%3Ainstance%3Aget:invoke=call:params=none:ret=string",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_transfer/transfer_rule_arg1_002_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "Dict002",
+            "methodName": "get",
+            "parameterTypes": [],
+            "returnType": "string",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.test.get.base_to_result.for.rule_transfer_transfer_rule_box_001_T_ets_Box001_get",
+      "kind": "invoke",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "rule_transfer/transfer_rule_box_001_T.ets"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=rule_transfer%2Ftransfer_rule_box_001_T.ets:file=rule_transfer%2Ftransfer_rule_box_001_T.ets:export=namespace%3ABox001:decl=class%3ABox001:member=method%3Ainstance%3Aget:invoke=call:params=none:ret=string",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_transfer/transfer_rule_box_001_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "Box001",
+            "methodName": "get",
+            "parameterTypes": [],
+            "returnType": "string",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.test.get.base_to_result.for.rule_transfer_transfer_rule_box_006_F_ets_Box006_get",
+      "kind": "invoke",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "rule_transfer/transfer_rule_box_006_F.ets"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=rule_transfer%2Ftransfer_rule_box_006_F.ets:file=rule_transfer%2Ftransfer_rule_box_006_F.ets:export=namespace%3ABox006:decl=class%3ABox006:member=method%3Ainstance%3Aget:invoke=call:params=none:ret=string",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_transfer/transfer_rule_box_006_F.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "Box006",
+            "methodName": "get",
+            "parameterTypes": [],
+            "returnType": "string",
+            "staticFlag": false
+          }
+        }
       }
     },
     {
       "surfaceId": "surface.transfer.test.putPair.arg1_to_base",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "methodName": "putPair",
-      "invokeKind": "instance",
-      "argCount": 2,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "rule_transfer/transfer_rule_arg1_002_T.ets"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=rule_transfer%2Ftransfer_rule_arg1_002_T.ets:file=rule_transfer%2Ftransfer_rule_arg1_002_T.ets:export=namespace%3ADict002:decl=class%3ADict002:member=method%3Ainstance%3AputPair:invoke=call:params=0%3Astring%2C1%3Astring:ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_transfer/transfer_rule_arg1_002_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "Dict002",
+            "methodName": "putPair",
+            "parameterTypes": [
+              "string",
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.test.bind.arg0_to_base",
+      "surfaceId": "surface.transfer.test.bind.arg0_to_base.for.rule_transfer_transfer_rule_base_to_arg0_003_T_ets_Mirror003_bind_string",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "methodName": "bind",
-      "invokeKind": "instance",
-      "argCount": 1,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "rule_transfer/transfer_rule_base_to_arg0_003_T.ets"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=rule_transfer%2Ftransfer_rule_base_to_arg0_003_T.ets:file=rule_transfer%2Ftransfer_rule_base_to_arg0_003_T.ets:export=namespace%3AMirror003:decl=class%3AMirror003:member=method%3Ainstance%3Abind:invoke=call:params=0%3Astring:ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_transfer/transfer_rule_base_to_arg0_003_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "Mirror003",
+            "methodName": "bind",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
       }
     },
     {
-      "surfaceId": "surface.transfer.test.paint.base_to_arg0",
+      "surfaceId": "surface.transfer.test.bind.arg0_to_base.for.rule_transfer_transfer_rule_paint_007_F_ets_Mirror007_bind_string",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "methodName": "paint",
-      "invokeKind": "instance",
-      "argCount": 1,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "rule_transfer/transfer_rule_paint_007_F.ets"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=rule_transfer%2Ftransfer_rule_paint_007_F.ets:file=rule_transfer%2Ftransfer_rule_paint_007_F.ets:export=namespace%3AMirror007:decl=class%3AMirror007:member=method%3Ainstance%3Abind:invoke=call:params=0%3Astring:ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_transfer/transfer_rule_paint_007_F.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "Mirror007",
+            "methodName": "bind",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.test.paint.base_to_arg0.for.rule_transfer_transfer_rule_base_to_arg0_003_T_ets_Mirror003_paint_string",
+      "kind": "invoke",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "rule_transfer/transfer_rule_base_to_arg0_003_T.ets"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=rule_transfer%2Ftransfer_rule_base_to_arg0_003_T.ets:file=rule_transfer%2Ftransfer_rule_base_to_arg0_003_T.ets:export=namespace%3AMirror003:decl=class%3AMirror003:member=method%3Ainstance%3Apaint:invoke=call:params=0%3Astring:ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_transfer/transfer_rule_base_to_arg0_003_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "Mirror003",
+            "methodName": "paint",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.test.paint.base_to_arg0.for.rule_transfer_transfer_rule_paint_007_F_ets_Mirror007_paint_string",
+      "kind": "invoke",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual",
+        "location": {
+          "file": "rule_transfer/transfer_rule_paint_007_F.ets"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=rule_transfer%2Ftransfer_rule_paint_007_F.ets:file=rule_transfer%2Ftransfer_rule_paint_007_F.ets:export=namespace%3AMirror007:decl=class%3AMirror007:member=method%3Ainstance%3Apaint:invoke=call:params=0%3Astring:ret=void",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_transfer/transfer_rule_paint_007_F.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "Mirror007",
+            "methodName": "paint",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "void",
+            "staticFlag": false
+          }
+        }
       }
     },
     {
       "surfaceId": "surface.transfer.test.blend.arg1_to_result",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "methodName": "blend",
-      "invokeKind": "static",
-      "argCount": 2,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "rule_transfer/transfer_rule_arg1_to_result_004_T.ets"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=rule_transfer%2Ftransfer_rule_arg1_to_result_004_T.ets:file=rule_transfer%2Ftransfer_rule_arg1_to_result_004_T.ets:export=namespace%3AMixer004:decl=class%3AMixer004:member=method%3Astatic%3A%5Bstatic%5Dblend:invoke=call:params=0%3Astring%2C1%3Astring:ret=string",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_transfer/transfer_rule_arg1_to_result_004_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "Mixer004",
+            "methodName": "[static]blend",
+            "parameterTypes": [
+              "string",
+              "string"
+            ],
+            "returnType": "string",
+            "staticFlag": true
+          }
+        }
       }
     },
     {
       "surfaceId": "surface.transfer.test.project.result_to_arg0",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "methodName": "project",
-      "invokeKind": "static",
-      "argCount": 1,
-      "confidence": "likely",
+      "confidence": "certain",
       "provenance": {
-        "source": "manual"
+        "source": "manual",
+        "location": {
+          "file": "rule_transfer/transfer_rule_result_to_arg0_005_T.ets"
+        }
+      },
+      "canonicalApiId": "api:project:local:module=rule_transfer%2Ftransfer_rule_result_to_arg0_005_T.ets:file=rule_transfer%2Ftransfer_rule_result_to_arg0_005_T.ets:export=namespace%3ARelay005:decl=class%3ARelay005:member=method%3Astatic%3A%5Bstatic%5Dproject:invoke=call:params=0%3Astring:ret=string",
+      "evidence": {
+        "arkanalyzer": {
+          "methodKey": {
+            "declaringFileName": "rule_transfer/transfer_rule_result_to_arg0_005_T.ets",
+            "declaringNamespacePath": [],
+            "declaringClassName": "Relay005",
+            "methodName": "[static]project",
+            "parameterTypes": [
+              "string"
+            ],
+            "returnType": "string",
+            "staticFlag": true
+          }
+        }
       }
     }
   ],
   "bindings": [
     {
       "bindingId": "binding.source.test.entry_param.transfer_rule_result_to_arg0_005_T.0",
-      "surfaceId": "surface.source.test.entry_param.transfer_rule_result_to_arg0_005_T",
+      "surfaceId": "surface.source.test.entry_param.transfer_rule_result_to_arg0_005_T.method.transfer_rule_result_to_arg0_005_T",
       "assetId": "asset.rule.test.transfer_only",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "transfer_rule_result_to_arg0_005_T"
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -206,18 +558,15 @@
       ],
       "semanticsFamily": "source",
       "completeness": "complete",
-      "confidence": "certain"
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=rule_transfer%2Ftransfer_rule_result_to_arg0_005_T.ets:file=rule_transfer%2Ftransfer_rule_result_to_arg0_005_T.ets:export=entry%3Acomponent.transfer_rule_result_to_arg0_005_T:decl=entry%3Acomponent.transfer_rule_result_to_arg0_005_T:member=lifecycle%3Atest.case.transfer_rule_result_to_arg0_005_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.test.entry_param.transfer_rule_paint_007_F.0",
-      "surfaceId": "surface.source.test.entry_param.transfer_rule_paint_007_F",
+      "surfaceId": "surface.source.test.entry_param.transfer_rule_paint_007_F.method.transfer_rule_paint_007_F",
       "assetId": "asset.rule.test.transfer_only",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "transfer_rule_paint_007_F"
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -229,18 +578,15 @@
       ],
       "semanticsFamily": "source",
       "completeness": "complete",
-      "confidence": "certain"
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=rule_transfer%2Ftransfer_rule_paint_007_F.ets:file=rule_transfer%2Ftransfer_rule_paint_007_F.ets:export=entry%3Acomponent.transfer_rule_paint_007_F:decl=entry%3Acomponent.transfer_rule_paint_007_F:member=lifecycle%3Atest.case.transfer_rule_paint_007_F:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.test.entry_param.transfer_rule_box_006_F.0",
-      "surfaceId": "surface.source.test.entry_param.transfer_rule_box_006_F",
+      "surfaceId": "surface.source.test.entry_param.transfer_rule_box_006_F.method.transfer_rule_box_006_F",
       "assetId": "asset.rule.test.transfer_only",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "transfer_rule_box_006_F"
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -252,18 +598,15 @@
       ],
       "semanticsFamily": "source",
       "completeness": "complete",
-      "confidence": "certain"
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=rule_transfer%2Ftransfer_rule_box_006_F.ets:file=rule_transfer%2Ftransfer_rule_box_006_F.ets:export=entry%3Acomponent.transfer_rule_box_006_F:decl=entry%3Acomponent.transfer_rule_box_006_F:member=lifecycle%3Atest.case.transfer_rule_box_006_F:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.test.entry_param.transfer_rule_box_001_T.0",
-      "surfaceId": "surface.source.test.entry_param.transfer_rule_box_001_T",
+      "surfaceId": "surface.source.test.entry_param.transfer_rule_box_001_T.method.transfer_rule_box_001_T",
       "assetId": "asset.rule.test.transfer_only",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "transfer_rule_box_001_T"
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -275,18 +618,15 @@
       ],
       "semanticsFamily": "source",
       "completeness": "complete",
-      "confidence": "certain"
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=rule_transfer%2Ftransfer_rule_box_001_T.ets:file=rule_transfer%2Ftransfer_rule_box_001_T.ets:export=entry%3Acomponent.transfer_rule_box_001_T:decl=entry%3Acomponent.transfer_rule_box_001_T:member=lifecycle%3Atest.case.transfer_rule_box_001_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.test.entry_param.transfer_rule_base_to_arg0_003_T.0",
-      "surfaceId": "surface.source.test.entry_param.transfer_rule_base_to_arg0_003_T",
+      "surfaceId": "surface.source.test.entry_param.transfer_rule_base_to_arg0_003_T.method.transfer_rule_base_to_arg0_003_T",
       "assetId": "asset.rule.test.transfer_only",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "transfer_rule_base_to_arg0_003_T"
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -298,18 +638,15 @@
       ],
       "semanticsFamily": "source",
       "completeness": "complete",
-      "confidence": "certain"
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=rule_transfer%2Ftransfer_rule_base_to_arg0_003_T.ets:file=rule_transfer%2Ftransfer_rule_base_to_arg0_003_T.ets:export=entry%3Acomponent.transfer_rule_base_to_arg0_003_T:decl=entry%3Acomponent.transfer_rule_base_to_arg0_003_T:member=lifecycle%3Atest.case.transfer_rule_base_to_arg0_003_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.test.entry_param.transfer_rule_arg1_to_result_004_T.0",
-      "surfaceId": "surface.source.test.entry_param.transfer_rule_arg1_to_result_004_T",
+      "surfaceId": "surface.source.test.entry_param.transfer_rule_arg1_to_result_004_T.method.transfer_rule_arg1_to_result_004_T",
       "assetId": "asset.rule.test.transfer_only",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "transfer_rule_arg1_to_result_004_T"
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -321,18 +658,15 @@
       ],
       "semanticsFamily": "source",
       "completeness": "complete",
-      "confidence": "certain"
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=rule_transfer%2Ftransfer_rule_arg1_to_result_004_T.ets:file=rule_transfer%2Ftransfer_rule_arg1_to_result_004_T.ets:export=entry%3Acomponent.transfer_rule_arg1_to_result_004_T:decl=entry%3Acomponent.transfer_rule_arg1_to_result_004_T:member=lifecycle%3Atest.case.transfer_rule_arg1_to_result_004_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.source.test.entry_param.transfer_rule_arg1_002_T.0",
-      "surfaceId": "surface.source.test.entry_param.transfer_rule_arg1_002_T",
+      "surfaceId": "surface.source.test.entry_param.transfer_rule_arg1_002_T.method.transfer_rule_arg1_002_T",
       "assetId": "asset.rule.test.transfer_only",
       "plane": "rule",
       "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "transfer_rule_arg1_002_T"
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -344,7 +678,8 @@
       ],
       "semanticsFamily": "source",
       "completeness": "complete",
-      "confidence": "certain"
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=rule_transfer%2Ftransfer_rule_arg1_002_T.ets:file=rule_transfer%2Ftransfer_rule_arg1_002_T.ets:export=entry%3Acomponent.transfer_rule_arg1_002_T:decl=entry%3Acomponent.transfer_rule_arg1_002_T:member=lifecycle%3Atest.case.transfer_rule_arg1_002_T:invoke=entry:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.sink.test.method.Sink.0",
@@ -352,12 +687,6 @@
       "assetId": "asset.rule.test.transfer_only",
       "plane": "rule",
       "role": "sink",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "Sink",
-        "invokeKind": "static",
-        "argCount": 1
-      },
       "endpoint": {
         "base": {
           "kind": "arg",
@@ -368,46 +697,79 @@
         "template.sink.test.method.Sink"
       ],
       "semanticsFamily": "sink",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=rule_transfer%2Ftaint_mock.ts:file=rule_transfer%2Ftaint_mock.ts:export=namespace%3Ataint.%25dflt:decl=namespace%3Ataint.%25dflt:member=function%3ASink:invoke=call:params=0%3Aany:ret=void"
     },
     {
-      "bindingId": "binding.transfer.test.putData.arg0_to_base.0",
-      "surfaceId": "surface.transfer.test.putData.arg0_to_base",
+      "bindingId": "binding.transfer.test.putData.arg0_to_base.0.for.rule_transfer_transfer_rule_box_001_T_ets_Box001_putData_string",
+      "surfaceId": "surface.transfer.test.putData.arg0_to_base.for.rule_transfer_transfer_rule_box_001_T_ets_Box001_putData_string",
       "assetId": "asset.rule.test.transfer_only",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "putData",
-        "invokeKind": "instance",
-        "argCount": 1
-      },
       "effectTemplateRefs": [
-        "template.transfer.test.putData.arg0_to_base"
+        "template.transfer.test.putData.arg0_to_base.for.rule_transfer_transfer_rule_box_001_T_ets_Box001_putData_string"
       ],
       "semanticsFamily": "transfer",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=rule_transfer%2Ftransfer_rule_box_001_T.ets:file=rule_transfer%2Ftransfer_rule_box_001_T.ets:export=namespace%3ABox001:decl=class%3ABox001:member=method%3Ainstance%3AputData:invoke=call:params=0%3Astring:ret=void"
     },
     {
-      "bindingId": "binding.transfer.test.get.base_to_result.0",
-      "surfaceId": "surface.transfer.test.get.base_to_result",
+      "bindingId": "binding.transfer.test.putData.arg0_to_base.0.for.rule_transfer_transfer_rule_box_006_F_ets_Box006_putData_string",
+      "surfaceId": "surface.transfer.test.putData.arg0_to_base.for.rule_transfer_transfer_rule_box_006_F_ets_Box006_putData_string",
       "assetId": "asset.rule.test.transfer_only",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "get",
-        "invokeKind": "instance",
-        "argCount": 0
-      },
       "effectTemplateRefs": [
-        "template.transfer.test.get.base_to_result"
+        "template.transfer.test.putData.arg0_to_base.for.rule_transfer_transfer_rule_box_006_F_ets_Box006_putData_string"
       ],
       "semanticsFamily": "transfer",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=rule_transfer%2Ftransfer_rule_box_006_F.ets:file=rule_transfer%2Ftransfer_rule_box_006_F.ets:export=namespace%3ABox006:decl=class%3ABox006:member=method%3Ainstance%3AputData:invoke=call:params=0%3Astring:ret=void"
+    },
+    {
+      "bindingId": "binding.transfer.test.get.base_to_result.0.for.rule_transfer_transfer_rule_arg1_002_T_ets_Dict002_get",
+      "surfaceId": "surface.transfer.test.get.base_to_result.for.rule_transfer_transfer_rule_arg1_002_T_ets_Dict002_get",
+      "assetId": "asset.rule.test.transfer_only",
+      "plane": "rule",
+      "role": "transfer",
+      "effectTemplateRefs": [
+        "template.transfer.test.get.base_to_result.for.rule_transfer_transfer_rule_arg1_002_T_ets_Dict002_get"
+      ],
+      "semanticsFamily": "transfer",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=rule_transfer%2Ftransfer_rule_arg1_002_T.ets:file=rule_transfer%2Ftransfer_rule_arg1_002_T.ets:export=namespace%3ADict002:decl=class%3ADict002:member=method%3Ainstance%3Aget:invoke=call:params=none:ret=string"
+    },
+    {
+      "bindingId": "binding.transfer.test.get.base_to_result.0.for.rule_transfer_transfer_rule_box_001_T_ets_Box001_get",
+      "surfaceId": "surface.transfer.test.get.base_to_result.for.rule_transfer_transfer_rule_box_001_T_ets_Box001_get",
+      "assetId": "asset.rule.test.transfer_only",
+      "plane": "rule",
+      "role": "transfer",
+      "effectTemplateRefs": [
+        "template.transfer.test.get.base_to_result.for.rule_transfer_transfer_rule_box_001_T_ets_Box001_get"
+      ],
+      "semanticsFamily": "transfer",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=rule_transfer%2Ftransfer_rule_box_001_T.ets:file=rule_transfer%2Ftransfer_rule_box_001_T.ets:export=namespace%3ABox001:decl=class%3ABox001:member=method%3Ainstance%3Aget:invoke=call:params=none:ret=string"
+    },
+    {
+      "bindingId": "binding.transfer.test.get.base_to_result.0.for.rule_transfer_transfer_rule_box_006_F_ets_Box006_get",
+      "surfaceId": "surface.transfer.test.get.base_to_result.for.rule_transfer_transfer_rule_box_006_F_ets_Box006_get",
+      "assetId": "asset.rule.test.transfer_only",
+      "plane": "rule",
+      "role": "transfer",
+      "effectTemplateRefs": [
+        "template.transfer.test.get.base_to_result.for.rule_transfer_transfer_rule_box_006_F_ets_Box006_get"
+      ],
+      "semanticsFamily": "transfer",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=rule_transfer%2Ftransfer_rule_box_006_F.ets:file=rule_transfer%2Ftransfer_rule_box_006_F.ets:export=namespace%3ABox006:decl=class%3ABox006:member=method%3Ainstance%3Aget:invoke=call:params=none:ret=string"
     },
     {
       "bindingId": "binding.transfer.test.putPair.arg1_to_base.0",
@@ -415,56 +777,69 @@
       "assetId": "asset.rule.test.transfer_only",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "putPair",
-        "invokeKind": "instance",
-        "argCount": 2
-      },
       "effectTemplateRefs": [
         "template.transfer.test.putPair.arg1_to_base"
       ],
       "semanticsFamily": "transfer",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=rule_transfer%2Ftransfer_rule_arg1_002_T.ets:file=rule_transfer%2Ftransfer_rule_arg1_002_T.ets:export=namespace%3ADict002:decl=class%3ADict002:member=method%3Ainstance%3AputPair:invoke=call:params=0%3Astring%2C1%3Astring:ret=void"
     },
     {
-      "bindingId": "binding.transfer.test.bind.arg0_to_base.0",
-      "surfaceId": "surface.transfer.test.bind.arg0_to_base",
+      "bindingId": "binding.transfer.test.bind.arg0_to_base.0.for.rule_transfer_transfer_rule_base_to_arg0_003_T_ets_Mirror003_bind_string",
+      "surfaceId": "surface.transfer.test.bind.arg0_to_base.for.rule_transfer_transfer_rule_base_to_arg0_003_T_ets_Mirror003_bind_string",
       "assetId": "asset.rule.test.transfer_only",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "bind",
-        "invokeKind": "instance",
-        "argCount": 1
-      },
       "effectTemplateRefs": [
-        "template.transfer.test.bind.arg0_to_base"
+        "template.transfer.test.bind.arg0_to_base.for.rule_transfer_transfer_rule_base_to_arg0_003_T_ets_Mirror003_bind_string"
       ],
       "semanticsFamily": "transfer",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=rule_transfer%2Ftransfer_rule_base_to_arg0_003_T.ets:file=rule_transfer%2Ftransfer_rule_base_to_arg0_003_T.ets:export=namespace%3AMirror003:decl=class%3AMirror003:member=method%3Ainstance%3Abind:invoke=call:params=0%3Astring:ret=void"
     },
     {
-      "bindingId": "binding.transfer.test.paint.base_to_arg0.0",
-      "surfaceId": "surface.transfer.test.paint.base_to_arg0",
+      "bindingId": "binding.transfer.test.bind.arg0_to_base.0.for.rule_transfer_transfer_rule_paint_007_F_ets_Mirror007_bind_string",
+      "surfaceId": "surface.transfer.test.bind.arg0_to_base.for.rule_transfer_transfer_rule_paint_007_F_ets_Mirror007_bind_string",
       "assetId": "asset.rule.test.transfer_only",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "paint",
-        "invokeKind": "instance",
-        "argCount": 1
-      },
       "effectTemplateRefs": [
-        "template.transfer.test.paint.base_to_arg0"
+        "template.transfer.test.bind.arg0_to_base.for.rule_transfer_transfer_rule_paint_007_F_ets_Mirror007_bind_string"
       ],
       "semanticsFamily": "transfer",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=rule_transfer%2Ftransfer_rule_paint_007_F.ets:file=rule_transfer%2Ftransfer_rule_paint_007_F.ets:export=namespace%3AMirror007:decl=class%3AMirror007:member=method%3Ainstance%3Abind:invoke=call:params=0%3Astring:ret=void"
+    },
+    {
+      "bindingId": "binding.transfer.test.paint.base_to_arg0.0.for.rule_transfer_transfer_rule_base_to_arg0_003_T_ets_Mirror003_paint_string",
+      "surfaceId": "surface.transfer.test.paint.base_to_arg0.for.rule_transfer_transfer_rule_base_to_arg0_003_T_ets_Mirror003_paint_string",
+      "assetId": "asset.rule.test.transfer_only",
+      "plane": "rule",
+      "role": "transfer",
+      "effectTemplateRefs": [
+        "template.transfer.test.paint.base_to_arg0.for.rule_transfer_transfer_rule_base_to_arg0_003_T_ets_Mirror003_paint_string"
+      ],
+      "semanticsFamily": "transfer",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=rule_transfer%2Ftransfer_rule_base_to_arg0_003_T.ets:file=rule_transfer%2Ftransfer_rule_base_to_arg0_003_T.ets:export=namespace%3AMirror003:decl=class%3AMirror003:member=method%3Ainstance%3Apaint:invoke=call:params=0%3Astring:ret=void"
+    },
+    {
+      "bindingId": "binding.transfer.test.paint.base_to_arg0.0.for.rule_transfer_transfer_rule_paint_007_F_ets_Mirror007_paint_string",
+      "surfaceId": "surface.transfer.test.paint.base_to_arg0.for.rule_transfer_transfer_rule_paint_007_F_ets_Mirror007_paint_string",
+      "assetId": "asset.rule.test.transfer_only",
+      "plane": "rule",
+      "role": "transfer",
+      "effectTemplateRefs": [
+        "template.transfer.test.paint.base_to_arg0.for.rule_transfer_transfer_rule_paint_007_F_ets_Mirror007_paint_string"
+      ],
+      "semanticsFamily": "transfer",
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=rule_transfer%2Ftransfer_rule_paint_007_F.ets:file=rule_transfer%2Ftransfer_rule_paint_007_F.ets:export=namespace%3AMirror007:decl=class%3AMirror007:member=method%3Ainstance%3Apaint:invoke=call:params=0%3Astring:ret=void"
     },
     {
       "bindingId": "binding.transfer.test.blend.arg1_to_result.0",
@@ -472,18 +847,13 @@
       "assetId": "asset.rule.test.transfer_only",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "blend",
-        "invokeKind": "static",
-        "argCount": 2
-      },
       "effectTemplateRefs": [
         "template.transfer.test.blend.arg1_to_result"
       ],
       "semanticsFamily": "transfer",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=rule_transfer%2Ftransfer_rule_arg1_to_result_004_T.ets:file=rule_transfer%2Ftransfer_rule_arg1_to_result_004_T.ets:export=namespace%3AMixer004:decl=class%3AMixer004:member=method%3Astatic%3A%5Bstatic%5Dblend:invoke=call:params=0%3Astring%2C1%3Astring:ret=string"
     },
     {
       "bindingId": "binding.transfer.test.project.result_to_arg0.0",
@@ -491,18 +861,13 @@
       "assetId": "asset.rule.test.transfer_only",
       "plane": "rule",
       "role": "transfer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "project",
-        "invokeKind": "static",
-        "argCount": 1
-      },
       "effectTemplateRefs": [
         "template.transfer.test.project.result_to_arg0"
       ],
       "semanticsFamily": "transfer",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain",
+      "canonicalApiId": "api:project:local:module=rule_transfer%2Ftransfer_rule_result_to_arg0_005_T.ets:file=rule_transfer%2Ftransfer_rule_result_to_arg0_005_T.ets:export=namespace%3ARelay005:decl=class%3ARelay005:member=method%3Astatic%3A%5Bstatic%5Dproject:invoke=call:params=0%3Astring:ret=string"
     }
   ],
   "effectTemplates": [
@@ -603,7 +968,7 @@
       "sinkKind": "sink"
     },
     {
-      "id": "template.transfer.test.putData.arg0_to_base",
+      "id": "template.transfer.test.putData.arg0_to_base.for.rule_transfer_transfer_rule_box_001_T_ets_Box001_putData_string",
       "confidence": "certain",
       "kind": "rule.transfer",
       "from": {
@@ -620,7 +985,56 @@
       "transferKind": "transfer"
     },
     {
-      "id": "template.transfer.test.get.base_to_result",
+      "id": "template.transfer.test.putData.arg0_to_base.for.rule_transfer_transfer_rule_box_006_F_ets_Box006_putData_string",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.test.get.base_to_result.for.rule_transfer_transfer_rule_arg1_002_T_ets_Dict002_get",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.test.get.base_to_result.for.rule_transfer_transfer_rule_box_001_T_ets_Box001_get",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.test.get.base_to_result.for.rule_transfer_transfer_rule_box_006_F_ets_Box006_get",
       "confidence": "certain",
       "kind": "rule.transfer",
       "from": {
@@ -653,7 +1067,7 @@
       "transferKind": "transfer"
     },
     {
-      "id": "template.transfer.test.bind.arg0_to_base",
+      "id": "template.transfer.test.bind.arg0_to_base.for.rule_transfer_transfer_rule_base_to_arg0_003_T_ets_Mirror003_bind_string",
       "confidence": "certain",
       "kind": "rule.transfer",
       "from": {
@@ -670,7 +1084,41 @@
       "transferKind": "transfer"
     },
     {
-      "id": "template.transfer.test.paint.base_to_arg0",
+      "id": "template.transfer.test.bind.arg0_to_base.for.rule_transfer_transfer_rule_paint_007_F_ets_Mirror007_bind_string",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.test.paint.base_to_arg0.for.rule_transfer_transfer_rule_base_to_arg0_003_T_ets_Mirror003_paint_string",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.test.paint.base_to_arg0.for.rule_transfer_transfer_rule_paint_007_F_ets_Mirror007_paint_string",
       "confidence": "certain",
       "kind": "rule.transfer",
       "from": {

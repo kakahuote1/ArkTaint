@@ -10,10 +10,8 @@ interface ChannelBoundaryReport {
     sourceDir: string;
     factKinds: string[];
     edgeKinds: string[];
-    sourceRuleFamilies: string[];
     routerFactCount: number;
     routerEdgeCount: number;
-    routerSourceRuleCount: number;
     verdict: string;
 }
 
@@ -44,18 +42,11 @@ function main(): void {
         return kind === "router_source" || kind === "router_trigger";
     }).length;
     const routerEdgeCount = plan.activationGraph.edges.filter(edge => String(edge.kind) === "router_channel").length;
-    const routerSourceRuleCount = plan.sourceRules.filter(rule =>
-        String(rule.id || "").startsWith("source.arkmain.contract.router.trigger."),
-    ).length;
-
     if (routerFactCount !== 0) {
         throw new Error(`ArkMain should not retain router facts. actual=${routerFactCount}`);
     }
     if (routerEdgeCount !== 0) {
         throw new Error(`ArkMain should not retain router_channel edges. actual=${routerEdgeCount}`);
-    }
-    if (routerSourceRuleCount !== 0) {
-        throw new Error(`ArkMain should not retain router source rules. actual=${routerSourceRuleCount}`);
     }
 
     const report: ChannelBoundaryReport = {
@@ -63,10 +54,8 @@ function main(): void {
         sourceDir,
         factKinds: [...new Set(plan.facts.map(fact => fact.kind))].sort(),
         edgeKinds: [...new Set(plan.activationGraph.edges.map(edge => edge.kind))].sort(),
-        sourceRuleFamilies: [...new Set(plan.sourceRules.map(rule => String(rule.family || "")))].sort(),
         routerFactCount,
         routerEdgeCount,
-        routerSourceRuleCount,
         verdict: "ArkMain no longer owns router channel provenance.",
     };
 

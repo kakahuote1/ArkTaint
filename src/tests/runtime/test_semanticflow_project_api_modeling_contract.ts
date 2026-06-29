@@ -7,31 +7,107 @@ import { normalizeSemanticFlowRuleInputCandidatesWithTrace } from "../../core/se
 import type { SemanticFlowDecisionInput } from "../../core/semanticflow/SemanticFlowTypes";
 import { buildSemanticFlowTraceGraph } from "../../core/trace/SemanticFlowTraceGraph";
 import { selectSemanticFlowRuleCandidatesForModeling } from "../../cli/semanticflow";
-import { assert, expectThrows } from "./SemanticFlowV2TestHelpers";
+import { assert, expectThrows, normalizeExactTestAsset, normalizeExactTestSurface } from "./SemanticFlowV2TestHelpers";
+import { bindExactAssetIdentities, exactProjectConstructSurface, exactProjectInvokeSurface } from "../helpers/AssetIdentityTestUtils";
+
+function stampedAsset<T extends any>(asset: T): T {
+    return normalizeExactTestAsset(bindExactAssetIdentities(asset as any)) as T;
+}
+
+function projectSurface(input: {
+    surfaceId: string;
+    modulePath: string;
+    ownerName?: string;
+    methodName?: string;
+    functionName?: string;
+    invokeKind?: "instance" | "static" | "namespace" | "free-function";
+    argCount?: number;
+    parameterTypes?: string[];
+    returnType?: string;
+    confidence?: "certain" | "likely" | "unknown";
+    provenanceSource?: "manual" | "sdk" | "llm-proposal" | "analyzer";
+    location?: { file: string; line?: number };
+}): ReturnType<typeof exactProjectInvokeSurface> {
+    const surface = exactProjectInvokeSurface({
+        surfaceId: input.surfaceId,
+        modulePath: input.modulePath,
+        ownerName: input.ownerName,
+        methodName: input.methodName,
+        functionName: input.functionName,
+        invokeKind: input.invokeKind,
+        parameterTypes: input.parameterTypes || Array.from(
+            { length: Math.max(0, Number(input.argCount || 0)) },
+            (_unused, index) => `SyntheticArg${index}`,
+        ),
+        returnType: input.returnType || "void",
+        confidence: input.confidence || "likely",
+        provenanceSource: input.provenanceSource || "llm-proposal",
+    });
+    if (input.location) {
+        (surface as any).provenance = {
+            ...(surface as any).provenance,
+            location: input.location,
+        };
+    }
+    return surface;
+}
+
+function projectConstructSurface(input: {
+    surfaceId: string;
+    modulePath: string;
+    ownerName: string;
+    argCount?: number;
+    parameterTypes?: string[];
+    returnType?: string;
+    confidence?: "certain" | "likely" | "unknown";
+    provenanceSource?: "manual" | "sdk" | "llm-proposal" | "analyzer";
+    location?: { file: string; line?: number };
+}): ReturnType<typeof exactProjectConstructSurface> {
+    const surface = exactProjectConstructSurface({
+        surfaceId: input.surfaceId,
+        modulePath: input.modulePath,
+        ownerName: input.ownerName,
+        parameterTypes: input.parameterTypes || Array.from(
+            { length: Math.max(0, Number(input.argCount || 0)) },
+            (_unused, index) => `SyntheticArg${index}`,
+        ),
+        returnType: input.returnType || "void",
+        confidence: input.confidence || "likely",
+        provenanceSource: input.provenanceSource || "llm-proposal",
+    });
+    if (input.location) {
+        (surface as any).provenance = {
+            ...(surface as any).provenance,
+            location: input.location,
+        };
+    }
+    return surface;
+}
+
+function exactDraftSurface(surface: Parameters<typeof projectSurface>[0]): ReturnType<typeof projectSurface> {
+    return normalizeExactTestSurface(projectSurface(surface));
+}
+
+function canonicalSurfaceObservations(...assets: any[]): string[] {
+    return assets.flatMap(asset => (asset?.surfaces || []).map((surface: any) =>
+        `canonicalApiSurface: ${JSON.stringify(surface)}`));
+}
 
 function makeChatSdkAsset(): unknown {
-    return {
+    return stampedAsset({
         id: "asset.project.easemob.chat_sdk_login",
         plane: "rule",
         status: "llm-generated",
         surfaces: [
-            {
+            projectSurface({
                 surfaceId: "surface.easemob.ChatUIKitClient.login",
-                kind: "invoke",
                 modulePath: "chatuikit/src/main/ets/ChatUIKitClient.ets",
                 ownerName: "ChatUIKitClient",
                 methodName: "login",
                 invokeKind: "static",
                 argCount: 2,
                 confidence: "likely",
-                provenance: {
-                    source: "llm-proposal",
-                    location: {
-                        file: "chatuikit/src/main/ets/ChatUIKitClient.ets",
-                        line: 39,
-                    },
-                },
-            },
+            }),
         ],
         bindings: [
             {
@@ -43,7 +119,7 @@ function makeChatSdkAsset(): unknown {
                 endpoint: { base: { kind: "arg", index: 0 } },
                 effectTemplateRefs: ["template.easemob.ChatUIKitClient.login.userId"],
                 semanticsFamily: "project.chat_sdk_login",
-                completeness: "partial",
+                completeness: "complete",
                 confidence: "likely",
             },
             {
@@ -55,7 +131,7 @@ function makeChatSdkAsset(): unknown {
                 endpoint: { base: { kind: "arg", index: 1 } },
                 effectTemplateRefs: ["template.easemob.ChatUIKitClient.login.token"],
                 semanticsFamily: "project.chat_sdk_login",
-                completeness: "partial",
+                completeness: "complete",
                 confidence: "likely",
             },
         ],
@@ -83,32 +159,24 @@ function makeChatSdkAsset(): unknown {
                 { file: "chatuikit/src/main/ets/ChatUIKitClient.ets", line: 39 },
             ],
         },
-    };
+    });
 }
 
 function makeSendTextMessageAsset(ownerName: string): any {
-    return {
+    return stampedAsset({
         id: `asset.project.chat.${ownerName}.sendTextMessage`,
         plane: "rule",
         status: "llm-generated",
         surfaces: [
-            {
+            projectSurface({
                 surfaceId: `surface.${ownerName}.sendTextMessage`,
-                kind: "invoke",
                 modulePath: "chatuikit/src/main/ets/viewmodels/MessageViewModel.ets",
                 ownerName,
                 methodName: "sendTextMessage",
                 invokeKind: "instance",
                 argCount: 1,
                 confidence: "likely",
-                provenance: {
-                    source: "llm-proposal",
-                    location: {
-                        file: "chatuikit/src/main/ets/viewmodels/MessageViewModel.ets",
-                        line: 44,
-                    },
-                },
-            },
+            }),
         ],
         bindings: [
             {
@@ -141,7 +209,7 @@ function makeSendTextMessageAsset(ownerName: string): any {
                 { file: "chatuikit/src/main/ets/viewmodels/MessageViewModel.ets", line: 44 },
             ],
         },
-    };
+    });
 }
 
 function makeChatInputMenuViewCallbackSourceAsset(
@@ -149,31 +217,24 @@ function makeChatInputMenuViewCallbackSourceAsset(
     locationFile = "chatuikit/src/main/ets/components/chat/ChatView.ets",
 ): any {
     const staticOwner = mode === "static-owner";
-    const surface: any = {
+    const surfaceInput: any = {
         surfaceId: "surface.ChatInputMenuView",
-        kind: "invoke",
         modulePath: "chatuikit/src/main/ets/components/chat/ChatComponents.ets",
         functionName: "ChatInputMenuView",
         invokeKind: staticOwner ? "static" : "free-function",
         argCount: 1,
         confidence: "likely",
-        provenance: {
-            source: "llm-proposal",
-            location: {
-                file: locationFile,
-                line: 539,
-            },
-        },
+        location: { file: locationFile, line: 539 },
     };
     if (staticOwner) {
-        surface.ownerName = "ChatComponents";
-        surface.methodName = "ChatInputMenuView";
+        surfaceInput.ownerName = "ChatComponents";
+        surfaceInput.methodName = "ChatInputMenuView";
     }
-    return {
+    return stampedAsset({
         id: `asset.project.chat.ChatInputMenuView.${mode}`,
         plane: "rule",
         status: "llm-generated",
-        surfaces: [surface],
+        surfaces: [projectSurface(surfaceInput)],
         bindings: [
             {
                 bindingId: "binding.ChatInputMenuView.onClickSend.arg0.source",
@@ -225,43 +286,35 @@ function makeChatInputMenuViewCallbackSourceAsset(
                 { file: "chatuikit/src/main/ets/components/chat/ChatView.ets", line: 539 },
             ],
         },
-    };
+    });
 }
 
 function makeOwnerlessReturnedValueAsset(
     mode: "free-function" | "static-sibling-binding-static",
 ): any {
-    const freeSurface = {
+    const freeSurface = projectSurface({
         surfaceId: "surface.getHomeListAxios.free",
-        kind: "invoke",
         modulePath: "entry/src/main/ets/http/apiService.ets",
         functionName: "getHomeListAxios",
         invokeKind: "free-function",
         argCount: 1,
         confidence: "likely",
-        provenance: {
-            source: "llm-proposal",
-            location: { file: "entry/src/main/ets/http/apiService.ets", line: 31 },
-        },
-    };
-    const staticSurface = {
+        location: { file: "entry/src/main/ets/http/apiService.ets", line: 31 },
+    });
+    const staticSurface = projectSurface({
         surfaceId: "surface.getHomeListAxios.static",
-        kind: "invoke",
         modulePath: "entry/src/main/ets/http/apiService.ets",
         ownerName: "apiService",
         methodName: "getHomeListAxios",
         invokeKind: "static",
         argCount: 1,
         confidence: "likely",
-        provenance: {
-            source: "llm-proposal",
-            location: { file: "entry/src/main/ets/http/apiService.ets", line: 31 },
-        },
-    };
+        location: { file: "entry/src/main/ets/http/apiService.ets", line: 31 },
+    });
     const bindingSurfaceId = mode === "free-function"
         ? freeSurface.surfaceId
         : staticSurface.surfaceId;
-    return {
+    return stampedAsset({
         id: `asset.project.apiService.getHomeListAxios.${mode}`,
         plane: "rule",
         status: "llm-generated",
@@ -299,7 +352,7 @@ function makeOwnerlessReturnedValueAsset(
                 { file: "entry/src/main/ets/http/apiService.ets", line: 31 },
             ],
         },
-    };
+    });
 }
 
 function testRuleInputReturnedValueFocusNormalization(): void {
@@ -313,7 +366,7 @@ function testRuleInputReturnedValueFocusNormalization(): void {
         returnType: "Promise<T>",
         topEntries: [
             "origin=recall_api_surface",
-            "candidateTier=project-wrapper",
+            "candidateKind=project-wrapper",
             "candidateReason=network-boundary-effect",
             "coverageGapSource=fixture_flow_queries",
             "coverageGapReason=coverage.role_endpoint_guard_gap",
@@ -344,7 +397,7 @@ function testRuleInputReturnedValueFocusNormalization(): void {
         candidateOrigin: "recall_api_surface",
         topEntries: [
             "origin=recall_api_surface",
-            "candidateTier=project-wrapper",
+            "candidateKind=project-wrapper",
             "candidateReason=network-boundary-effect",
         ],
         methodSnippet: [
@@ -427,25 +480,21 @@ function testRuleInputReturnedValueFocusNormalization(): void {
 }
 
 function makeReceiverFieldRuleOnlySinkAsset(): any {
-    return {
+    return stampedAsset({
         id: "asset.project.authCarrier.request.ruleOnly",
         plane: "rule",
         status: "llm-generated",
         surfaces: [
-            {
+            projectSurface({
                 surfaceId: "surface.AuthCarrier.request",
-                kind: "invoke",
                 modulePath: "entry/src/main/ets/AuthCarrier.ets",
                 ownerName: "AuthCarrier",
                 methodName: "request",
                 invokeKind: "instance",
                 argCount: 0,
                 confidence: "likely",
-                provenance: {
-                    source: "llm-proposal",
-                    location: { file: "entry/src/main/ets/AuthCarrier.ets", line: 20 },
-                },
-            },
+                location: { file: "entry/src/main/ets/AuthCarrier.ets", line: 20 },
+            }),
         ],
         bindings: [
             {
@@ -476,28 +525,24 @@ function makeReceiverFieldRuleOnlySinkAsset(): any {
             projectId: "auth_carrier_fixture",
             evidenceLocations: [{ file: "entry/src/main/ets/AuthCarrier.ets", line: 20 }],
         },
-    };
+    });
 }
 
 function makeHdWebCallbackRegisterAsset(): any {
-    return {
+    return stampedAsset({
         id: "project.HdWeb.onLoad.callbackRegistration",
         plane: "arkmain",
         status: "llm-generated",
         surfaces: [
-            {
+            projectSurface({
                 surfaceId: "surface.HdWeb",
-                kind: "invoke",
                 modulePath: "commons/basic/src/main/ets/components/HdWeb.ets",
                 functionName: "HdWeb",
                 invokeKind: "free-function",
                 argCount: 1,
                 confidence: "likely",
-                provenance: {
-                    source: "llm-proposal",
-                    location: { file: "features/home/src/main/ets/views/QuestionDetailComp.ets", line: 202 },
-                },
-            },
+                location: { file: "features/home/src/main/ets/views/QuestionDetailComp.ets", line: 202 },
+            }),
         ],
         bindings: [
             {
@@ -541,29 +586,25 @@ function makeHdWebCallbackRegisterAsset(): any {
             projectId: "interview_handbook_fixture",
             evidenceLocations: [{ file: "features/home/src/main/ets/views/QuestionDetailComp.ets", line: 202 }],
         },
-    };
+    });
 }
 
 function makeReceiverFieldReturnedValueSourceAsset(): any {
-    return {
+    return stampedAsset({
         id: "asset.project.authCarrier.request.returnedResponse",
         plane: "rule",
         status: "llm-generated",
         surfaces: [
-            {
+            projectSurface({
                 surfaceId: "surface.AuthCarrier.request",
-                kind: "invoke",
                 modulePath: "entry/src/main/ets/AuthCarrier.ets",
                 ownerName: "AuthCarrier",
                 methodName: "request",
                 invokeKind: "instance",
                 argCount: 0,
                 confidence: "likely",
-                provenance: {
-                    source: "llm-proposal",
-                    location: { file: "entry/src/main/ets/AuthCarrier.ets", line: 20 },
-                },
-            },
+                location: { file: "entry/src/main/ets/AuthCarrier.ets", line: 20 },
+            }),
         ],
         bindings: [
             {
@@ -594,29 +635,25 @@ function makeReceiverFieldReturnedValueSourceAsset(): any {
             projectId: "auth_carrier_fixture",
             evidenceLocations: [{ file: "entry/src/main/ets/AuthCarrier.ets", line: 20 }],
         },
-    };
+    });
 }
 
 function makeProjectStorageWrapperRuleOnlySinkAsset(): any {
-    return {
+    return stampedAsset({
         id: "asset.project.projectKvStore.putData.ruleOnly",
         plane: "rule",
         status: "llm-generated",
         surfaces: [
-            {
+            projectSurface({
                 surfaceId: "surface.ProjectKvStore.putData",
-                kind: "invoke",
                 modulePath: "entry/src/main/ets/utils/ProjectKvStore.ets",
                 ownerName: "ProjectKvStore",
                 methodName: "putData",
                 invokeKind: "namespace",
                 argCount: 2,
                 confidence: "likely",
-                provenance: {
-                    source: "llm-proposal",
-                    location: { file: "entry/src/main/ets/pages/StaticStoragePage.ets", line: 6 },
-                },
-            },
+                location: { file: "entry/src/main/ets/pages/StaticStoragePage.ets", line: 6 },
+            }),
         ],
         bindings: [
             {
@@ -647,43 +684,35 @@ function makeProjectStorageWrapperRuleOnlySinkAsset(): any {
             projectId: "project_storage_fixture",
             evidenceLocations: [{ file: "entry/src/main/ets/pages/StaticStoragePage.ets", line: 6 }],
         },
-    };
+    });
 }
 
 function makeProjectStorageWrapperPersistentSlotAsset(): any {
-    return {
+    return stampedAsset({
         id: "asset.project.projectKvStore.sessionToken.persistentSlot",
         plane: "module",
         status: "llm-generated",
         surfaces: [
-            {
+            projectSurface({
                 surfaceId: "surface.ProjectKvStore.putData",
-                kind: "invoke",
                 modulePath: "entry/src/main/ets/utils/ProjectKvStore.ets",
                 ownerName: "ProjectKvStore",
                 methodName: "putData",
                 invokeKind: "namespace",
                 argCount: 2,
                 confidence: "likely",
-                provenance: {
-                    source: "llm-proposal",
-                    location: { file: "entry/src/main/ets/pages/StaticStoragePage.ets", line: 6 },
-                },
-            },
-            {
+                location: { file: "entry/src/main/ets/pages/StaticStoragePage.ets", line: 6 },
+            }),
+            projectSurface({
                 surfaceId: "surface.ProjectKvStore.getData",
-                kind: "invoke",
                 modulePath: "entry/src/main/ets/utils/ProjectKvStore.ets",
                 ownerName: "ProjectKvStore",
                 methodName: "getData",
                 invokeKind: "namespace",
                 argCount: 1,
                 confidence: "likely",
-                provenance: {
-                    source: "llm-proposal",
-                    location: { file: "entry/src/main/ets/pages/StaticStoragePage.ets", line: 5 },
-                },
-            },
+                location: { file: "entry/src/main/ets/pages/StaticStoragePage.ets", line: 5 },
+            }),
         ],
         bindings: [
             {
@@ -695,7 +724,7 @@ function makeProjectStorageWrapperPersistentSlotAsset(): any {
                 endpoint: { base: { kind: "arg", index: 1 } },
                 effectTemplateRefs: ["template.ProjectKvStore.putData.sessionToken.put"],
                 semanticsFamily: "project.project_kv_store.persistent_slot",
-                completeness: "partial",
+                completeness: "complete",
                 confidence: "likely",
             },
             {
@@ -707,7 +736,7 @@ function makeProjectStorageWrapperPersistentSlotAsset(): any {
                 endpoint: { base: { kind: "promiseResult" } },
                 effectTemplateRefs: ["template.ProjectKvStore.getData.sessionToken.get"],
                 semanticsFamily: "project.project_kv_store.persistent_slot",
-                completeness: "partial",
+                completeness: "complete",
                 confidence: "likely",
             },
         ],
@@ -719,7 +748,7 @@ function makeProjectStorageWrapperPersistentSlotAsset(): any {
                     cellKind: "persistent-storage-slot",
                     family: "project.project_kv_store",
                     key: [{ kind: "fromEndpoint", endpoint: { base: { kind: "arg", index: 0 } } }],
-                    precision: "infer",
+                    precision: "exact",
                 },
                 value: { base: { kind: "arg", index: 1 } },
                 updateStrength: "weak",
@@ -732,7 +761,7 @@ function makeProjectStorageWrapperPersistentSlotAsset(): any {
                     cellKind: "persistent-storage-slot",
                     family: "project.project_kv_store",
                     key: [{ kind: "fromEndpoint", endpoint: { base: { kind: "arg", index: 0 } } }],
-                    precision: "infer",
+                    precision: "exact",
                 },
                 target: { base: { kind: "promiseResult" } },
                 confidence: "likely",
@@ -744,30 +773,26 @@ function makeProjectStorageWrapperPersistentSlotAsset(): any {
             projectId: "project_storage_fixture",
             evidenceLocations: [{ file: "entry/src/main/ets/pages/StaticStoragePage.ets", line: 5 }],
         },
-    };
+    });
 }
 
 function makeProjectStorageWrapperPersistentSlotOverloadAsset(): any {
     const asset = makeProjectStorageWrapperPersistentSlotAsset();
-    return {
+    return stampedAsset({
         ...asset,
         id: "asset.project.projectKvStore.sessionToken.persistentSlot.overloads",
         surfaces: [
             ...asset.surfaces,
-            {
+            projectSurface({
                 surfaceId: "surface.ProjectKvStore.getDataWithDefault",
-                kind: "invoke",
                 modulePath: "entry/src/main/ets/utils/ProjectKvStore.ets",
                 ownerName: "ProjectKvStore",
                 methodName: "getData",
                 invokeKind: "namespace",
                 argCount: 2,
                 confidence: "likely",
-                provenance: {
-                    source: "llm-proposal",
-                    location: { file: "entry/src/main/ets/pages/StaticStoragePage.ets", line: 9 },
-                },
-            },
+                location: { file: "entry/src/main/ets/pages/StaticStoragePage.ets", line: 9 },
+            }),
         ],
         bindings: [
             ...asset.bindings.map((binding: any) => ({ ...binding, assetId: "asset.project.projectKvStore.sessionToken.persistentSlot.overloads" })),
@@ -780,7 +805,7 @@ function makeProjectStorageWrapperPersistentSlotOverloadAsset(): any {
                 endpoint: { base: { kind: "promiseResult" } },
                 effectTemplateRefs: ["template.ProjectKvStore.getData.sessionToken.get"],
                 semanticsFamily: "project.project_kv_store.persistent_slot",
-                completeness: "partial",
+                completeness: "complete",
                 confidence: "likely",
             },
         ],
@@ -791,43 +816,35 @@ function makeProjectStorageWrapperPersistentSlotOverloadAsset(): any {
                 { file: "entry/src/main/ets/pages/StaticStoragePage.ets", line: 9 },
             ],
         },
-    };
+    });
 }
 
 function makeReceiverFieldObjectFieldHandoffAsset(): any {
-    return {
+    return stampedAsset({
         id: "asset.project.authCarrier.authHeaders.objectField",
         plane: "module",
         status: "llm-generated",
         surfaces: [
-            {
+            projectSurface({
                 surfaceId: "surface.AuthCarrier.setAuthHeaders",
-                kind: "invoke",
                 modulePath: "entry/src/main/ets/AuthCarrier.ets",
                 ownerName: "AuthCarrier",
                 methodName: "setAuthHeaders",
                 invokeKind: "instance",
                 argCount: 1,
                 confidence: "likely",
-                provenance: {
-                    source: "llm-proposal",
-                    location: { file: "entry/src/main/ets/AuthCarrier.ets", line: 8 },
-                },
-            },
-            {
+                location: { file: "entry/src/main/ets/AuthCarrier.ets", line: 8 },
+            }),
+            projectSurface({
                 surfaceId: "surface.AuthCarrier.request",
-                kind: "invoke",
                 modulePath: "entry/src/main/ets/AuthCarrier.ets",
                 ownerName: "AuthCarrier",
                 methodName: "request",
                 invokeKind: "instance",
                 argCount: 0,
                 confidence: "likely",
-                provenance: {
-                    source: "llm-proposal",
-                    location: { file: "entry/src/main/ets/AuthCarrier.ets", line: 20 },
-                },
-            },
+                location: { file: "entry/src/main/ets/AuthCarrier.ets", line: 20 },
+            }),
         ],
         bindings: [
             {
@@ -839,7 +856,7 @@ function makeReceiverFieldObjectFieldHandoffAsset(): any {
                 endpoint: { base: { kind: "arg", index: 0 } },
                 effectTemplateRefs: ["template.AuthCarrier.setAuthHeaders.authHeaders.put"],
                 semanticsFamily: "project.auth_carrier.object_field",
-                completeness: "partial",
+                completeness: "complete",
                 confidence: "likely",
             },
             {
@@ -851,7 +868,7 @@ function makeReceiverFieldObjectFieldHandoffAsset(): any {
                 endpoint: { base: { kind: "receiver" }, accessPath: ["authHeaders"] },
                 effectTemplateRefs: ["template.AuthCarrier.request.authHeaders.get"],
                 semanticsFamily: "project.auth_carrier.object_field",
-                completeness: "partial",
+                completeness: "complete",
                 confidence: "likely",
             },
         ],
@@ -887,27 +904,23 @@ function makeReceiverFieldObjectFieldHandoffAsset(): any {
             projectId: "auth_carrier_fixture",
             evidenceLocations: [{ file: "entry/src/main/ets/AuthCarrier.ets", line: 8 }],
         },
-    };
+    });
 }
 
 function makeConstructReceiverEndpointHandoffAsset(): any {
-    return {
+    return stampedAsset({
         id: "asset.project.authCarrier.constructor.badReceiver",
         plane: "module",
         status: "llm-generated",
         surfaces: [
-            {
+            projectConstructSurface({
                 surfaceId: "surface.AuthCarrier.constructor",
-                kind: "construct",
                 modulePath: "entry/src/main/ets/AuthCarrier.ets",
-                className: "AuthCarrier",
+                ownerName: "AuthCarrier",
                 argCount: 1,
                 confidence: "likely",
-                provenance: {
-                    source: "llm-proposal",
-                    location: { file: "entry/src/main/ets/AuthCarrier.ets", line: 8 },
-                },
-            },
+                location: { file: "entry/src/main/ets/AuthCarrier.ets", line: 8 },
+            }),
         ],
         bindings: [
             {
@@ -919,7 +932,7 @@ function makeConstructReceiverEndpointHandoffAsset(): any {
                 endpoint: { base: { kind: "receiver" }, accessPath: ["config", "password"] },
                 effectTemplateRefs: ["template.AuthCarrier.constructor.authHeaders.put"],
                 semanticsFamily: "project.auth_carrier.object_field",
-                completeness: "partial",
+                completeness: "complete",
                 confidence: "likely",
             },
         ],
@@ -944,12 +957,15 @@ function makeConstructReceiverEndpointHandoffAsset(): any {
             projectId: "auth_carrier_fixture",
             evidenceLocations: [{ file: "entry/src/main/ets/AuthCarrier.ets", line: 8 }],
         },
-    };
+    });
 }
 
 function makeReceiverFieldMixedPlaneModuleAsset(): any {
     const asset = makeReceiverFieldObjectFieldHandoffAsset();
-    return {
+    const requestSurfaceId = asset.surfaces.find((surface: any) =>
+        surface.evidence?.arkanalyzer?.methodKey?.methodName === "request")?.surfaceId;
+    assert(!!requestSurfaceId, "expected AuthCarrier.request surface in mixed-plane fixture");
+    return stampedAsset({
         ...asset,
         id: "asset.project.authCarrier.request.mixedPlane",
         effectTemplates: [
@@ -966,7 +982,7 @@ function makeReceiverFieldMixedPlaneModuleAsset(): any {
             ...(asset.bindings || []),
             {
                 bindingId: "binding.AuthCarrier.request.authHeaders.sink",
-                surfaceId: "surface.AuthCarrier.request",
+                surfaceId: requestSurfaceId,
                 assetId: "asset.project.authCarrier.request.mixedPlane",
                 plane: "module",
                 role: "sink",
@@ -977,42 +993,35 @@ function makeReceiverFieldMixedPlaneModuleAsset(): any {
                 confidence: "likely",
             },
         ],
-    };
+    });
 }
 
 function makeBrokenObjectFieldModuleRepairAsset(): any {
-    return {
+    return bindExactAssetIdentities({
         id: "asset.project.authCarrier.brokenRepair",
         plane: "module",
         status: "llm-generated",
         surfaces: [
-            {
+            projectSurface({
                 surfaceId: "surface.AuthCarrier.buildAuthHeaders",
-                kind: "invoke",
                 modulePath: "entry/src/main/ets/AuthCarrier.ets",
                 ownerName: "AuthCarrier",
                 methodName: "buildAuthHeaders",
                 invokeKind: "instance",
                 argCount: 0,
                 confidence: "likely",
-                provenance: {
-                    source: "llm-proposal",
-                    location: { file: "entry/src/main/ets/AuthCarrier.ets", line: 8 },
-                },
-            },
-            {
+                location: { file: "entry/src/main/ets/AuthCarrier.ets", line: 8 },
+            }),
+            projectSurface({
                 surfaceId: "surface.AuthCarrier.request",
-                kind: "invoke",
+                modulePath: "local-placeholder",
                 ownerName: "AuthCarrier",
                 methodName: "request",
                 invokeKind: "instance",
                 argCount: 0,
                 confidence: "likely",
-                provenance: {
-                    source: "llm-proposal",
-                    location: { file: "entry/src/main/ets/AuthCarrier.ets", line: 20 },
-                },
-            },
+                location: { file: "entry/src/main/ets/AuthCarrier.ets", line: 20 },
+            }),
         ],
         bindings: [
             {
@@ -1024,17 +1033,19 @@ function makeBrokenObjectFieldModuleRepairAsset(): any {
                 endpoint: { base: { kind: "receiver" }, accessPath: ["config", "password"] },
                 effectTemplateRefs: ["template.AuthCarrier.buildAuthHeaders.authHeaders.put"],
                 semanticsFamily: "project.auth_carrier.object_field",
-                completeness: "partial",
+                completeness: "complete",
                 confidence: "likely",
             },
         ],
         effectTemplates: [
             {
+                id: "template.AuthCarrier.buildAuthHeaders.authHeaders.put",
                 kind: "handoff.put",
                 handle: {
                     cellKind: "object-field",
                     family: "project.auth_carrier",
                     key: [{ kind: "const", value: "authHeaders" }],
+                    precision: "exact",
                 },
                 value: { base: { kind: "receiver" }, accessPath: ["config", "password"] },
                 updateStrength: "weak",
@@ -1047,7 +1058,7 @@ function makeBrokenObjectFieldModuleRepairAsset(): any {
             projectId: "auth_carrier_fixture",
             evidenceLocations: [{ file: "entry/src/main/ets/AuthCarrier.ets", line: 8 }],
         },
-    };
+    });
 }
 
 async function expectRejects(fn: () => Promise<unknown>, contains: string): Promise<void> {
@@ -1092,18 +1103,25 @@ async function main(): Promise<void> {
     );
     assert(
         runtimeSkills.includes("trailing optional/default parameters")
-            && runtimeSkills.includes("sendTextMessage(content)"),
-        "runtime skill must keep InvokeSurface.argCount aligned to observed call arity for default parameters",
+            && runtimeSkills.includes("exact analyzer-backed `canonicalApiId`"),
+        "runtime skill must keep canonical surface evidence aligned to observed call arity for default parameters",
     );
     assert(
         runtimeSkills.includes("methodSignature")
-            && runtimeSkills.includes("declaring owner")
-            && runtimeSkills.includes("implementation class is evidence"),
-        "runtime skill must require receiver method surfaces to use the analyzer-resolved declaring owner",
+            && runtimeSkills.includes("treat it only as optional evidence")
+            && runtimeSkills.includes("Do not derive `modulePath`"),
+        "runtime skill must require receiver method surfaces to use analyzer-backed canonical identity",
     );
     assert(
         runtimeSkills.includes("Every `rule.sink` effect template must include a non-empty `sinkKind`"),
         "runtime skill must require sinkKind for project API sink assets",
+    );
+    assert(
+        runtimeSkills.includes("canonicalApiId")
+            && runtimeSkills.includes("canonicalApiId")
+            && runtimeSkills.includes("methodKey")
+            && runtimeSkills.includes("canonicalApiSurface"),
+        "runtime skill must require LLM assets to copy canonical identity evidence",
     );
     assert(
         runtimeSkills.includes("candidateOrigin=recall_direct_boundary_surface")
@@ -1193,13 +1211,21 @@ async function main(): Promise<void> {
         history: [],
     });
     assert(prompt.system.includes("Third-party and project API surfaces"), "prompt must include project SDK boundary guidance");
+    assert(
+        prompt.system.includes("canonicalApiSurface observations")
+            && prompt.system.includes("Every binding must include canonicalApiId")
+            && prompt.system.includes("Do not use binding.selector")
+            && prompt.system.includes("canonicalApiId"),
+        "prompt must require canonical surface and binding identity without selector compatibility",
+    );
     assert(prompt.system.includes("one-parameter callback uses argIndex=0"), "prompt must forbid guessing argIndex 1 for single-parameter callbacks");
     assert(prompt.system.includes('"accessPath": ["onClickSend"] }, "argIndex": 0'), "prompt example must use a single-parameter option callback source");
-    assert(prompt.system.includes("observed callsite argCount"), "prompt must tell LLM not to inflate argCount for optional/default parameters");
+    assert(prompt.system.includes("canonicalApiId"), "prompt must tell LLM to rely on exact canonical IDs for optional/default parameters");
     assert(
-        prompt.system.includes("Every observed companion surface arity")
+        prompt.system.includes("Every observed companion overload")
             && prompt.system.includes("get(key)")
-            && prompt.system.includes("get(key, defaultValue)"),
+            && prompt.system.includes("get(key, defaultValue)")
+            && prompt.system.includes("analyzer-backed `canonicalApiId`"),
         "prompt must require storage wrapper assets to cover observed overload/default-value call shapes",
     );
     assert(
@@ -1208,7 +1234,7 @@ async function main(): Promise<void> {
             && prompt.system.includes("this.itemBuilder"),
         "prompt must route storage-wrapper receiver helpers to persistent-storage-slot semantics",
     );
-    assert(prompt.system.includes("derive ownerName and methodName from methodSignature"), "prompt must prefer analyzer-resolved signature owner over implementation snippets");
+    assert(prompt.system.includes("Do not derive surface identity fields from it"), "prompt must treat methodSignature as evidence, not identity");
     assert(
         prompt.system.includes("Every rule.sink effect template must include a non-empty sinkKind"),
         "prompt must require sinkKind for generated rule.sink assets",
@@ -1233,8 +1259,8 @@ async function main(): Promise<void> {
     );
     assert(
         prompt.system.includes("@%unk/%unk: .ComponentName")
-            && prompt.system.includes("@entry/.../File.ets: functionName(...)")
-            && prompt.system.includes("Do not set ownerName or methodName"),
+            && prompt.system.includes("lacks a canonicalApiId")
+            && prompt.system.includes("return need-more-evidence"),
         "prompt must require ownerless component/function calls to stay free-function surfaces",
     );
     assert(
@@ -1252,8 +1278,8 @@ async function main(): Promise<void> {
     assert(
         prompt.system.includes("module.eventEmitter")
             && prompt.system.includes("payloadArgIndex=-1")
-            && prompt.system.includes("onMethods")
-            && prompt.system.includes("emitMethods")
+            && prompt.system.includes("onCanonicalApiIds")
+            && prompt.system.includes("emitCanonicalApiIds")
             && prompt.system.includes("The event key/channel is selector metadata")
             && prompt.system.includes("Do not output core.capability"),
         "prompt must require project event-bus wrappers to use declarative module.eventEmitter instead of core capabilities or broad rule effects",
@@ -1282,7 +1308,7 @@ async function main(): Promise<void> {
             status: "done",
             asset: {
                 plane: "module",
-                surfaces: [{ kind: "construct", ownerName: "AuthCarrier" }],
+                surfaces: [{ kind: "construct", canonicalApiId: "api:bad" }],
                 effectTemplates: [{
                     kind: "handoff.put",
                     handle: { cellKind: "object-field", family: "project.auth", key: ["authHeaders"] },
@@ -1295,13 +1321,14 @@ async function main(): Promise<void> {
         repairPrompt.system.includes("key:[\"requestHeaders\"] is invalid")
             && repairPrompt.system.includes("{\"kind\":\"const\",\"value\":\"requestHeaders\"}")
             && repairPrompt.system.includes("Do not leave handoff.put value or handoff.get target as null")
-            && repairPrompt.system.includes("ConstructSurface records must use kind=\"construct\", className")
+            && repairPrompt.system.includes("InvokeSurface and ConstructSurface records need surfaceId, canonicalApiId")
+            && repairPrompt.system.includes("Copy these fields from canonicalApiSurface evidence exactly")
             && repairPrompt.system.includes("ConstructSurface endpoints must not use receiver")
             && repairPrompt.system.includes("When repairing to plane=\"module\" for hidden receiver-field carriers")
-            && repairPrompt.system.includes("Never drop modulePath when copying companion surfaces")
+            && repairPrompt.system.includes("preserve all observed companion overloads")
+            && repairPrompt.system.includes("each companion has its own exact canonicalApiId")
             && repairPrompt.system.includes("Template/reference integrity is mandatory after repair")
             && repairPrompt.system.includes("precision is required")
-            && repairPrompt.system.includes("observed companion surface arities")
             && repairPrompt.system.includes("Replace module.event-emitter core capability drafts with kind=\"module.eventEmitter\""),
         "repair prompt must explicitly fix object-field shorthand handles, construct surfaces, module-only handoff, surface identity, and template refs",
     );
@@ -1312,6 +1339,35 @@ async function main(): Promise<void> {
             && prompt.system.includes("header-or-credential-payload"),
         "prompt must make structured request-wrapper parameter roles binding for endpoint choice",
     );
+    const canonicalPromptCandidate = {
+        callee_signature: "@entry/src/main/ets/http/apiService.ets: getHomeListAxios(Unknown)",
+        method: "getHomeListAxios",
+        invokeKind: "any",
+        argCount: 1,
+        sourceFile: "entry/src/main/ets/http/apiService.ets",
+        importSource: "entry/src/main/ets/http/apiService.ets",
+        candidateOrigin: "recall_returned_value_surface",
+        semanticFocus: "returned_value_surface",
+    } as any;
+    const canonicalPromptInput = buildSemanticFlowApiModelingCandidateItem(canonicalPromptCandidate);
+    const missingCanonicalObservation = canonicalPromptInput.initialSlice.observations.find(item =>
+        item.startsWith("canonicalApiSurface=") || item.startsWith("canonicalApiSurface:"));
+    assert(
+        !missingCanonicalObservation,
+        "SemanticFlow adapter must not invent canonicalApiSurface evidence when the candidate lacks canonicalApiId",
+    );
+    const canonicalPromptInputWithId = buildSemanticFlowApiModelingCandidateItem({
+        ...canonicalPromptCandidate,
+        canonicalApiId: "api:project:local:module=entry%2Fsrc%2Fmain%2Fets%2Fhttp%2FapiService.ets:file=entry%2Fsrc%2Fmain%2Fets%2Fhttp%2FapiService.ets:export=namespace%3AapiService:decl=namespace%3AapiService:member=function%3AgetHomeListAxios:invoke=call:params=0%3AUnknown:ret=Promise%3CT%3E",
+    } as any);
+    const canonicalObservation = canonicalPromptInputWithId.initialSlice.observations.find(item =>
+        item.startsWith("canonicalApiSurface=") || item.startsWith("canonicalApiSurface:"));
+    assert(
+        !!canonicalObservation
+            && canonicalObservation.includes('"canonicalApiId":"api:project:local:')
+            && canonicalObservation.includes('"surfaceId":"surface:api:project:local:'),
+        "SemanticFlow adapter must provide analyzer-backed canonicalApiSurface evidence only from exact canonical IDs",
+    );
     assert(
         prompt.system.includes("registration callsite file")
             && prompt.system.includes("callerFile"),
@@ -1319,6 +1375,8 @@ async function main(): Promise<void> {
     );
     assert(prompt.user.includes("LocalChatUIKitClient.login"), "prompt must preserve same-name negative evidence");
 
+    const hdWebCallbackAsset = makeHdWebCallbackRegisterAsset();
+    const hdWebCanonicalSurface = `canonicalApiSurface: ${JSON.stringify(hdWebCallbackAsset.surfaces[0])}`;
     const hdWebCallbackInput: SemanticFlowDecisionInput = {
         anchor: {
             id: "api-modeling.HdWeb.onLoad.callbackRegister",
@@ -1333,6 +1391,7 @@ async function main(): Promise<void> {
             round: 0,
             template: "callable-transfer",
             observations: [
+                hdWebCanonicalSurface,
                 "candidateOrigin=recall_callback_surface",
                 "callbackProperties=onLoad",
                 "topEntry=callbackOwnerResolved=true",
@@ -1357,7 +1416,7 @@ async function main(): Promise<void> {
         repairInvalidJson: false,
         modelInvoker: async () => JSON.stringify({
             status: "done",
-            asset: makeHdWebCallbackRegisterAsset(),
+            asset: hdWebCallbackAsset,
         }),
     });
     const hdWebCallbackDecision = await hdWebCallbackDecider.decide(hdWebCallbackInput);
@@ -1381,6 +1440,14 @@ async function main(): Promise<void> {
             round: 0,
             template: "multi-surface",
             observations: [
+                ...canonicalSurfaceObservations(
+                    makeReceiverFieldRuleOnlySinkAsset(),
+                    makeReceiverFieldReturnedValueSourceAsset(),
+                    makeReceiverFieldObjectFieldHandoffAsset(),
+                    makeConstructReceiverEndpointHandoffAsset(),
+                    makeReceiverFieldMixedPlaneModuleAsset(),
+                    makeBrokenObjectFieldModuleRepairAsset(),
+                ),
                 "carrierRoots=1",
                 "carrierRoot=this.authHeaders",
                 "carrierTouch=read:this.authHeaders.read",
@@ -1465,6 +1532,10 @@ async function main(): Promise<void> {
             round: 0,
             template: "multi-surface",
             observations: [
+                ...canonicalSurfaceObservations(
+                    makeProjectStorageWrapperRuleOnlySinkAsset(),
+                    makeProjectStorageWrapperPersistentSlotAsset(),
+                ),
                 "signature=@entry/src/main/ets/pages/StaticStoragePage.ets: ProjectKvStore.putData(Unknown, Unknown)",
                 "method=putData",
                 "argCount=2",
@@ -1524,6 +1595,7 @@ async function main(): Promise<void> {
             anchorId: "api-modeling.ProjectKvStore.getData.receiver-helper",
             observations: [
                 ...projectStorageWrapperInput.slice.observations,
+                ...canonicalSurfaceObservations(makeProjectStorageWrapperPersistentSlotOverloadAsset()),
                 "carrier-sibling-ui-helper=this.itemBuilder wraps the current call but does not store the data",
                 "carrier-sibling-storage-helper=this.getPreferences reads the backing preferences helper",
                 "companion=ProjectKvStore.getData('session_token', '')",
@@ -1577,6 +1649,7 @@ async function main(): Promise<void> {
             anchorId: "api-modeling.ProjectKvStore.putData.overload-companion",
             observations: [
                 ...projectStorageWrapperInput.slice.observations,
+                ...canonicalSurfaceObservations(makeProjectStorageWrapperPersistentSlotOverloadAsset()),
                 "companion=ProjectKvStore.getData('session_token', '')",
             ],
             snippets: [
@@ -1597,7 +1670,7 @@ async function main(): Promise<void> {
     });
     await expectRejects(
         () => projectStorageNarrowModuleDecider.decide(projectStorageWrapperOverloadInput),
-        "must cover every observed companion surface arity",
+        "must cover every observed companion canonicalApiId",
     );
     const projectStorageOverloadModuleDecider = createSemanticFlowLlmDecider({
         repairInvalidJson: false,
@@ -1642,7 +1715,7 @@ async function main(): Promise<void> {
     });
     await expectRejects(
         () => brokenRepairDecider.decide(receiverCarrierInput),
-        "$.surfaces[1].modulePath must be a stable non-empty string",
+        "does not use canonical surfaceId",
     );
 
     const ownerMismatchDecider = createSemanticFlowLlmDecider({
@@ -1668,6 +1741,7 @@ async function main(): Promise<void> {
                 round: 0,
                 template: "multi-surface",
                 observations: [
+                    ...canonicalSurfaceObservations(makeSendTextMessageAsset("BaseMessageViewModel")),
                     "signature=@chatuikit/src/main/ets/viewmodels/MessageViewModel.ets: BaseMessageViewModel.sendTextMessage(MessageContent, boolean, OnMessageError, OnMessageSuccess)",
                     "method=sendTextMessage",
                     "methodSnippetSource=MessageViewModel implementation override forwards content to SDK sendMessage",
@@ -1682,7 +1756,7 @@ async function main(): Promise<void> {
             round: 0,
             history: [],
         }),
-        "does not match analyzer-backed declaring owner BaseMessageViewModel",
+        "was not present in canonicalApiSurface observations",
     );
 
     const ownerAlignedDecider = createSemanticFlowLlmDecider({
@@ -1706,7 +1780,10 @@ async function main(): Promise<void> {
             anchorId: "api-modeling.base-sendTextMessage.ok",
             round: 0,
             template: "multi-surface",
-            observations: ["signature owner is BaseMessageViewModel"],
+            observations: [
+                ...canonicalSurfaceObservations(makeSendTextMessageAsset("BaseMessageViewModel")),
+                "signature owner is BaseMessageViewModel",
+            ],
             snippets: [],
         },
         round: 0,
@@ -1737,6 +1814,7 @@ async function main(): Promise<void> {
                 round: 0,
                 template: "multi-surface",
                 observations: [
+                    ...canonicalSurfaceObservations(makeChatInputMenuViewCallbackSourceAsset("free-function")),
                     "signature=@%unk/%unk: .ChatInputMenuView()",
                     "callbackProperties=onClickSend",
                     "importSource=../../components/chat/ChatComponents",
@@ -1746,7 +1824,7 @@ async function main(): Promise<void> {
             round: 0,
             history: [],
         }),
-        "must use ownerless free-function identity",
+        "was not present in canonicalApiSurface observations",
     );
 
     const ownerlessFunctionDecider = createSemanticFlowLlmDecider({
@@ -1770,7 +1848,10 @@ async function main(): Promise<void> {
                 anchorId: "api-modeling.ChatInputMenuView.ok",
                 round: 0,
                 template: "multi-surface",
-                observations: ["signature=@%unk/%unk: .ChatInputMenuView()"],
+                observations: [
+                    ...canonicalSurfaceObservations(makeChatInputMenuViewCallbackSourceAsset("free-function")),
+                    "signature=@%unk/%unk: .ChatInputMenuView()",
+                ],
                 snippets: [
                     {
                         label: "callsite",
@@ -1802,23 +1883,26 @@ async function main(): Promise<void> {
         draftId: "draft.getHomeListAxios.ok",
         draft: {
             surfaces: [
-                {
+                exactDraftSurface({
                     surfaceId: "surface.getHomeListAxios.free",
-                    kind: "invoke",
                     modulePath: "entry/src/main/ets/http/apiService.ets",
                     functionName: "getHomeListAxios",
                     invokeKind: "free-function",
                     argCount: 1,
                     confidence: "certain",
-                    provenance: { source: "analyzer" },
-                },
+                    provenanceSource: "analyzer",
+                }),
             ],
         },
         slice: {
             anchorId: "api-modeling.getHomeListAxios.ok",
             round: 0,
             template: "multi-surface",
-            observations: ["signature=@entry/src/main/ets/http/apiService.ets: getHomeListAxios(Unknown)", "returned-value modeling question"],
+            observations: [
+                ...canonicalSurfaceObservations(makeOwnerlessReturnedValueAsset("free-function")),
+                "signature=@entry/src/main/ets/http/apiService.ets: getHomeListAxios(Unknown)",
+                "returned-value modeling question",
+            ],
             snippets: [
                 {
                     label: "callsite",
@@ -1851,34 +1935,36 @@ async function main(): Promise<void> {
             draftId: "draft.getHomeListAxios.bad-sibling",
             draft: {
                 surfaces: [
-                    {
+                    exactDraftSurface({
                         surfaceId: "surface.getHomeListAxios.free",
-                        kind: "invoke",
                         modulePath: "entry/src/main/ets/http/apiService.ets",
                         functionName: "getHomeListAxios",
                         invokeKind: "free-function",
                         argCount: 1,
                         confidence: "certain",
-                        provenance: { source: "analyzer" },
-                    },
-                    {
+                        provenanceSource: "analyzer",
+                    }),
+                    exactDraftSurface({
                         surfaceId: "surface.getHomeListAxios.static",
-                        kind: "invoke",
                         modulePath: "entry/src/main/ets/http/apiService.ets",
                         ownerName: "apiService",
                         methodName: "getHomeListAxios",
                         invokeKind: "static",
                         argCount: 1,
                         confidence: "certain",
-                        provenance: { source: "analyzer" },
-                    },
+                        provenanceSource: "analyzer",
+                    }),
                 ],
             },
             slice: {
                 anchorId: "api-modeling.getHomeListAxios.bad-sibling",
                 round: 0,
                 template: "multi-surface",
-                observations: ["signature=@entry/src/main/ets/http/apiService.ets: getHomeListAxios(Unknown)", "returned-value modeling question"],
+                observations: [
+                    ...canonicalSurfaceObservations(makeOwnerlessReturnedValueAsset("free-function")),
+                    "signature=@entry/src/main/ets/http/apiService.ets: getHomeListAxios(Unknown)",
+                    "returned-value modeling question",
+                ],
                 snippets: [
                     {
                         label: "callsite",
@@ -1889,7 +1975,7 @@ async function main(): Promise<void> {
             round: 0,
             history: [],
         }),
-        "must use ownerless free-function identity",
+        "was not present in canonicalApiSurface observations",
     );
 
     const ownerlessWrongCallerFileDecider = createSemanticFlowLlmDecider({
@@ -1902,36 +1988,41 @@ async function main(): Promise<void> {
             ),
         }),
     });
-    await expectRejects(
-        () => ownerlessWrongCallerFileDecider.decide({
-            anchor: {
-                id: "api-modeling.ChatInputMenuView.wrong-caller-file",
-                owner: "",
-                surface: "ChatInputMenuView",
-                methodSignature: "@%unk/%unk: .ChatInputMenuView()",
-                filePath: "chatuikit/src/main/ets/components/chat/ChatComponents.ets",
-                metaTags: ["api-modeling-candidate", "static", "callback"],
-            },
-            draftId: "draft.ChatInputMenuView.wrong-caller-file",
-            slice: {
-                anchorId: "api-modeling.ChatInputMenuView.wrong-caller-file",
-                round: 0,
-                template: "multi-surface",
-                observations: [
-                    "signature=@%unk/%unk: .ChatInputMenuView()",
-                    "importSource=../../components/chat/ChatComponents",
-                ],
-                snippets: [
-                    {
-                        label: "callsite",
-                        code: "callerFile: chatuikit/src/main/ets/components/chat/ChatView.ets\ninvokeLine: 539\nChatInputMenuView({ onClickSend: (content: MessageContent) => { this.messageViewModel.sendTextMessage(content); } })",
-                    },
-                ],
-            },
+    const ownerlessWrongCallerFileDecision = await ownerlessWrongCallerFileDecider.decide({
+        anchor: {
+            id: "api-modeling.ChatInputMenuView.wrong-caller-file",
+            owner: "",
+            surface: "ChatInputMenuView",
+            methodSignature: "@%unk/%unk: .ChatInputMenuView()",
+            filePath: "chatuikit/src/main/ets/components/chat/ChatComponents.ets",
+            metaTags: ["api-modeling-candidate", "static", "callback"],
+        },
+        draftId: "draft.ChatInputMenuView.wrong-caller-file",
+        slice: {
+            anchorId: "api-modeling.ChatInputMenuView.wrong-caller-file",
             round: 0,
-            history: [],
-        }),
-        "must use analyzer-backed registration callerFile",
+            template: "multi-surface",
+            observations: [
+                ...canonicalSurfaceObservations(makeChatInputMenuViewCallbackSourceAsset(
+                    "free-function",
+                    "chatuikit/src/main/ets/components/chat/ChatComponents.ets",
+                )),
+                "signature=@%unk/%unk: .ChatInputMenuView()",
+                "importSource=../../components/chat/ChatComponents",
+            ],
+            snippets: [
+                {
+                    label: "callsite",
+                    code: "callerFile: chatuikit/src/main/ets/components/chat/ChatView.ets\ninvokeLine: 539\nChatInputMenuView({ onClickSend: (content: MessageContent) => { this.messageViewModel.sendTextMessage(content); } })",
+                },
+            ],
+        },
+        round: 0,
+        history: [],
+    });
+    assert(
+        ownerlessWrongCallerFileDecision.status === "done",
+        "ownerless component callback source identity should be accepted when its exact canonical surface is observed",
     );
 
     const candidates = [
@@ -1953,6 +2044,16 @@ async function main(): Promise<void> {
     }));
     candidates.push({
         callee_signature: "@%unk/%unk: .ChatInputMenuView()",
+        canonicalApiId: exactDraftSurface({
+            surfaceId: "surface.ChatInputMenuView.smallBudget",
+            modulePath: "chatuikit/src/main/ets/components/chat/ChatComponents.ets",
+            functionName: "ChatInputMenuView",
+            invokeKind: "free-function",
+            parameterTypes: ["SyntheticArg0"],
+            returnType: "void",
+            confidence: "likely",
+            location: { file: "chatuikit/src/main/ets/components/chat/ChatComponents.ets", line: 539 },
+        }).canonicalApiId,
         method: "ChatInputMenuView",
         invokeKind: "static",
         argCount: 1,

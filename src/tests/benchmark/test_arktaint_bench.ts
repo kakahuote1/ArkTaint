@@ -3,7 +3,9 @@ import { SceneConfig } from "../../../arkanalyzer/out/src/Config";
 import * as fs from "fs";
 import * as path from "path";
 import {
+    collectHarmonyEntrySeedMethods,
     collectCaseSeedNodes,
+    engineOptionsFromLoadedRuleSet,
     findCaseMethod,
     resolveCaseMethod,
 } from "../helpers/SyntheticCaseHarness";
@@ -11,6 +13,7 @@ import { registerMockSdkFiles } from "../helpers/TestSceneBuilder";
 import { TaintPropagationEngine } from "../../core/orchestration/TaintPropagationEngine";
 import { LoadedRuleSet, loadRuleSet } from "../../core/rules/RuleLoader";
 import { summarizeSinkInventoryFlows } from "../helpers/SinkInventoryScoring";
+import { detectSinksByExactMethodsForTest, resolveUniqueMethodByExactNameForTest, resolveUniqueMethodByExactSignatureForTest } from "../helpers/ExactSinkDetectionTestUtils";
 import {
     createTestProgressReporter,
     printTestConsoleSummary,
@@ -111,6 +114,7 @@ interface HapBenchCaseResult {
     expectedFlow: boolean;
     detectedFlow: boolean;
     pass: boolean;
+    seedCount: number;
     flowCount: number;
     inventoryFlowCount: number;
     sinkRuleHits: Record<string, number>;
@@ -165,6 +169,21 @@ function parseArgs(argv: string[]): { manifestPath: string; outputDir: string } 
 
 function ensureDir(dir: string): void {
     fs.mkdirSync(dir, { recursive: true });
+}
+
+function clearStaleOutputArtifacts(outputLayout: ReturnType<typeof resolveTestOutputLayout>): void {
+    for (const filePath of [
+        outputLayout.runJsonPath,
+        outputLayout.summaryJsonPath,
+        outputLayout.reportJsonPath,
+        outputLayout.reportMarkdownPath,
+        outputLayout.progressJsonPath,
+        outputLayout.progressMarkdownPath,
+    ]) {
+        if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+        }
+    }
 }
 
 function readJsonFile<T>(filePath: string): T {
@@ -338,7 +357,7 @@ async function runSeniorFullSection(
                 const seeds = collectCaseSeedNodes(engine, item.entryMethod);
                 if (seeds.length > 0) {
                     engine.propagateWithSeeds(seeds);
-                    detectedFlow = engine.detectSinks("Sink").length > 0;
+                    detectedFlow = detectSinksByExactMethodsForTest(engine, resolveUniqueMethodByExactNameForTest(engine, "Sink")).length > 0;
                 }
             }
 
@@ -510,7 +529,7 @@ async function runSelectedHapBenchSectionWithProgress(
         kernelRulePath: path.resolve(section.kernelRulePath),
         ruleCatalogPath: path.resolve(section.ruleCatalogPath),
         allowMissingProject: true,
-        autoDiscoverLayers: false,
+        autoDiscoverRuleSources: false,
     });
 
     const results: HapBenchCaseResult[] = [];
@@ -526,9 +545,13 @@ async function runSelectedHapBenchSectionWithProgress(
         const scene = buildScene(caseInfo.caseRoot);
         const engine = new TaintPropagationEngine(scene, 1, {
             transferRules: rules.ruleSet.transfers || [],
+            ...engineOptionsFromLoadedRuleSet(rules),
         });
         engine.verbose = false;
-        await engine.buildPAG({ entryModel: "arkMain" });
+        await engine.buildPAG({
+            entryModel: "arkMain",
+            syntheticEntryMethods: collectHarmonyEntrySeedMethods(scene),
+        });
         try {
             const reachable = engine.computeReachableMethodSignatures();
             engine.setActiveReachableMethodSignatures(reachable);
@@ -549,6 +572,7 @@ async function runSelectedHapBenchSectionWithProgress(
             expectedFlow: caseInfo.oracle.expectedFlow,
             detectedFlow,
             pass: detectedFlow === caseInfo.oracle.expectedFlow,
+            seedCount: seedInfo.seedCount,
             flowCount: flows.length,
             inventoryFlowCount: sinkSummary.inventoryFlowCount,
             sinkRuleHits: sinkSummary.sinkRuleHits,
@@ -653,7 +677,7 @@ function renderMarkdown(
             lines.push(`- senior_full_observation_only :: ${item.caseKey} expected=${item.expectedFlow ? "T" : "F"} detected=${item.detectedFlow ? "T" : "F"}`);
         }
         for (const item of hapFailures) {
-            lines.push(`- hapbench :: ${item.caseKey} expected=${item.expectedFlow ? "T" : "F"} detected=${item.detectedFlow ? "T" : "F"} inventoryFlows=${item.inventoryFlowCount}`);
+            lines.push(`- hapbench :: ${item.caseKey} expected=${item.expectedFlow ? "T" : "F"} detected=${item.detectedFlow ? "T" : "F"} seeds=${item.seedCount} inventoryFlows=${item.inventoryFlowCount}`);
         }
         lines.push("");
     }
@@ -666,6 +690,7 @@ async function main(): Promise<void> {
     const manifest = readJsonFile<ArkTaintBenchManifest>(options.manifestPath);
     const outputLayout = resolveTestOutputLayout(options.outputDir);
     ensureDir(outputLayout.rootDir);
+    clearStaleOutputArtifacts(outputLayout);
     const metadata: TestOutputMetadata = {
         suite: "arktaint_bench",
         domain: "benchmark",

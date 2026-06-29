@@ -11,29 +11,27 @@ import {
     RuleEffectConsumer,
     SemanticRuntime,
 } from "../../core/assets/runtime";
+import { exactProjectInvokeSurface } from "../helpers/AssetIdentityTestUtils";
 
 function assert(condition: unknown, message: string): asserts condition {
     if (!condition) throw new Error(message);
 }
 
 function asset(): AssetDocumentBase {
+    const surface = exactProjectInvokeSurface({
+        surfaceId: "surface.demo.api",
+        modulePath: "@demo/api",
+        ownerName: "Demo",
+        methodName: "request",
+        invokeKind: "static",
+        parameterTypes: ["DemoRequest"],
+        returnType: "SyntheticTaintValue",
+    });
     return {
         id: "asset.rule.demo",
         plane: "rule",
         status: "official",
-        surfaces: [
-            {
-                surfaceId: "surface.demo.api",
-                kind: "invoke",
-                modulePath: "@demo/api",
-                ownerName: "Demo",
-                methodName: "request",
-                invokeKind: "static",
-                argCount: 1,
-                confidence: "certain",
-                provenance: { source: "manual" },
-            },
-        ],
+        surfaces: [surface],
         bindings: [
             {
                 bindingId: "binding.demo.source",
@@ -41,6 +39,7 @@ function asset(): AssetDocumentBase {
                 assetId: "asset.rule.demo",
                 plane: "rule",
                 role: "source",
+                canonicalApiId: surface.canonicalApiId,
                 endpoint: { base: { kind: "return" } },
                 effectTemplateRefs: ["template.demo.source"],
                 completeness: "complete",
@@ -52,6 +51,7 @@ function asset(): AssetDocumentBase {
                 assetId: "asset.rule.demo",
                 plane: "rule",
                 role: "sink",
+                canonicalApiId: surface.canonicalApiId,
                 endpoint: { base: { kind: "arg", index: 0 } },
                 effectTemplateRefs: ["template.demo.sink"],
                 completeness: "complete",
@@ -63,6 +63,7 @@ function asset(): AssetDocumentBase {
                 assetId: "asset.rule.demo",
                 plane: "rule",
                 role: "transfer",
+                canonicalApiId: surface.canonicalApiId,
                 endpoint: { base: { kind: "arg", index: 0 } },
                 effectTemplateRefs: ["template.demo.transfer"],
                 completeness: "complete",

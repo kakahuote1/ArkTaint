@@ -14,8 +14,7 @@ class Child008Outer {
     title: string = "";
 
     build(): void {
-        const inner = new Child008Inner({ title: this.title });
-        inner.build();
+        taint.Sink(this.title);
     }
 }
 

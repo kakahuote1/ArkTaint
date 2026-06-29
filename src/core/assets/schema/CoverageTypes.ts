@@ -2,7 +2,7 @@ import type { AssetBinding, AssetRole } from "./BindingTypes";
 import type { AssetPlane, SourceLocation, ValidationResult } from "./CommonTypes";
 import type { AssetEndpoint, AssetGuard, EndpointRelation, GuardRelation } from "./EndpointTypes";
 import type { AssetDocumentBase } from "./AssetTypes";
-import type { AssetIdentity } from "./SurfaceTypes";
+import type { AssetArkanalyzerEvidence } from "./SurfaceTypes";
 
 export type ObservedSurfaceKind =
     | "call"
@@ -14,18 +14,12 @@ export type ObservedSurfaceKind =
 
 export type ObservedSurfaceResolutionStatus =
     | "resolved"
-    | "partial"
     | "unresolved"
     | "ignored";
 
 export interface AnalyzerEvidence {
-    importPath?: string;
-    receiverType?: string;
-    calleeSignature?: string;
-    argCount?: number;
-    typeSignature?: string;
-    decoratorName?: string;
-    ownerName?: string;
+    canonicalApiId?: string;
+    arkanalyzer?: AssetArkanalyzerEvidence;
 }
 
 export interface ObservedSurface {
@@ -41,7 +35,7 @@ export interface ObservedSurface {
 
 export interface CoverageQuery {
     observedSurfaceId?: string;
-    identity: AssetIdentity;
+    canonicalApiId: string;
     plane?: AssetPlane;
     expectedRoles?: AssetRole[];
     endpoint?: AssetEndpoint;
@@ -72,7 +66,7 @@ export interface AssetCoverageExplanation {
 
 export interface IdentityResult {
     status: "resolved" | "unresolved";
-    identity?: AssetIdentity;
+    canonicalApiId?: string;
     reason?: string;
 }
 
@@ -94,11 +88,14 @@ export interface UnmigratedAssetReport {
     reason: string;
 }
 
-export interface AssetSurfaceRegistry {
+export interface AssetIdentityRegistry {
     addAsset(asset: AssetDocumentBase): void;
     resolveIdentity(surface: import("./SurfaceTypes").AssetSurface): IdentityResult;
     queryCoverage(query: CoverageQuery): CoverageResult;
-    findBindings(identity: AssetIdentity, filter?: BindingFilter): AssetBinding[];
+    findBindings(canonicalApiId: string, filter?: BindingFilter): AssetBinding[];
+    getAsset(assetId: string): AssetDocumentBase | undefined;
+    getSurface(surfaceId: string): import("./SurfaceTypes").AssetSurface | undefined;
+    getBinding(bindingId: string): AssetBinding | undefined;
     explainCoverage(query: CoverageQuery): AssetCoverageExplanation;
     validateAsset(asset: AssetDocumentBase): ValidationResult;
     listConflicts(): AssetConflict[];
@@ -123,7 +120,7 @@ export type CoverageLedgerDecision =
 
 export interface CoverageLedgerEntry {
     observedSurfaceId: string;
-    identity?: AssetIdentity;
+    canonicalApiId?: string;
     role?: AssetRole;
     endpoint?: AssetEndpoint;
     guard?: AssetGuard;

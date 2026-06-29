@@ -1,7 +1,7 @@
 import { ArkAssignStmt } from "../../../../arkanalyzer/out/src/core/base/Stmt";
 import { ArkInstanceInvokeExpr, ArkStaticInvokeExpr } from "../../../../arkanalyzer/out/src/core/base/Expr";
 import { Local } from "../../../../arkanalyzer/out/src/core/base/Local";
-import { RuleEndpoint, RuleMatchKind, RuleStringConstraint, SanitizerRule } from "../../rules/RuleSchema";
+import { RuleEndpoint, SanitizerRule } from "../../rules/RuleSchema";
 
 export type SupportedInvokeExpr = ArkInstanceInvokeExpr | ArkStaticInvokeExpr;
 
@@ -105,43 +105,8 @@ export function matchesSanitizerRuleInvoke(
     stmt: any,
     invokeExpr: SupportedInvokeExpr,
 ): boolean {
-    if (!matchesRuleMatch(rule.match.kind, rule.match.value, invokeExpr)) return false;
-    const invokeKind = rule.match.invokeKind;
-    if (invokeKind && invokeKind !== "any") {
-        const actual = invokeExpr instanceof ArkInstanceInvokeExpr ? "instance" : "static";
-        if (actual !== invokeKind) return false;
-    }
-    if (rule.match.argCount !== undefined) {
-        const args = invokeExpr.getArgs?.() || [];
-        if (args.length !== rule.match.argCount) return false;
-    }
-    if (!matchesScope(rule.scope?.className, declaringClassText(invokeExpr))) return false;
-    if (!matchesScope(rule.scope?.methodName, methodSignatureTextFromStmt(stmt))) return false;
-    if (!matchesScope(rule.scope?.file, methodSignatureTextFromStmt(stmt))) return false;
-    return true;
-}
-
-function matchesRuleMatch(kind: RuleMatchKind, value: string, invokeExpr: SupportedInvokeExpr): boolean {
-    const signature = invokeSignatureText(invokeExpr);
-    const methodName = invokeMethodName(invokeExpr);
-    const declaringClass = declaringClassText(invokeExpr);
-    switch (kind) {
-        case "signature_equals":
-            return signature === value;
-        case "declaring_class_equals":
-            return declaringClass === value || declaringClass.endsWith(value);
-        case "method_name_equals":
-            return methodName === value;
-        case "field_name_equals":
-            return false;
-        default:
-            return false;
-    }
-}
-
-function matchesScope(scope: RuleStringConstraint | undefined, haystack: string): boolean {
-    if (!scope) return true;
-    if (scope.mode === "equals") return haystack === scope.value || haystack.endsWith(scope.value);
-    if (scope.mode === "contains") return haystack.includes(scope.value);
-    return new RegExp(scope.value).test(haystack);
+    void rule;
+    void stmt;
+    void invokeExpr;
+    return false;
 }

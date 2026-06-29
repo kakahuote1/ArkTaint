@@ -1,0 +1,15 @@
+{
+  "id": "No5_real_scale_full",
+  "label": "Real-scale full ArkTaint",
+  "description": "Full ArkTaint engine over the filtered real-project corpus.",
+  "executionHandoff": "enabled",
+  "currentness": "enabled",
+  "autoModel": false,
+  "profile": "default",
+  "reportMode": "full",
+  "entryModel": "arkMain",
+  "maxEntries": 9999,
+  "worklistBudgetMs": 45000,
+  "projectTimeoutSeconds": 480,
+  "sourceDirMode": "auto"
+}

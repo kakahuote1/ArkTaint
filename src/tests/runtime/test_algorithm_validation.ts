@@ -9,6 +9,7 @@ import {
     resolveCaseMethod,
 } from "../helpers/SyntheticCaseHarness";
 import { registerMockSdkFiles } from "../helpers/TestSceneBuilder";
+import { detectSinksByExactMethodsForTest } from "../helpers/ExactSinkDetectionTestUtils";
 
 interface CaseSpec {
     file: string;
@@ -64,7 +65,15 @@ async function detectCase(scene: Scene, caseFile: string, caseName: string): Pro
     }
 
     engine.propagateWithSeeds(seeds);
-    return engine.detectSinks("Sink").length > 0;
+    return detectSinksByExactMethodsForTest(engine, resolveUniqueSinkMethod(scene)).length > 0;
+}
+
+function resolveUniqueSinkMethod(scene: Scene): any {
+    const methods = scene.getMethods().filter(method => method.getName?.() === "Sink");
+    if (methods.length !== 1) {
+        throw new Error(`expected exactly one Sink method in algorithm fixture, got ${methods.length}`);
+    }
+    return methods[0];
 }
 
 async function main(): Promise<void> {

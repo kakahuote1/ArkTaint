@@ -1,8 +1,13 @@
 import * as path from "path";
 import { TaintPropagationEngine } from "../../core/orchestration/TaintPropagationEngine";
-import { loadRuleSet } from "../../core/rules/RuleLoader";
-import { SinkRule, SourceRule, TransferRule } from "../../core/rules/RuleSchema";
+import { PagNode } from "../../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
+import { SinkRule, TransferRule } from "../../core/rules/RuleSchema";
 import { buildTestScene } from "../helpers/TestSceneBuilder";
+import { exactSinkRule, exactTransferRule } from "../rules/ExactRuleTestUtils";
+import {
+    assertCanonicalExactRules,
+    exactTransferRuntimeFromFixtures,
+} from "./ExactTransferTestUtils";
 
 function assert(condition: unknown, message: string): asserts condition {
     if (!condition) {
@@ -10,25 +15,29 @@ function assert(condition: unknown, message: string): asserts condition {
     }
 }
 
-const SOURCE_RULES: SourceRule[] = [
-    {
-        id: "source.codec.userInput",
-        match: { kind: "method_name_equals", value: "wearengine_text_codec_003_T" },
-        sourceKind: "entry_param",
-        target: "arg0",
-    },
-];
-
-const SINK_RULES: SinkRule[] = [
-    {
-        id: "sink.codec.output",
-        match: { kind: "method_name_equals", value: "Sink" },
-        target: "arg0",
-    },
-];
-
 function findMethod(scene: ReturnType<typeof buildTestScene>, methodName: string): any {
     return scene.getMethods().find(method => method.getName() === methodName);
+}
+
+function findRequiredMethod(scene: ReturnType<typeof buildTestScene>, methodName: string): any {
+    const method = findMethod(scene, methodName);
+    assert(method, `method not found: ${methodName}`);
+    return method;
+}
+
+function buildSinkRules(scene: ReturnType<typeof buildTestScene>): {
+    rules: SinkRule[];
+    fixture: ReturnType<typeof exactSinkRule>;
+} {
+    const sinkEffect = exactSinkRule({
+        id: "sink.codec.output",
+        method: findRequiredMethod(scene, "Sink"),
+        target: "arg0",
+    });
+    return {
+        fixture: sinkEffect,
+        rules: [sinkEffect.rule],
+    };
 }
 
 function flowSinkInCaseMethod(scene: ReturnType<typeof buildTestScene>, sinkStmt: any, caseMethodName: string): boolean {
@@ -39,34 +48,87 @@ function flowSinkInCaseMethod(scene: ReturnType<typeof buildTestScene>, sinkStmt
     return cfg.getStmts().includes(sinkStmt);
 }
 
+function findSeedNodes(
+    engine: TaintPropagationEngine,
+    scene: ReturnType<typeof buildTestScene>,
+    methodName: string,
+    localName: string,
+): PagNode[] {
+    const method = findRequiredMethod(scene, methodName);
+    const local = method.getBody?.()?.getLocals?.()?.get(localName);
+    if (local) {
+        const nodeIds = engine.pag.getNodesByValue(local);
+        if (nodeIds) return [...nodeIds.values()].map(id => engine.pag.getNode(id) as PagNode);
+    }
+    const cfg = method.getCfg();
+    assert(cfg, `cfg not found: ${methodName}`);
+    for (const stmt of cfg.getStmts()) {
+        const left = (stmt as any).getLeftOp?.();
+        if (!left || left.getName?.() !== localName) continue;
+        const nodeIds = engine.pag.getNodesByValue(left);
+        return nodeIds ? [...nodeIds.values()].map(id => engine.pag.getNode(id) as PagNode) : [];
+    }
+    return [];
+}
+
+function buildTransferRules(scene: ReturnType<typeof buildTestScene>): {
+    rules: TransferRule[];
+    fixtures: Array<ReturnType<typeof exactTransferRule>>;
+} {
+    const encode = exactTransferRule({
+        id: "transfer.codec.text_encoder.encodeInto.arg0_to_result",
+        method: findRequiredMethod(scene, "encodeInto"),
+        from: "arg0",
+        to: "result",
+    });
+    const decode = exactTransferRule({
+        id: "transfer.codec.text_decoder.decodeToString.arg0_to_result",
+        method: findRequiredMethod(scene, "decodeToString"),
+        from: "arg0",
+        to: "result",
+    });
+    return {
+        fixtures: [encode, decode],
+        rules: [encode.rule, decode.rule],
+    };
+}
+
 async function detect(transferRules: TransferRule[]): Promise<boolean> {
     const scene = buildTestScene("tests/demo/harmony_wearengine_p2p");
     const entry = findMethod(scene, "wearengine_text_codec_003_T");
     assert(entry, "entry method not found for codec case");
 
-    const engine = new TaintPropagationEngine(scene, 1, { transferRules });
+    const sinkRules = buildSinkRules(scene);
+    const transferFixtures = buildTransferRules(scene);
+    const selectedTransferFixtures = transferRules.length === 0 ? [] : transferFixtures.fixtures;
+    assertCanonicalExactRules([...sinkRules.rules, ...transferRules]);
+    const exactRuntime = exactTransferRuntimeFromFixtures([
+        sinkRules.fixture,
+        ...selectedTransferFixtures,
+    ]);
+    const engine = new TaintPropagationEngine(scene, 1, {
+        ...exactRuntime,
+        transferRules,
+        includeBuiltinModules: false,
+    });
     engine.verbose = false;
     await engine.buildPAG({
         entryModel: "explicit",
         syntheticEntryMethods: [entry],
     });
-    const seedInfo = engine.propagateWithSourceRules(SOURCE_RULES);
-    assert(seedInfo.seedCount > 0, "expected userInput seed");
-    const flows = engine.detectSinksByRules(SINK_RULES);
+    engine.setActiveReachableMethodSignatures(undefined, { mergeExplicitEntryScope: false });
+    const seedNodes = findSeedNodes(engine, scene, "wearengine_text_codec_003_T", "userInput");
+    assert(seedNodes.length > 0, "expected userInput seed");
+    engine.propagateWithSeeds(seedNodes);
+    const flows = engine.detectSinksByRules(sinkRules.rules);
     return flows.some(flow => flowSinkInCaseMethod(scene, flow.sink, "wearengine_text_codec_003_T"));
 }
 
 async function main(): Promise<void> {
-    const loaded = loadRuleSet({
-        kernelRulePath: path.resolve("tests/rules/minimal.rules.json"),
-        ruleCatalogPath: path.resolve("src/models"),
-        autoDiscoverLayers: false,
-        allowMissingProject: true,
-    });
-    const codecTransfers = (loaded.ruleSet.transfers || []).filter(rule =>
-        String(rule.id || "").startsWith("transfer.harmony.text")
-    );
-    assert(codecTransfers.length >= 3, "expected codec transfer rules to load");
+    const scene = buildTestScene("tests/demo/harmony_wearengine_p2p");
+    const codecTransfers = buildTransferRules(scene).rules;
+    assert(codecTransfers.length === 2, "expected codec transfer rules to load");
+    assertCanonicalExactRules(codecTransfers);
 
     const withRules = await detect(codecTransfers);
     const withoutRules = await detect([]);

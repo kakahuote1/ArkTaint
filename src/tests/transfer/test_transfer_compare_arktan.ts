@@ -1,8 +1,10 @@
 import { Scene } from "../../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../../arkanalyzer/out/src/Config";
 import { TaintPropagationEngine } from "../../core/orchestration/TaintPropagationEngine";
-import { loadRuleSet } from "../../core/rules/RuleLoader";
-import { SinkRule, SourceRule, TransferRule, normalizeEndpoint } from "../../core/rules/RuleSchema";
+import { SinkRule, TransferRule, normalizeEndpoint } from "../../core/rules/RuleSchema";
+import type { ExactRuleRuntime } from "../rules/ExactRuleTestUtils";
+import { buildExactTransferScenario } from "./ExactTransferScenarioFactory";
+import { findLocalSeedNodes } from "./ExactTransferTestUtils";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
@@ -34,11 +36,14 @@ interface ParsedArgs {
     scenarioManifestPath?: string;
 }
 
+type ExactScenarioStaticData = ScenarioStaticData & {
+    exactRuntime: ExactRuleRuntime;
+};
+
 function parseArgs(argv: string[]): ParsedArgs {
     let rounds = 5;
     let k = 1;
     let outputDir = "tmp/test_runs/compare/transfer_compare_arktan/latest";
-    let kernelRulePath = "tests/rules/minimal.rules.json";
     let arktanRoot = "../Arktan";
     let runStability = false;
     let arktaintEnableProfile = true;
@@ -68,14 +73,6 @@ function parseArgs(argv: string[]): ParsedArgs {
         }
         if (arg.startsWith("--outputDir=")) {
             outputDir = arg.slice("--outputDir=".length);
-            continue;
-        }
-        if (arg === "--kernelRule" && i + 1 < argv.length) {
-            kernelRulePath = argv[++i];
-            continue;
-        }
-        if (arg.startsWith("--kernelRule=")) {
-            kernelRulePath = arg.slice("--kernelRule=".length);
             continue;
         }
         if (arg === "--arktanRoot" && i + 1 < argv.length) {
@@ -116,7 +113,7 @@ function parseArgs(argv: string[]): ParsedArgs {
             rounds: Math.floor(rounds),
             k,
             outputDir: path.resolve(outputDir),
-            kernelRulePath: path.resolve(kernelRulePath),
+            kernelRulePath: "exact-registry",
             arktanRoot: path.resolve(arktanRoot),
             runStability,
             arktaintEnableProfile,
@@ -140,13 +137,19 @@ function loadScenarioConfigs(manifestPath?: string): ScenarioConfig[] {
     for (const item of parsed) {
         const id = typeof item?.id === "string" ? item.id.trim() : "";
         const sourceDir = typeof item?.sourceDir === "string" ? item.sourceDir.trim() : "";
-        const projectRulePath = typeof item?.projectRulePath === "string" ? item.projectRulePath.trim() : "";
-        if (!id || !sourceDir || !projectRulePath) {
+        if (!id || !sourceDir) {
             throw new Error(`invalid scenario item in manifest: ${manifestPath}`);
         }
-        out.push({ id, sourceDir, projectRulePath });
+        out.push({ id, sourceDir, projectRulePath: "exact-registry" });
     }
     return out;
+}
+
+function normalizeScenarioConfig(config: ScenarioConfig): ScenarioConfig {
+    return {
+        ...config,
+        projectRulePath: "exact-registry",
+    };
 }
 
 function median(nums: number[]): number {
@@ -197,7 +200,7 @@ function toTransferCandidates(transferRules: TransferRule[]): {
     const dropped: Array<{ id: string; reason: string }> = [];
     for (const rule of transferRules) {
         const id = rule.id || "transfer.unknown";
-        if (!rule.match || !rule.match.kind || !rule.match.value) {
+        if (!rule.match || rule.match.kind !== "canonical_api_id_equals" || !rule.match.value) {
             dropped.push({ id, reason: "unsupported_match_kind" });
             continue;
         }
@@ -211,12 +214,11 @@ function toTransferCandidates(transferRules: TransferRule[]): {
         }
         candidates.push({
             id,
-            matchKind: String(rule.match.kind),
-            matchValue: String(rule.match.value),
-            invokeKind: rule.match.invokeKind,
-            argCount: rule.match.argCount,
-            typeHint: rule.match.typeHint,
-            scope: rule.scope as unknown as Record<string, unknown> | undefined,
+            signature: String(rule.match.value),
+            invokeKind: undefined,
+            argCount: undefined,
+            typeHint: undefined,
+            scope: undefined,
             from,
             to,
         });
@@ -226,28 +228,21 @@ function toTransferCandidates(transferRules: TransferRule[]): {
 
 function pickSinkMethodName(sinkRules: SinkRule[]): string {
     for (const rule of sinkRules) {
-        if (rule.match?.kind === "method_name_equals" && rule.match.value) {
-            return String(rule.match.value);
+        if (rule.match?.kind === "canonical_api_id_equals" && rule.match.value) {
+            const match = /\.([A-Za-z_$][A-Za-z0-9_$]*)\s*\(/.exec(String(rule.match.value));
+            if (match?.[1]) return match[1];
         }
     }
     return "Sink";
 }
 
-function loadScenario(config: ScenarioConfig, options: CliOptions): ScenarioStaticData {
+function loadScenario(config: ScenarioConfig, options: CliOptions): ExactScenarioStaticData {
+    void options;
+    config = normalizeScenarioConfig(config);
     const sourceDirAbs = path.resolve(config.sourceDir);
-    const projectRulePathAbs = path.resolve(config.projectRulePath);
     if (!fs.existsSync(sourceDirAbs)) {
         throw new Error(`scenario sourceDir not found: ${sourceDirAbs}`);
     }
-    if (!fs.existsSync(projectRulePathAbs)) {
-        throw new Error(`scenario projectRulePath not found: ${projectRulePathAbs}`);
-    }
-
-    const loaded = loadRuleSet({
-        kernelRulePath: options.kernelRulePath,
-        projectRulePath: projectRulePathAbs,
-        autoDiscoverLayers: false,
-    });
 
     const sceneConfig = new SceneConfig();
     sceneConfig.buildFromProjectDir(sourceDirAbs);
@@ -255,24 +250,31 @@ function loadScenario(config: ScenarioConfig, options: CliOptions): ScenarioStat
     scene.buildSceneFromProjectDir(sceneConfig);
     scene.inferTypes();
 
-    const transferParsing = toTransferCandidates(loaded.ruleSet.transfers || []);
-    const sinkMethodName = pickSinkMethodName(loaded.ruleSet.sinks || []);
+    const caseNames = listCaseNames(sourceDirAbs);
+    const scenario = buildExactTransferScenario({
+        scene,
+        scenarioId: config.id,
+        caseNames,
+    });
+    const transferParsing = toTransferCandidates(scenario.transferRules);
+    const sinkMethodName = pickSinkMethodName(scenario.sinkRules);
 
     return {
         config,
         scene,
-        caseNames: listCaseNames(sourceDirAbs),
-        sourceRules: loaded.ruleSet.sources || [],
-        sinkRules: loaded.ruleSet.sinks || [],
-        transferRules: loaded.ruleSet.transfers || [],
+        caseNames,
+        sourceRules: scenario.sourceRules,
+        sinkRules: scenario.sinkRules,
+        transferRules: scenario.transferRules,
         transferCandidates: transferParsing.candidates,
         droppedTransferRules: transferParsing.dropped,
         sinkMethodName,
+        exactRuntime: scenario.exactRuntime,
     };
 }
 
 async function runArkTaintTool(
-    scenarios: ScenarioStaticData[],
+    scenarios: ExactScenarioStaticData[],
     options: CliOptions,
     progress?: {
         step: number;
@@ -300,12 +302,26 @@ async function runArkTaintTool(
             for (const caseName of scenario.caseNames) {
                 const t0 = process.hrtime.bigint();
                 const engine = new TaintPropagationEngine(scenario.scene, options.k, {
+                    ...scenario.exactRuntime,
                     transferRules: scenario.transferRules,
+                    includeBuiltinModules: false,
                     debug: { enableWorklistProfile: options.arktaintEnableProfile },
                 });
                 engine.verbose = false;
-                await engine.buildPAG();
-                engine.propagateWithSourceRules(scenario.sourceRules);
+                const entryMethod = scenario.scene.getMethods().find(method => method.getName() === caseName);
+                if (!entryMethod) {
+                    throw new Error(`entry method not found: ${caseName}`);
+                }
+                await engine.buildPAG({
+                    entryModel: "explicit",
+                    syntheticEntryMethods: [entryMethod],
+                });
+                engine.setActiveReachableMethodSignatures(undefined, { mergeExplicitEntryScope: false });
+                const seedNodes = findLocalSeedNodes(engine, scenario.scene, caseName, "taint_src");
+                if (seedNodes.length === 0) {
+                    throw new Error(`${caseName}: expected taint_src seed nodes`);
+                }
+                engine.propagateWithSeeds(seedNodes);
                 const flows = engine.detectSinksByRules(scenario.sinkRules)
                     .filter(flow => flowSinkInCaseMethod(scenario.scene, flow.sink, caseName));
                 const detected = flows.length > 0;
@@ -376,7 +392,7 @@ async function runArkTaintTool(
 }
 
 async function runArktanTool(
-    scenarios: ScenarioStaticData[],
+    scenarios: ExactScenarioStaticData[],
     options: CliOptions,
     progress?: {
         step: number;
@@ -528,9 +544,6 @@ function runStabilityChecks(
 async function main(): Promise<void> {
     const parsed = parseArgs(process.argv.slice(2));
     const options = parsed.options;
-    if (!fs.existsSync(options.kernelRulePath)) {
-        throw new Error(`kernel rule path not found: ${options.kernelRulePath}`);
-    }
     if (!fs.existsSync(options.arktanRoot)) {
         throw new Error(`arktan root not found: ${options.arktanRoot}`);
     }
@@ -546,7 +559,7 @@ async function main(): Promise<void> {
         purpose: "Compare ArkTaint and Arktan on transfer precision, performance, integration usability, and stability checks.",
     };
     const suite = createFormalTestSuite(options.outputDir, metadata);
-    const scenarioConfigs = loadScenarioConfigs(parsed.scenarioManifestPath);
+    const scenarioConfigs = loadScenarioConfigs(parsed.scenarioManifestPath).map(normalizeScenarioConfig);
     const scenarios = scenarioConfigs.map(cfg => loadScenario(cfg, options));
     const totalSteps = (scenarios.length * options.rounds * 2) + 3;
     const progressState = {

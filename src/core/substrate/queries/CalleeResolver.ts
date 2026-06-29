@@ -1,8 +1,12 @@
+import * as fs from "fs";
+import * as ts from "typescript";
 import { Scene } from "../../../../arkanalyzer/out/src/Scene";
 import { ArkAssignStmt, ArkReturnStmt } from "../../../../arkanalyzer/out/src/core/base/Stmt";
 import { ArkArrayRef, ArkInstanceFieldRef, ArkParameterRef, ArkStaticFieldRef, ClosureFieldRef } from "../../../../arkanalyzer/out/src/core/base/Ref";
 import { ArkAwaitExpr, ArkCastExpr, ArkInstanceInvokeExpr, ArkNewExpr, ArkPtrInvokeExpr, ArkStaticInvokeExpr } from "../../../../arkanalyzer/out/src/core/base/Expr";
 import { Local } from "../../../../arkanalyzer/out/src/core/base/Local";
+import { ModelUtils } from "../../../../arkanalyzer/out/src/core/common/ModelUtils";
+import { assertBuildStageBudget, BuildStageBudget } from "../../shared/BuildStageBudget";
 
 export interface ResolvedCallee {
     method: any;
@@ -15,6 +19,7 @@ export interface CalleeResolveOptions {
     callableResolveDepth?: number;
     maxCallableResolveDepth?: number;
     enableDirectCallableTargets?: boolean;
+    thisOwnerNames?: string[];
 }
 
 export interface CallableResolveOptions {
@@ -29,6 +34,15 @@ export interface CallableResolveOptions {
 
 type CallableCarrierValue = ArkInstanceFieldRef | ClosureFieldRef | ArkArrayRef | ArkStaticFieldRef;
 
+interface ConcreteOwnerResolveContext {
+    declaringMethodSignature?: string;
+    parameterOwnerBindings?: Map<number, string[]>;
+}
+
+interface SourceConstructorRegistry {
+    byPropertyName: Map<string, Set<string>>;
+}
+
 export interface InvokeArgParamPair {
     arg: any;
     paramStmt: ArkAssignStmt;
@@ -36,10 +50,21 @@ export interface InvokeArgParamPair {
     paramIndex: number;
 }
 
+export interface VirtualDispatchUnresolvedDiagnostic {
+    reasonCode: "virtual_dispatch_unresolved";
+    invokeSignature: string;
+    methodName: string;
+    receiverOwner?: string;
+    receiverType?: string;
+    candidateCount: number;
+    evidence: string[];
+}
+
 const DEFAULT_MAX_NAME_MATCH_CANDIDATES = 4;
 const DEFAULT_MAX_BACKTRACE_STEPS = 5;
 const DEFAULT_MAX_VISITED_DEFS = 16;
 const DEFAULT_MAX_CALLABLE_RESOLVE_DEPTH = 8;
+const DEFAULT_MAX_CONCRETE_OWNER_RESOLVE_DEPTH = 8;
 
 interface SceneMethodIndex {
     bySignature: Map<string, any>;
@@ -48,6 +73,8 @@ interface SceneMethodIndex {
 }
 
 const _sceneMethodIndexCache = new WeakMap<Scene, SceneMethodIndex>();
+const _sceneConcreteOwnerNameCache = new WeakMap<Scene, Set<string>>();
+const _sourceConstructorRegistryCache = new Map<string, SourceConstructorRegistry>();
 
 function getSceneMethodIndex(scene: Scene): SceneMethodIndex {
     let index = _sceneMethodIndexCache.get(scene);
@@ -108,6 +135,19 @@ export function resolveCalleeCandidates(
     const reflectDispatch = isReflectDispatchInvoke(invokeExpr);
     const idx = getSceneMethodIndex(scene);
     const exact = invokeSig ? idx.bySignature.get(invokeSig) : undefined;
+    if (exact && !reflectDispatch && isInstanceInvokeLike(invokeExpr)) {
+        const receiverOwners = resolveConcreteReceiverOwnersForInvoke(scene, invokeExpr, options);
+        const methodName = resolveInvokeMethodName(invokeExpr);
+        const argCount = invokeExpr?.getArgs ? invokeExpr.getArgs().length : 0;
+        const ownerTargets = receiverOwners.length > 0 && methodName
+            ? resolveInstanceTargetsForExactOwners(scene, idx, receiverOwners, methodName, argCount)
+            : [];
+        const exactSig = safeMethodSignatureText(exact);
+        const exactTargetIncluded = ownerTargets.some(method => safeMethodSignatureText(method) === exactSig);
+        if (ownerTargets.length > 0 && (receiverOwners.length > 1 || !exactTargetIncluded)) {
+            return ownerTargets.map(method => ({ method, reason: "receiver_owner_dispatch" as const }));
+        }
+    }
     if (exact && !reflectDispatch && exact.getCfg?.()) {
         return [{ method: exact, reason: "exact" }];
     }
@@ -115,11 +155,20 @@ export function resolveCalleeCandidates(
     if (exact && !reflectDispatch && isInstanceInvokeLike(invokeExpr)) {
         const interfaceTargets = resolveInterfaceDispatchTargets(scene, idx, exact, invokeExpr, maxNameMatchCandidates);
         if (interfaceTargets.length > 0) {
-            const receiverOwner = resolveConcreteReceiverOwnerForInvoke(scene, invokeExpr, options);
-            const narrowed = receiverOwner
-                ? interfaceTargets.filter(method => methodOwnerMatches(method, receiverOwner))
-                : interfaceTargets;
-            if (receiverOwner && narrowed.length === 1) {
+            const receiverOwners = resolveConcreteReceiverOwnersForInvoke(scene, invokeExpr, options);
+            const narrowedByOwners = narrowTargetsByExactOwners(interfaceTargets, receiverOwners, true);
+            if (narrowedByOwners.length > 0) {
+                return narrowedByOwners.map(method => ({ method, reason: "interface_dispatch" as const }));
+            }
+            const receiverOwner = receiverOwners.length === 1 ? receiverOwners[0] : undefined;
+            const interfaceOwner = extractOwnerNameFromSignature(safeMethodSignatureText(exact));
+            if (!receiverOwner || ownerNamesEqual(receiverOwner, interfaceOwner)) {
+                return interfaceTargets.length === 1
+                    ? interfaceTargets.map(method => ({ method, reason: "interface_dispatch" as const }))
+                    : [];
+            }
+            const narrowed = interfaceTargets.filter(method => methodOwnerMatches(method, receiverOwner));
+            if (narrowed.length === 1) {
                 return narrowed.map(method => ({ method, reason: "interface_dispatch" as const }));
             }
         }
@@ -130,17 +179,13 @@ export function resolveCalleeCandidates(
     }
 
     if (isInstanceInvokeLike(invokeExpr)) {
-        const receiverOwner = resolveConcreteReceiverOwnerForInvoke(scene, invokeExpr, options);
+        const receiverOwners = resolveConcreteReceiverOwnersForInvoke(scene, invokeExpr, options);
         const methodName = resolveInvokeMethodName(invokeExpr);
         const argCount = invokeExpr?.getArgs ? invokeExpr.getArgs().length : 0;
-        const ownerTargets = receiverOwner && methodName
-            ? dedupeByMethodSignature(idx.byNormalizedName.get(methodName) || [])
-                .filter(method => !!method?.getCfg?.())
-                .filter(method => !isStaticMethod(method))
-                .filter(method => methodOwnerMatches(method, receiverOwner))
-                .filter(method => isMethodArgCountCompatible(method, argCount, true))
+        const ownerTargets = receiverOwners.length > 0 && methodName
+            ? resolveInstanceTargetsForExactOwners(scene, idx, receiverOwners, methodName, argCount)
             : [];
-        if (ownerTargets.length === 1) {
+        if (ownerTargets.length > 0) {
             return ownerTargets.map(method => ({ method, reason: "receiver_owner_dispatch" as const }));
         }
     }
@@ -152,6 +197,77 @@ export function resolveCalleeCandidates(
         }
     }
     return [];
+}
+
+export function diagnoseUnresolvedVirtualDispatch(
+    scene: Scene,
+    invokeExpr: any,
+    options: CalleeResolveOptions = {},
+): VirtualDispatchUnresolvedDiagnostic | undefined {
+    if (!isInstanceInvokeLike(invokeExpr) || isReflectDispatchInvoke(invokeExpr)) return undefined;
+
+    const methodName = resolveInvokeMethodName(invokeExpr);
+    if (!methodName) return undefined;
+
+    const maxNameMatchCandidates = options.maxNameMatchCandidates ?? DEFAULT_MAX_NAME_MATCH_CANDIDATES;
+    const idx = getSceneMethodIndex(scene);
+    const invokeSignature = safeInvokeSignatureText(invokeExpr);
+    const exact = invokeSignature ? idx.bySignature.get(invokeSignature) : undefined;
+    const receiverOwner = resolveConcreteReceiverOwnerForInvoke(scene, invokeExpr, options);
+    const receiverType = safeTypeText(safeGetValueType(invokeExpr.getBase?.()));
+    const argCount = invokeExpr?.getArgs ? invokeExpr.getArgs().length : 0;
+    const evidence: string[] = [];
+
+    if (invokeSignature && !invokeSignature.includes("%unk")) evidence.push("invoke_signature");
+    if (receiverType && !receiverType.includes("%unk")) evidence.push("receiver_type");
+    if (receiverOwner) evidence.push("receiver_owner");
+
+    const makeDiagnostic = (candidateCount: number, extraEvidence: string[]): VirtualDispatchUnresolvedDiagnostic => ({
+        reasonCode: "virtual_dispatch_unresolved",
+        invokeSignature,
+        methodName,
+        receiverOwner,
+        receiverType,
+        candidateCount,
+        evidence: [...evidence, ...extraEvidence],
+    });
+
+    if (exact && !exact.getCfg?.()) {
+        const interfaceTargets = resolveInterfaceDispatchTargets(scene, idx, exact, invokeExpr, maxNameMatchCandidates);
+        if (interfaceTargets.length > 0) {
+            const interfaceOwner = extractOwnerNameFromSignature(safeMethodSignatureText(exact));
+            if (!receiverOwner || ownerNamesEqual(receiverOwner, interfaceOwner)) {
+                return interfaceTargets.length === 1
+                    ? undefined
+                    : makeDiagnostic(interfaceTargets.length, ["interface_targets", "missing_concrete_receiver_owner"]);
+            }
+            const narrowed = interfaceTargets.filter(method => methodOwnerMatches(method, receiverOwner));
+            if (narrowed.length !== 1) {
+                return makeDiagnostic(narrowed.length, ["interface_targets", "receiver_owner_candidates_not_unique"]);
+            }
+            return undefined;
+        }
+    }
+
+    const localNameCandidates = dedupeByMethodSignature(idx.byNormalizedName.get(methodName) || [])
+        .filter(method => !!method?.getCfg?.())
+        .filter(method => !isStaticMethod(method))
+        .filter(method => isMethodArgCountConsistent(method, argCount, true));
+    if (localNameCandidates.length === 0) return undefined;
+
+    if (!receiverOwner) {
+        const limitEvidence = localNameCandidates.length > maxNameMatchCandidates
+            ? ["name_candidates_exceed_limit"]
+            : ["name_candidates", "missing_concrete_receiver_owner"];
+        return makeDiagnostic(localNameCandidates.length, limitEvidence);
+    }
+
+    const ownerTargets = localNameCandidates.filter(method => methodOwnerMatches(method, receiverOwner));
+    if (ownerTargets.length !== 1) {
+        return makeDiagnostic(ownerTargets.length, ["receiver_owner_candidates_not_unique"]);
+    }
+
+    return undefined;
 }
 
 export function isReflectDispatchInvoke(invokeExpr: any): boolean {
@@ -405,6 +521,105 @@ export function resolveConcreteReceiverOwnerName(
     return resolveConcreteReceiverOwnerForInvoke(scene, invokeExpr, options);
 }
 
+export function resolveConcreteReceiverOwnerNames(
+    scene: Scene,
+    invokeExpr: any,
+    options: CalleeResolveOptions = {},
+): string[] {
+    return resolveConcreteReceiverOwnersForInvoke(scene, invokeExpr, options);
+}
+
+export function buildMethodThisOwnerContextIndex(
+    scene: Scene,
+    seedMethods?: any[],
+    options: {
+        budget?: BuildStageBudget;
+        log?: (msg: string) => void;
+        progressInterval?: number;
+    } = {},
+): Map<string, Set<string>> {
+    const budget = options.budget;
+    const log = options.log;
+    const progressInterval = options.progressInterval ?? 1000;
+    const index = getSceneMethodIndex(scene);
+    const contextByMethod = new Map<string, Set<string>>();
+    const queue: string[] = [];
+
+    const addContext = (methodSignature: string | undefined, ownerName: string | undefined): boolean => {
+        const normalizedOwner = normalizeOwnerName(ownerName || "");
+        if (!methodSignature || !normalizedOwner || !hasConcreteOwnerInScene(scene, normalizedOwner)) return false;
+        let owners = contextByMethod.get(methodSignature);
+        if (!owners) {
+            owners = new Set<string>();
+            contextByMethod.set(methodSignature, owners);
+        }
+        if (owners.has(normalizedOwner)) return false;
+        owners.add(normalizedOwner);
+        queue.push(methodSignature);
+        return true;
+    };
+
+    const methods = seedMethods && seedMethods.length > 0 ? seedMethods : scene.getMethods();
+    let seededCount = 0;
+    for (const method of methods) {
+        seededCount++;
+        if (seededCount % progressInterval === 0) {
+            assertBuildStageBudget(budget, `this_owner_context.seed(method=${seededCount})`);
+            log?.(`[thisOwnerContext] seed progress methods=${seededCount} queued=${queue.length}`);
+        }
+        if (!method?.getCfg?.()) continue;
+        addContext(safeMethodSignatureText(method), method.getDeclaringArkClass?.()?.getName?.());
+    }
+    assertBuildStageBudget(budget, `this_owner_context.seed.done(methods=${seededCount},queued=${queue.length})`);
+    log?.(`[thisOwnerContext] seed done methods=${seededCount} queued=${queue.length}`);
+
+    const processedContextKeys = new Map<string, string>();
+    for (let head = 0; head < queue.length; head += 1) {
+        if (head % progressInterval === 0) {
+            assertBuildStageBudget(budget, `this_owner_context.queue(head=${head},queue=${queue.length})`);
+            log?.(`[thisOwnerContext] queue progress head=${head} queue=${queue.length} contexts=${contextByMethod.size}`);
+        }
+        const methodSignature = queue[head];
+        const method = index.bySignature.get(methodSignature);
+        const cfg = method?.getCfg?.();
+        if (!cfg) continue;
+        const ownerNames = [...(contextByMethod.get(methodSignature) || [])].sort();
+        const contextKey = ownerNames.join("|");
+        if (processedContextKeys.get(methodSignature) === contextKey) continue;
+        processedContextKeys.set(methodSignature, contextKey);
+
+        const optionSets = ownerNames.length > 0 ? ownerNames : [undefined];
+        for (const stmt of cfg.getStmts?.() || []) {
+            assertBuildStageBudget(budget, `this_owner_context.stmt(head=${head},queue=${queue.length})`);
+            if (!stmt?.containsInvokeExpr?.()) continue;
+            const invokeExpr = stmt.getInvokeExpr?.();
+            if (!invokeExpr || !isInstanceInvokeLike(invokeExpr)) continue;
+
+            for (const ownerName of optionSets) {
+                assertBuildStageBudget(budget, `this_owner_context.owner(head=${head},owners=${optionSets.length})`);
+                const options: CalleeResolveOptions = {
+                    maxNameMatchCandidates: 8,
+                    enableDirectCallableTargets: false,
+                    thisOwnerNames: ownerName ? [ownerName] : undefined,
+                };
+                const receiverOwners = resolveConcreteReceiverOwnersForInvoke(scene, invokeExpr, options);
+                if (receiverOwners.length === 0) continue;
+                const callees = resolveCalleeCandidates(scene, invokeExpr, options);
+                for (const resolved of callees) {
+                    const calleeSignature = safeMethodSignatureText(resolved.method);
+                    for (const receiverOwner of receiverOwners) {
+                        addContext(calleeSignature, receiverOwner);
+                    }
+                }
+            }
+        }
+    }
+    assertBuildStageBudget(budget, `this_owner_context.done(queue=${queue.length},contexts=${contextByMethod.size})`);
+    log?.(`[thisOwnerContext] done queue=${queue.length} contexts=${contextByMethod.size}`);
+
+    return contextByMethod;
+}
+
 function resolveInterfaceDispatchTargets(
     _scene: Scene,
     index: SceneMethodIndex,
@@ -414,15 +629,22 @@ function resolveInterfaceDispatchTargets(
 ): any[] {
     const methodName = normalizeMethodName(interfaceMethod?.getName?.() || "");
     const interfaceMethodSig = safeMethodSignatureText(interfaceMethod);
-    const ownerName = extractOwnerScopeKeyFromSignature(interfaceMethodSig)
-        || extractOwnerNameFromSignature(interfaceMethodSig);
-    if (!methodName || !ownerName) return [];
+    const ownerNames = [
+        extractOwnerScopeKeyFromSignature(interfaceMethodSig),
+        extractOwnerNameFromSignature(interfaceMethodSig),
+    ].filter((name): name is string => !!name);
+    if (!methodName || ownerNames.length === 0) return [];
     const argCount = invokeExpr?.getArgs ? invokeExpr.getArgs().length : 0;
-    const exactKey = interfaceDispatchKey(ownerName, methodName, argCount);
-    let candidates = index.byInterfaceMethod.get(exactKey) || [];
+    const candidates: any[] = [];
+    for (const ownerName of ownerNames) {
+        const exactKey = interfaceDispatchKey(ownerName, methodName, argCount);
+        candidates.push(...(index.byInterfaceMethod.get(exactKey) || []));
+    }
     if (candidates.length === 0) {
-        candidates = (index.byInterfaceMethod.get(interfaceDispatchKey(ownerName, methodName, -1)) || [])
-            .filter(method => isArgCountCompatible(getFormalParamCount(method), argCount));
+        for (const ownerName of ownerNames) {
+            candidates.push(...(index.byInterfaceMethod.get(interfaceDispatchKey(ownerName, methodName, -1)) || [])
+                .filter(method => isArgCountConsistent(getFormalParamCount(method), argCount)));
+        }
     }
     const dedup = dedupeByMethodSignature(candidates)
         .filter(method => !!method?.getCfg?.())
@@ -435,21 +657,152 @@ function interfaceDispatchKey(interfaceName: string, methodName: string, paramCo
     return `${normalizeDispatchOwnerName(interfaceName)}#${normalizeMethodName(methodName)}#${paramCount}`;
 }
 
+function resolveInstanceTargetsForExactOwners(
+    scene: Scene,
+    index: SceneMethodIndex,
+    ownerNames: string[],
+    methodName: string,
+    argCount: number,
+): any[] {
+    const candidates = dedupeByMethodSignature(index.byNormalizedName.get(methodName) || [])
+        .filter(method => !!method?.getCfg?.())
+        .filter(method => !isStaticMethod(method))
+        .filter(method => isMethodArgCountConsistent(method, argCount, true));
+    return narrowTargetsByExactOwnersOrAncestors(scene, candidates, ownerNames, false);
+}
+
+function narrowTargetsByExactOwnersOrAncestors(
+    scene: Scene,
+    methods: any[],
+    ownerNames: string[],
+    allowSubset: boolean,
+): any[] {
+    const uniqueOwners = dedupeOwnerNames(ownerNames);
+    if (uniqueOwners.length === 0) return [];
+    const out: any[] = [];
+    for (const owner of uniqueOwners) {
+        let found: any[] = [];
+        for (const candidateOwner of collectOwnerAndAncestorNames(scene, owner)) {
+            const matches = dedupeByMethodSignature(methods.filter(method => methodOwnerMatches(method, candidateOwner)));
+            if (matches.length === 0) continue;
+            if (matches.length !== 1) {
+                if (!allowSubset) return [];
+                found = [];
+                break;
+            }
+            found = matches;
+            break;
+        }
+        if (found.length !== 1) {
+            if (!allowSubset) return [];
+            continue;
+        }
+        out.push(found[0]);
+    }
+    if (out.length === 0) return [];
+    if (!allowSubset && out.length !== uniqueOwners.length) return [];
+    return dedupeByMethodSignature(out);
+}
+
+const _sceneClassOwnerCache = new WeakMap<Scene, Map<string, any>>();
+
+function collectOwnerAndAncestorNames(scene: Scene, ownerName: string): string[] {
+    const out: string[] = [];
+    const seen = new Set<string>();
+    const add = (name: string | undefined): boolean => {
+        const normalized = normalizeOwnerName(name || "");
+        if (!normalized || seen.has(normalized)) return false;
+        seen.add(normalized);
+        out.push(normalized);
+        return true;
+    };
+    add(ownerName);
+    let current = findClassByOwnerName(scene, ownerName);
+    let depth = 0;
+    while (current && depth < 16) {
+        const superClass = current.getSuperClass?.();
+        if (!superClass || superClass === current) break;
+        add(superClass.getName?.() || extractOwnerNameFromSignature(safeClassSignatureText(superClass)) || "");
+        current = superClass;
+        depth++;
+    }
+    return out;
+}
+
+function findClassByOwnerName(scene: Scene, ownerName: string): any | undefined {
+    let cache = _sceneClassOwnerCache.get(scene);
+    if (!cache) {
+        cache = new Map<string, any>();
+        for (const cls of scene.getClasses?.() || []) {
+            const className = normalizeOwnerName(cls?.getName?.() || "");
+            const signatureOwner = normalizeOwnerName(extractOwnerNameFromSignature(safeClassSignatureText(cls)) || "");
+            if (className && !cache.has(className)) cache.set(className, cls);
+            if (signatureOwner && !cache.has(signatureOwner)) cache.set(signatureOwner, cls);
+        }
+        _sceneClassOwnerCache.set(scene, cache);
+    }
+    return cache.get(normalizeOwnerName(ownerName));
+}
+
+function narrowTargetsByExactOwners(
+    methods: any[],
+    ownerNames: string[],
+    allowSubset: boolean,
+): any[] {
+    const uniqueOwners = dedupeOwnerNames(ownerNames);
+    if (uniqueOwners.length === 0) return [];
+    const out: any[] = [];
+    for (const owner of uniqueOwners) {
+        const matches = dedupeByMethodSignature(methods.filter(method => methodOwnerMatches(method, owner)));
+        if (matches.length !== 1) {
+            if (!allowSubset) return [];
+            continue;
+        }
+        out.push(matches[0]);
+    }
+    if (out.length === 0) return [];
+    if (!allowSubset && out.length !== uniqueOwners.length) return [];
+    return dedupeByMethodSignature(out);
+}
+
+function dedupeOwnerNames(ownerNames: string[]): string[] {
+    const out: string[] = [];
+    const seen = new Set<string>();
+    for (const ownerName of ownerNames) {
+        const normalized = normalizeOwnerName(ownerName);
+        if (!normalized || seen.has(normalized)) continue;
+        seen.add(normalized);
+        out.push(normalized);
+    }
+    return out;
+}
+
 function safeImplementedInterfaceNames(arkClass: any): string[] {
     try {
-        const classFile = extractDeclaringFileFromSignature(safeClassSignatureText(arkClass));
         const names = arkClass?.getImplementedInterfaceNames?.() || [];
         return [...new Set<string>(
             names.flatMap((name: unknown) => {
                 const simple = normalizeOwnerName(String(name || ""));
                 if (!simple) return [];
-                const scoped = classFile ? `${classFile}:${simple}` : "";
+                const scoped = resolveImportedInterfaceScopeKey(arkClass, simple);
                 return scoped ? [simple, scoped] : [simple];
             }).filter((name: string): name is string => name.length > 0),
         )];
     } catch {
         return [];
     }
+}
+
+function resolveImportedInterfaceScopeKey(arkClass: any, simpleName: string): string | undefined {
+    const arkFile = arkClass?.getDeclaringArkFile?.();
+    const importInfo = arkFile?.getImportInfoBy?.(simpleName);
+    if (!importInfo) return undefined;
+    const exportInfo = importInfo.getLazyExportInfo?.() || importInfo.getExportInfo?.();
+    const file = normalizeFileSignatureText(
+        exportInfo?.getDeclaringArkFile?.()?.getFileSignature?.()?.toString?.(),
+    );
+    if (!file) return undefined;
+    return `${file}:${simpleName}`;
 }
 
 function normalizeDispatchOwnerName(ownerName: string): string {
@@ -479,16 +832,16 @@ function getFormalParamCount(method: any): number {
     return collectParameterAssignStmts(method).length;
 }
 
-function isMethodArgCountCompatible(method: any, argCount: number, isInstanceInvoke: boolean): boolean {
+function isMethodArgCountConsistent(method: any, argCount: number, isInstanceInvoke: boolean): boolean {
     const paramStmts = collectParameterAssignStmts(method);
-    if (isArgCountCompatible(paramStmts.length, argCount)) return true;
+    if (isArgCountConsistent(paramStmts.length, argCount)) return true;
     if (!isInstanceInvoke || paramStmts.length === 0) return false;
     const firstParam = paramStmts[0].getRightOp();
     const firstLooksLikeThis = firstParam instanceof ArkParameterRef && firstParam.getIndex() === 0;
-    return firstLooksLikeThis && isArgCountCompatible(paramStmts.length - 1, argCount);
+    return firstLooksLikeThis && isArgCountConsistent(paramStmts.length - 1, argCount);
 }
 
-function isArgCountCompatible(paramCount: number, argCount: number): boolean {
+function isArgCountConsistent(paramCount: number, argCount: number): boolean {
     if (paramCount === argCount) return true;
     return paramCount === 1 && argCount > 1;
 }
@@ -639,8 +992,18 @@ function extractDeclaringFileFromSignature(signature: string | undefined): strin
     if (!text || text.includes("%unk")) return undefined;
     const colonIdx = text.indexOf(":");
     if (colonIdx <= 0) return undefined;
-    const file = text.slice(0, colonIdx).replace(/^@/, "").trim();
+    const file = normalizeFileSignatureText(text.slice(0, colonIdx));
     return file || undefined;
+}
+
+function normalizeFileSignatureText(value: string | undefined): string | undefined {
+    const text = String(value || "").trim();
+    if (!text || text.includes("%unk")) return undefined;
+    return text
+        .replace(/^@/, "")
+        .replace(/:\s*$/g, "")
+        .replace(/\\/g, "/")
+        .trim() || undefined;
 }
 
 function resolveConcreteReceiverOwnerForInvoke(
@@ -648,10 +1011,27 @@ function resolveConcreteReceiverOwnerForInvoke(
     invokeExpr: any,
     options: CalleeResolveOptions = {},
 ): string | undefined {
-    if (!isInstanceInvokeLike(invokeExpr)) return undefined;
+    const owners = resolveConcreteReceiverOwnersForInvoke(scene, invokeExpr, options);
+    return owners.length === 1 ? owners[0] : undefined;
+}
+
+function resolveConcreteReceiverOwnersForInvoke(
+    scene: Scene,
+    invokeExpr: any,
+    options: CalleeResolveOptions = {},
+): string[] {
+    if (!isInstanceInvokeLike(invokeExpr)) return [];
     const base = invokeExpr.getBase?.();
-    if (!base) return undefined;
-    return resolveConcreteOwnerFromValue(scene, base, options, new Set<string>());
+    if (!base) return [];
+    if (isThisReceiverValue(base) && options.thisOwnerNames && options.thisOwnerNames.length > 0) {
+        return dedupeOwnerNames(options.thisOwnerNames)
+            .filter(owner => hasConcreteOwnerInScene(scene, owner));
+    }
+    return resolveConcreteOwnersFromValue(scene, base, options, new Set<string>(), {});
+}
+
+function isThisReceiverValue(value: any): boolean {
+    return value instanceof Local && value.getName?.() === "this";
 }
 
 function resolveConcreteOwnerFromValue(
@@ -660,49 +1040,236 @@ function resolveConcreteOwnerFromValue(
     options: CalleeResolveOptions,
     visiting: Set<string>,
 ): string | undefined {
-    if (!value) return undefined;
-    if (visiting.size > (options.maxCallableResolveDepth ?? DEFAULT_MAX_CALLABLE_RESOLVE_DEPTH)) {
-        return undefined;
-    }
+    const owners = resolveConcreteOwnersFromValue(scene, value, options, visiting, {});
+    return owners.length === 1 ? owners[0] : undefined;
+}
 
-    const ownerFromType = extractOwnerFromTypeText(safeTypeText(safeGetValueType(value)));
-    if (ownerFromType) {
-        return ownerFromType;
+function resolveConcreteOwnersFromValue(
+    scene: Scene,
+    value: any,
+    options: CalleeResolveOptions,
+    visiting: Set<string>,
+    context: ConcreteOwnerResolveContext,
+): string[] {
+    if (!value) return [];
+    if (visiting.size > (options.maxCallableResolveDepth ?? DEFAULT_MAX_CONCRETE_OWNER_RESOLVE_DEPTH)) {
+        return [];
     }
 
     const visitKey = getConcreteOwnerVisitKey(value);
     if (visitKey) {
-        if (visiting.has(visitKey)) return undefined;
+        if (visiting.has(visitKey)) return [];
         visiting.add(visitKey);
     }
 
     try {
+        if (value instanceof Local) {
+            if (isThisReceiverValue(value) && context.declaringMethodSignature) {
+                return asOwnerList(extractOwnerNameFromSignature(context.declaringMethodSignature))
+                    .filter(owner => hasConcreteOwnerInScene(scene, owner));
+            }
+            const decl = safeGetDeclaringStmt(value);
+            const localMethodSig = getDeclaringMethodSignatureFromLocal(value) || context.declaringMethodSignature;
+            const nestedContext = withDeclaringMethodSignature(context, localMethodSig);
+            if (decl instanceof ArkAssignStmt && decl.getLeftOp() === value) {
+                const rightOp = decl.getRightOp();
+                const owners = resolveConcreteOwnersFromValue(scene, rightOp, options, visiting, nestedContext);
+                if (owners.length > 0) return owners;
+            }
+            const siblingAssignmentOwners = resolveConcreteOwnersFromSameMethodLocalAssignments(
+                scene,
+                value,
+                options,
+                visiting,
+                nestedContext,
+                decl,
+            );
+            if (siblingAssignmentOwners.length > 0) return siblingAssignmentOwners;
+            return dedupeOwnerNames([
+                ...asOwnerList(resolveConcreteOwnerFromImportedBinding(scene, value, options, visiting)),
+                ...asOwnerList(resolveConcreteOwnerFromLocalExactType(scene, value)),
+            ]);
+        }
+        if (value instanceof ArkParameterRef) {
+            const boundOwners = context.parameterOwnerBindings?.get(value.getIndex()) || [];
+            return dedupeOwnerNames(boundOwners).filter(owner => hasConcreteOwnerInScene(scene, owner));
+        }
         if (value instanceof ArkNewExpr) {
-            return resolveOwnerFromNewExpr(value);
+            return dedupeOwnerNames([
+                ...resolveOwnersFromSourceConstructorRegistry(scene, value, context),
+                ...asOwnerList(resolveOwnerFromNewExpr(value)),
+            ]).filter(owner => hasConcreteOwnerInScene(scene, owner));
         }
         if (value instanceof ArkCastExpr) {
-            return resolveConcreteOwnerFromValue(scene, value.getOp?.(), options, visiting);
+            return resolveConcreteOwnersFromValue(scene, value.getOp?.(), options, visiting, context);
         }
         if (value instanceof ArkAwaitExpr) {
-            return resolveConcreteOwnerFromValue(scene, value.getPromise?.(), options, visiting);
+            return resolveConcreteOwnersFromValue(scene, value.getPromise?.(), options, visiting, context);
         }
         if (value instanceof ArkInstanceInvokeExpr || value instanceof ArkStaticInvokeExpr) {
-            const constructorOwner = resolveConstructorOwnerFromInvoke(value);
-            if (constructorOwner) return constructorOwner;
-            return resolveConcreteOwnerFromFactoryInvoke(scene, value, options, visiting);
-        }
-        if (value instanceof Local) {
-            const decl = safeGetDeclaringStmt(value);
-            if (!(decl instanceof ArkAssignStmt) || decl.getLeftOp() !== value) {
-                return undefined;
+            const strictConstructorOwner = resolveStrictConstructorOwnerFromInvoke(value);
+            if (strictConstructorOwner) return [strictConstructorOwner].filter(owner => hasConcreteOwnerInScene(scene, owner));
+            const factoryOwners = resolveConcreteOwnersFromFactoryInvoke(scene, value, options, visiting, context);
+            if (factoryOwners.length > 0) return factoryOwners;
+            if (value instanceof ArkInstanceInvokeExpr) {
+                const fluentOwners = resolveFluentThisReturnOwnersFromInvoke(scene, value, options, visiting, context);
+                if (fluentOwners.length > 0) return fluentOwners;
             }
-            const rightOp = decl.getRightOp();
-            return resolveConcreteOwnerFromValue(scene, rightOp, options, visiting);
+            return [];
         }
-        return undefined;
+        const ownerFromType = extractOwnerFromTypeText(safeTypeText(safeGetValueType(value)));
+        if (ownerFromType) {
+            return [ownerFromType].filter(owner => hasConcreteOwnerInScene(scene, owner));
+        }
+        return [];
     } finally {
         if (visitKey) visiting.delete(visitKey);
     }
+}
+
+function resolveConcreteOwnersFromSameMethodLocalAssignments(
+    scene: Scene,
+    value: Local,
+    options: CalleeResolveOptions,
+    visiting: Set<string>,
+    context: ConcreteOwnerResolveContext,
+    primaryDecl: any,
+): string[] {
+    const methodSig = context.declaringMethodSignature || getDeclaringMethodSignatureFromLocal(value);
+    if (!methodSig) return [];
+    const method = getSceneMethodIndex(scene).bySignature.get(methodSig);
+    const stmts = method?.getCfg?.()?.getStmts?.() || [];
+    if (stmts.length === 0) return [];
+    const localName = safeLocalName(value);
+    if (!localName) return [];
+    const siblingVisitKey = `sibling:${methodSig}:${localName}`;
+    if (visiting.has(siblingVisitKey)) return [];
+    visiting.add(siblingVisitKey);
+    const owners: string[] = [];
+    try {
+        for (const stmt of stmts) {
+            if (!(stmt instanceof ArkAssignStmt) || stmt === primaryDecl) continue;
+            const left = stmt.getLeftOp();
+            if (!(left instanceof Local) || safeLocalName(left) !== localName) continue;
+            const rightOp = stmt.getRightOp();
+            if (rightOp === value) continue;
+            owners.push(...resolveConcreteOwnersFromValue(scene, rightOp, options, visiting, context));
+        }
+    } finally {
+        visiting.delete(siblingVisitKey);
+    }
+    return dedupeOwnerNames(owners).filter(owner => hasConcreteOwnerInScene(scene, owner));
+}
+
+function resolveConcreteOwnerFromImportedBinding(
+    scene: Scene,
+    value: Local,
+    options: CalleeResolveOptions,
+    visiting: Set<string>,
+): string | undefined {
+    for (const file of scene.getFiles?.() || []) {
+        for (const importInfo of file.getImportInfos?.() || []) {
+            const importLocal = safeGetImportLocal(file, importInfo);
+            if (!(importLocal instanceof Local)) continue;
+            if (!isSameExactLocal(importLocal, value)) continue;
+
+            const exportValue = importInfo.getLazyExportInfo?.()?.getArkExport?.()
+                || importInfo.getExportInfo?.()?.getArkExport?.();
+            if (!exportValue) continue;
+
+            const owner = resolveConcreteOwnerFromValue(scene, exportValue, options, visiting);
+            if (owner && hasConcreteOwnerInScene(scene, owner)) {
+                return owner;
+            }
+        }
+    }
+    return undefined;
+}
+
+function resolveConcreteOwnerFromLocalExactType(scene: Scene, value: Local): string | undefined {
+    const owner = extractOwnerFromTypeText(safeTypeText(safeGetValueType(value)));
+    if (!owner || !hasConcreteOwnerInScene(scene, owner)) return undefined;
+    return owner;
+}
+
+function resolveFluentThisReturnOwnersFromInvoke(
+    scene: Scene,
+    invokeExpr: ArkInstanceInvokeExpr,
+    options: CalleeResolveOptions,
+    visiting: Set<string>,
+    context: ConcreteOwnerResolveContext,
+): string[] {
+    const methodName = resolveInvokeMethodName(invokeExpr);
+    if (!methodName) return [];
+    const base = invokeExpr.getBase?.();
+    const receiverOwners = resolveConcreteOwnersFromValue(scene, base, options, visiting, context);
+    if (receiverOwners.length === 0) return [];
+    const argCount = invokeExpr.getArgs ? invokeExpr.getArgs().length : 0;
+    const targets = resolveInstanceTargetsForExactOwners(
+        scene,
+        getSceneMethodIndex(scene),
+        receiverOwners,
+        methodName,
+        argCount,
+    );
+    if (targets.length === 0) return [];
+    if (!targets.every(methodReturnsThis)) return [];
+    return dedupeOwnerNames(receiverOwners).filter(owner => hasConcreteOwnerInScene(scene, owner));
+}
+
+function methodReturnsThis(method: any): boolean {
+    const returns = method?.getReturnStmt?.() || [];
+    if (returns.length === 0) return false;
+    return returns.some((stmt: any) => stmt instanceof ArkReturnStmt && isThisReceiverValue(stmt.getOp?.()));
+}
+
+function safeGetImportLocal(file: any, importInfo: any): Local | undefined {
+    try {
+        const clauseName = importInfo?.getImportClauseName?.();
+        if (!clauseName) return undefined;
+        return ModelUtils.getLocalInImportInfoWithName(clauseName, file);
+    } catch {
+        return undefined;
+    }
+}
+
+function isSameExactLocal(left: Local, right: Local): boolean {
+    if (left === right) return true;
+    return safeLocalName(left) === safeLocalName(right)
+        && getDeclaringStmtIdentity(safeGetDeclaringStmt(left)) === getDeclaringStmtIdentity(safeGetDeclaringStmt(right))
+        && (getDeclaringMethodSignatureFromLocal(left) || "") === (getDeclaringMethodSignatureFromLocal(right) || "");
+}
+
+function hasConcreteOwnerInScene(scene: Scene, ownerName: string): boolean {
+    const expected = normalizeOwnerName(ownerName);
+    if (!expected) return false;
+    return getConcreteOwnerNameSet(scene).has(expected);
+}
+
+function getConcreteOwnerNameSet(scene: Scene): Set<string> {
+    let cached = _sceneConcreteOwnerNameCache.get(scene);
+    if (cached) return cached;
+    cached = new Set<string>();
+    const add = (owner: string | undefined): void => {
+        const normalized = normalizeOwnerName(owner || "");
+        if (normalized) cached!.add(normalized);
+    };
+    for (const cls of scene.getClasses?.() || []) {
+        if (!(cls.getMethods?.() || []).some((method: any) => !!method?.getCfg?.())) continue;
+        const className = normalizeOwnerName(cls?.getName?.() || "");
+        const signatureOwner = normalizeOwnerName(extractOwnerNameFromSignature(safeClassSignatureText(cls)) || "");
+        add(className);
+        add(signatureOwner);
+    }
+    for (const method of scene.getMethods()) {
+        if (!method?.getCfg?.()) continue;
+        const cls = method.getDeclaringArkClass?.();
+        add(cls?.getName?.());
+        add(extractOwnerNameFromSignature(safeMethodSignatureText(method)));
+        add(extractOwnerNameFromSignature(safeClassSignatureText(cls)));
+    }
+    _sceneConcreteOwnerNameCache.set(scene, cached);
+    return cached;
 }
 
 function resolveConcreteOwnerFromFactoryInvoke(
@@ -711,27 +1278,160 @@ function resolveConcreteOwnerFromFactoryInvoke(
     options: CalleeResolveOptions,
     visiting: Set<string>,
 ): string | undefined {
-    const sig = safeInvokeSignatureText(invokeExpr);
-    if (!sig) return undefined;
-    const method = getSceneMethodIndex(scene).bySignature.get(sig);
-    if (!method?.getCfg?.()) return undefined;
+    const owners = resolveConcreteOwnersFromFactoryInvoke(scene, invokeExpr, options, visiting, {});
+    return owners.length === 1 ? owners[0] : undefined;
+}
+
+function resolveConcreteOwnersFromFactoryInvoke(
+    scene: Scene,
+    invokeExpr: ArkInstanceInvokeExpr | ArkStaticInvokeExpr,
+    options: CalleeResolveOptions,
+    visiting: Set<string>,
+    context: ConcreteOwnerResolveContext,
+): string[] {
+    const methods = resolveFactoryInvokeTargetMethods(scene, invokeExpr, options, visiting, context);
+    if (methods.length === 0) return [];
+    const owners: string[] = [];
+    for (const method of methods) {
+        owners.push(...resolveConcreteOwnersFromFactoryTargetMethod(scene, invokeExpr, method, options, visiting, context));
+    }
+    return dedupeOwnerNames(owners).filter(owner => hasConcreteOwnerInScene(scene, owner));
+}
+
+function resolveConcreteOwnersFromFactoryTargetMethod(
+    scene: Scene,
+    invokeExpr: ArkInstanceInvokeExpr | ArkStaticInvokeExpr,
+    method: any,
+    options: CalleeResolveOptions,
+    visiting: Set<string>,
+    context: ConcreteOwnerResolveContext,
+): string[] {
     const methodSig = safeMethodSignatureText(method);
     if (methodSig) {
         const methodKey = `factory:${methodSig}`;
-        if (visiting.has(methodKey)) return undefined;
+        if (visiting.has(methodKey)) return [];
         visiting.add(methodKey);
     }
     try {
+        const owners: string[] = [];
+        const nestedContext = withFactoryParameterOwnerBindings(scene, invokeExpr, method, options, visiting, methodSig, context);
         for (const retStmt of method.getReturnStmt?.() || []) {
             if (!(retStmt instanceof ArkReturnStmt)) continue;
             const returnedValue = retStmt.getOp?.();
-            const owner = resolveConcreteOwnerFromValue(scene, returnedValue, options, visiting);
-            if (owner) return owner;
+            owners.push(...resolveConcreteOwnersFromValue(scene, returnedValue, options, visiting, nestedContext));
         }
-        return undefined;
+        owners.push(...resolveConstructorArgumentOwnersForFactoryInvoke(scene, invokeExpr, method, options, visiting, context));
+        return dedupeOwnerNames(owners).filter(owner => hasConcreteOwnerInScene(scene, owner));
     } finally {
         if (methodSig) visiting.delete(`factory:${methodSig}`);
     }
+}
+
+function resolveFactoryInvokeTargetMethods(
+    scene: Scene,
+    invokeExpr: ArkInstanceInvokeExpr | ArkStaticInvokeExpr,
+    options: CalleeResolveOptions,
+    visiting: Set<string>,
+    context: ConcreteOwnerResolveContext,
+): any[] {
+    if (invokeExpr instanceof ArkInstanceInvokeExpr) {
+        const methodName = resolveInvokeMethodName(invokeExpr);
+        const base = invokeExpr.getBase?.();
+        const receiverOwners = resolveConcreteOwnersFromValue(scene, base, options, visiting, context);
+        const argCount = invokeExpr.getArgs ? invokeExpr.getArgs().length : 0;
+        const receiverTargets = receiverOwners.length > 0 && methodName
+            ? resolveInstanceTargetsForExactOwners(
+                scene,
+                getSceneMethodIndex(scene),
+                receiverOwners,
+                methodName,
+                argCount,
+            )
+            : [];
+        if (receiverTargets.length > 0) return dedupeByMethodSignature(receiverTargets);
+    }
+
+    const sig = safeInvokeSignatureText(invokeExpr);
+    if (!sig) return [];
+    const exact = getSceneMethodIndex(scene).bySignature.get(sig);
+    return exact?.getCfg?.() ? [exact] : [];
+}
+
+function withFactoryParameterOwnerBindings(
+    scene: Scene,
+    invokeExpr: ArkInstanceInvokeExpr | ArkStaticInvokeExpr,
+    method: any,
+    options: CalleeResolveOptions,
+    visiting: Set<string>,
+    declaringMethodSignature: string | undefined,
+    context: ConcreteOwnerResolveContext,
+): ConcreteOwnerResolveContext {
+    const paramStmts = collectParameterAssignStmts(method);
+    if (paramStmts.length === 0) {
+        return withDeclaringMethodSignature(context, declaringMethodSignature);
+    }
+    const args = invokeExpr.getArgs?.() || [];
+    const bindings = new Map<number, string[]>();
+    for (const [index, owners] of context.parameterOwnerBindings?.entries?.() || []) {
+        bindings.set(index, [...owners]);
+    }
+    for (const pair of mapInvokeArgsToParamAssigns(invokeExpr, args, paramStmts)) {
+        const paramRef = pair.paramStmt.getRightOp();
+        if (!(paramRef instanceof ArkParameterRef)) continue;
+        const owners = resolveConcreteOwnersFromValue(scene, pair.arg, options, visiting, context);
+        if (owners.length === 0) continue;
+        bindings.set(paramRef.getIndex(), dedupeOwnerNames([
+            ...(bindings.get(paramRef.getIndex()) || []),
+            ...owners,
+        ]));
+    }
+    return withDeclaringMethodSignature({
+        ...context,
+        parameterOwnerBindings: bindings.size > 0 ? bindings : context.parameterOwnerBindings,
+    }, declaringMethodSignature);
+}
+
+function resolveConstructorArgumentOwnersForFactoryInvoke(
+    scene: Scene,
+    invokeExpr: ArkInstanceInvokeExpr | ArkStaticInvokeExpr,
+    method: any,
+    options: CalleeResolveOptions,
+    visiting: Set<string>,
+    context: ConcreteOwnerResolveContext,
+): string[] {
+    if (!isProjectLocalMethod(method)) return [];
+    const paramStmts = collectParameterAssignStmts(method);
+    if (paramStmts.length === 0) return [];
+    if (!methodHasNonVoidReturn(method)) return [];
+    const args = invokeExpr.getArgs?.() || [];
+    const owners: string[] = [];
+    for (const pair of mapInvokeArgsToParamAssigns(invokeExpr, args, paramStmts)) {
+        if (!isConstructorCarrierParam(pair.paramStmt)) continue;
+        owners.push(...resolveConcreteOwnersFromValue(scene, pair.arg, options, visiting, context));
+    }
+    return dedupeOwnerNames(owners).filter(owner => hasConcreteOwnerInScene(scene, owner));
+}
+
+function isConstructorCarrierParam(paramStmt: ArkAssignStmt): boolean {
+    const text = `${paramStmt.toString?.() || ""} ${safeTypeText(safeGetValueType(paramStmt.getLeftOp?.()))}`;
+    return text.includes("%AC") || /\bnew\s*\(/.test(text) || /\bconstruct-signature\b/.test(text);
+}
+
+function methodHasNonVoidReturn(method: any): boolean {
+    for (const retStmt of method.getReturnStmt?.() || []) {
+        if (!(retStmt instanceof ArkReturnStmt)) continue;
+        const opText = safeValueText(retStmt.getOp?.());
+        if (opText && opText !== "undefined" && opText !== "void 0") return true;
+    }
+    return false;
+}
+
+function isProjectLocalMethod(method: any): boolean {
+    const sig = safeMethodSignatureText(method).replace(/\\/g, "/");
+    if (!sig || sig.includes("@%unk/%unk")) return false;
+    if (sig.includes("/interface_sdk-js/") || sig.includes("/node_modules/") || sig.includes("/oh_modules/")) return false;
+    if (sig.includes("@ohos.") || sig.includes("@internal/component/ets") || sig.includes("typescript/lib/")) return false;
+    return !!method?.getCfg?.();
 }
 
 function resolveOwnerFromNewExpr(expr: ArkNewExpr): string | undefined {
@@ -750,6 +1450,121 @@ function resolveConstructorOwnerFromInvoke(invokeExpr: ArkInstanceInvokeExpr | A
     return normalizeOwnerName(extractOwnerNameFromSignature(sig) || extractOwnerFromTypeText(sig) || "");
 }
 
+function resolveStrictConstructorOwnerFromInvoke(invokeExpr: ArkInstanceInvokeExpr | ArkStaticInvokeExpr): string | undefined {
+    const sigOwner = resolveConstructorOwnerFromInvoke(invokeExpr);
+    if (!sigOwner) return undefined;
+    const base = invokeExpr instanceof ArkInstanceInvokeExpr ? invokeExpr.getBase?.() : undefined;
+    const baseOwner = extractOwnerFromTypeText(safeTypeText(safeGetValueType(base)));
+    if (!baseOwner) return undefined;
+    return ownerNamesEqual(sigOwner, baseOwner) ? sigOwner : undefined;
+}
+
+function asOwnerList(owner: string | undefined): string[] {
+    const normalized = normalizeOwnerName(owner || "");
+    return normalized ? [normalized] : [];
+}
+
+function withDeclaringMethodSignature(
+    context: ConcreteOwnerResolveContext,
+    declaringMethodSignature?: string,
+): ConcreteOwnerResolveContext {
+    if (!declaringMethodSignature) return context;
+    if (context.declaringMethodSignature === declaringMethodSignature) return context;
+    return { ...context, declaringMethodSignature };
+}
+
+function resolveOwnersFromSourceConstructorRegistry(
+    scene: Scene,
+    expr: ArkNewExpr,
+    context: ConcreteOwnerResolveContext,
+): string[] {
+    const propertyName = extractDynamicConstructorPropertyName(expr);
+    if (!propertyName || !context.declaringMethodSignature) return [];
+    const filePath = resolveSourceFilePathFromMethodSignature(scene, context.declaringMethodSignature);
+    if (!filePath) return [];
+    const registry = getSourceConstructorRegistry(filePath);
+    const owners = registry.byPropertyName.get(propertyName);
+    if (!owners || owners.size === 0) return [];
+    return [...owners]
+        .map(owner => normalizeOwnerName(owner))
+        .filter((owner): owner is string => !!owner && hasConcreteOwnerInScene(scene, owner));
+}
+
+function extractDynamicConstructorPropertyName(expr: ArkNewExpr): string | undefined {
+    const text = `${safeValueText(expr)} ${safeTypeText(safeGetValueType(expr))}`;
+    if (!text.includes("%unk")) return undefined;
+    const matches = [...text.matchAll(/(?:^|[^A-Za-z0-9_$])([A-Za-z_$][A-Za-z0-9_$]*)\.([A-Za-z_$][A-Za-z0-9_$]*)/g)];
+    if (matches.length === 0) return undefined;
+    return matches[matches.length - 1][2];
+}
+
+function resolveSourceFilePathFromMethodSignature(scene: Scene, methodSignature: string): string | undefined {
+    const declaringFile = extractDeclaringFileFromSignature(methodSignature);
+    if (!declaringFile) return undefined;
+    const normalizedDeclaringFile = declaringFile.replace(/\\/g, "/").replace(/^@/, "");
+    for (const file of scene.getFiles?.() || []) {
+        const filePath = String(file?.getFilePath?.() || "").replace(/\\/g, "/");
+        const fileSig = normalizeFileSignatureText(file?.getFileSignature?.()?.toString?.()) || "";
+        if (filePath && (filePath.endsWith(normalizedDeclaringFile) || filePath.includes(`/${normalizedDeclaringFile}`))) {
+            return filePath;
+        }
+        if (fileSig && fileSig.endsWith(normalizedDeclaringFile)) {
+            return filePath || undefined;
+        }
+    }
+    return undefined;
+}
+
+function getSourceConstructorRegistry(filePath: string): SourceConstructorRegistry {
+    const normalizedPath = filePath.replace(/\\/g, "/");
+    const cached = _sourceConstructorRegistryCache.get(normalizedPath);
+    if (cached) return cached;
+    const registry: SourceConstructorRegistry = { byPropertyName: new Map() };
+    try {
+        const sourceText = fs.readFileSync(normalizedPath, "utf8");
+        const sourceFile = ts.createSourceFile(normalizedPath, sourceText, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+        const add = (propertyName: string, ownerName: string): void => {
+            const normalizedOwner = normalizeOwnerName(ownerName);
+            if (!propertyName || !normalizedOwner) return;
+            let owners = registry.byPropertyName.get(propertyName);
+            if (!owners) {
+                owners = new Set<string>();
+                registry.byPropertyName.set(propertyName, owners);
+            }
+            owners.add(normalizedOwner);
+        };
+        const visit = (node: ts.Node): void => {
+            if (ts.isObjectLiteralExpression(node)) {
+                for (const prop of node.properties) {
+                    if (!ts.isPropertyAssignment(prop)) continue;
+                    const propertyName = getObjectLiteralPropertyName(prop.name);
+                    const ownerName = getConstructorIdentifierText(prop.initializer);
+                    if (propertyName && ownerName) add(propertyName, ownerName);
+                }
+            }
+            ts.forEachChild(node, visit);
+        };
+        visit(sourceFile);
+    } catch {
+        // Missing source text is a hard lack of evidence for this resolver; callers keep the site unresolved.
+    }
+    _sourceConstructorRegistryCache.set(normalizedPath, registry);
+    return registry;
+}
+
+function getObjectLiteralPropertyName(name: ts.PropertyName): string | undefined {
+    if (ts.isIdentifier(name) || ts.isStringLiteral(name) || ts.isNumericLiteral(name)) {
+        return name.text;
+    }
+    return undefined;
+}
+
+function getConstructorIdentifierText(expr: ts.Expression): string | undefined {
+    if (ts.isIdentifier(expr)) return expr.text;
+    if (ts.isPropertyAccessExpression(expr)) return expr.name.text;
+    return undefined;
+}
+
 function extractOwnerFromTypeText(text: string | undefined): string | undefined {
     const raw = String(text || "").trim();
     if (!raw || raw.includes("%unk")) return undefined;
@@ -766,9 +1581,15 @@ function methodOwnerMatches(method: any, ownerName: string): boolean {
     return actual === expected;
 }
 
+function ownerNamesEqual(left: string | undefined, right: string | undefined): boolean {
+    const normalizedLeft = normalizeOwnerName(left || "");
+    const normalizedRight = normalizeOwnerName(right || "");
+    return !!normalizedLeft && !!normalizedRight && normalizedLeft === normalizedRight;
+}
+
 function getConcreteOwnerVisitKey(value: any): string | undefined {
     if (value instanceof Local) {
-        return `local:${safeLocalName(value)}#${getDeclaringStmtIdentity(safeGetDeclaringStmt(value))}`;
+        return `local:${getDeclaringMethodSignatureFromLocal(value) || ""}:${safeLocalName(value)}#${getDeclaringStmtIdentity(safeGetDeclaringStmt(value))}`;
     }
     const text = safeValueText(value);
     return text ? `value:${text}` : undefined;
@@ -1579,12 +2400,18 @@ export function isCallableValue(value: any): boolean {
         if (typeof type.getMethodSignature === "function" && type.getMethodSignature()) {
             return true;
         }
+        const methodSignatures = typeof type.getMethodSignatures === "function" ? type.getMethodSignatures() : undefined;
+        if (Array.isArray(methodSignatures) && methodSignatures.length > 0) {
+            return true;
+        }
+        const callSignature = type.getCallSignature?.() || type.getFunctionSignature?.() || type.getFuncSignature?.();
+        if (callSignature) {
+            return true;
+        }
     } catch {
         return false;
     }
-    const text = safeValueText(type);
-    if (!text) return false;
-    return text.includes("=>") || text.includes("Function") || text.includes("%AM");
+    return false;
 }
 
 function resolveApplyArgs(argsArrayValue: any): any[] {
@@ -1642,7 +2469,7 @@ function resolveDirectCallableTargets(
         callableResolveDepth: options.callableResolveDepth,
         maxCallableResolveDepth: options.maxCallableResolveDepth,
     }, visitKeys)
-        .filter(m => isArgCountCompatible(getFormalParamCount(m), argCount));
+        .filter(m => isArgCountConsistent(getFormalParamCount(m), argCount));
     if (targets.length === 0 || targets.length > maxCandidates) return [];
     return targets;
 }

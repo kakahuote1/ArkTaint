@@ -118,7 +118,7 @@ async function main(): Promise<void> {
         kernelRulePath: options.kernelRulePath,
         projectRulePath: options.projectRulePath,
         allowMissingProject: false,
-        autoDiscoverLayers: false,
+        autoDiscoverRuleSources: false,
     });
     const sourceRules: SourceRule[] = loaded.ruleSet.sources || [];
     const sinkRules: SinkRule[] = loaded.ruleSet.sinks || [];

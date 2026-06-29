@@ -1,11 +1,34 @@
-import { createBuiltinModuleAsset, decoratorSurface } from "../../moduleAssetHelpers";
+import { createBuiltinModuleAsset } from "../../moduleAssetHelpers";
+import { officialDecoratorSurfaceFromId } from "../../moduleAssetHelpers";
 
-const stateDecorators = ["State"];
-const propDecorators = ["Prop", "Link", "ObjectLink", "Local", "Param", "Once", "Event", "Trace"];
-const linkDecorators = ["Link", "ObjectLink", "Local", "Trace"];
-const provideDecorators = ["Provide", "Provider"];
-const consumeDecorators = ["Consume", "Consumer"];
-const eventDecorators = ["Event"];
+const stateDecoratorCanonicalApiIds = [
+    "api:official:arkui:module=api%2Farkui%2FstateManagement%2Fcommon.d.ets:file=api%2Farkui%2FstateManagement%2Fcommon.d.ets:export=named%3AState:decl=interface%3AState:member=decorator%3AState:invoke=decorator:params=none:ret=void",
+];
+
+const propDecoratorCanonicalApiIds = [
+    "api:official:arkui:module=api%2Farkui%2FstateManagement%2Fcommon.d.ets:file=api%2Farkui%2FstateManagement%2Fcommon.d.ets:export=named%3AProp:decl=interface%3AProp:member=decorator%3AProp:invoke=decorator:params=none:ret=void",
+];
+
+const linkDecoratorCanonicalApiIds = [
+    "api:official:arkui:module=api%2Farkui%2FstateManagement%2Fcommon.d.ets:file=api%2Farkui%2FstateManagement%2Fcommon.d.ets:export=named%3ALink:decl=interface%3ALink:member=decorator%3ALink:invoke=decorator:params=none:ret=void",
+    "api:official:arkui:module=api%2Farkui%2FstateManagement%2Fcommon.d.ets:file=api%2Farkui%2FstateManagement%2Fcommon.d.ets:export=named%3AObjectLink:decl=interface%3AObjectLink:member=decorator%3AObjectLink:invoke=decorator:params=none:ret=void",
+];
+
+const provideDecoratorCanonicalApiIds = [
+    "api:official:arkui:module=api%2Farkui%2FstateManagement%2Fcommon.d.ets:file=api%2Farkui%2FstateManagement%2Fcommon.d.ets:export=named%3AProvide:decl=interface%3AProvide:member=decorator%3AProvide:invoke=decorator:params=none:ret=void",
+];
+
+const consumeDecoratorCanonicalApiIds = [
+    "api:official:arkui:module=api%2Farkui%2FstateManagement%2Fcommon.d.ets:file=api%2Farkui%2FstateManagement%2Fcommon.d.ets:export=named%3AConsume:decl=interface%3AConsume:member=decorator%3AConsume:invoke=decorator:params=none:ret=void",
+];
+
+const allDecoratorCanonicalApiIds = [
+    ...stateDecoratorCanonicalApiIds,
+    ...propDecoratorCanonicalApiIds,
+    ...linkDecoratorCanonicalApiIds,
+    ...provideDecoratorCanonicalApiIds,
+    ...consumeDecoratorCanonicalApiIds,
+];
 
 const harmonyStateModuleAsset = createBuiltinModuleAsset({
     id: "harmony.state",
@@ -13,23 +36,13 @@ const harmonyStateModuleAsset = createBuiltinModuleAsset({
     semanticsFamily: "harmony-state-binding",
     role: "handoff",
     capability: "module.state-binding",
-    surfaces: [
-        ...[...new Set([
-            ...stateDecorators,
-            ...propDecorators,
-            ...linkDecorators,
-            ...provideDecorators,
-            ...consumeDecorators,
-            ...eventDecorators,
-        ])].map(name => decoratorSurface(`harmony.state.decorator.${name}`, name)),
-    ],
+    surfaces: allDecoratorCanonicalApiIds.map(officialDecoratorSurfaceFromId),
     payload: {
-        stateDecorators,
-        propDecorators,
-        linkDecorators,
-        provideDecorators,
-        consumeDecorators,
-        eventDecorators,
+        stateDecoratorCanonicalApiIds,
+        propDecoratorCanonicalApiIds,
+        linkDecoratorCanonicalApiIds,
+        provideDecoratorCanonicalApiIds,
+        consumeDecoratorCanonicalApiIds,
     },
 });
 

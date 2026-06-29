@@ -1,10 +1,6 @@
 import { ArkMethod } from "../../../../../arkanalyzer/out/src/core/model/ArkMethod";
 import { isKnownSchedulerMethodName } from "../../shared/FrameworkCallbackClassifier";
 import type { ArkMainEntryFact, ArkMainPhaseName } from "../ArkMainTypes";
-import {
-    ARK_MAIN_DEFERRED_CONTINUATION_METHOD_NAMES,
-    ARK_MAIN_OPEN_WORLD_CALLBACK_ENTRY_FAMILIES,
-} from "../catalog/ArkMainFrameworkCatalog";
 
 interface ArkMainCallbackBindingLike {
     registrationMethodName?: string;
@@ -19,18 +15,16 @@ interface ArkMainDeferredReachableContractLike {
 }
 
 export function isArkMainDeferredContinuationRegistrationName(methodName: string | undefined): boolean {
-    return ARK_MAIN_DEFERRED_CONTINUATION_METHOD_NAMES.has(String(methodName || ""));
+    void methodName;
+    return false;
 }
 
 export function resolveArkMainCallbackEntryFamily(
-    recognitionLayer: string | undefined,
+    _recognitionLayer: string | undefined,
     slotFamily: string | undefined,
 ): string | undefined {
     if (slotFamily) {
         return slotFamily;
-    }
-    if (recognitionLayer === "sdk_provenance") {
-        return "unknown_sdk_callback";
     }
     return undefined;
 }
@@ -61,35 +55,15 @@ export function shouldArkMainQueueOpaqueExternalCallback(
     return false;
 }
 
-export function isArkMainOpenWorldCallbackEntryFamily(entryFamily: string | undefined): boolean {
-    return ARK_MAIN_OPEN_WORLD_CALLBACK_ENTRY_FAMILIES.has(String(entryFamily || ""));
+export function isArkMainOpenWorldCallbackEntryFamily(_entryFamily: string | undefined): boolean {
+    return false;
 }
 
 export function shouldArkMainAutoHintCallbackFact(
     fact: Pick<ArkMainEntryFact, "kind" | "entryFamily" | "callbackSlotFamily" | "callbackRegistrationSignature" | "callbackArgIndex">,
 ): boolean {
-    if (fact.kind !== "callback") {
-        return false;
-    }
-    if (!isArkMainOpenWorldCallbackEntryFamily(fact.entryFamily)) {
-        return false;
-    }
-    if (fact.callbackSlotFamily) {
-        return false;
-    }
-    if (!fact.callbackRegistrationSignature || fact.callbackArgIndex === undefined) {
-        return false;
-    }
-    if (
-        fact.callbackRegistrationSignature.includes("NavDestination.register")
-        || fact.callbackRegistrationSignature.includes("NavDestination.setBuilder")
-        || fact.callbackRegistrationSignature.includes("NavDestination.setDestinationBuilder")
-    ) {
-        return false;
-    }
-    return !ARK_MAIN_DEFERRED_CONTINUATION_METHOD_NAMES.has(
-        extractRegistrationMethodNameFromSignature(fact.callbackRegistrationSignature),
-    );
+    void fact;
+    return false;
 }
 
 export function shouldArkMainIncludeDeferredContractInReachable(
@@ -100,14 +74,4 @@ export function shouldArkMainIncludeDeferredContractInReachable(
         return true;
     }
     return !contract.activation.startsWith("settle(");
-}
-
-function extractRegistrationMethodNameFromSignature(signature: string): string {
-    const trimmed = String(signature || "");
-    const open = trimmed.lastIndexOf(".");
-    const close = trimmed.indexOf("(", open >= 0 ? open : 0);
-    if (open < 0 || close < 0 || close <= open + 1) {
-        return "";
-    }
-    return trimmed.slice(open + 1, close);
 }

@@ -19,7 +19,7 @@ async function runCase(scene: Scene, methodName: string): Promise<boolean> {
         kernelRulePath: path.resolve("tests/rules/minimal.rules.json"),
         projectRulePath: path.resolve("tests/rules/harmony_router_bridge.rules.json"),
         allowMissingProject: false,
-        autoDiscoverLayers: false,
+        autoDiscoverRuleSources: false,
     });
 
     const engine = await buildEngineForCase(scene, 1, entryMethod, {

@@ -40,6 +40,13 @@ function main(): void {
         ownerSignals: ["owner_contract:ability_owner:base_class"],
         overrideSignals: ["override:explicit"],
     });
+    const superclassOnlyAbility = candidate({
+        className: "SuperclassOnlyAbility",
+        methodName: "onCreate",
+        superClassName: "UIAbility",
+        ownerSignals: [],
+        overrideSignals: ["override:explicit"],
+    });
     const projectComponentBuild = candidate({
         className: "LibraryChatView",
         methodName: "build",
@@ -53,6 +60,7 @@ function main(): void {
 
     const split = splitArkMainEntryCandidatesForSemanticFlow([
         abilityLifecycle,
+        superclassOnlyAbility,
         projectComponentBuild,
         projectComponentCustom,
     ]);
@@ -68,6 +76,10 @@ function main(): void {
     assert(
         split.ineligibleCandidates.some(item => item.className === "LibraryChatView" && item.methodName === "sendMessage"),
         "non-lifecycle project component methods should remain ineligible as arkmain entries",
+    );
+    assert(
+        split.ineligibleCandidates.some(item => item.className === "SuperclassOnlyAbility" && item.methodName === "onCreate"),
+        "superclass name alone must not infer ArkMain owner identity",
     );
 
     console.log("PASS test_arkmain_candidate_filter");

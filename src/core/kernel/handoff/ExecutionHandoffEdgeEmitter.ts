@@ -67,6 +67,7 @@ function emitExecutionHandoffEdges(
                     calleeSignature,
                     originTag: "execution_handoff",
                     handoffId: contract.id,
+                    preserveFieldPath: contract.carrierKind === "field" || contract.carrierKind === "slot",
                 });
                 if (binding.edgeType === CallEdgeType.CALL) {
                     callCount += 1;

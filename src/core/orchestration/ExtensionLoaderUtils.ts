@@ -488,7 +488,7 @@ function collectExportCandidates(mod: any, exportAliases?: string[]): any[] {
     if (!mod) return out;
     if (mod.default) out.push(mod.default);
     for (const alias of aliases) {
-        if (mod[alias]) {
+        if (mod[alias] && !out.includes(mod[alias])) {
             out.push(mod[alias]);
         }
     }

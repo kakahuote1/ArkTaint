@@ -11,6 +11,7 @@ import { buildSyntheticInvokeEdges } from "../../core/kernel/builders/SyntheticI
 import { buildCaptureEdgeMap } from "../../core/kernel/builders/CallEdgeMapBuilder";
 import { CallEdgeType } from "../../core/kernel/context/TaintContext";
 import * as path from "path";
+import { detectSinksByExactMethodsForTest } from "../helpers/ExactSinkDetectionTestUtils";
 
 type SceneLike = any;
 type MethodLike = any;
@@ -78,7 +79,13 @@ async function detectCase(relativeDir: string, fileName: string, caseName: strin
     });
     assert(seeds.length > 0, `no seeds found for ${caseName}`);
     engine.propagateWithSeeds(seeds);
-    return engine.detectSinks("Sink").length > 0;
+    return detectSinksByExactMethodsForTest(engine, resolveUniqueSinkMethod(scene)).length > 0;
+}
+
+function resolveUniqueSinkMethod(scene: SceneLike): MethodLike {
+    const methods = scene.getMethods().filter((method: MethodLike) => method.getName?.() === "Sink");
+    assert(methods.length === 1, `expected exactly one Sink method in execution handoff fixture, got ${methods.length}`);
+    return methods[0];
 }
 
 async function propositionEventRegistrationInstantiatesContract(): Promise<void> {

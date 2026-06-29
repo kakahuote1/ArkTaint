@@ -3,11 +3,13 @@ import { Scene } from "../../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../../arkanalyzer/out/src/Config";
 import { buildArkMainPlan } from "../../core/entry/arkmain/ArkMainPlanner";
 import {
-    resolveAbilityLifecycleContract,
-    resolveComponentLifecycleContract,
-    resolveExtensionLifecycleContract,
-    resolveStageLifecycleContract,
+    resolveOfficialLifecycleContract,
 } from "../../core/entry/arkmain/facts/ArkMainLifecycleContracts";
+import {
+    loadArkMainOfficialLifecycleDeclarations,
+    resolveArkMainOfficialLifecycleDeclarationsByClassNameAndMethod,
+    resolveArkMainOfficialLifecycleDeclarationsByOwnerKindAndMethod,
+} from "../../core/entry/arkmain/catalog/ArkMainOfficialDeclarationCatalog";
 import { registerMockSdkFiles } from "../helpers/TestSceneBuilder";
 
 function buildScene(projectDir: string): Scene {
@@ -55,40 +57,86 @@ function assertNoFactOnClass(
 }
 
 async function main(): Promise<void> {
-    const onCreateContract = resolveAbilityLifecycleContract("onCreate");
+    const findContract = (className: string, methodName: string) => {
+        const declaration = resolveArkMainOfficialLifecycleDeclarationsByClassNameAndMethod(className, methodName)[0];
+        assert(!!declaration, `missing official declaration class=${className}, method=${methodName}`);
+        return resolveOfficialLifecycleContract(declaration);
+    };
+
+    assert(loadArkMainOfficialLifecycleDeclarations().length > 0, "official ArkMain declaration catalog should load.");
+
+    const onCreateContract = findContract("UIAbility", "onCreate");
     assert(onCreateContract?.phase === "bootstrap", "onCreate should be bootstrap lifecycle contract.");
     assert(onCreateContract?.kind === "ability_lifecycle", "onCreate kind mismatch.");
 
-    const onNewWantContract = resolveAbilityLifecycleContract("onNewWant");
+    const onNewWantContract = findContract("UIAbility", "onNewWant");
     assert(onNewWantContract?.phase === "reactive_handoff", "onNewWant should be reactive_handoff lifecycle contract.");
+    assert(onNewWantContract?.kind === "ability_lifecycle", "onNewWant kind mismatch.");
 
-    const stageCreateContract = resolveStageLifecycleContract("onCreate");
+    const stageCreateContract = findContract("AbilityStage", "onCreate");
     assert(stageCreateContract?.phase === "bootstrap", "AbilityStage.onCreate should be bootstrap lifecycle contract.");
     assert(stageCreateContract?.kind === "stage_lifecycle", "AbilityStage.onCreate kind mismatch.");
 
-    const stageAcceptWantContract = resolveStageLifecycleContract("onAcceptWant");
-    assert(stageAcceptWantContract?.phase === "reactive_handoff", "AbilityStage.onAcceptWant should be reactive_handoff lifecycle contract.");
+    const stageAcceptWantContract = findContract("AbilityStage", "onAcceptWant");
+    assert(stageAcceptWantContract?.phase === "bootstrap", "AbilityStage.onAcceptWant should be bootstrap lifecycle contract.");
+    assert(stageAcceptWantContract?.kind === "stage_lifecycle", "AbilityStage.onAcceptWant kind mismatch.");
 
-    const extensionCreateContract = resolveExtensionLifecycleContract("onCreate");
+    const extensionCreateContract = findContract("ServiceExtensionAbility", "onCreate");
     assert(extensionCreateContract?.phase === "bootstrap", "Extension onCreate should be bootstrap lifecycle contract.");
     assert(extensionCreateContract?.kind === "extension_lifecycle", "Extension onCreate kind mismatch.");
 
-    const onUpdateFormContract = resolveAbilityLifecycleContract("onUpdateForm");
+    const onUpdateFormContract = findContract("FormExtensionAbility", "onUpdateForm");
     assert(onUpdateFormContract?.phase === "interaction", "onUpdateForm should be interaction lifecycle contract.");
 
-    const onDestroyContract = resolveAbilityLifecycleContract("onDestroy");
+    const onDestroyContract = findContract("UIAbility", "onDestroy");
     assert(onDestroyContract?.phase === "teardown", "onDestroy should be teardown lifecycle contract.");
 
-    const buildContract = resolveComponentLifecycleContract("build");
+    const buildContract = findContract("BaseCustomComponent", "build");
     assert(buildContract?.kind === "page_build", "build should be page_build contract.");
     assert(buildContract?.phase === "composition", "build should be composition contract.");
 
-    const hideContract = resolveComponentLifecycleContract("onPageHide");
+    const hideContract = findContract("CustomComponent", "onPageHide");
     assert(hideContract?.kind === "page_lifecycle", "onPageHide should be page_lifecycle contract.");
     assert(hideContract?.phase === "teardown", "onPageHide should be teardown contract.");
 
-    assert(resolveAbilityLifecycleContract("onAddForms") === null, "onAddForms should not be a lifecycle contract.");
-    assert(resolveComponentLifecycleContract("render") === null, "render should not be a lifecycle contract.");
+    const childProcessContract = findContract("ChildProcess", "onStart");
+    assert(childProcessContract?.kind === "process_lifecycle", "ChildProcess.onStart should be process_lifecycle contract.");
+    assert(childProcessContract?.phase === "bootstrap", "ChildProcess.onStart should be bootstrap contract.");
+    assert(childProcessContract?.ownerKind === "child_process_owner", "ChildProcess.onStart owner kind mismatch.");
+
+    for (const methodName of [
+        "onNewWant",
+        "onWindowStageCreate",
+        "onWindowStageDestroy",
+        "onWindowStageRestore",
+        "onWindowStageWillDestroy",
+    ]) {
+        assert(
+            resolveArkMainOfficialLifecycleDeclarationsByClassNameAndMethod("AbilityLifecycleCallback", methodName).length === 0,
+            `AbilityLifecycleCallback.${methodName} is an observer callback and must not be a root lifecycle declaration.`,
+        );
+    }
+    assert(
+        resolveArkMainOfficialLifecycleDeclarationsByClassNameAndMethod("EnvironmentCallback", "onMemoryLevel").length === 0,
+        "EnvironmentCallback.onMemoryLevel is an observer callback and must not be a root lifecycle declaration.",
+    );
+    assert(
+        resolveArkMainOfficialLifecycleDeclarationsByClassNameAndMethod("Caller", "onRelease").length === 0,
+        "Caller.onRelease is a callback registration API and must not be a root lifecycle declaration.",
+    );
+    assert(
+        resolveArkMainOfficialLifecycleDeclarationsByClassNameAndMethod("BuilderNode", "build").length === 0,
+        "BuilderNode.build invokes WrappedBuilder.builder and must not be a root lifecycle declaration.",
+    );
+
+    assert(
+        resolveArkMainOfficialLifecycleDeclarationsByOwnerKindAndMethod("extension_owner", "onAddForms").length === 0,
+        "onAddForms should not be an official lifecycle declaration.",
+    );
+    assert(
+        resolveArkMainOfficialLifecycleDeclarationsByOwnerKindAndMethod("component_owner", "render").length === 0,
+        "render should not be an official lifecycle declaration.",
+    );
 
     const lifecycleScene = buildScene(path.resolve("tests/demo/harmony_lifecycle"));
     const lifecyclePlan = buildArkMainPlan(lifecycleScene);

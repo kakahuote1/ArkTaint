@@ -1,5 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
+import { spawnSync } from "child_process";
 
 interface DatasetAggregate {
     countsBySlotFamily: Record<string, number>;
@@ -32,11 +33,32 @@ const TARGET_FAMILIES = [
     "completion_callback_slot",
 ] as const;
 
+function ensureDiagnosticReport(diagnosticReportPath: string): void {
+    if (fs.existsSync(diagnosticReportPath)) {
+        return;
+    }
+    const diagnosticScript = path.resolve("out/tests/entry_model/test_entry_model_callback_provenance_diagnostic.js");
+    const result = spawnSync(process.execPath, [diagnosticScript], {
+        cwd: process.cwd(),
+        encoding: "utf8",
+    });
+    if (result.status !== 0) {
+        throw new Error(
+            `callback provenance diagnostic report is missing and producer failed: ${diagnosticReportPath}\n`
+            + `producer=${diagnosticScript}\n`
+            + `exitCode=${result.status}\n`
+            + `stdout=${result.stdout || ""}\n`
+            + `stderr=${result.stderr || ""}`,
+        );
+    }
+    if (!fs.existsSync(diagnosticReportPath)) {
+        throw new Error(`callback provenance diagnostic producer did not write report: ${diagnosticReportPath}`);
+    }
+}
+
 function main(): void {
     const diagnosticReportPath = path.resolve("tmp/test_runs/entry_model/callback_provenance_diagnostic/latest/callback_provenance_report.json");
-    if (!fs.existsSync(diagnosticReportPath)) {
-        throw new Error(`missing callback provenance diagnostic report: ${diagnosticReportPath}`);
-    }
+    ensureDiagnosticReport(diagnosticReportPath);
     const diagnostic = JSON.parse(fs.readFileSync(diagnosticReportPath, "utf8")) as DiagnosticReport;
 
     const observedByFamily = new Map<string, number>();

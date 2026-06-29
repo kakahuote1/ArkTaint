@@ -28,8 +28,7 @@ export interface CaseResult {
 
 export interface TransferCandidate {
     id: string;
-    matchKind: string;
-    matchValue: string;
+    signature: string;
     invokeKind?: string;
     argCount?: number;
     typeHint?: string;

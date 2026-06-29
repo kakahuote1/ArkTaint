@@ -36,8 +36,8 @@ function assertNoUnappliedProjectLayerLeak(): void {
         reportMode: "light",
         k: 1,
         maxEntries: 1,
-        ruleLayers: ["kernel"],
-        ruleLayerStatus: [
+        ruleSources: ["kernel"],
+        ruleSourceStatus: [
             { name: "kernel", path: "src/models/kernel/rules", applied: true },
             { name: "project", path: "src/models/project/clearchat/rules", applied: false },
         ],
@@ -109,7 +109,7 @@ function assertNoUnappliedProjectLayerLeak(): void {
     } as any);
 
     if (syntheticNoAppliedProject.includes("src/models/project/clearchat/rules")) {
-        throw new Error("unapplied project layer leaked ClearChat rule path into guidance");
+        throw new Error("unapplied project rule source leaked ClearChat rule path into guidance");
     }
     if (!syntheticNoAppliedProject.includes("reviewed project asset package for this analyzed project")) {
         throw new Error("missing neutral guidance when no project asset package is applied");
