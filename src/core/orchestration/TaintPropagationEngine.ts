@@ -218,6 +218,7 @@ export interface TaintEngineOptions {
     reachabilityDirectExpansion?: "enabled" | "disabled";
     receiverFieldBridgeMap?: "enabled" | "disabled";
     syntheticInvokeMaterialization?: "enabled" | "disabled";
+    semanticAssetReachabilityScope?: "reachable" | "allExactSites";
     adaptiveContext?: AdaptiveContextSelectorOptions;
     transferRules?: TransferRule[];
     apiAssets?: AssetDocumentBase[];
@@ -242,6 +243,17 @@ export interface TaintEngineOptions {
     pluginAudit?: boolean;
     arkMainSeeds?: ArkMainSeedOptions;
     debug?: DebugOptions;
+}
+
+interface SourceRuleSeedCollectionAggregate {
+    facts: TaintFact[];
+    seededLocals: string[];
+    sourceRuleHits: Record<string, number>;
+    activatedMethodSignatures: string[];
+    sourceSeedAudit: SourceRuleSeedAuditEntry[];
+    sourceRuleZeroHitAudit: SourceRuleZeroHitAuditEntry[];
+    passCount: number;
+    endpointResolutionAudit: EndpointResolutionLedgerItem[];
 }
 
 export interface BuildPAGOptions {
@@ -2241,10 +2253,23 @@ export class TaintPropagationEngine {
         recordProfile("normalizeAndMergeMs", normalizeT0);
         this.lastSourceRulePropagationProfile.effectiveRuleCount = effectiveSourceRules.length;
         const collectT0 = process.hrtime.bigint();
+        const exactSemanticSourceRules = this.options.semanticAssetReachabilityScope === "allExactSites"
+            ? effectiveSourceRules.filter(rule => this.isEvaluationSemanticAssetRule(rule))
+            : [];
+        const reachableSourceRules = exactSemanticSourceRules.length === 0
+            ? effectiveSourceRules
+            : effectiveSourceRules.filter(rule => !this.isEvaluationSemanticAssetRule(rule));
         let ruleSeeds = this.collectSourceRuleSeedsToFixedPoint(
-            effectiveSourceRules,
+            reachableSourceRules,
             this.activeReachableMethodSignatures,
         );
+        if (exactSemanticSourceRules.length > 0) {
+            const exactSemanticSeeds = this.collectSourceRuleSeedsToFixedPoint(
+                exactSemanticSourceRules,
+                undefined,
+            );
+            ruleSeeds = mergeSourceRuleSeedCollectionResults(ruleSeeds, exactSemanticSeeds);
+        }
         this.recordSourceSeedAuditGates(ruleSeeds.sourceSeedAudit);
         this.recordSourceRuleZeroHitGates(
             effectiveSourceRules,
@@ -3169,16 +3194,7 @@ export class TaintPropagationEngine {
     private collectSourceRuleSeedsToFixedPoint(
         sourceRules: SourceRule[],
         initialAllowedMethodSignatures?: Set<string>
-    ): {
-        facts: TaintFact[];
-        seededLocals: string[];
-        sourceRuleHits: Record<string, number>;
-        activatedMethodSignatures: string[];
-        sourceSeedAudit: SourceRuleSeedAuditEntry[];
-        sourceRuleZeroHitAudit: SourceRuleZeroHitAuditEntry[];
-        passCount: number;
-        endpointResolutionAudit: EndpointResolutionLedgerItem[];
-    } {
+    ): SourceRuleSeedCollectionAggregate {
         const facts: TaintFact[] = [];
         const seenFactIds = new Set<string>();
         const seededLocals = new Set<string>();
@@ -3547,6 +3563,10 @@ export class TaintPropagationEngine {
             sinkRule.apiEffect.bindingId,
             sinkRule.apiEffect.effectTemplateId,
         ].join("|");
+        const allowedMethodSignatures = this.options.semanticAssetReachabilityScope === "allExactSites"
+            && this.isEvaluationSemanticAssetRule(sinkRule)
+            ? undefined
+            : this.activeReachableMethodSignatures;
         const scoped = runSinkDetector(
             this.scene,
             this.cg,
@@ -3557,7 +3577,7 @@ export class TaintPropagationEngine {
             {
                 ...options,
                 fieldToVarIndex: this.fieldToVarIndex,
-                allowedMethodSignatures: this.activeReachableMethodSignatures,
+                allowedMethodSignatures,
                 orderedMethodSignatures: this.activeOrderedMethodSignatures,
                 interproceduralTaintTargetNodeIds: this.collectInterproceduralTaintTargetNodeIds(),
                 transferRules: orderedTransferRules,
@@ -3569,6 +3589,11 @@ export class TaintPropagationEngine {
             }
         );
         return scoped;
+    }
+
+    private isEvaluationSemanticAssetRule(rule: { apiEffect?: { assetId?: string } } | undefined): boolean {
+        const assetId = typeof rule?.apiEffect?.assetId === "string" ? rule.apiEffect.assetId : "";
+        return assetId.startsWith("project.");
     }
 
     private collectInterproceduralTaintTargetNodeIds(): Set<number> {
@@ -3771,6 +3796,39 @@ export class TaintPropagationEngine {
             .join("||");
     }
 
+}
+
+function mergeSourceRuleSeedCollectionResults(
+    left: SourceRuleSeedCollectionAggregate,
+    right: SourceRuleSeedCollectionAggregate,
+): SourceRuleSeedCollectionAggregate {
+    const factsById = new Map<string, TaintFact>();
+    for (const fact of [...left.facts, ...right.facts]) {
+        if (!factsById.has(fact.taintId)) {
+            factsById.set(fact.taintId, fact);
+        }
+    }
+
+    const sourceRuleHits: Record<string, number> = {};
+    for (const hits of [left.sourceRuleHits, right.sourceRuleHits]) {
+        for (const [ruleId, count] of Object.entries(hits)) {
+            sourceRuleHits[ruleId] = (sourceRuleHits[ruleId] || 0) + (Number(count) || 0);
+        }
+    }
+
+    return {
+        facts: [...factsById.values()],
+        seededLocals: [...new Set([...left.seededLocals, ...right.seededLocals])].sort(),
+        sourceRuleHits,
+        activatedMethodSignatures: [...new Set([
+            ...left.activatedMethodSignatures,
+            ...right.activatedMethodSignatures,
+        ])].sort(),
+        sourceSeedAudit: [...left.sourceSeedAudit, ...right.sourceSeedAudit],
+        sourceRuleZeroHitAudit: [...left.sourceRuleZeroHitAudit, ...right.sourceRuleZeroHitAudit],
+        passCount: left.passCount + right.passCount,
+        endpointResolutionAudit: [...left.endpointResolutionAudit, ...right.endpointResolutionAudit],
+    };
 }
 
 function summarizeEndpointResolutionStatuses(

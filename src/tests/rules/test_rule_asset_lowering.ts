@@ -570,6 +570,10 @@ function main(): void {
         "generated project sink should use the apiEffect canonicalApiId",
     );
     assert(
+        generatedSink.apiEffect?.assetId === "project.MessageViewModel.sendTextMessage",
+        "generated project sink apiEffect assetId must preserve binding assetId for runtime effect-site matching",
+    );
+    assert(
         (generatedSink.match as any).argCount === undefined,
         "generated project sink should not use declaration argCount as a runtime exact arity guard",
     );

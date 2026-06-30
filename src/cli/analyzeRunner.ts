@@ -99,8 +99,12 @@ function verboseAnalyzeLog(message: string): void {
     }
 }
 
+function analyzeProgressForced(): boolean {
+    return process.env.ARKTAINT_ANALYZE_PROGRESS === "1" || process.env.ARKTAINT_VERBOSE_BUILD === "1";
+}
+
 function progressAnalyzeLog(enabled: boolean, message: string): void {
-    if (!enabled && process.env.ARKTAINT_VERBOSE_BUILD !== "1") return;
+    if (!enabled && !analyzeProgressForced()) return;
     console.log(`[analyzeRunner] ${new Date().toISOString()} ${message}`);
 }
 
@@ -669,12 +673,14 @@ async function analyzeSourceDir(
             provenanceRecording: lightFlowMode ? "disabled" : "enabled",
             factIdTracking: lightFlowMode ? "disabled" : "enabled",
             flowRuleChainTracking: lightFlowMode ? "disabled" : "enabled",
-            progressOutput: lightFlowMode ? "enabled" : "disabled",
+            progressOutput: lightFlowMode || analyzeProgressForced() ? "enabled" : "disabled",
             arkMainEntryClosure: candidateFastMode ? "scheduledOnly" : "full",
             reachabilityDirectExpansion: "enabled",
+            semanticAssetReachabilityScope: options.semanticAssetReachabilityScope || "reachable",
             receiverFieldBridgeMap: candidateFastMode ? "disabled" : "enabled",
             syntheticInvokeMaterialization: candidateFastMode ? "disabled" : "enabled",
             moduleRoots: options.modelRoots,
+            moduleFiles: options.moduleFiles,
             semanticflowEvaluationModelRoots: options.semanticflowEvaluationModelRoots,
             enabledModuleProjects: resolvedSelections.enabledModuleProjects,
             disabledModuleProjects: resolvedSelections.disabledModuleProjects,
@@ -685,6 +691,7 @@ async function analyzeSourceDir(
             includeBuiltinModules: true,
             includeBuiltinEnginePlugins: true,
             pluginDryRun: options.pluginDryRun,
+            pluginAudit: options.pluginAudit,
             pluginIsolate: options.pluginIsolate,
             arkMainSeeds: arkMainSeeds
                 ? {
@@ -1120,6 +1127,7 @@ export function prepareAnalyzeRuntime(options: CliOptions): AnalyzeRuntime {
     const pluginFiles = (options.pluginPaths || []).filter(p => fs.existsSync(p) && fs.statSync(p).isFile());
     const moduleResult = loadModules({
         moduleRoots: options.modelRoots || [],
+        moduleFiles: options.moduleFiles || [],
         semanticflowEvaluationModelRoots: options.semanticflowEvaluationModelRoots,
         enabledModuleProjects: resolvedSelections.enabledModuleProjects,
         disabledModuleProjects: resolvedSelections.disabledModuleProjects,

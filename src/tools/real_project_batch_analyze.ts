@@ -2,7 +2,13 @@ import * as fs from "fs";
 import * as path from "path";
 import { ChildProcess, spawn } from "child_process";
 import { discoverArkTsSourceDirs } from "../cli/sourceDiscovery";
-import { parseArgs as parseAnalyzeCliArgs, type CliOptions, type FlowMode } from "../cli/analyzeCliOptions";
+import {
+    parseArgs as parseAnalyzeCliArgs,
+    type CliOptions,
+    type AnalyzeProfile,
+    type FlowMode,
+    type SemanticAssetReachabilityScope,
+} from "../cli/analyzeCliOptions";
 import { prepareAnalyzeRuntime, runAnalyze, type AnalyzeRuntime } from "../cli/analyzeRunner";
 
 type SourceDirMode = "project" | "split" | "auto";
@@ -30,15 +36,30 @@ interface Options {
     llmSessionCacheDir: string;
     llmSessionCacheMode: string;
     maxLlmItems: number;
+    semanticflowMaxRuleCandidates: number;
     arkMainMaxCandidates: number;
     publishModel: string;
+    modelRoots: string[];
+    semanticflowEvaluationModelRoots: string[];
+    enabledModels: string[];
+    disabledModels: string[];
+    projectRulePath: string;
+    moduleFiles: string[];
+    pluginPaths: string[];
+    disabledPluginNames: string[];
+    pluginIsolate: string[];
+    pluginDryRun: boolean;
+    pluginAudit: boolean;
     concurrency: number;
+    profile: AnalyzeProfile;
     k?: number;
     reportMode: string;
     entryModel: string;
     maxEntries: number;
     worklistBudgetMs: number;
     worklistMaxVisited: number;
+    stopOnFirstFlow: boolean;
+    maxFlowsPerEntry: number;
     noIncremental: boolean;
     skipExisting: boolean;
     resumeRecorded: boolean;
@@ -49,6 +70,7 @@ interface Options {
     projectRetries: number;
     executionMode: BatchExecutionMode;
     flowMode: FlowMode;
+    semanticAssetReachabilityScope: SemanticAssetReachabilityScope;
 }
 
 interface ProjectRecord {
@@ -113,14 +135,29 @@ function parseArgs(argv: string[]): Options {
         llmSessionCacheDir: "",
         llmSessionCacheMode: "rw",
         maxLlmItems: 12,
+        semanticflowMaxRuleCandidates: 0,
         arkMainMaxCandidates: 0,
         publishModel: "",
+        modelRoots: [],
+        semanticflowEvaluationModelRoots: [],
+        enabledModels: [],
+        disabledModels: [],
+        projectRulePath: "",
+        moduleFiles: [],
+        pluginPaths: [],
+        disabledPluginNames: [],
+        pluginIsolate: [],
+        pluginDryRun: false,
+        pluginAudit: false,
         concurrency: 1,
+        profile: "default",
         reportMode: "light",
         entryModel: "arkMain",
         maxEntries: 9999,
         worklistBudgetMs: 45000,
         worklistMaxVisited: 0,
+        stopOnFirstFlow: false,
+        maxFlowsPerEntry: 0,
         noIncremental: true,
         skipExisting: false,
         resumeRecorded: true,
@@ -131,6 +168,7 @@ function parseArgs(argv: string[]): Options {
         projectRetries: 1,
         executionMode: "subprocess",
         flowMode: "postsolve",
+        semanticAssetReachabilityScope: "reachable",
     };
 
     for (let i = 0; i < argv.length; i++) {
@@ -211,14 +249,60 @@ function parseArgs(argv: string[]): Options {
             case "--maxLlmItems":
                 opts.maxLlmItems = parsePositiveInt(next(), arg);
                 break;
+            case "--semanticflowMaxRuleCandidates":
+                opts.semanticflowMaxRuleCandidates = parseNonNegativeInt(next(), arg);
+                break;
             case "--arkMainMaxCandidates":
                 opts.arkMainMaxCandidates = parsePositiveInt(next(), arg);
                 break;
             case "--publish-model":
                 opts.publishModel = next();
                 break;
+            case "--model-root":
+                opts.modelRoots.push(path.resolve(next()));
+                break;
+            case "--semanticflow-evaluation-model-root":
+            case "--semanticflowEvaluationModelRoot":
+                opts.semanticflowEvaluationModelRoots.push(path.resolve(next()));
+                break;
+            case "--enable-model":
+                opts.enabledModels.push(...next().split(",").map(item => item.trim()).filter(Boolean));
+                break;
+            case "--disable-model":
+                opts.disabledModels.push(...next().split(",").map(item => item.trim()).filter(Boolean));
+                break;
+            case "--project":
+                opts.projectRulePath = path.resolve(next());
+                break;
+            case "--module-spec":
+            case "--moduleSpec":
+            case "--module-file":
+            case "--moduleFile":
+                opts.moduleFiles.push(...next().split(",").map(item => item.trim()).filter(Boolean).map(item => path.resolve(item)));
+                break;
+            case "--plugins":
+                opts.pluginPaths.push(...next().split(",").map(item => item.trim()).filter(Boolean).map(item => path.resolve(item)));
+                break;
+            case "--disable-plugins":
+                opts.disabledPluginNames.push(...next().split(",").map(item => item.trim()).filter(Boolean));
+                break;
+            case "--plugin-isolate":
+                opts.pluginIsolate.push(...next().split(",").map(item => item.trim()).filter(Boolean));
+                break;
+            case "--plugin-dry-run":
+                opts.pluginDryRun = true;
+                break;
+            case "--plugin-audit":
+                opts.pluginAudit = true;
+                break;
             case "--concurrency":
                 opts.concurrency = parsePositiveInt(next(), arg);
+                break;
+            case "--profile":
+                opts.profile = next() as AnalyzeProfile;
+                if (opts.profile !== "fast" && opts.profile !== "default" && opts.profile !== "strict") {
+                    throw new Error(`--profile must be fast, default, or strict, got ${opts.profile}`);
+                }
                 break;
             case "--k":
                 opts.k = parseNonNegativeInt(next(), arg);
@@ -245,6 +329,12 @@ function parseArgs(argv: string[]): Options {
             case "--worklistMaxVisited":
             case "--worklist-max-visited":
                 opts.worklistMaxVisited = parseNonNegativeInt(next(), arg);
+                break;
+            case "--stopOnFirstFlow":
+                opts.stopOnFirstFlow = true;
+                break;
+            case "--maxFlowsPerEntry":
+                opts.maxFlowsPerEntry = parsePositiveInt(next(), arg);
                 break;
             case "--incremental":
                 opts.noIncremental = false;
@@ -287,6 +377,18 @@ function parseArgs(argv: string[]): Options {
                     throw new Error(`--flowMode must be postsolve, candidate, or raw, got ${opts.flowMode}`);
                 }
                 break;
+            case "--semanticAssetReachabilityScope":
+            case "--semantic-asset-reachability":
+                opts.semanticAssetReachabilityScope = next() as SemanticAssetReachabilityScope;
+                if (
+                    opts.semanticAssetReachabilityScope !== "reachable"
+                    && opts.semanticAssetReachabilityScope !== "allExactSites"
+                ) {
+                    throw new Error(
+                        `--semanticAssetReachabilityScope must be reachable or allExactSites, got ${opts.semanticAssetReachabilityScope}`,
+                    );
+                }
+                break;
             case "--help":
             case "-h":
                 printHelp();
@@ -297,6 +399,14 @@ function parseArgs(argv: string[]): Options {
         }
     }
 
+    opts.modelRoots = [...new Set(opts.modelRoots.map(item => path.resolve(item)))];
+    opts.semanticflowEvaluationModelRoots = [...new Set(opts.semanticflowEvaluationModelRoots.map(item => path.resolve(item)))];
+    opts.enabledModels = [...new Set(opts.enabledModels.map(item => item.trim()).filter(Boolean))];
+    opts.disabledModels = [...new Set(opts.disabledModels.map(item => item.trim()).filter(Boolean))];
+    opts.moduleFiles = [...new Set(opts.moduleFiles.map(item => path.resolve(item)))];
+    opts.pluginPaths = [...new Set(opts.pluginPaths.map(item => path.resolve(item)))];
+    opts.disabledPluginNames = [...new Set(opts.disabledPluginNames.map(item => item.trim()).filter(Boolean))];
+    opts.pluginIsolate = [...new Set(opts.pluginIsolate.map(item => item.trim()).filter(Boolean))];
     if (opts.executionMode === "in-process" && opts.autoModel) {
         throw new Error("--executionMode in-process does not support --autoModel; use subprocess for LLM runs");
     }
@@ -354,14 +464,29 @@ function printHelp(): void {
         "  --llmSessionCacheDir <path>       Reuse SemanticFlow LLM item/decision cache",
         "  --llmSessionCacheMode <mode>      Cache mode: off, read, write, rw",
         "  --maxLlmItems <n>                 Max SemanticFlow LLM items per source directory",
+        "  --semanticflowMaxRuleCandidates <n> Max project rule candidates sent to SemanticFlow LLM; 0 means no cap",
         "  --arkMainMaxCandidates <n>        Max ArkMain candidates for SemanticFlow",
         "  --publish-model <name>            Publish model override for SemanticFlow",
+        "  --model-root <dir>                Load model rule catalog root",
+        "  --semanticflow-evaluation-model-root <dir> Load generated SemanticFlow project assets",
+        "  --enable-model <id[,id...]>       Enable selected model packs",
+        "  --disable-model <id[,id...]>      Disable selected model packs",
+        "  --project <path>                  Load an explicit project rule JSON file",
+        "  --module-spec <path[,path...]>    Load explicit module modeling file(s)",
+        "  --plugins <path[,path...]>        Load engine plugin file(s) or directory roots",
+        "  --disable-plugins <name[,name...]> Disable selected engine plugins",
+        "  --plugin-isolate <name[,name...]> Isolate selected engine plugins",
+        "  --plugin-dry-run                  Load plugins without applying side effects",
+        "  --plugin-audit                    Enable plugin audit mode",
         "  --concurrency <n>                 SemanticFlow LLM concurrency",
+        "  --profile <fast|default|strict>   Analyze profile passed to each project",
         "  --reportMode <full|light>         Analyze report mode",
         "  --entryModel <arkMain|explicit>   Entry model for final analyze",
         "  --maxEntries <n>                  Analyze max entries",
         "  --worklistBudgetMs <n>            Per-entry propagation budget in ms; 0 disables",
         "  --worklistMaxVisited <n>          Per-entry visited-fact cap; 0 disables",
+        "  --stopOnFirstFlow                 Stop an entry after the first detected flow",
+        "  --maxFlowsPerEntry <n>            Limit flow materialization per entry",
         "  --incremental                     Keep incremental mode enabled",
         "  --skipExisting                    Skip project if summary already exists",
         "  --rerunRecorded                  Re-run projects already present in batch_runs.jsonl",
@@ -984,19 +1109,50 @@ function buildAnalyzeArgs(repo: string, outputDir: string, opts: Options, source
         "--worklistMaxVisited", String(opts.worklistMaxVisited),
         "--executionHandoff", opts.executionHandoff,
         "--currentness", opts.currentness,
+        "--profile", opts.profile,
         "--reportMode", opts.reportMode,
         "--flowMode", opts.flowMode,
+        "--semanticAssetReachabilityScope", opts.semanticAssetReachabilityScope,
         "--entryModel", opts.entryModel,
         "--outputDir", outputDir,
     ];
     if (opts.k !== undefined) {
         args.push("--k", String(opts.k));
     }
+    if (opts.projectRulePath) {
+        args.push("--project", opts.projectRulePath);
+    }
+    if (opts.moduleFiles.length > 0) {
+        args.push("--module-spec", opts.moduleFiles.join(","));
+    }
+    if (opts.pluginPaths.length > 0) {
+        args.push("--plugins", opts.pluginPaths.join(","));
+    }
+    if (opts.disabledPluginNames.length > 0) {
+        args.push("--disable-plugins", opts.disabledPluginNames.join(","));
+    }
+    if (opts.pluginIsolate.length > 0) {
+        args.push("--plugin-isolate", opts.pluginIsolate.join(","));
+    }
+    if (opts.pluginDryRun) {
+        args.push("--plugin-dry-run");
+    }
+    if (opts.pluginAudit) {
+        args.push("--plugin-audit");
+    }
+    if (opts.stopOnFirstFlow) {
+        args.push("--stopOnFirstFlow");
+    }
+    if (opts.maxFlowsPerEntry > 0) {
+        args.push("--maxFlowsPerEntry", String(opts.maxFlowsPerEntry));
+    }
     if (sourceDirs && sourceDirs.length > 0) {
         args.push("--sourceDir", sourceDirs.join(","));
     }
     if (opts.noIncremental) {
         args.push("--no-incremental");
+    } else {
+        args.push("--incremental");
     }
     if (opts.autoModel) {
         args.push("--autoModel");
@@ -1024,12 +1180,27 @@ function buildAnalyzeArgs(repo: string, outputDir: string, opts: Options, source
             "--maxLlmItems", String(opts.maxLlmItems),
             "--concurrency", String(opts.concurrency),
         );
+        if (opts.semanticflowMaxRuleCandidates > 0) {
+            args.push("--semanticflowMaxRuleCandidates", String(opts.semanticflowMaxRuleCandidates));
+        }
         if (opts.arkMainMaxCandidates > 0) {
             args.push("--arkMainMaxCandidates", String(opts.arkMainMaxCandidates));
         }
         if (opts.publishModel) {
             args.push("--publish-model", opts.publishModel);
         }
+    }
+    for (const root of opts.modelRoots) {
+        args.push("--model-root", root);
+    }
+    for (const root of opts.semanticflowEvaluationModelRoots) {
+        args.push("--semanticflow-evaluation-model-root", root);
+    }
+    for (const modelId of opts.enabledModels) {
+        args.push("--enable-model", modelId);
+    }
+    for (const modelId of opts.disabledModels) {
+        args.push("--disable-model", modelId);
     }
     return args;
 }

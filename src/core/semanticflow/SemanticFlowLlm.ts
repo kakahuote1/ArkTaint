@@ -289,7 +289,8 @@ function collectReceiverFieldCarrierEvidence(input: SemanticFlowDecisionInput): 
         }
         for (const match of text.matchAll(/\bthis\.([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)/g)) {
             const field = match[1]?.trim();
-            if (field) {
+            const next = text.slice((match.index || 0) + match[0].length);
+            if (field && !/^\s*\(/.test(next)) {
                 fields.add(field);
             }
         }

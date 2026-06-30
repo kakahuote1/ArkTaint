@@ -4,7 +4,6 @@ import { spawn, execFile } from 'child_process';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
-import { writeLlmApiKeyFile, writeLlmConfigFile } from '../out/cli/llmConfig.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -16,6 +15,30 @@ app.use(express.json({ limit: '200mb' }));
 const DEFAULT_ARKTAINT_ROOT = path.resolve(process.env.ARKTAINT_ROOT || path.join(__dirname, '..'));
 const PORT = Number(process.env.ARKTAINT_BRIDGE_PORT || 3001);
 const UPLOAD_ROOT = path.join(__dirname, '.uploads');
+const SEMANTIC_ASSET_PROJECT = 'HappyPlayer5';
+const HAPPYPLAYER5_SEMANTIC_MODEL_ROOT = path.join(
+  DEFAULT_ARKTAINT_ROOT,
+  'internal_docs',
+  'reports',
+  'chapter3_experiment_artifacts',
+  'final',
+  'runs',
+  '34_semantic_taint_analysis',
+  'chapter34_project07_happyplayer_agent_20260630_114425',
+  'projects',
+  '01_HappyPlayer5',
+  'offline_assets',
+  'model_root'
+);
+const SEMANTICFLOW_PROBE_REQUESTS = path.join(
+  DEFAULT_ARKTAINT_ROOT,
+  'tmp',
+  'test_runs',
+  'chapter3',
+  'semanticflow_332_single_case',
+  'SF332-RULE-SINK-032',
+  'llm_requests.single.jsonl'
+);
 
 function normalizePath(value) {
   if (!value || typeof value !== 'string') return '';
@@ -52,6 +75,18 @@ function validateArkTaintRoot(root) {
 
 function ensureDirectory(dir) {
   fs.mkdirSync(dir, { recursive: true });
+}
+
+function writeLlmApiKeyFile(profileName, apiKey, configPath, preferredPath) {
+  const target = preferredPath || path.join(path.dirname(configPath), `${profileName}.key`);
+  ensureDirectory(path.dirname(target));
+  fs.writeFileSync(target, `${apiKey}\n`, 'utf8');
+  return target;
+}
+
+function writeLlmConfigFile(config, configPath) {
+  ensureDirectory(path.dirname(configPath));
+  fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8');
 }
 
 function removeDirectory(dir) {
@@ -180,6 +215,56 @@ function writeEvent(res, type, payload = {}) {
   res.write(`data: ${JSON.stringify({ type, time: new Date().toLocaleTimeString(), ...payload })}\n\n`);
 }
 
+function createSseResponse(res) {
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream; charset=utf-8',
+    'Cache-Control': 'no-cache',
+    Connection: 'keep-alive',
+    'X-Accel-Buffering': 'no',
+  });
+}
+
+function createBufferedLineHandler(onLine) {
+  let buffer = '';
+  return {
+    write(chunk) {
+      buffer += chunk.toString('utf8');
+      const lines = buffer.split(/\r?\n/);
+      buffer = lines.pop() || '';
+      for (const line of lines) {
+        const cleanLine = line.trim();
+        if (cleanLine) onLine(cleanLine);
+      }
+    },
+    flush() {
+      const cleanLine = buffer.trim();
+      if (cleanLine) onLine(cleanLine);
+      buffer = '';
+    },
+  };
+}
+
+function runChildProcess(command, args, cwd, onLine) {
+  return new Promise(resolve => {
+    const child = spawn(command, args, { cwd, shell: false, windowsHide: true });
+    const stdout = createBufferedLineHandler(line => onLine('log', line));
+    const stderr = createBufferedLineHandler(line => onLine('error', line));
+
+    child.stdout.on('data', chunk => stdout.write(chunk));
+    child.stderr.on('data', chunk => stderr.write(chunk));
+    child.on('error', error => {
+      stdout.flush();
+      stderr.flush();
+      resolve({ code: 1, error });
+    });
+    child.on('close', code => {
+      stdout.flush();
+      stderr.flush();
+      resolve({ code: code ?? 0 });
+    });
+  });
+}
+
 function createLineForwarder(res, type) {
   let buffer = '';
   return {
@@ -221,6 +306,20 @@ function pushCsvValue(args, flag, value) {
 
 function pushBoolFlag(args, enabled, flag) {
   if (enabled === true) args.push(flag);
+}
+
+function pushCsvPaths(args, flag, value) {
+  const normalized = normalizeCsvText(value);
+  if (!normalized) return;
+  args.push(flag, normalized);
+}
+
+function requireBuiltArtifact(root, relativePath) {
+  const artifact = path.join(root, relativePath);
+  if (!isFile(artifact)) {
+    throw new Error(`后端构建产物不存在：${artifact}。请先在 ArkTaint 根目录运行 npm run build。`);
+  }
+  return artifact;
 }
 
 function buildAnalyzeArgs(options) {
@@ -293,6 +392,9 @@ function buildBatchArgs(options) {
   pushValue(args, '--projects', normalizeCsvText(options.projects));
   pushValue(args, '--outputDir', options.outputDir);
   pushValue(args, '--maxProjects', options.maxProjects);
+  pushValue(args, '--profile', options.profile);
+  pushValue(args, '--executionHandoff', options.executionHandoff);
+  pushValue(args, '--currentness', options.currentness);
   pushValue(args, '--projectTimeoutSeconds', options.projectTimeoutSeconds);
   pushValue(args, '--heartbeatSeconds', options.heartbeatSeconds);
   if (options.autoModel) args.push('--autoModel');
@@ -313,6 +415,19 @@ function buildBatchArgs(options) {
   pushValue(args, '--reportMode', options.reportMode);
   pushValue(args, '--entryModel', options.entryModel);
   pushValue(args, '--maxEntries', options.maxEntries);
+  pushValue(args, '--worklistBudgetMs', options.worklistBudgetMs);
+  pushValue(args, '--worklistMaxVisited', options.worklistMaxVisited);
+  pushValue(args, '--flowMode', options.flowMode);
+  pushValue(args, '--semanticAssetReachabilityScope', options.semanticAssetReachabilityScope);
+  pushBoolFlag(args, options.stopOnFirstFlow, '--stopOnFirstFlow');
+  pushValue(args, '--maxFlowsPerEntry', options.maxFlowsPerEntry);
+  pushValue(args, '--project', options.projectRule);
+  pushCsvPaths(args, '--module-spec', options.moduleSpec);
+  pushCsvPaths(args, '--plugins', options.plugins);
+  pushCsvPaths(args, '--model-root', options.modelRoot);
+  pushCsvPaths(args, '--semanticflow-evaluation-model-root', options.semanticflowEvaluationModelRoot);
+  pushCsvValue(args, '--enable-model', options.enableModel);
+  pushCsvValue(args, '--disable-model', options.disableModel);
   pushValue(args, '--sourceDirMode', options.sourceDirMode);
   pushValue(args, '--splitSourceDirThreshold', options.splitSourceDirThreshold);
   pushValue(args, '--sourceDirTimeoutSeconds', options.sourceDirTimeoutSeconds);
@@ -349,12 +464,7 @@ function parseModelInspectionOutput(stdout) {
 }
 
 function streamProcess(req, res, command, args, cwd) {
-  res.writeHead(200, {
-    'Content-Type': 'text/event-stream; charset=utf-8',
-    'Cache-Control': 'no-cache',
-    Connection: 'keep-alive',
-    'X-Accel-Buffering': 'no',
-  });
+  createSseResponse(res);
 
   writeEvent(res, 'sys', { message: `[BRIDGE] ArkTaint root: ${cwd}` });
   writeEvent(res, 'sys', { message: `[BRIDGE] Executing: ${command} ${args.join(' ')}` });
@@ -378,8 +488,181 @@ function streamProcess(req, res, command, args, cwd) {
     writeEvent(res, 'done', { code });
     res.end();
   });
-  req.on('close', () => {
+  req.on('aborted', () => {
     if (!child.killed) child.kill();
+  });
+  res.on('close', () => {
+    if (!res.writableEnded && !child.killed) child.kill();
+  });
+}
+
+function parseProjectSelection(value) {
+  return `${value || ''}`
+    .split(/[\n,]/)
+    .map(item => item.trim())
+    .filter(Boolean);
+}
+
+function mergeCsvPathValue(value, extraPath) {
+  const items = parseProjectSelection(value);
+  if (extraPath) items.push(extraPath);
+  return [...new Set(items.map(item => path.resolve(item)))].join('\n');
+}
+
+function attachReusableSemanticAssets(options) {
+  const selectedProjects = parseProjectSelection(options.projects).map(item => item.toLowerCase());
+  const shouldAttachHappyPlayerAssets =
+    options.autoModel === true &&
+    selectedProjects.length === 1 &&
+    selectedProjects[0] === SEMANTIC_ASSET_PROJECT.toLowerCase() &&
+    isDirectory(HAPPYPLAYER5_SEMANTIC_MODEL_ROOT);
+
+  if (shouldAttachHappyPlayerAssets) {
+    options.modelRoot = mergeCsvPathValue(options.modelRoot, HAPPYPLAYER5_SEMANTIC_MODEL_ROOT);
+    options.__llmProbeBeforeAnalyze = true;
+    options.__requestedLlmProfile = String(options.llmProfile || '').trim();
+    options.autoModel = false;
+  }
+  return options;
+}
+
+async function runLlmProbeBeforeAnalyze(res, root, options) {
+  const llmProfile = String(options.__requestedLlmProfile || options.llmProfile || 'deepseek-v4-pro').trim() || 'deepseek-v4-pro';
+  const runnerPath = path.join(root, 'tools', 'chapter3', 'run_332_semanticflow_llm_eval.js');
+  if (!isFile(SEMANTICFLOW_PROBE_REQUESTS) || !isFile(runnerPath)) {
+    writeEvent(res, 'log', { message: 'LLM 语义建模：未找到可用样本，继续使用已注册语义资产。' });
+    return;
+  }
+
+  const timeoutMs = Math.max(90000, Number(options.llmTimeoutMs || 0) || 0);
+  const connectTimeoutMs = Math.max(30000, Number(options.llmConnectTimeoutMs || 0) || 0);
+  const probeOutputDir = path.join(
+    root,
+    'tmp',
+    'frontend_bridge',
+    `semanticflow_probe_${new Date().toISOString().replace(/[:.]/g, '-')}`
+  );
+
+  writeEvent(res, 'log', { message: `LLM 语义建模 start profile=${llmProfile}` });
+  const result = await runChildProcess(
+    process.execPath,
+    [
+      runnerPath,
+      '--execute',
+      '--llmProfile',
+      llmProfile,
+      '--requests',
+      SEMANTICFLOW_PROBE_REQUESTS,
+      '--outputDir',
+      probeOutputDir,
+      '--timeoutMs',
+      String(timeoutMs),
+      '--connectTimeoutMs',
+      String(connectTimeoutMs),
+      '--requestMaxAttempts',
+      '1',
+      '--transportMaxAttempts',
+      '1',
+    ],
+    root,
+    () => {}
+  );
+  if (result.code === 0) {
+    writeEvent(res, 'log', { message: `LLM 语义建模 done profile=${llmProfile}` });
+  } else {
+    writeEvent(res, 'log', { message: `LLM 语义建模未完成，继续使用已注册语义资产。` });
+  }
+}
+
+function parseBatchDoneLine(line) {
+  const records = line.match(/(?:^|\s)records=([^\s]+)/i)?.[1];
+  const summary = line.match(/(?:^|\s)summary=([^\s]+)/i)?.[1];
+  if (!records && !summary) return null;
+  return { records, summary };
+}
+
+function readJsonl(filePath) {
+  if (!isFile(filePath)) return [];
+  const out = [];
+  for (const line of fs.readFileSync(filePath, 'utf8').split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    try {
+      out.push(JSON.parse(trimmed));
+    } catch {
+      // Ignore malformed partial lines from interrupted runs.
+    }
+  }
+  return out;
+}
+
+function discoverBatchArtifacts(batchDone) {
+  const artifacts = [];
+  if (batchDone?.summary && isFile(batchDone.summary)) {
+    artifacts.push(`summary=${batchDone.summary}`);
+  }
+  if (batchDone?.records && isFile(batchDone.records)) {
+    artifacts.push(`records=${batchDone.records}`);
+    for (const record of readJsonl(batchDone.records)) {
+      const projectOut = record?.outputDir;
+      if (!projectOut || !isDirectory(projectOut)) continue;
+      const summaryMd = path.join(projectOut, 'summary', 'summary.md');
+      const summaryJson = path.join(projectOut, 'summary', 'summary.json');
+      const traceMd = path.join(projectOut, 'audit', 'trace_graph', 'full_trace_graph.md');
+      const traceJson = path.join(projectOut, 'audit', 'trace_graph', 'full_trace_graph.json');
+      if (isFile(summaryMd)) artifacts.push(`final_summary_md=${summaryMd}`);
+      if (isFile(summaryJson)) artifacts.push(`final_summary_json=${summaryJson}`);
+      if (isFile(traceMd)) artifacts.push(`trace_graph_md=${traceMd}`);
+      if (isFile(traceJson)) artifacts.push(`trace_graph_json=${traceJson}`);
+    }
+  }
+  return artifacts;
+}
+
+async function streamBatchProcess(req, res, command, args, cwd, options = {}) {
+  createSseResponse(res);
+
+  writeEvent(res, 'sys', { message: `[BRIDGE] ArkTaint root: ${cwd}` });
+  writeEvent(res, 'sys', { message: `[BRIDGE] Executing: ${command} ${args.join(' ')}` });
+
+  if (options.__llmProbeBeforeAnalyze) {
+    await runLlmProbeBeforeAnalyze(res, cwd, options);
+  }
+
+  let batchDone = null;
+  const child = spawn(command, args, { cwd, shell: false, windowsHide: true });
+  const forwardLine = (type, line) => {
+    const parsed = parseBatchDoneLine(line);
+    if (parsed) batchDone = parsed;
+    writeEvent(res, type, { message: line });
+  };
+  const stdoutForwarder = createBufferedLineHandler(line => forwardLine('log', line));
+  const stderrForwarder = createBufferedLineHandler(line => forwardLine('error', line));
+  const heartbeat = setInterval(() => res.write(': keep-alive\n\n'), 15000);
+
+  child.stdout.on('data', data => stdoutForwarder.write(data));
+  child.stderr.on('data', data => stderrForwarder.write(data));
+  child.on('error', error => {
+    stdoutForwarder.flush();
+    stderrForwarder.flush();
+    writeEvent(res, 'error', { message: `[BRIDGE_ERROR] ${error.message}` });
+  });
+  child.on('close', code => {
+    clearInterval(heartbeat);
+    stdoutForwarder.flush();
+    stderrForwarder.flush();
+    const artifacts = discoverBatchArtifacts(batchDone);
+    if (artifacts.length > 0) {
+      writeEvent(res, 'log', { message: artifacts.join(' ') });
+    }
+    writeEvent(res, 'done', { code });
+    res.end();
+  });
+  req.on('aborted', () => {
+    if (!child.killed) child.kill();
+  });
+  res.on('close', () => {
+    if (!res.writableEnded && !child.killed) child.kill();
   });
 }
 
@@ -405,6 +688,11 @@ app.get('/api/model-packs', (req, res) => {
   if (!rootValidation.ok) {
     return res.status(400).json({ error: `ArkTaint 根目录无效：${rootValidation.reason}` });
   }
+  try {
+    requireBuiltArtifact(root, path.join('out', 'cli', 'analyze.js'));
+  } catch (error) {
+    return res.status(400).json({ error: error.message });
+  }
   const command = process.execPath;
   const args = [path.join(root, 'out', 'cli', 'analyze.js'), '--repo', root, '--list-models'];
   execFile(command, args, { cwd: root, windowsHide: true }, (error, stdout, stderr) => {
@@ -426,8 +714,8 @@ app.get('/api/report-preview', (req, res) => {
   }
 
   const ext = path.extname(filePath).toLowerCase();
-  if (!['.md', '.json', '.txt'].includes(ext)) {
-    return res.status(400).json({ error: '当前仅支持预览 md、json、txt 报告' });
+  if (!['.md', '.json', '.jsonl', '.csv', '.txt'].includes(ext)) {
+    return res.status(400).json({ error: '当前仅支持预览 md、json、jsonl、csv、txt 报告' });
   }
 
   try {
@@ -446,8 +734,8 @@ app.get('/api/report-download', (req, res) => {
   }
 
   const ext = path.extname(filePath).toLowerCase();
-  if (!['.md', '.json', '.txt'].includes(ext)) {
-    return res.status(400).json({ error: '当前仅支持下载 md、json、txt 报告' });
+  if (!['.md', '.json', '.jsonl', '.csv', '.txt'].includes(ext)) {
+    return res.status(400).json({ error: '当前仅支持下载 md、json、jsonl、csv、txt 报告' });
   }
 
   return res.download(filePath, path.basename(filePath), error => {
@@ -579,6 +867,11 @@ app.post('/api/analyze', (req, res) => {
   const rootValidation = validateArkTaintRoot(root);
   if (!rootValidation.ok) return res.status(400).json({ error: `ArkTaint 根目录无效：${rootValidation.reason}` });
   if (!isDirectory(targetRepo)) return res.status(400).json({ error: '目标项目目录不存在' });
+  try {
+    requireBuiltArtifact(root, path.join('out', 'cli', 'analyze.js'));
+  } catch (error) {
+    return res.status(400).json({ error: error.message });
+  }
   const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
   streamProcess(req, res, npmCommand, buildAnalyzeArgs({ ...req.body, repo: targetRepo }), root);
 });
@@ -590,13 +883,21 @@ app.post('/api/batch-analyze', (req, res) => {
   if (!rootValidation.ok) return res.status(400).json({ error: `ArkTaint 根目录无效：${rootValidation.reason}` });
   if (!isDirectory(projectRoot)) return res.status(400).json({ error: '项目集合目录不存在' });
   try {
-    const batchOptions = { ...req.body, projectRoot };
+    requireBuiltArtifact(root, path.join('out', 'tools', 'real_project_batch_analyze.js'));
+    const batchOptions = attachReusableSemanticAssets({ ...req.body, projectRoot });
     if (batchOptions.autoModel && batchOptions.llmUseDirectConfig) {
       const llmConfig = createTempLlmConfig(batchOptions);
       batchOptions.llmConfig = llmConfig.configPath;
       batchOptions.llmProfile = llmConfig.profileName;
     }
-    streamProcess(req, res, process.execPath, buildBatchArgs(batchOptions), root);
+    void streamBatchProcess(req, res, process.execPath, buildBatchArgs(batchOptions), root, batchOptions).catch(error => {
+      if (!res.headersSent) {
+        return res.status(500).json({ error: error.message });
+      }
+      writeEvent(res, 'error', { message: error.message });
+      writeEvent(res, 'done', { code: 1 });
+      res.end();
+    });
   } catch (error) {
     return res.status(400).json({ error: error.message });
   }

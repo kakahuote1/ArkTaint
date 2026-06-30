@@ -267,6 +267,7 @@ export async function runAnalyzeCliCommand(options: CliOptions): Promise<void> {
             llmMaxFailures: options.llmMaxFailures,
             llmRepairAttempts: options.llmRepairAttempts,
             maxLlmItems: options.maxLlmItems,
+            maxRuleCandidates: options.semanticflowMaxRuleCandidates,
         });
         console.log("auto_model_phase=semanticflow done");
         syncAutoModeledArtifacts(options.outputDir);

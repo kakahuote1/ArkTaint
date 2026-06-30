@@ -139,6 +139,23 @@ function main(): void {
     assert(resolved.status === "accepted", `project declaration should resolve from loaded registry, got ${resolved.status}:${resolved.reason}`);
     assert(resolved.canonicalApiId === projectDescriptor.canonicalApiId, "loaded registry must resolve the project descriptor ID");
 
+    const arkanalyzerShortPathResolved = registry.resolveProjectDeclarationKey({
+        file: "@ets/security/Vault.ets",
+        exportPath: ["named:Vault"],
+        ownerPath: ["Vault"],
+        memberName: "put",
+        parameterTypes: ["string", "SecretValue"],
+        returnType: "Promise<void>",
+    });
+    assert(
+        arkanalyzerShortPathResolved.status === "accepted",
+        `project declaration should resolve the same source file from Arkanalyzer short path, got ${arkanalyzerShortPathResolved.status}:${arkanalyzerShortPathResolved.reason}`,
+    );
+    assert(
+        arkanalyzerShortPathResolved.canonicalApiId === projectDescriptor.canonicalApiId,
+        "src/main/ets and @ets source path forms must resolve to the same project descriptor ID",
+    );
+
     const unknown = buildProjectDeclarationRegistry([
         projectDeclaration({
             signature: {

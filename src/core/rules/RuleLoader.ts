@@ -107,6 +107,7 @@ type RuleBundleKind = "sources" | "sinks" | "sanitizers" | "transfers";
 interface LoadedRuleSourceEntry {
     ruleSet: TaintRuleSet;
     assets: AssetDocumentBase[];
+    assetLoadModes: Map<string, AnalysisAssetLoadMode>;
     knownFiles: string[];
 }
 
@@ -370,9 +371,29 @@ function mergeAssetsById(base: AssetDocumentBase[], override: AssetDocumentBase[
     return mergeById(base, override);
 }
 
-function buildAssetIdentityIndex(assets: AssetDocumentBase[], canonicalApiRegistry: CanonicalApiRegistry): AssetIdentityIndex {
+function mergeAssetLoadModes(
+    base: Map<string, AnalysisAssetLoadMode>,
+    override: Map<string, AnalysisAssetLoadMode>,
+): Map<string, AnalysisAssetLoadMode> {
+    const out = new Map(base);
+    for (const [assetId, mode] of override) {
+        const existing = out.get(assetId);
+        if (existing && existing !== mode) {
+            throw new Error(`asset ${assetId} loaded with conflicting analysis modes: ${existing} vs ${mode}`);
+        }
+        out.set(assetId, mode);
+    }
+    return out;
+}
+
+function buildAssetIdentityIndex(
+    assets: AssetDocumentBase[],
+    canonicalApiRegistry: CanonicalApiRegistry,
+    assetLoadModes?: Map<string, AnalysisAssetLoadMode>,
+): AssetIdentityIndex {
     const index = createAssetIdentityIndex({
         canonicalApiRegistry,
+        assetLoadModes,
     });
     for (const asset of assets) {
         index.addAsset(asset);
@@ -569,6 +590,7 @@ function loadAndValidateRuleAssetFile(
     return {
         ruleSet: lowered.ruleSet,
         assets: [asset],
+        assetLoadModes: new Map([[asset.id, resolveRuleAssetLoadMode(absPath, evaluationRoots)]]),
         knownFiles: [absPath],
     };
 }
@@ -584,6 +606,7 @@ function loadAndValidateKindFile(
     return {
         ruleSet: loaded.ruleSet,
         assets: loaded.assets,
+        assetLoadModes: loaded.assetLoadModes,
         knownFiles: loaded.knownFiles,
     };
 }
@@ -596,6 +619,7 @@ function loadAndValidateRuleFiles(
 ): LoadedRuleSourceEntry {
     let merged = buildEmptyRuleSet();
     let assets: AssetDocumentBase[] = [];
+    let assetLoadModes = new Map<string, AnalysisAssetLoadMode>();
     const knownFiles: string[] = [];
     for (const file of files) {
         const loaded = kind
@@ -603,13 +627,14 @@ function loadAndValidateRuleFiles(
             : loadAndValidateRuleAssetFile(sourceName, file, evaluationRoots);
         merged = normalizeRules(mergeRuleSets(merged, loaded.ruleSet));
         assets = mergeAssetsById(assets, loaded.assets);
+        assetLoadModes = mergeAssetLoadModes(assetLoadModes, loaded.assetLoadModes);
         for (const knownFile of loaded.knownFiles) {
             if (!knownFiles.includes(knownFile)) {
                 knownFiles.push(knownFile);
             }
         }
     }
-    return { ruleSet: merged, assets, knownFiles };
+    return { ruleSet: merged, assets, assetLoadModes, knownFiles };
 }
 
 function loadAndValidateRuleSourceEntry(
@@ -632,6 +657,7 @@ function loadAndValidateRuleSourceEntry(
 
     let merged = buildEmptyRuleSet();
     let assets: AssetDocumentBase[] = [];
+    let assetLoadModes = new Map<string, AnalysisAssetLoadMode>();
     const knownFiles: string[] = [];
     for (const { kind, dir } of kindDirs) {
         const files = listRuleJsonFilesRecursive(dir);
@@ -641,6 +667,7 @@ function loadAndValidateRuleSourceEntry(
         const member = loadAndValidateRuleFiles(sourceName, files, kind, evaluationRoots);
         merged = normalizeRules(mergeRuleSets(merged, member.ruleSet));
         assets = mergeAssetsById(assets, member.assets);
+        assetLoadModes = mergeAssetLoadModes(assetLoadModes, member.assetLoadModes);
         for (const file of member.knownFiles) {
             if (!knownFiles.includes(file)) {
                 knownFiles.push(file);
@@ -651,6 +678,7 @@ function loadAndValidateRuleSourceEntry(
     return {
         ruleSet: merged,
         assets,
+        assetLoadModes,
         knownFiles,
     };
 }
@@ -767,6 +795,7 @@ export function loadRuleSet(options: RuleLoaderOptions = {}): LoadedRuleSet {
     const knownRuleFiles: string[] = [];
     let merged = buildEmptyRuleSet();
     let mergedAssets: AssetDocumentBase[] = [];
+    let mergedAssetLoadModes = new Map<string, AnalysisAssetLoadMode>();
     const appliedRuleSources: RuleSourceName[] = [];
     const ruleSourceStatus: RuleSourceStatus[] = [];
 
@@ -783,6 +812,7 @@ export function loadRuleSet(options: RuleLoaderOptions = {}): LoadedRuleSet {
         const explicitKernelRules = loadAndValidateRuleSourceEntry("kernel", explicitKernelRulePath, evaluationRoots);
         mergeKnownFiles(knownRuleFiles, explicitKernelRules.knownFiles);
         mergedAssets = mergeAssetsById(mergedAssets, explicitKernelRules.assets);
+        mergedAssetLoadModes = mergeAssetLoadModes(mergedAssetLoadModes, explicitKernelRules.assetLoadModes);
         merged = normalizeRules(mergeRuleSets(merged, normalizeLoadedRuleFamilies(
             explicitKernelRules.ruleSet,
             { kind: "builtin_kernel_json", path: explicitKernelRulePath },
@@ -804,6 +834,7 @@ export function loadRuleSet(options: RuleLoaderOptions = {}): LoadedRuleSet {
         const loadedKernelPack = loadAndValidateRuleSourceEntry("kernel", kernelRulesDir, evaluationRoots);
         merged = normalizeRules(mergeRuleSets(merged, loadedKernelPack.ruleSet));
         mergedAssets = mergeAssetsById(mergedAssets, loadedKernelPack.assets);
+        mergedAssetLoadModes = mergeAssetLoadModes(mergedAssetLoadModes, loadedKernelPack.assetLoadModes);
         mergeKnownFiles(kernelKnownFiles, loadedKernelPack.knownFiles);
         ruleSourceStatus.push({
             name: "kernel",
@@ -874,6 +905,7 @@ export function loadRuleSet(options: RuleLoaderOptions = {}): LoadedRuleSet {
         const rawPackRules = loadAndValidateRuleFiles("project", spec.files, undefined, evaluationRoots);
         mergeKnownFiles(knownRuleFiles, rawPackRules.knownFiles);
         mergedAssets = mergeAssetsById(mergedAssets, rawPackRules.assets);
+        mergedAssetLoadModes = mergeAssetLoadModes(mergedAssetLoadModes, rawPackRules.assetLoadModes);
         const sourceRules = normalizeLoadedRuleFamilies(rawPackRules.ruleSet, {
             kind: "builtin_project_pack_json",
             path: packRootPath,
@@ -911,6 +943,7 @@ export function loadRuleSet(options: RuleLoaderOptions = {}): LoadedRuleSet {
             const rawProjectRules = loadAndValidateRuleSourceEntry("project", projectPath, evaluationRoots);
             mergeKnownFiles(knownRuleFiles, rawProjectRules.knownFiles);
             mergedAssets = mergeAssetsById(mergedAssets, rawProjectRules.assets);
+            mergedAssetLoadModes = mergeAssetLoadModes(mergedAssetLoadModes, rawProjectRules.assetLoadModes);
             merged = normalizeRules(mergeRuleSets(merged, normalizeLoadedRuleFamilies(rawProjectRules.ruleSet, {
                 kind: "external_project_json",
                 path: projectPath,
@@ -947,6 +980,7 @@ export function loadRuleSet(options: RuleLoaderOptions = {}): LoadedRuleSet {
             const rawCandidateRules = loadAndValidateRuleSourceEntry("project", candidateRulePath, evaluationRoots);
             mergeKnownFiles(knownRuleFiles, rawCandidateRules.knownFiles);
             mergedAssets = mergeAssetsById(mergedAssets, rawCandidateRules.assets);
+            mergedAssetLoadModes = mergeAssetLoadModes(mergedAssetLoadModes, rawCandidateRules.assetLoadModes);
             merged = normalizeRules(mergeRuleSets(merged, normalizeLoadedRuleFamilies(rawCandidateRules.ruleSet, {
                 kind: "llm_candidate_json",
                 path: candidateRulePath,
@@ -979,6 +1013,7 @@ export function loadRuleSet(options: RuleLoaderOptions = {}): LoadedRuleSet {
         const extraRules = loadAndValidateRuleSourceEntry("extra", absPath, evaluationRoots);
         mergeKnownFiles(knownRuleFiles, extraRules.knownFiles);
         mergedAssets = mergeAssetsById(mergedAssets, extraRules.assets);
+        mergedAssetLoadModes = mergeAssetLoadModes(mergedAssetLoadModes, extraRules.assetLoadModes);
         merged = normalizeRules(mergeRuleSets(merged, normalizeLoadedRuleFamilies(extraRules.ruleSet, {
             kind: "user_project_extra_json",
             path: absPath,
@@ -1016,7 +1051,7 @@ export function loadRuleSet(options: RuleLoaderOptions = {}): LoadedRuleSet {
         baseRegistry: resolveCanonicalApiRegistryForRuleLoad(options),
         assets: mergedAssets,
     });
-    const assetIdentityIndex = buildAssetIdentityIndex(mergedAssets, canonicalApiRegistry);
+    const assetIdentityIndex = buildAssetIdentityIndex(mergedAssets, canonicalApiRegistry, mergedAssetLoadModes);
 
     return {
         ruleSet: merged,

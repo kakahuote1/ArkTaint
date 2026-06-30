@@ -7,6 +7,7 @@ export type AnalyzeProfile = "default" | "strict" | "fast";
 export type ReportMode = "light" | "full";
 export type FlowMode = "postsolve" | "candidate" | "raw";
 export type AnalyzeEntryModel = "arkMain" | "explicit";
+export type SemanticAssetReachabilityScope = "reachable" | "allExactSites";
 
 export interface CliOptions {
     repo: string;
@@ -26,6 +27,7 @@ export interface CliOptions {
     llmMaxFailures?: number;
     llmRepairAttempts?: number;
     maxLlmItems?: number;
+    semanticflowMaxRuleCandidates?: number;
     arkMainMaxCandidates?: number;
     listModules?: boolean;
     listModels?: boolean;
@@ -39,6 +41,7 @@ export interface CliOptions {
     disabledModuleIds?: string[];
     enabledModels?: string[];
     disabledModels?: string[];
+    moduleFiles?: string[];
     pluginPaths?: string[];
     disabledPluginNames?: string[];
     pluginIsolate?: string[];
@@ -50,6 +53,7 @@ export interface CliOptions {
     maxEntries: number;
     reportMode: ReportMode;
     flowMode: FlowMode;
+    semanticAssetReachabilityScope?: SemanticAssetReachabilityScope;
     outputDir: string;
     concurrency: number;
     incremental: boolean;
@@ -91,6 +95,7 @@ export function parseArgs(argv: string[]): CliOptions {
     let llmMaxFailures: number | undefined;
     let llmRepairAttempts: number | undefined;
     let maxLlmItems: number | undefined;
+    let semanticflowMaxRuleCandidates: number | undefined;
     let arkMainMaxCandidates: number | undefined;
     let listModules = false;
     let listModels = false;
@@ -104,6 +109,7 @@ export function parseArgs(argv: string[]): CliOptions {
     let disabledModuleIds: string[] = [];
     let enabledModels: string[] = [];
     let disabledModels: string[] = [];
+    let moduleFiles: string[] = [];
     let pluginPaths: string[] = [];
     let disabledPluginNames: string[] = [];
     let pluginIsolate: string[] = [];
@@ -113,6 +119,7 @@ export function parseArgs(argv: string[]): CliOptions {
     let entryModel: AnalyzeEntryModel = "arkMain";
     let reportMode: ReportMode = "light";
     let flowMode: FlowMode = "postsolve";
+    let semanticAssetReachabilityScope: SemanticAssetReachabilityScope = "reachable";
     let kRaw: number | undefined;
     let maxEntriesRaw: number | undefined;
     let outputDir = "";
@@ -240,6 +247,12 @@ export function parseArgs(argv: string[]): CliOptions {
             if (arg === "--maxLlmItems") i++;
             continue;
         }
+        const semanticflowMaxRuleCandidatesArg = readValue("--semanticflowMaxRuleCandidates");
+        if (semanticflowMaxRuleCandidatesArg !== undefined) {
+            semanticflowMaxRuleCandidates = Number(semanticflowMaxRuleCandidatesArg);
+            if (arg === "--semanticflowMaxRuleCandidates") i++;
+            continue;
+        }
         const arkMainMaxCandidatesArg = readValue("--arkMainMaxCandidates");
         if (arkMainMaxCandidatesArg !== undefined) {
             arkMainMaxCandidates = Number(arkMainMaxCandidatesArg);
@@ -314,6 +327,21 @@ export function parseArgs(argv: string[]): CliOptions {
             if (arg === "--disable-model") i++;
             continue;
         }
+        const moduleSpecArg =
+            readValue("--module-spec")
+            ?? readValue("--moduleSpec")
+            ?? readValue("--module-file")
+            ?? readValue("--moduleFile");
+        if (moduleSpecArg !== undefined) {
+            moduleFiles.push(...splitCsv(moduleSpecArg));
+            if (
+                arg === "--module-spec"
+                || arg === "--moduleSpec"
+                || arg === "--module-file"
+                || arg === "--moduleFile"
+            ) i++;
+            continue;
+        }
         const pluginsArg = readValue("--plugins");
         if (pluginsArg !== undefined) {
             pluginPaths.push(...splitCsv(pluginsArg));
@@ -378,6 +406,18 @@ export function parseArgs(argv: string[]): CliOptions {
                 throw new Error(`invalid --flowMode: ${flowModeArg}`);
             }
             if (arg === "--flowMode" || arg === "--flow-mode") i++;
+            continue;
+        }
+        const semanticAssetReachabilityArg =
+            readValue("--semanticAssetReachabilityScope")
+            ?? readValue("--semantic-asset-reachability");
+        if (semanticAssetReachabilityArg !== undefined) {
+            if (semanticAssetReachabilityArg === "reachable" || semanticAssetReachabilityArg === "allExactSites") {
+                semanticAssetReachabilityScope = semanticAssetReachabilityArg;
+            } else {
+                throw new Error(`invalid --semanticAssetReachabilityScope: ${semanticAssetReachabilityArg}`);
+            }
+            if (arg === "--semanticAssetReachabilityScope" || arg === "--semantic-asset-reachability") i++;
             continue;
         }
         const kArg = readValue("--k");
@@ -541,6 +581,7 @@ export function parseArgs(argv: string[]): CliOptions {
     disabledModuleIds = [...new Set(disabledModuleIds.map(id => id.trim()).filter(Boolean))];
     enabledModels = [...new Set(enabledModels.map(id => id.trim()).filter(Boolean))];
     disabledModels = [...new Set(disabledModels.map(id => id.trim()).filter(Boolean))];
+    moduleFiles = [...new Set(moduleFiles.map(d => path.isAbsolute(d) ? d : path.resolve(d)))];
     pluginPaths = [...new Set(pluginPaths.map(d => path.isAbsolute(d) ? d : path.resolve(d)))];
     disabledPluginNames = [...new Set(disabledPluginNames.map(name => name.trim()).filter(Boolean))];
     pluginIsolate = [...new Set(pluginIsolate.map(name => name.trim()).filter(Boolean))];
@@ -639,6 +680,9 @@ export function parseArgs(argv: string[]): CliOptions {
     if (maxLlmItems !== undefined && (!Number.isFinite(maxLlmItems) || maxLlmItems <= 0)) {
         throw new Error(`invalid --maxLlmItems: ${maxLlmItems}`);
     }
+    if (semanticflowMaxRuleCandidates !== undefined && (!Number.isFinite(semanticflowMaxRuleCandidates) || semanticflowMaxRuleCandidates < 0)) {
+        throw new Error(`invalid --semanticflowMaxRuleCandidates: ${semanticflowMaxRuleCandidates}`);
+    }
 
     if (!outputDir) {
         const repoName = path.basename(normalizedRepo);
@@ -692,6 +736,7 @@ export function parseArgs(argv: string[]): CliOptions {
         llmMaxFailures: llmMaxFailures !== undefined ? Math.floor(llmMaxFailures) : undefined,
         llmRepairAttempts: llmRepairAttempts !== undefined ? Math.floor(llmRepairAttempts) : undefined,
         maxLlmItems: maxLlmItems !== undefined ? Math.floor(maxLlmItems) : undefined,
+        semanticflowMaxRuleCandidates: semanticflowMaxRuleCandidates !== undefined ? Math.floor(semanticflowMaxRuleCandidates) : undefined,
         arkMainMaxCandidates: arkMainMaxCandidates !== undefined ? Math.floor(arkMainMaxCandidates) : undefined,
         listModules,
         listModels,
@@ -705,6 +750,7 @@ export function parseArgs(argv: string[]): CliOptions {
         disabledModuleIds,
         enabledModels,
         disabledModels,
+        moduleFiles,
         pluginPaths,
         disabledPluginNames,
         pluginIsolate,
@@ -714,6 +760,7 @@ export function parseArgs(argv: string[]): CliOptions {
         entryModel,
         reportMode,
         flowMode,
+        semanticAssetReachabilityScope,
         k,
         maxEntries: Math.floor(maxEntries),
         outputDir,

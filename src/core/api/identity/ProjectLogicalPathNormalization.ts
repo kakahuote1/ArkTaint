@@ -1,10 +1,12 @@
 const PROJECT_LOGICAL_SOURCE_ROOTS = [
-    "src/main/ets/",
-    "src/ohostest/ets/",
-    "src/test/ets/",
-    "ets/",
-    "inputs/",
-];
+    { root: "src/main/ets/", normalizedRoot: "ets/" },
+    { root: "ets/", normalizedRoot: "ets/" },
+    { root: "src/ohostest/ets/", normalizedRoot: "ohostest/ets/" },
+    { root: "ohostest/ets/", normalizedRoot: "ohostest/ets/" },
+    { root: "src/test/ets/", normalizedRoot: "test/ets/" },
+    { root: "test/ets/", normalizedRoot: "test/ets/" },
+    { root: "inputs/", normalizedRoot: "inputs/" },
+] as const;
 
 export function normalizeProjectLogicalFilePath(value: string): string {
     const normalized = String(value || "")
@@ -13,10 +15,10 @@ export function normalizeProjectLogicalFilePath(value: string): string {
         .replace(/:\s*$/, "")
         .replace(/^\/+|\/+$/g, "")
         .trim();
-    for (const root of PROJECT_LOGICAL_SOURCE_ROOTS) {
+    for (const { root, normalizedRoot } of PROJECT_LOGICAL_SOURCE_ROOTS) {
         const index = normalized.lastIndexOf(root);
         if (index >= 0) {
-            return normalized.slice(index);
+            return `${normalizedRoot}${normalized.slice(index + root.length)}`;
         }
     }
     return normalized;

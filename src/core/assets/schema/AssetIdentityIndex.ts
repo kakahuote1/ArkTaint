@@ -12,7 +12,7 @@ import type {
 import type { AssetEndpoint, AssetGuard, EndpointRelation, GuardRelation, StructuredCondition } from "./EndpointTypes";
 import type { AssetSurface } from "./SurfaceTypes";
 import type { ValidationResult } from "./CommonTypes";
-import { isTrustedAnalysisAssetStatus } from "./CommonTypes";
+import { isAnalysisLoadableAssetStatus, type AnalysisAssetLoadMode } from "./CommonTypes";
 import { validateAssetDocument } from "./AssetSchemaValidator";
 import type { SemanticEffectTemplate } from "./EffectTemplateTypes";
 import { assertValidCanonicalApiId } from "../../api/identity";
@@ -21,6 +21,7 @@ export interface AssetIdentityIndexOptions {
     canonicalApiRegistry: {
         has(canonicalApiId: string): boolean;
     };
+    assetLoadModes?: Map<string, AnalysisAssetLoadMode>;
 }
 
 export function resolveCanonicalAssetIdentity(surface: AssetSurface): IdentityResult {
@@ -164,7 +165,8 @@ export class AssetIdentityIndex {
                 errors.push(`${asset.id}:${template.id} effectTemplateId conflicts with an existing template`);
             }
         }
-        if (!isTrustedAnalysisAssetStatus(asset.status)) {
+        const loadMode = this.options.assetLoadModes?.get(asset.id) || "trusted-analysis";
+        if (!isAnalysisLoadableAssetStatus(asset.status, loadMode)) {
             if (errors.length > 0) {
                 throw new Error(`invalid asset ${asset.id}: ${errors.join("; ")}`);
             }

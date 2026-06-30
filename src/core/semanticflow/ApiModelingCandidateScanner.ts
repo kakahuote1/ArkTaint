@@ -3,6 +3,7 @@ import * as path from "path";
 import {
     hasArkMainOfficialDeclarationForOwnerKindAndMethod,
 } from "../entry/arkmain/catalog/ArkMainOfficialDeclarationCatalog";
+import { createOfficialCanonicalApiRegistry, fromProjectDeclaration } from "../api/identity";
 import type { NormalizedCallsiteItem } from "../model/callsite/callsiteContextSlices";
 
 export interface ApiModelingCandidateScannerOptions {
@@ -28,6 +29,7 @@ interface MethodCandidate {
     isStatic: boolean;
     argCount: number;
     paramNames: string[];
+    parameterTypes: string[];
     returnType?: string;
     startLine: number;
     code: string;
@@ -101,6 +103,7 @@ const SKIP_DIRS = new Set([
 
 const DATA_ENDPOINT_TOKEN_RE = /\b(payload|body|data|message|msg|content|text|value|values?|params?|query|header|authorization|token|password|passwd|credential|secret|cookie|file|buffer|record|url|uri|server|address|host|endpoint|user|username|key|path)\b/i;
 const STRUCTURAL_EFFECT_METHOD_RE = /\.\s*[A-Za-z_$][\w$]*\s*\(/;
+let officialCanonicalRegistry: ReturnType<typeof createOfficialCanonicalApiRegistry> | undefined;
 
 function normalizeSlashes(value: string): string {
     return String(value || "").replace(/\\/g, "/");
@@ -126,6 +129,9 @@ export function discoverApiCallbackModelingCandidates(
             const callbackProperties = call.callbackProperties.filter(isModelingRelevantCallback);
             if (callbackProperties.length === 0) continue;
             const binding = imports.get(call.callee);
+            if (!binding && isKnownOfficialArkUiComponentCall(call.callee)) {
+                continue;
+            }
             const sourceFile = binding?.resolvedFile || relFile;
             const key = `${call.callee}|${sourceFile}|${callbackProperties.join(",")}`;
             const existing = byKey.get(key);
@@ -183,6 +189,9 @@ export function discoverApiCallbackModelingCandidates(
             const receiverBinding = receiverRoot ? imports.get(receiverRoot) : undefined;
             const receiverMethodEvidence = resolveImportedReceiverMethodEvidence(repoRoot, receiverBinding?.resolvedFile, receiverRoot, call.method);
             const sourceFile = receiverBinding?.resolvedFile || relFile;
+            const identity = receiverMethodEvidence
+                ? buildProjectApiWrapperIdentity(sourceFile, receiverMethodEvidence, receiverMethodEvidence.owner || receiverRoot)
+                : undefined;
             const key = `${call.method}|${sourceFile}|${call.receiver}|${call.callbackArgIndexes.join(",")}`;
             const existing = byKey.get(key);
             const contextSlice = {
@@ -207,9 +216,8 @@ export function discoverApiCallbackModelingCandidates(
                 reasons: buildMethodCallbackCandidateReasons(call),
                 originalIndex: byKey.size,
                 item: {
-                    callee_signature: receiverMethodEvidence
-                        ? buildProjectApiWrapperSignature(sourceFile, receiverMethodEvidence, receiverMethodEvidence.owner || receiverRoot)
-                        : "",
+                    callee_signature: identity?.signature || "",
+                    ...(identity?.canonicalApiId ? { canonicalApiId: identity.canonicalApiId } : {}),
                     method: call.method,
                     invokeKind: receiverMethodEvidence?.isStatic ? "static" : "instance",
                     argCount: call.argCount,
@@ -299,9 +307,12 @@ function buildCallbackCandidateReasons(
 }
 
 function buildResolvedCallbackSurfaceSignature(sourceFile: string, callee: string): string {
-    void sourceFile;
-    void callee;
-    return "";
+    const file = normalizeSlashes(sourceFile);
+    const name = String(callee || "").trim();
+    if (!file || !name) {
+        return "";
+    }
+    return `@${file}: ${name}(Object)`;
 }
 
 export function discoverApiSurfaceModelingCandidates(
@@ -367,8 +378,10 @@ export function discoverApiSurfaceModelingCandidates(
                 continue;
             }
             const sourceFile = relFile;
+            const identity = buildProjectApiWrapperIdentity(relFile, method);
             const baseItem = {
-                callee_signature: buildProjectApiWrapperSignature(relFile, method),
+                callee_signature: identity?.signature || "",
+                ...(identity?.canonicalApiId ? { canonicalApiId: identity.canonicalApiId } : {}),
                 method: method.method,
                 invokeKind: method.isStatic ? "static" : "instance",
                 argCount: method.argCount,
@@ -754,9 +767,11 @@ function buildDeclaredOwnerSurfaceCandidates(
     }
     const out: NormalizedCallsiteItem[] = [];
     for (const [declaredOwner, ownerHints] of byOwner.entries()) {
+        const identity = buildProjectApiWrapperIdentity(String(baseItem.sourceFile || ""), method, declaredOwner);
         out.push({
             ...baseItem,
-            callee_signature: buildProjectApiWrapperSignature(String(baseItem.sourceFile || ""), method, declaredOwner),
+            callee_signature: identity?.signature || "",
+            ...(identity?.canonicalApiId ? { canonicalApiId: identity.canonicalApiId } : {}),
             count: Math.max(Number(baseItem.count || 1), ownerHints.length),
             topEntries: [
                 ...((baseItem.topEntries || []) as string[]),
@@ -964,7 +979,8 @@ function collectClassMethodCandidates(lines: string[], out: MethodCandidate[]): 
                 if (method) {
                     const methodEnd = findBlockEnd(lines, j);
                     const snippet = collectSnippet(lines, j, methodEnd >= j ? methodEnd : end);
-                    const paramNames = parseTopLevelParameterNames(method.params);
+                    const parameters = parseTopLevelParameters(method.params);
+                    const paramNames = parameters.map(param => param.name);
                     out.push({
                         owner,
                         baseOwner,
@@ -972,6 +988,7 @@ function collectClassMethodCandidates(lines: string[], out: MethodCandidate[]): 
                         isStatic: method.isStatic,
                         argCount: paramNames.length,
                         paramNames,
+                        parameterTypes: parameters.map(param => param.type || ""),
                         returnType: method.returnType,
                         startLine: j + 1,
                         code: snippet,
@@ -1011,12 +1028,14 @@ function collectTopLevelFunctionCandidates(lines: string[], out: MethodCandidate
         const m = fn || prop;
         if (!m) continue;
         const snippet = collectSnippet(lines, i, Math.min(lines.length - 1, i + 80));
-        const paramNames = parseTopLevelParameterNames(m[2]);
+        const parameters = parseTopLevelParameters(m[2]);
+        const paramNames = parameters.map(param => param.name);
         out.push({
             method: m[1],
             isStatic: true,
             argCount: paramNames.length,
             paramNames,
+            parameterTypes: parameters.map(param => param.type || ""),
             returnType: extractReturnTypeFromHeader(line),
             startLine: i + 1,
             code: snippet,
@@ -1029,6 +1048,10 @@ function countTopLevelParameters(params: string): number {
 }
 
 function parseTopLevelParameterNames(params: string): string[] {
+    return parseTopLevelParameters(params).map(param => param.name);
+}
+
+function parseTopLevelParameters(params: string): Array<{ name: string; type?: string }> {
     const text = String(params || "").trim();
     if (!text) {
         return [];
@@ -1050,14 +1073,30 @@ function parseTopLevelParameterNames(params: string): string[] {
     }
     parts.push(current);
     return parts
-        .map(part => part
-            .replace(/^\s*(?:public|private|protected|readonly)\s+/, "")
-            .replace(/\s*=.*$/s, "")
-            .replace(/\s*:.*$/s, "")
-            .replace(/^\s*\.\.\./, "")
-            .replace(/\?$/, "")
-            .trim())
-        .filter(part => /^[A-Za-z_$][\w$]*$/.test(part));
+        .map(part => parseTopLevelParameter(part))
+        .filter((part): part is { name: string; type?: string } => !!part);
+}
+
+function parseTopLevelParameter(part: string): { name: string; type?: string } | undefined {
+    const cleaned = String(part || "")
+        .trim()
+        .replace(/^\s*(?:public|private|protected|readonly)\s+/, "")
+        .replace(/\s*=.*$/s, "")
+        .trim();
+    const nameMatch = cleaned.match(/^\s*(?:\.\.\.)?([A-Za-z_$][\w$]*)\??\b/);
+    if (!nameMatch) {
+        return undefined;
+    }
+    const name = nameMatch[1];
+    const colon = cleaned.indexOf(":");
+    const type = colon >= 0 ? cleaned.slice(colon + 1).trim() : "";
+    if (!/^[A-Za-z_$][\w$]*$/.test(name)) {
+        return undefined;
+    }
+    return {
+        name,
+        ...(type ? { type } : {}),
+    };
 }
 
 function parseClassMethodHeader(line: string): { name: string; params: string; returnType?: string; isStatic: boolean } | undefined {
@@ -1538,11 +1577,96 @@ function escapeRegExp(value: string): string {
     return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function buildProjectApiWrapperSignature(relFile: string, candidate: MethodCandidate, ownerOverride?: string): string {
-    void relFile;
-    void candidate;
-    void ownerOverride;
-    return "";
+interface ProjectApiWrapperIdentity {
+    signature: string;
+    canonicalApiId?: string;
+}
+
+function isKnownOfficialArkUiComponentCall(componentName: string): boolean {
+    const name = String(componentName || "").trim();
+    if (!name) {
+        return false;
+    }
+    try {
+        if (!officialCanonicalRegistry) {
+            officialCanonicalRegistry = createOfficialCanonicalApiRegistry();
+        }
+        const resolved = officialCanonicalRegistry.resolveArkUiComponentKey({
+            componentName: name,
+            memberName: "call",
+            invokeKind: "call",
+            argShape: { arity: 1 },
+            sourceFile: "",
+        });
+        return resolved.status !== "unresolved";
+    } catch {
+        return false;
+    }
+}
+
+function buildProjectApiWrapperIdentity(
+    relFile: string,
+    candidate: MethodCandidate,
+    ownerOverride?: string,
+): ProjectApiWrapperIdentity | undefined {
+    const file = normalizeSlashes(relFile);
+    const methodName = String(candidate.method || "").trim();
+    if (!file || !methodName) {
+        return undefined;
+    }
+    const ownerName = String(ownerOverride || candidate.owner || "").trim();
+    const parameterTypes = candidate.parameterTypes.map(type => String(type || "").trim());
+    const hasExactParameters = parameterTypes.length === candidate.argCount
+        && parameterTypes.every(type => type.length > 0);
+    const returnType = String(candidate.returnType || "").trim();
+    const hasExactReturn = returnType.length > 0;
+    const signatureOwner = ownerName || "%dflt";
+    const signature = `@${file}: ${signatureOwner}.${methodName}(${parameterTypes.join(",")})`;
+    if (!hasExactParameters || !hasExactReturn) {
+        return { signature };
+    }
+
+    const isTopLevelFunction = !ownerName;
+    const result = fromProjectDeclaration({
+        domain: "local",
+        moduleSpecifier: file,
+        logicalDeclarationFile: file,
+        exportPath: [{
+            kind: isTopLevelFunction ? "named" : "namespace",
+            name: isTopLevelFunction ? methodName : ownerName,
+        }],
+        declarationOwner: {
+            kind: isTopLevelFunction ? "namespace" : "class",
+            path: [isTopLevelFunction ? "file" : ownerName],
+            normalizedName: isTopLevelFunction ? "file" : ownerName,
+            arkanalyzerName: signatureOwner,
+        },
+        member: isTopLevelFunction
+            ? { kind: "function", name: methodName }
+            : { kind: "method", name: methodName, static: candidate.isStatic },
+        invoke: { kind: "call" },
+        signature: {
+            parameters: parameterTypes.map((type, index) => ({ index, type: { text: type } })),
+            returnType: { text: returnType },
+        },
+        arkanalyzer: {
+            declaringFileName: file,
+            declaringNamespacePath: [],
+            declaringClassName: signatureOwner,
+            methodName,
+            parameterTypes,
+            returnType,
+            staticFlag: candidate.isStatic || isTopLevelFunction,
+        },
+        declarationLocations: [{ file, line: candidate.startLine }],
+    });
+    if (result.status !== "accepted") {
+        return { signature };
+    }
+    return {
+        signature,
+        canonicalApiId: result.descriptor.canonicalApiId,
+    };
 }
 
 function lineTextAt(text: string, lineNumber: number): string {

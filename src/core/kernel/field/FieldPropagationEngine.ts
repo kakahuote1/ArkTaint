@@ -341,7 +341,9 @@ export class FieldPropagationEngine {
                     preciseTargets.push({ ownerId, destVarId });
                 }
             }
-            if (preciseTargets.length > 0) {
+            if (isExactArrayContainerSlot(containerSlot)) {
+                indexedLoadTargets = preciseTargets;
+            } else if (preciseTargets.length > 0) {
                 indexedLoadTargets = preciseTargets;
             }
         }
@@ -762,6 +764,10 @@ function collectIndexedFieldLoadTargets(
         }
     }
     return out;
+}
+
+function isExactArrayContainerSlot(slot: string): boolean {
+    return /^arr:-?\d+$/.test(slot);
 }
 
 function collectFieldIndexOwnerIds(node: PagNode): number[] {

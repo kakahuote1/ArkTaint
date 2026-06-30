@@ -162,7 +162,7 @@ function buildApiEffectIdentity(
     }
     return {
         canonicalApiId: binding.canonicalApiId,
-        assetId: asset.id,
+        assetId: binding.assetId,
         surfaceId: binding.surfaceId,
         bindingId: binding.bindingId,
         effectTemplateId: template.id,

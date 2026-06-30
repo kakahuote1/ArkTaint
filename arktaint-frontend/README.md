@@ -8,7 +8,7 @@
 
 ```powershell
 cd D:\cursor\workplace\ArkTaint\arktaint-frontend
-node server.js
+npm run bridge
 ```
 
 再启动前端页面：
@@ -37,5 +37,6 @@ $env:VITE_ARKTAINT_BRIDGE_URL="http://localhost:3001"
 - `ArkTaint 根目录` 指向包含 `package.json` 和 `npm run analyze` 的 ArkTaint 工程。
 - `目标项目目录` 指向待分析的 HarmonyOS/ArkTS 项目。
 - `源码目录` 建议优先填写 `entry/src/main/ets`，避免同时分析项目根目录和 entry 目录造成重复统计。
+- 上传的项目规则、模块建模文件和插件包会透传给后端批量分析，并参与每个项目的实际求解。
 - 需要完整流路径和核查信息时，将报告模式设为 `完整`。
 - 需要大模型辅助识别未知 API 时，开启 `SemanticFlow` 并选择对应的大模型配置名。

@@ -44,11 +44,14 @@ export interface OrdinaryCollectionLoadEffects {
 }
 
 type ArraySlotIndexResolver = (indexValue: any, anchorStmt: ArkAssignStmt) => string | undefined;
+type CollectionSlotLoadGuard = (base: Local, slot: string, anchorStmt: ArkAssignStmt) => boolean;
+type CollectionSlotValueTaintPredicate = (value: any, anchorStmt: any) => boolean;
 
 const baseLocalCandidatesByCarrierCache: WeakMap<Pag, Map<number, Local[]>> = new WeakMap();
 const arrayObjectPathKeysByCarrierCache: WeakMap<Pag, Map<number, Set<string>>> = new WeakMap();
 const arrayLoadDestNodeIdsByPathKeyCache: WeakMap<Pag, Map<string, Set<number>>> = new WeakMap();
 const localUseStmtsWithCfgRecoveryCache: WeakMap<Local, any[]> = new WeakMap();
+const cfgOrderCache: WeakMap<object, Map<any, number>> = new WeakMap();
 
 export function collectOrdinaryArrayMutationEffectsFromTaintedLocal(
     local: Local,
@@ -267,6 +270,7 @@ export function collectOrdinaryCollectionLoadEffectsFromTaintedSlot(
     slot: string,
     pag: Pag,
     scene: Scene,
+    loadGuard?: CollectionSlotLoadGuard,
 ): OrdinaryCollectionLoadEffects {
     const normalizedSlot = normalizeOrdinaryCollectionSlot(slot);
     const resultNodeIds: number[] = [];
@@ -296,6 +300,7 @@ export function collectOrdinaryCollectionLoadEffectsFromTaintedSlot(
             resultDedup,
             callbackDedup,
             slotDedup,
+            loadGuard,
         );
     }
 
@@ -863,6 +868,7 @@ function collectOrdinaryCollectionLoadEffectsForBaseLocal(
     resultDedup: Set<number>,
     callbackDedup: Set<number>,
     slotDedup: Set<string>,
+    loadGuard?: CollectionSlotLoadGuard,
 ): void {
     for (const stmt of collectLocalUseStmtsWithCfgRecovery(val)) {
         const invokeExpr = stmt instanceof ArkAssignStmt
@@ -877,6 +883,7 @@ function collectOrdinaryCollectionLoadEffectsForBaseLocal(
         const args = invokeExpr.getArgs ? invokeExpr.getArgs() : [];
 
         if (stmt instanceof ArkAssignStmt && isCollectionSlotReadToResult(slot, methodName, args)) {
+            if (loadGuard && !loadGuard(val, slot, stmt)) continue;
             const dst = resolveExistingPagNodesForValue(pag, stmt.getLeftOp(), stmt);
             if (dst) {
                 for (const id of dst.values()) {
@@ -909,6 +916,48 @@ function collectOrdinaryCollectionLoadEffectsForBaseLocal(
             }
         }
     }
+}
+
+export function isOrdinaryCollectionSlotTaintLiveAtStmt(
+    base: Local,
+    slot: string,
+    anchorStmt: ArkAssignStmt,
+    isValueTainted: CollectionSlotValueTaintPredicate,
+): boolean {
+    const normalizedSlot = normalizeOrdinaryCollectionSlot(slot);
+    if (!normalizedSlot) return true;
+    const anchorCfg = anchorStmt.getCfg?.();
+    const stmts = anchorCfg?.getStmts?.();
+    if (!anchorCfg || !stmts) return true;
+    const order = getCfgOrder(anchorCfg, stmts);
+    const anchorIndex = order.get(anchorStmt);
+    if (anchorIndex === undefined) return true;
+
+    let latest: { index: number; kind: "write" | "kill"; value?: any; stmt?: any } | undefined;
+    for (const stmt of collectLocalUseStmtsWithCfgRecovery(base)) {
+        if (stmt === anchorStmt) continue;
+        if (stmt.getCfg?.() !== anchorCfg) continue;
+        const index = order.get(stmt);
+        if (index === undefined || index >= anchorIndex) continue;
+        if (latest && index <= latest.index) continue;
+
+        const invokeExpr = resolveArrayMutationInvoke(stmt);
+        if (!(invokeExpr instanceof ArkInstanceInvokeExpr)) continue;
+        if (!sameLocalValue(invokeExpr.getBase(), base)) continue;
+        const methodName = resolveMethodName(invokeExpr);
+        const args = invokeExpr.getArgs ? invokeExpr.getArgs() : [];
+        const sig = invokeExpr.getMethodSignature?.()?.toString?.() || "";
+        const collectionKind = resolveOrdinaryCollectionKind(base, sig);
+        if (!collectionKind) continue;
+
+        const effect = resolveCollectionCurrentnessEffect(collectionKind, normalizedSlot, methodName, args, base, stmt);
+        if (!effect) continue;
+        latest = { ...effect, index, stmt };
+    }
+
+    if (!latest) return true;
+    if (latest.kind === "kill") return false;
+    return latest.value === undefined ? true : isValueTainted(latest.value, latest.stmt || anchorStmt);
 }
 
 function collectArrayFromStoresForCollectionViewLocal(
@@ -1672,6 +1721,61 @@ function resolveCollectionMutationSlots(
     return [];
 }
 
+function resolveCollectionCurrentnessEffect(
+    collectionKind: OrdinaryCollectionKind,
+    slot: string,
+    methodName: string,
+    args: any[],
+    base: Local,
+    stmt: any,
+): { kind: "write"; value?: any } | { kind: "kill" } | undefined {
+    if (methodName === "clear" || methodName === "clearSync" || methodName === "removeAll") {
+        return { kind: "kill" };
+    }
+
+    if (collectionKind === "map") {
+        if ((methodName === "delete" || methodName === "remove") && args.length >= 1) {
+            const deleted = `map:${resolveCollectionKeySlot(args[0])}`;
+            if (slot.startsWith("map:") && isCollectionSlotMatch(slot, deleted)) return { kind: "kill" };
+            const deletedKey = `mapkey:${resolveCollectionKeySlot(args[0])}`;
+            if (slot.startsWith("mapkey:") && isCollectionSlotMatch(slot, deletedKey)) return { kind: "kill" };
+            return undefined;
+        }
+        if (methodName === "set" && args.length >= 2) {
+            const keySlot = resolveCollectionKeySlot(args[0]);
+            if (slot.startsWith("mapkey:") && isCollectionSlotMatch(slot, `mapkey:${keySlot}`)) {
+                return { kind: "write", value: args[0] };
+            }
+            if (slot.startsWith("map:") && isCollectionSlotMatch(slot, `map:${keySlot}`)) {
+                return { kind: "write", value: args[1] };
+            }
+        }
+        return undefined;
+    }
+
+    if (collectionKind === "set") {
+        if ((methodName === "delete" || methodName === "remove") && args.length >= 1) return { kind: "kill" };
+        if (methodName === "add" && args.length >= 1 && slot.startsWith("set:")) {
+            return { kind: "write", value: args[0] };
+        }
+        return undefined;
+    }
+
+    if (collectionKind === "list" || collectionKind === "queue" || collectionKind === "stack") {
+        if (methodName === "remove" || methodName === "delete" || methodName === "dequeue" || methodName === "pop") {
+            return { kind: "kill" };
+        }
+        if (isSequenceCollectionAppendMethod(methodName) && args.length >= 1) {
+            const writeSlot = resolveSequenceCollectionAppendSlot(base, stmt).replace(/^seq:/, `${collectionKind}:`);
+            if (isCollectionSlotMatch(writeSlot, slot)) {
+                return { kind: "write", value: args[0] };
+            }
+        }
+    }
+
+    return undefined;
+}
+
 function normalizeOrdinaryCollectionSlot(field: string): string | undefined {
     const slot = fromContainerFieldKey(field) || field;
     if (
@@ -1820,11 +1924,26 @@ function resolveExactSequenceAppendIndexAtStmt(base: Local, anchorStmt: any): nu
         if (!(invokeExpr instanceof ArkInstanceInvokeExpr)) continue;
         if (!sameLocalValue(invokeExpr.getBase(), base)) continue;
         const methodName = resolveMethodName(invokeExpr);
+        if (methodName === "clear" || methodName === "clearSync" || methodName === "removeAll") {
+            length = 0;
+            continue;
+        }
         if (isSequenceCollectionAppendMethod(methodName)) {
             length += Math.max(1, invokeExpr.getArgs?.()?.length || 1);
         }
     }
     return undefined;
+}
+
+function getCfgOrder(cfg: object, stmts: any[]): Map<any, number> {
+    const cached = cfgOrderCache.get(cfg);
+    if (cached) return cached;
+    const order = new Map<any, number>();
+    for (let index = 0; index < stmts.length; index++) {
+        order.set(stmts[index], index);
+    }
+    cfgOrderCache.set(cfg, order);
+    return order;
 }
 
 function isDefinitelyEmptySequenceCollectionLocal(base: Local, visiting: Set<string> = new Set<string>()): boolean {

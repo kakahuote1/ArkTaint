@@ -1,6 +1,10 @@
 import type { ArkMainEntryCandidate } from "../entry/arkmain/llm/ArkMainEntryCandidateTypes";
 import type { CallsiteContextSlice, NormalizedCallsiteItem } from "../model/callsite/callsiteContextSlices";
-import { assertValidCanonicalApiId } from "../api/identity";
+import { assertValidCanonicalApiId, fromProjectDeclaration } from "../api/identity";
+import type { ArkanalyzerMethodKey } from "../api/identity";
+import { normalizeProjectLogicalFilePath } from "../api/identity/ProjectLogicalPathNormalization";
+import type { EntrySurface } from "../assets/schema";
+import { loadArkMainOfficialLifecycleDeclarations } from "../entry/arkmain/catalog/ArkMainOfficialDeclarationCatalog";
 import type { SemanticFlowPipelineItemInput } from "./SemanticFlowPipeline";
 import { semanticFlowDeclaringClassFromSignature } from "./SemanticFlowRuleCompanions";
 import type {
@@ -100,11 +104,13 @@ export function buildSemanticFlowArkMainCandidateItem(
     candidate: ArkMainEntryCandidate,
 ): SemanticFlowPipelineItemInput {
     const anchorId = sanitizeKey(`arkmain.${candidate.methodSignature}`);
+    const entrySurface = buildArkMainCanonicalEntrySurface(candidate);
     return {
         anchor: {
             id: anchorId,
+            ...(entrySurface?.canonicalApiId ? { canonicalApiId: entrySurface.canonicalApiId } : {}),
             owner: candidate.className,
-            surface: candidate.methodName,
+            surface: entrySurface?.canonicalApiId || candidate.methodName,
             method: candidate.method,
             methodSignature: candidate.methodSignature,
             filePath: candidate.filePath,
@@ -121,8 +127,8 @@ export function buildSemanticFlowArkMainCandidateItem(
             anchorId,
             round: 0,
             template: "owner-slot",
-            observations: buildArkMainObservations(candidate),
-            snippets: buildArkMainSnippets(candidate),
+            observations: buildArkMainObservations(candidate, entrySurface),
+            snippets: buildArkMainSnippets(candidate, entrySurface),
         },
     };
 }
@@ -138,8 +144,10 @@ function buildArkMainSelector(candidate: ArkMainEntryCandidate): SemanticFlowArk
     };
 }
 
-function buildArkMainObservations(candidate: ArkMainEntryCandidate): string[] {
+function buildArkMainObservations(candidate: ArkMainEntryCandidate, entrySurface: EntrySurface | undefined): string[] {
+    const officialDeclarations = resolveArkMainOfficialDeclarations(candidate);
     return [
+        ...(entrySurface ? [`canonicalApiSurface: ${JSON.stringify(entrySurface)}`] : ["identityStatus=unresolved"]),
         `signature=${candidate.methodSignature}`,
         `class=${candidate.className || "-"}`,
         `superClass=${candidate.superClassName || "-"}`,
@@ -148,11 +156,25 @@ function buildArkMainObservations(candidate: ArkMainEntryCandidate): string[] {
         `parameterCount=${candidate.parameterTypes.length}`,
         `parameterTypes=${candidate.parameterTypes.join(",") || "-"}`,
         `returnType=${candidate.returnType || "-"}`,
+        `ownerSignals=${candidate.ownerSignals.length}`,
+        ...candidate.ownerSignals.map(signal => `ownerSignal=${signal}`),
+        `overrideSignals=${candidate.overrideSignals.length}`,
+        ...candidate.overrideSignals.map(signal => `overrideSignal=${signal}`),
+        `frameworkSignals=${candidate.frameworkSignals.length}`,
+        ...candidate.frameworkSignals.slice(0, 8).map(signal => `frameworkSignal=${signal}`),
+        `officialDeclarations=${officialDeclarations.length}`,
+        ...officialDeclarations.slice(0, 8).map(declaration => `officialDeclaration: ${JSON.stringify(declaration)}`),
     ];
 }
 
-function buildArkMainSnippets(candidate: ArkMainEntryCandidate): SemanticFlowSliceCodeSnippet[] {
+function buildArkMainSnippets(candidate: ArkMainEntryCandidate, entrySurface: EntrySurface | undefined): SemanticFlowSliceCodeSnippet[] {
     const snippets: SemanticFlowSliceCodeSnippet[] = [];
+    if (entrySurface) {
+        snippets.push({
+            label: "canonical-entry-surface",
+            code: `canonicalApiSurface: ${JSON.stringify(entrySurface)}`,
+        });
+    }
     const methodSnippet = buildArkMainMethodSnippet(candidate);
     if (methodSnippet) {
         snippets.push({
@@ -167,6 +189,13 @@ function buildArkMainSnippets(candidate: ArkMainEntryCandidate): SemanticFlowSli
             code: ownerSnippet,
         });
     }
+    const officialSnippet = buildArkMainOfficialDeclarationSnippet(candidate);
+    if (officialSnippet) {
+        snippets.push({
+            label: "official-entry-declarations",
+            code: officialSnippet,
+        });
+    }
     if (snippets.length === 0) {
         snippets.push({
             label: "candidate",
@@ -178,6 +207,140 @@ function buildArkMainSnippets(candidate: ArkMainEntryCandidate): SemanticFlowSli
         });
     }
     return snippets;
+}
+
+function buildArkMainCanonicalEntrySurface(candidate: ArkMainEntryCandidate): EntrySurface | undefined {
+    const methodKey = buildArkMainMethodKey(candidate);
+    const className = candidate.className || methodKey?.declaringClassName;
+    const methodName = candidate.methodName || methodKey?.methodName;
+    const returnType = candidate.returnType || methodKey?.returnType || "void";
+    if (!methodKey || !className || !methodName || !returnType) {
+        return undefined;
+    }
+    const logicalFile = normalizeProjectLogicalFilePath(methodKey.declaringFileName || candidate.filePath || candidate.methodSignature);
+    const result = fromProjectDeclaration({
+        domain: "local",
+        moduleSpecifier: logicalFile,
+        logicalDeclarationFile: logicalFile,
+        exportPath: [{ kind: "entry", name: className }],
+        declarationOwner: {
+            kind: "entry",
+            path: [className],
+            normalizedName: className,
+            arkanalyzerName: methodKey.declaringClassName,
+        },
+        member: { kind: "lifecycle", name: methodName },
+        invoke: { kind: "entry" },
+        signature: {
+            parameters: candidate.parameterTypes.map((type, index) => ({ index, type: { text: type } })),
+            returnType: { text: returnType },
+        },
+        arkanalyzer: methodKey,
+        declarationLocations: [{ file: logicalFile }],
+    });
+    if (result.status !== "accepted") {
+        return undefined;
+    }
+    return {
+        surfaceId: `surface:${result.descriptor.canonicalApiId}`,
+        kind: "entry",
+        canonicalApiId: result.descriptor.canonicalApiId,
+        evidence: {
+            arkanalyzer: {
+                methodKey,
+            },
+        },
+        confidence: "certain",
+        provenance: {
+            source: "analyzer",
+            location: { file: logicalFile },
+            typeSignature: candidate.methodSignature,
+        },
+    };
+}
+
+function buildArkMainMethodKey(candidate: ArkMainEntryCandidate): ArkanalyzerMethodKey | undefined {
+    const signature = candidate.method.getSignature?.();
+    const declaringClass = signature?.getDeclaringClassSignature?.();
+    const subSignature = signature?.getMethodSubSignature?.();
+    const declaringFileName = String(declaringClass?.getDeclaringFileSignature?.()?.toString?.() || "").trim();
+    const declaringClassName = String(declaringClass?.getClassName?.() || candidate.className || "").trim();
+    const methodName = String(subSignature?.getMethodName?.() || candidate.methodName || "").trim();
+    const parameterTypes = (subSignature?.getParameters?.() || candidate.parameterTypes || [])
+        .map((param: any) => String(param?.getType?.()?.toString?.() || param?.toString?.() || "").trim())
+        .filter(Boolean);
+    const returnType = String(subSignature?.getReturnType?.()?.toString?.() || candidate.returnType || "").trim();
+    if (!declaringFileName || !declaringClassName || !methodName || !returnType) {
+        return undefined;
+    }
+    return {
+        declaringFileName,
+        declaringNamespacePath: [],
+        declaringClassName,
+        methodName,
+        parameterTypes,
+        returnType,
+        staticFlag: candidate.method.isStatic?.() === true,
+    };
+}
+
+function buildArkMainOfficialDeclarationSnippet(candidate: ArkMainEntryCandidate): string | undefined {
+    const declarations = resolveArkMainOfficialDeclarations(candidate);
+    if (declarations.length === 0) {
+        return undefined;
+    }
+    return declarations
+        .slice(0, 8)
+        .map(declaration => `officialDeclaration: ${JSON.stringify(declaration)}`)
+        .join("\n");
+}
+
+function resolveArkMainOfficialDeclarations(candidate: ArkMainEntryCandidate): ArkMainOfficialDeclarationObservation[] {
+    const signalKeys = new Set(candidate.frameworkSignals.map(parseArkMainOfficialDeclarationSignal).filter((item): item is string => !!item));
+    if (signalKeys.size === 0) {
+        return [];
+    }
+    return loadArkMainOfficialLifecycleDeclarations()
+        .filter(declaration => signalKeys.has(`${declaration.canonicalApiId}\u0000${declaration.templateId}`))
+        .map(declaration => ({
+            canonicalApiId: declaration.canonicalApiId,
+            surfaceId: declaration.surfaceId,
+            bindingId: declaration.bindingId,
+            templateId: declaration.templateId,
+            phase: declaration.phase,
+            entryKind: declaration.entryKind,
+            ownerKind: declaration.ownerKind,
+            entryShape: declaration.entryShape,
+            entryFamily: declaration.entryFamily,
+        }));
+}
+
+interface ArkMainOfficialDeclarationObservation {
+    canonicalApiId: string;
+    surfaceId: string;
+    bindingId: string;
+    templateId: string;
+    phase: string;
+    entryKind: string;
+    ownerKind?: string;
+    entryShape?: string;
+    entryFamily?: string;
+}
+
+function parseArkMainOfficialDeclarationSignal(signal: string): string | undefined {
+    const text = String(signal || "");
+    if (!text.startsWith("official_declaration:")) {
+        return undefined;
+    }
+    const rest = text.slice("official_declaration:".length);
+    const templateMarker = ":template:";
+    const templateIndex = rest.indexOf(templateMarker);
+    if (templateIndex < 0) {
+        return undefined;
+    }
+    const canonicalApiId = rest.slice(0, templateIndex);
+    const templateId = `template:${rest.slice(templateIndex + templateMarker.length)}`;
+    return canonicalApiId && templateId ? `${canonicalApiId}\u0000${templateId}` : undefined;
 }
 
 function buildArkMainMethodSnippet(candidate: ArkMainEntryCandidate): string | undefined {
@@ -223,7 +386,7 @@ function buildRuleObservations(item: NormalizedCallsiteItem): string[] {
     ];
     const canonicalSurface = buildCanonicalApiSurfaceObservation(item);
     if (canonicalSurface) {
-        observations.push(`canonicalApiSurface=${JSON.stringify(canonicalSurface)}`);
+        observations.push(`canonicalApiSurface: ${JSON.stringify(canonicalSurface)}`);
     }
     if (typeof (item as any).returnType === "string" && (item as any).returnType.trim()) {
         observations.push(`returnType=${String((item as any).returnType).trim()}`);

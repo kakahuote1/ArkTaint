@@ -135,6 +135,7 @@ export function buildSemanticFlowPrompt(input: SemanticFlowDecisionInput): Seman
         "- handoff.put uses value. handoff.get uses target. handoff.kill uses handle. handoff.link uses left and right.",
         "- module.eventEmitter: use for project event-bus or pub/sub wrappers where one surface registers a callback and another surface dispatches the same channel/key. Examples include EventHub.on(KEY, callback) paired with EventHub.sendEvent(KEY) or sendEvent(KEY, payload). onCanonicalApiIds and emitCanonicalApiIds are exact canonical API ids from analyzer-backed surfaces. channelArgIndexes identify selector/control arguments; callbackArgIndex identifies the registration callback argument; callbackParamIndex identifies the callback parameter receiving payload. payloadArgIndex=-1 means the dispatch only activates callbacks and carries no payload argument. The event key/channel is selector metadata, not a source or sink payload by default. Do not model event dispatch as rule.sink or callback payload source unless an actual payload endpoint is delivered.",
         "- entry.*: use for entry/callback/schedule facts only. Do not use entry effects to propagate callback argument data.",
+        "- For owner-slot arkmain slices, if observations provide a canonicalApiSurface with kind=\"entry\" and officialDeclaration records, emit plane=\"arkmain\" with that exact entry surface, one role=\"entry\" binding, and one entry.lifecycle template. Copy phase, entryKind, ownerKind, and entryShape from an officialDeclaration record; do not leave phase or entryKind empty.",
         "- facade relations are for transparent wrappers only. If a wrapper transforms, sanitizes, conditionally drops, or partially forwards data, do not model it as a transparent facade.",
         "",
         "Minimal valid invoke + handoff.get example:",
@@ -243,6 +244,7 @@ export function buildSemanticFlowPrompt(input: SemanticFlowDecisionInput): Seman
         `draftId: ${draftId}`,
         `round: ${round}`,
         `historyRounds: ${history.length}`,
+        `sliceTemplate: ${slice.template}`,
         "",
         ...(draft ? [
             "currentAssetDraft:",

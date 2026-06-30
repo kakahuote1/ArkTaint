@@ -125,11 +125,13 @@ export function resolveLlmConfigPath(configPath?: string): string {
     return path.resolve(firstNonEmpty(configPath) || getDefaultLlmConfigPath());
 }
 
-function readApiKeyFile(secretPath: string | undefined): string | undefined {
+function readApiKeyFile(secretPath: string | undefined, baseDir?: string): string | undefined {
     if (!secretPath) {
         return undefined;
     }
-    const resolved = path.resolve(secretPath);
+    const resolved = path.isAbsolute(secretPath)
+        ? path.resolve(secretPath)
+        : path.resolve(baseDir || process.cwd(), secretPath);
     if (!fs.existsSync(resolved) || !fs.statSync(resolved).isFile()) {
         return undefined;
     }
@@ -228,9 +230,10 @@ export function resolveLlmProfile(options: ResolveLlmProfileOptions = {}): Resol
     if (!configuredProfile) {
         throw new Error(`LLM profile not found: ${profileName} (${configPath})`);
     }
+    const configDir = path.dirname(configPath);
     const apiKey = configuredProfile.apiKeyEnv
-        ? firstNonEmpty(process.env[configuredProfile.apiKeyEnv], readApiKeyFile(configuredProfile.apiKeyFile), configuredProfile.apiKey)
-        : firstNonEmpty(readApiKeyFile(configuredProfile.apiKeyFile), configuredProfile.apiKey);
+        ? firstNonEmpty(process.env[configuredProfile.apiKeyEnv], readApiKeyFile(configuredProfile.apiKeyFile, configDir), configuredProfile.apiKey)
+        : firstNonEmpty(readApiKeyFile(configuredProfile.apiKeyFile, configDir), configuredProfile.apiKey);
     if (options.requireApiKey !== false && !apiKey) {
         throw new Error(
             `LLM apiKey missing for profile "${profileName}". ` +

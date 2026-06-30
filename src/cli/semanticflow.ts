@@ -78,6 +78,7 @@ export interface SemanticFlowCliOptions {
     llmMaxFailures?: number;
     llmRepairAttempts?: number;
     maxLlmItems?: number;
+    maxRuleCandidates?: number;
 }
 
 export const DEFAULT_SEMANTICFLOW_MAX_LLM_ITEMS = 12;
@@ -283,6 +284,7 @@ function parseArgs(argv: string[]): SemanticFlowCliOptions {
     let llmMaxFailures = 3;
     let llmRepairAttempts = DEFAULT_SEMANTICFLOW_LLM_REPAIR_ATTEMPTS;
     let maxLlmItems = DEFAULT_SEMANTICFLOW_MAX_LLM_ITEMS;
+    let maxRuleCandidates: number | undefined;
 
     for (let i = 0; i < argv.length; i++) {
         const repoArg = readValue(argv, i, "--repo");
@@ -528,6 +530,12 @@ function parseArgs(argv: string[]): SemanticFlowCliOptions {
             if (argv[i] === "--maxLlmItems") i++;
             continue;
         }
+        const maxRuleCandidatesArg = readValue(argv, i, "--semanticflowMaxRuleCandidates");
+        if (maxRuleCandidatesArg !== undefined) {
+            maxRuleCandidates = normalizeNonNegativeInt(maxRuleCandidatesArg, "--semanticflowMaxRuleCandidates", 0);
+            if (argv[i] === "--semanticflowMaxRuleCandidates") i++;
+            continue;
+        }
         if (argv[i].startsWith("--")) {
             throw new Error(`unknown option: ${argv[i]}`);
         }
@@ -584,6 +592,7 @@ function parseArgs(argv: string[]): SemanticFlowCliOptions {
         llmMaxFailures,
         llmRepairAttempts,
         maxLlmItems,
+        maxRuleCandidates,
     };
 }
 
@@ -685,8 +694,11 @@ function loadRuleCandidates(
         cfgNeighborRadius: options.cfgNeighborRadius,
     });
     const contextFiltered = filterKnownSemanticFlowRuleCandidates(enriched, filterOptions);
+    const limitedCandidates = options.maxRuleCandidates !== undefined
+        ? contextFiltered.candidates.slice(0, Math.max(0, options.maxRuleCandidates))
+        : contextFiltered.candidates;
     return {
-        items: contextFiltered.candidates,
+        items: limitedCandidates,
         skippedKnown: filtered.skippedKnown.length + contextFiltered.skippedKnown.length,
         packagingTrace: normalized.trace,
     };

@@ -70,6 +70,7 @@ import {
     collectOrdinaryPromiseThenCallbackParamNodeIdsFromTaintedLocal,
     collectOrdinaryStringSplitEffectsFromTaintedLocal,
     collectPreciseArrayLoadNodeIdsFromTaintedLocal,
+    isOrdinaryCollectionSlotTaintLiveAtStmt,
 } from "../ordinary/OrdinaryArrayPropagation";
 import {
     collectObjectLiteralFieldCaptureFactsFromObjectField,
@@ -995,13 +996,27 @@ export class WorklistSolver {
                     });
                 }
 
+                const collectionRemainingFieldPath = fact.field.length > 1 ? fact.field.slice(1) : undefined;
                 const ordinaryCollectionLoads = collectOrdinaryCollectionLoadEffectsFromTaintedSlot(
                     node.getID(),
                     sourceFieldName,
                     pag,
                     scene,
+                    (base, slot, anchorStmt) => isOrdinaryCollectionSlotTaintLiveAtStmt(
+                        base,
+                        slot,
+                        anchorStmt,
+                        (value, valueAnchorStmt) => valueCarriesCurrentFactTaint(
+                            value,
+                            valueAnchorStmt,
+                            pag,
+                            tracker,
+                            fact.source,
+                            collectionRemainingFieldPath,
+                            classBySignature,
+                        ),
+                    ),
                 );
-                const collectionRemainingFieldPath = fact.field.length > 1 ? fact.field.slice(1) : undefined;
                 for (const targetNodeId of ordinaryCollectionLoads.resultNodeIds) {
                     const targetNode = pag.getNode(targetNodeId) as PagNode;
                     if (!targetNode) continue;
@@ -2957,6 +2972,25 @@ function isSyntheticReceiverOwnerContextAllowed(
     }
 
     return ownerNameMatchesAny(requiredOwner, callerOwnerCandidates);
+}
+
+function valueCarriesCurrentFactTaint(
+    value: any,
+    anchorStmt: any,
+    pag: Pag,
+    tracker: TaintTracker,
+    source: string,
+    fieldPath: string[] | undefined,
+    classBySignature?: Map<string, any>,
+): boolean {
+    if (value === undefined || value === null || value instanceof Constant) return false;
+    const carrierNodeIds = collectCarrierNodeIdsForValueAtStmt(pag, value, anchorStmt, classBySignature);
+    for (const carrierNodeId of carrierNodeIds) {
+        if (tracker.getSourcesAnyContext(carrierNodeId, fieldPath).includes(source)) {
+            return true;
+        }
+    }
+    return false;
 }
 
 function canConstructorStoreSourceCarryNestedFieldPath(sourceNode: PagNode | undefined): boolean {

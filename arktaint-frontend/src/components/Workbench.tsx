@@ -146,23 +146,48 @@ function inferPhase(message: string) {
   return '项目接入';
 }
 
-function parseArtifact(message: string): ArtifactItem | null {
-  const candidates = [
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function parseArtifacts(message: string): ArtifactItem[] {
+  const candidates = artifactMarkers.map(item => ({ ...item }));
+  const artifacts: ArtifactItem[] = [];
+  for (const item of candidates) {
+    const pattern = new RegExp(`(?:^|\\s)${escapeRegExp(item.marker)}([^\\s]+)`, 'g');
+    let matched: RegExpExecArray | null;
+    while ((matched = pattern.exec(message)) !== null) {
+      const artifactPath = matched[1]?.trim();
+      if (artifactPath) artifacts.push({ label: item.label, path: artifactPath });
+    }
+  }
+  return artifacts;
+}
+
+const artifactMarkers = [
     { marker: 'summary_json=', label: 'Summary JSON' },
     { marker: 'final_summary_json=', label: '最终 Summary JSON' },
     { marker: 'summary_md=', label: 'Summary Markdown' },
+    { marker: 'final_summary_md=', label: '最终 Summary Markdown' },
     { marker: 'result_json=', label: '结果 JSON' },
+    { marker: 'complete_vulnerability_flows_md=', label: '完整漏洞流 Markdown' },
+    { marker: 'complete_vulnerability_flows_json=', label: '完整漏洞流 JSON' },
+    { marker: 'confirmed_vulnerability_flows_md=', label: '已确认完整漏洞流 Markdown' },
+    { marker: 'confirmed_vulnerability_flows_json=', label: '已确认完整漏洞流 JSON' },
+    { marker: 'complete_flows_md=', label: '完整污点流 Markdown' },
+    { marker: 'complete_flows_json=', label: '完整污点流 JSON' },
+    { marker: 'confirmed_complete_flows_md=', label: 'Confirmed 完整污点流 Markdown' },
+    { marker: 'confirmed_complete_flows_json=', label: 'Confirmed 完整污点流 JSON' },
+    { marker: 'trace_graph_md=', label: '完整传播图 Markdown' },
+    { marker: 'trace_graph_json=', label: '完整传播图 JSON' },
+    { marker: 'records=', label: '批量运行记录' },
+    { marker: 'summary=', label: '批量汇总 CSV' },
     { marker: 'output_dir=', label: '输出目录' },
     { marker: 'session=', label: 'SemanticFlow Session' },
   ];
-  for (const item of candidates) {
-    const index = message.indexOf(item.marker);
-    if (index >= 0) {
-      const path = message.slice(index + item.marker.length).trim();
-      return path ? { label: item.label, path } : null;
-    }
-  }
-  return null;
+
+function isArtifactMarkerMessage(message: string) {
+  return artifactMarkers.some(item => message.includes(item.marker));
 }
 
 function parseProjectRunStatus(message: string) {
@@ -307,7 +332,10 @@ export default function Workbench() {
 
   const [profile, setProfile] = useState(readText('profile', 'default'));
   const [executionHandoff] = useState(readText('executionHandoff', 'enabled'));
-  const [reportMode, setReportMode] = useState(readText('reportMode', 'light'));
+  const [reportMode, setReportMode] = useState(() => {
+    const savedReportMode = readText('reportMode');
+    return savedReportMode && savedReportMode !== 'light' ? savedReportMode : 'full';
+  });
   const [entryModel] = useState(readText('entryModel', 'explicit'));
   const [maxEntries] = useState(readText('maxEntries', '9999'));
   const [k, setK] = useState(readText('k', ''));
@@ -326,8 +354,8 @@ export default function Workbench() {
   const [maxProjects] = useState(readText('maxProjects'));
   const [skipExisting, setSkipExisting] = useState(readBool('skipExisting', true));
 
-  const autoModel = true;
-  const [llmConfigMode, setLlmConfigMode] = useState((readText('llmConfigMode', 'direct') as LlmConfigMode) || 'direct');
+  const [autoModel, setAutoModel] = useState(readBool('autoModel', true));
+  const [llmConfigMode, setLlmConfigMode] = useState((readText('llmConfigMode', 'config') as LlmConfigMode) || 'config');
   const [llmApiUrl, setLlmApiUrl] = useState(readText('llmApiUrl'));
   const [llmApiKey, setLlmApiKey] = useState(readText('llmApiKey'));
   const [llmApiKeyHeader, setLlmApiKeyHeader] = useState(readText('llmApiKeyHeader', 'Authorization'));
@@ -335,8 +363,8 @@ export default function Workbench() {
   const [llmHeaders, setLlmHeaders] = useState(readText('llmHeaders'));
   const [llmMinIntervalMs, setLlmMinIntervalMs] = useState(readText('llmMinIntervalMs'));
   const [llmAdvancedOpen, setLlmAdvancedOpen] = useState(readBool('llmAdvancedOpen', false));
-  const [llmConfig, setLlmConfig] = useState(readText('llmConfig'));
-  const [llmProfile] = useState(readText('llmProfile', 'qwen'));
+  const [llmConfig, setLlmConfig] = useState(readText('llmConfig', 'C:\\Users\\lenovo\\.arktaint\\llm.json'));
+  const [llmProfile, setLlmProfile] = useState(readText('llmProfile', 'deepseek-v4-pro'));
   const [llmModel, setLlmModel] = useState(readText('llmModel'));
   const [llmTimeoutMs, setLlmTimeoutMs] = useState(readText('llmTimeoutMs', '45000'));
   const [llmConnectTimeoutMs, setLlmConnectTimeoutMs] = useState(() => {
@@ -373,8 +401,8 @@ export default function Workbench() {
   const llmDirectReady = Boolean(llmModel.trim() && llmApiUrl.trim() && llmApiKey.trim());
   const llmReady = llmConfigMode === 'direct' ? llmDirectReady : Boolean(llmConfig.trim());
   const enhanceReady = Boolean(projectRule.trim() || moduleSpec.trim() || effectivePluginList.length);
-  const canRun = scopeReady && strategyReady && llmReady && !analyzing;
-  const llmPanelStatusLabel = llmReady ? '已完成' : '未完成';
+  const canRun = scopeReady && strategyReady && (!autoModel || llmReady) && !analyzing;
+  const llmPanelStatusLabel = !autoModel ? '使用已有资产' : llmReady ? '已完成' : '未完成';
 
   const runResultSummary = useMemo(() => {
     const projectStates = new Map<string, 'completed' | 'failed'>();
@@ -401,7 +429,23 @@ export default function Workbench() {
   }, [logs, runSnapshot.currentProjectTotal, runSnapshot.selectedProjects, selectedProjectCount]);
 
   const previewArtifact = useMemo(() => {
-    const preferredLabels = ['Summary Markdown', 'Summary JSON', '鏈€缁?Summary JSON'];
+    const preferredLabels = [
+      '已确认完整漏洞流 Markdown',
+      '完整漏洞流 Markdown',
+      '已确认完整漏洞流 JSON',
+      '完整漏洞流 JSON',
+      'Confirmed 完整污点流 Markdown',
+      '完整污点流 Markdown',
+      'Confirmed 完整污点流 JSON',
+      '完整污点流 JSON',
+      '完整传播图 Markdown',
+      '完整传播图 JSON',
+      '最终 Summary Markdown',
+      'Summary Markdown',
+      '最终 Summary JSON',
+      'Summary JSON',
+      '批量汇总 CSV',
+    ];
     for (const label of preferredLabels) {
       const matched = runSnapshot.artifacts.find(item => item.label === label);
       if (matched) return matched;
@@ -684,6 +728,12 @@ export default function Workbench() {
   };
 
   const appendLog = (message: string, type: LogType = 'log', time?: string) => {
+    const artifacts = parseArtifacts(message);
+    for (const artifact of artifacts) {
+      pushArtifact(artifact);
+    }
+    if (isArtifactMarkerMessage(message)) return;
+
     setLogs(prev => [...prev, toLog(message, type, time)]);
     setRunSnapshot(prev => {
       const next: RunSnapshot = { ...prev, phase: inferPhase(message) };
@@ -697,8 +747,6 @@ export default function Workbench() {
       }
       return next;
     });
-    const artifact = parseArtifact(message);
-    if (artifact) pushArtifact(artifact);
   };
 
   const startRun = async () => {
@@ -816,7 +864,7 @@ export default function Workbench() {
     if (panelId === 'scope') return scopeReady;
     if (panelId === 'strategy') return strategyReady;
     if (panelId === 'enhance') return enhanceReady;
-    if (panelId === 'launch') return scopeReady && strategyReady && llmReady;
+    if (panelId === 'launch') return scopeReady && strategyReady && (!autoModel || llmReady);
     return canRun;
   };
 
@@ -831,6 +879,20 @@ export default function Workbench() {
       </div>
       <div className="form-grid relaxed">
         <Field label="项目集合目录" wide>
+          <div className="path-row">
+            <input
+              value={projectRoot}
+              onChange={event => setProjectRoot(event.target.value)}
+              placeholder="选择或填写真实项目集合目录，例如 D:\cursor\workplace\project"
+            />
+            <button type="button" className="folder-button" onClick={() => handlePickFolder(setProjectRoot)}>
+              <FolderOpen size={14} />
+              选择
+            </button>
+          </div>
+          <div className="validation-note idle">
+            可以直接填写本机项目集合目录；如需上传压缩包，也可以使用下方 zip 入口。
+          </div>
           <div className="upload-card">
             <div className="upload-copy">
               <strong>{uploadedBundleName || '上传项目压缩包'}</strong>
@@ -917,7 +979,7 @@ export default function Workbench() {
 
         <div className="toggle-grid">
           <ToggleLine checked={incremental} onChange={setIncremental} title="启用增量分析" desc="复用已有分析结果，适合持续回归与重复验证场景。" />
-          <ToggleLine checked={skipExisting} onChange={setSkipExisting} title="跳过已分析项目" desc="自动复用已完成项目结果，提升批量任务执行效率。" />
+          <ToggleLine checked={skipExisting} onChange={setSkipExisting} title="复用已完成项目" desc="自动复用已有项目结果，提升批量任务执行效率。" />
           <ToggleLine checked={stopOnFirstFlow} onChange={setStopOnFirstFlow} title="发现首个风险后停止" desc="用于快速确认目标项目中是否存在有效风险路径。" />
         </div>
       </section>
@@ -1021,7 +1083,7 @@ export default function Workbench() {
           <div className="llm-status-grid">
             <div className="llm-status-box polished">
               <span>LLM 辅助建模</span>
-              <em className={llmReady ? 'ok' : 'warn'}>{llmPanelStatusLabel}</em>
+              <em className={!autoModel ? 'muted' : llmReady ? 'ok' : 'warn'}>{llmPanelStatusLabel}</em>
             </div>
             <div className="llm-status-box polished">
               <span>全局默认插件</span>
@@ -1040,6 +1102,18 @@ export default function Workbench() {
           </div>
         </div>
         <div className="form-grid relaxed">
+          <div className="toggle-row wide">
+            <div>
+              <strong>启用 LLM 辅助建模</strong>
+              <em>开启后会在分析前调用配置的模型生成语义资产；关闭后只使用已有资产快速分析。</em>
+            </div>
+            <input
+              type="checkbox"
+              checked={autoModel}
+              onChange={event => setAutoModel(event.target.checked)}
+              aria-label="启用 LLM 辅助建模"
+            />
+          </div>
           <Field label="配置方式" wide>
             <select value={llmConfigMode} onChange={event => setLlmConfigMode(event.target.value as LlmConfigMode)}>
               <option value="direct">直接填写 API 配置</option>
@@ -1142,6 +1216,13 @@ export default function Workbench() {
                   </button>
                 </div>
               </Field>
+              <Field label="配置 Profile" required>
+                <input
+                  value={llmProfile}
+                  onChange={event => setLlmProfile(event.target.value)}
+                  placeholder="例如 deepseek-v4-pro"
+                />
+              </Field>
             </>
           )}
 
@@ -1205,7 +1286,7 @@ export default function Workbench() {
     const launchIssues = [
       !scopeReady ? '请先补充项目接入信息。' : '',
       !strategyReady ? '请先补充分析策略。' : '',
-      !llmReady ? '请先完成 LLM 辅助建模配置。' : '',
+      autoModel && !llmReady ? '请先完成 LLM 辅助建模配置。' : '',
     ].filter(Boolean);
 
     return (
@@ -1269,7 +1350,7 @@ export default function Workbench() {
                 <dd>{projectTimeoutSeconds.trim() ? `${projectTimeoutSeconds.trim()} 秒` : '系统默认（480 秒）'}</dd>
               </div>
               <div>
-                <dt>跳过已分析</dt>
+                <dt>结果复用</dt>
                 <dd>{skipExisting ? '是' : '否'}</dd>
               </div>
               <div>
@@ -1290,7 +1371,7 @@ export default function Workbench() {
             <dl className="summary-list">
               <div>
                 <dt>LLM 建模</dt>
-                <dd className={llmReady ? 'ok' : 'warn'}>{llmReady ? '已完成' : '未完成'}</dd>
+                <dd className={!autoModel ? 'muted' : llmReady ? 'ok' : 'warn'}>{llmPanelStatusLabel}</dd>
               </div>
               <div>
                 <dt>配置方式</dt>

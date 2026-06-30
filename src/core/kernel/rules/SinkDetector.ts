@@ -27,6 +27,7 @@ import { resolveReceiverGetterReturnFieldPath } from "../propagation/WorklistFie
 import { hasApiEffectIdentity } from "../../api/ApiOccurrenceIdentity";
 import type { ApiEffectRuntimeIndexLike } from "../../api/effects";
 import type { SemanticEffectSite } from "../../api/effects/SemanticEffectSite";
+import { fromContainerFieldKey } from "../model/ContainerSlotKeys";
 import {
     isConsumableSemanticEndpointProjection,
     projectSemanticEffectEndpoint,
@@ -3225,17 +3226,7 @@ function detectArrayContainerCarrierSource(
         const rootNode = pag.getNode(rootNodeId) as PagNode;
         if (!rootNode) continue;
         for (const objId of rootNode.getPointTo()) {
-            const directFieldCarrier = tracker.getAnyFieldSourceAnyContext(objId);
-            if (directFieldCarrier) {
-                return {
-                    source: directFieldCarrier.source,
-                    nodeId: objId,
-                    fieldPath: directFieldCarrier.fieldPath,
-                };
-            }
-            const objectPaths = collectArrayCarrierPathKeys(pag, objId);
-            if (!hasStringIntersection(candidatePaths, objectPaths)) continue;
-            const fieldCarrier = tracker.getAnyFieldSourceAnyContext(objId);
+            const fieldCarrier = selectArrayFieldSourceForCandidatePath(pag, tracker, objId, candidatePaths);
             if (!fieldCarrier) continue;
             return {
                 source: fieldCarrier.source,
@@ -3246,6 +3237,64 @@ function detectArrayContainerCarrierSource(
     }
 
     return undefined;
+}
+
+function selectArrayFieldSourceForCandidatePath(
+    pag: Pag,
+    tracker: TaintTracker,
+    objId: number,
+    candidatePaths: Set<string>,
+): { source: string; fieldPath: string[] } | undefined {
+    const objectPaths = collectArrayCarrierPathKeys(pag, objId);
+    if (objectPaths.size === 0) return undefined;
+
+    const fieldSources = tracker.getFieldSourcesAnyContext(objId);
+    fieldSources.sort((a, b) => b.fieldPath.length - a.fieldPath.length);
+    for (const fieldSource of fieldSources) {
+        const sourcePaths = appendArrayFieldPathKeys(objectPaths, fieldSource.fieldPath);
+        for (const candidatePath of candidatePaths) {
+            for (const sourcePath of sourcePaths) {
+                if (arrayPathCovers(candidatePath, sourcePath)) {
+                    return fieldSource;
+                }
+            }
+        }
+    }
+
+    return undefined;
+}
+
+function appendArrayFieldPathKeys(objectPaths: Set<string>, fieldPath: string[]): Set<string> {
+    let keys = new Set<string>(objectPaths);
+    let sawArraySlot = false;
+
+    for (const segment of fieldPath) {
+        const slot = fromContainerFieldKey(segment) || segment;
+        if (!slot.startsWith("arr:")) continue;
+        sawArraySlot = true;
+        const index = slot.slice("arr:".length);
+        const next = new Set<string>();
+        for (const key of keys) {
+            next.add(`${key}/${index}`);
+        }
+        keys = next;
+    }
+
+    return sawArraySlot ? keys : new Set<string>();
+}
+
+function arrayPathCovers(candidatePath: string, sourcePath: string): boolean {
+    if (arrayPathPatternCovers(sourcePath, candidatePath)) return true;
+    return arrayPathPatternCovers(candidatePath, sourcePath);
+}
+
+function arrayPathPatternCovers(pattern: string, concrete: string): boolean {
+    if (pattern === concrete) return true;
+    if (pattern.endsWith("/*")) {
+        const prefix = pattern.slice(0, -2);
+        return concrete === prefix || concrete.startsWith(`${prefix}/`);
+    }
+    return concrete.startsWith(`${pattern}/`);
 }
 
 function resolveArrayRefFromValue(value: any): ArkArrayRef | undefined {
