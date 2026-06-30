@@ -2898,26 +2898,33 @@ a {
 .preview-overlay {
   position: fixed;
   inset: 0;
+  width: 100dvw;
+  height: 100dvh;
   z-index: 60;
   display: grid;
-  place-items: center;
+  align-items: center;
+  justify-content: center;
   padding: 24px;
+  overflow: hidden;
   background: rgba(15, 23, 42, 0.48);
   backdrop-filter: blur(8px);
 }
 
 .preview-dialog {
-  width: min(980px, 100%);
-  max-height: min(88vh, 920px);
+  width: min(1120px, calc(100dvw - 48px));
+  height: min(82dvh, 820px);
+  max-height: calc(100dvh - 48px);
   display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   gap: 14px;
   overflow: hidden;
+  margin: auto;
 }
 
 .preview-body {
-  min-height: 320px;
-  max-height: 62vh;
+  min-height: 0;
   overflow: auto;
+  overscroll-behavior: contain;
   padding: 16px;
   border-radius: var(--radius);
   background: rgba(248, 250, 252, 0.96);
@@ -2932,6 +2939,49 @@ a {
   line-height: 1.7;
   color: var(--ink);
   font-family: var(--font-mono);
+}
+
+.flow-preview-list {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.flow-preview-item {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  gap: 12px;
+  padding: 13px 14px;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-radius: var(--radius);
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.flow-preview-index {
+  width: 28px;
+  height: 28px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  color: var(--accent-deep);
+  background: rgba(14, 165, 233, 0.1);
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.flow-preview-item code {
+  min-width: 0;
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  line-height: 1.75;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .preview-placeholder {

@@ -15,7 +15,6 @@ app.use(express.json({ limit: '200mb' }));
 const DEFAULT_ARKTAINT_ROOT = path.resolve(process.env.ARKTAINT_ROOT || path.join(__dirname, '..'));
 const PORT = Number(process.env.ARKTAINT_BRIDGE_PORT || 3001);
 const UPLOAD_ROOT = path.join(__dirname, '.uploads');
-const SEMANTIC_ASSET_PROJECT = 'HappyPlayer5';
 const HAPPYPLAYER5_SEMANTIC_MODEL_ROOT = path.join(
   DEFAULT_ARKTAINT_ROOT,
   'internal_docs',
@@ -30,6 +29,42 @@ const HAPPYPLAYER5_SEMANTIC_MODEL_ROOT = path.join(
   'offline_assets',
   'model_root'
 );
+const HISH_SEMANTIC_MODEL_ROOT = path.join(
+  DEFAULT_ARKTAINT_ROOT,
+  'internal_docs',
+  'reports',
+  'chapter3_experiment_artifacts',
+  'final',
+  'runs',
+  '34_semantic_taint_analysis',
+  'chapter34_project06_hish_agent_20260630_114427',
+  'projects',
+  '01_HiSH',
+  'offline_assets',
+  'model_root'
+);
+const REUSABLE_SEMANTIC_ASSET_PRESETS = [
+  {
+    project: 'HiSH',
+    modelRoot: HISH_SEMANTIC_MODEL_ROOT,
+    enableModel: 'semanticflow_HiSH',
+    entryModel: 'arkMain',
+    projectTimeoutSeconds: '900',
+    sourceDirTimeoutSeconds: '300',
+    worklistBudgetMs: '120000',
+    worklistMaxVisited: '0',
+  },
+  {
+    project: 'HappyPlayer5',
+    modelRoot: HAPPYPLAYER5_SEMANTIC_MODEL_ROOT,
+    enableModel: 'semanticflow_HappyPlayer5',
+    entryModel: 'arkMain',
+    projectTimeoutSeconds: '900',
+    sourceDirTimeoutSeconds: '300',
+    worklistBudgetMs: '120000',
+    worklistMaxVisited: '0',
+  },
+];
 const SEMANTICFLOW_PROBE_REQUESTS = path.join(
   DEFAULT_ARKTAINT_ROOT,
   'tmp',
@@ -43,6 +78,12 @@ const SEMANTICFLOW_PROBE_REQUESTS = path.join(
 function normalizePath(value) {
   if (!value || typeof value !== 'string') return '';
   return path.resolve(value.trim());
+}
+
+function isInsideDirectory(parent, candidate) {
+  if (!parent || !candidate) return false;
+  const relative = path.relative(path.resolve(parent), path.resolve(candidate));
+  return relative === '' || (relative && !relative.startsWith('..') && !path.isAbsolute(relative));
 }
 
 function isFile(filePath) {
@@ -111,6 +152,131 @@ function listChildDirectories(root) {
     .map(item => item.name);
 }
 
+function shouldSkipUploadedDir(name) {
+  return new Set([
+    '.git',
+    '.hvigor',
+    '.idea',
+    '.preview',
+    '.vscode',
+    'build',
+    'dist',
+    'node_modules',
+    'oh_modules',
+    'out',
+    'output',
+    'tmp',
+  ]).has(name) || name.startsWith('.');
+}
+
+function hasArkSourceFile(dir, maxVisited = 5000) {
+  let visited = 0;
+  const stack = [dir];
+  while (stack.length > 0 && visited < maxVisited) {
+    const current = stack.pop();
+    let entries = [];
+    try {
+      entries = fs.readdirSync(current, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const entry of entries) {
+      visited += 1;
+      if (entry.isFile() && /\.(ets|ts)$/i.test(entry.name)) return true;
+      if (entry.isDirectory() && !shouldSkipUploadedDir(entry.name)) {
+        stack.push(path.join(current, entry.name));
+      }
+      if (visited >= maxVisited) break;
+    }
+  }
+  return false;
+}
+
+function hasDirectArkTsSourceDir(root) {
+  for (const rel of ['entry/src/main/ets', 'src/main/ets']) {
+    const abs = path.join(root, ...rel.split('/'));
+    if (isDirectory(abs) && hasArkSourceFile(abs)) return true;
+  }
+  return false;
+}
+
+function hasProjectManifest(root) {
+  return [
+    'build-profile.json5',
+    'build-profile.json',
+    'oh-package.json5',
+    'hvigorfile.ts',
+    'hvigorfile.js',
+    path.join('AppScope', 'app.json5'),
+  ].some(rel => isFile(path.join(root, rel)));
+}
+
+function hasNestedArkTsSourceDir(root, maxDepth = 8) {
+  const stack = [{ dir: root, depth: 0 }];
+  while (stack.length > 0) {
+    const { dir, depth } = stack.pop();
+    if (depth > maxDepth) continue;
+    if (hasDirectArkTsSourceDir(dir)) return true;
+    let entries = [];
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const entry of entries) {
+      if (!entry.isDirectory() || shouldSkipUploadedDir(entry.name)) continue;
+      stack.push({ dir: path.join(dir, entry.name), depth: depth + 1 });
+    }
+  }
+  return false;
+}
+
+function isUploadedArkTsProjectRoot(root) {
+  if (hasDirectArkTsSourceDir(root)) return true;
+  return hasProjectManifest(root) && hasNestedArkTsSourceDir(root);
+}
+
+function findUploadedProjectRoots(root, maxDepth = 6) {
+  const out = [];
+  const visit = (dir, depth) => {
+    if (depth > maxDepth || !isDirectory(dir)) return;
+    if (isUploadedArkTsProjectRoot(dir)) {
+      out.push(dir);
+      return;
+    }
+    for (const child of listChildDirectories(dir)) {
+      if (shouldSkipUploadedDir(child)) continue;
+      visit(path.join(dir, child), depth + 1);
+    }
+  };
+  visit(root, 0);
+  return out.sort((a, b) => a.localeCompare(b));
+}
+
+function toRelativeProjectName(root, dir) {
+  const rel = path.relative(root, dir).replace(/\\/g, '/');
+  return rel || '.';
+}
+
+function sanitizeProjectDirectoryName(value) {
+  const normalized = String(value || 'uploaded-project').replace(/[^\w.-]+/g, '_').replace(/^\.+$/g, '');
+  return normalized || 'uploaded-project';
+}
+
+function normalizeDirectRootProject(sessionRoot, extractedRoot, fileName) {
+  const projectName = sanitizeProjectDirectoryName(path.parse(fileName).name);
+  const projectRoot = path.join(sessionRoot, 'project-set');
+  const projectDir = path.join(projectRoot, projectName);
+  ensureDirectory(projectDir);
+  for (const entry of fs.readdirSync(extractedRoot)) {
+    fs.renameSync(path.join(extractedRoot, entry), path.join(projectDir, entry));
+  }
+  return {
+    projectRoot,
+    detectedProjects: [projectName],
+  };
+}
+
 function resolveSingleDirectoryRoot(root) {
   if (!isDirectory(root)) return root;
   const childDirs = listChildDirectories(root);
@@ -121,7 +287,7 @@ function resolveSingleDirectoryRoot(root) {
 
 function expandArchive(archivePath, destinationPath) {
   return new Promise((resolve, reject) => {
-    const script = 'Expand-Archive -LiteralPath $args[0] -DestinationPath $args[1] -Force';
+    const script = '& { param($archivePath, $destinationPath) Expand-Archive -LiteralPath $archivePath -DestinationPath $destinationPath -Force }';
     execFile(
       'powershell.exe',
       ['-NoProfile', '-NonInteractive', '-Command', script, archivePath, destinationPath],
@@ -274,12 +440,18 @@ function createLineForwarder(res, type) {
       buffer = lines.pop() || '';
       for (const line of lines) {
         const cleanLine = line.trim();
-        if (cleanLine) writeEvent(res, type, { message: cleanLine });
+        if (cleanLine) {
+          const readable = readableBatchLine(cleanLine);
+          if (readable) writeEvent(res, type, { message: readable });
+        }
       }
     },
     flush() {
       const cleanLine = buffer.trim();
-      if (cleanLine) writeEvent(res, type, { message: cleanLine });
+      if (cleanLine) {
+        const readable = readableBatchLine(cleanLine);
+        if (readable) writeEvent(res, type, { message: readable });
+      }
       buffer = '';
     },
   };
@@ -509,18 +681,49 @@ function mergeCsvPathValue(value, extraPath) {
   return [...new Set(items.map(item => path.resolve(item)))].join('\n');
 }
 
+function mergeCsvValue(value, extraValue) {
+  const items = parseProjectSelection(value);
+  if (extraValue) items.push(extraValue);
+  return [...new Set(items)].join('\n');
+}
+
+function firstNonEmpty(...values) {
+  for (const value of values) {
+    if (value !== undefined && value !== null && `${value}`.trim()) return `${value}`.trim();
+  }
+  return '';
+}
+
 function attachReusableSemanticAssets(options) {
   const selectedProjects = parseProjectSelection(options.projects).map(item => item.toLowerCase());
-  const shouldAttachHappyPlayerAssets =
-    options.autoModel === true &&
-    selectedProjects.length === 1 &&
-    selectedProjects[0] === SEMANTIC_ASSET_PROJECT.toLowerCase() &&
-    isDirectory(HAPPYPLAYER5_SEMANTIC_MODEL_ROOT);
+  const preset = REUSABLE_SEMANTIC_ASSET_PRESETS.find(
+    item =>
+      options.autoModel === true &&
+      selectedProjects.length === 1 &&
+      selectedProjects[0] === item.project.toLowerCase() &&
+      isDirectory(item.modelRoot)
+  );
 
-  if (shouldAttachHappyPlayerAssets) {
-    options.modelRoot = mergeCsvPathValue(options.modelRoot, HAPPYPLAYER5_SEMANTIC_MODEL_ROOT);
+  if (preset) {
+    options.modelRoot = mergeCsvPathValue(options.modelRoot, preset.modelRoot);
+    options.semanticflowEvaluationModelRoot = mergeCsvPathValue(options.semanticflowEvaluationModelRoot, preset.modelRoot);
+    options.enableModel = mergeCsvValue(options.enableModel, preset.enableModel);
+    options.entryModel = preset.entryModel;
+    options.reportMode = 'full';
+    options.executionHandoff = firstNonEmpty(options.executionHandoff, 'enabled');
+    options.currentness = firstNonEmpty(options.currentness, 'enabled');
+    options.semanticAssetReachabilityScope = firstNonEmpty(options.semanticAssetReachabilityScope, 'allExactSites');
+    options.maxEntries = firstNonEmpty(options.maxEntries, '9999');
+    options.worklistBudgetMs = firstNonEmpty(options.worklistBudgetMs, preset.worklistBudgetMs);
+    options.worklistMaxVisited = firstNonEmpty(options.worklistMaxVisited, preset.worklistMaxVisited);
+    options.projectTimeoutSeconds = firstNonEmpty(options.projectTimeoutSeconds, preset.projectTimeoutSeconds);
+    options.sourceDirMode = firstNonEmpty(options.sourceDirMode, 'auto');
+    options.splitSourceDirThreshold = firstNonEmpty(options.splitSourceDirThreshold, '24');
+    options.sourceDirTimeoutSeconds = firstNonEmpty(options.sourceDirTimeoutSeconds, preset.sourceDirTimeoutSeconds);
+    options.maxSplitSourceDirs = firstNonEmpty(options.maxSplitSourceDirs, '0');
     options.__llmProbeBeforeAnalyze = true;
     options.__requestedLlmProfile = String(options.llmProfile || '').trim();
+    options.__reusedSemanticAssetProject = preset.project;
     options.autoModel = false;
   }
   return options;
@@ -543,7 +746,8 @@ async function runLlmProbeBeforeAnalyze(res, root, options) {
     `semanticflow_probe_${new Date().toISOString().replace(/[:.]/g, '-')}`
   );
 
-  writeEvent(res, 'log', { message: `LLM 语义建模 start profile=${llmProfile}` });
+  writeEvent(res, 'log', { message: '进入语义资产阶段：准备上下文证据和候选切片。' });
+  writeEvent(res, 'log', { message: `调用大模型参与语义资产生成：${displayLlmProfile(llmProfile)}。` });
   const result = await runChildProcess(
     process.execPath,
     [
@@ -568,10 +772,21 @@ async function runLlmProbeBeforeAnalyze(res, root, options) {
     () => {}
   );
   if (result.code === 0) {
-    writeEvent(res, 'log', { message: `LLM 语义建模 done profile=${llmProfile}` });
+    writeEvent(res, 'log', { message: `大模型语义资产生成完成：${displayLlmProfile(llmProfile)}。` });
   } else {
-    writeEvent(res, 'log', { message: `LLM 语义建模未完成，继续使用已注册语义资产。` });
+    writeEvent(res, 'log', { message: '本轮大模型语义资产生成未完成，继续进入静态分析阶段。' });
   }
+}
+
+function displayLlmProfile(profile) {
+  const normalized = String(profile || '').trim();
+  const names = {
+    'deepseek-v4-pro': 'DeepSeek-V4-Pro',
+    'qwen3.7-plus': 'Qwen3.7-Plus',
+    'doubao-seed2.1': 'Doubao-Seed2.1',
+    'mimo-v2.5-pro': 'MiMo-V2.5-Pro',
+  };
+  return names[normalized] || normalized || '默认模型';
 }
 
 function parseBatchDoneLine(line) {
@@ -596,46 +811,524 @@ function readJsonl(filePath) {
   return out;
 }
 
+function markdownCell(value) {
+  return String(value ?? '')
+    .replace(/\r?\n/g, ' ')
+    .replace(/\|/g, '\\|')
+    .trim();
+}
+
+function nonEmptyText(value, fallback = '无') {
+  const text = String(value ?? '').trim();
+  return text || fallback;
+}
+
+function judgementText(value) {
+  if (!value) return '';
+  if (typeof value === 'string') return value;
+  if (typeof value.kind === 'string') return value.kind;
+  return JSON.stringify(value);
+}
+
+function displayJudgement(value) {
+  const text = judgementText(value);
+  const normalized = text.toLowerCase();
+  const labels = {
+    confirmed: '已确认',
+    unresolved: '待复核',
+    rejected: '已排除',
+    partial: '证据不完整',
+    unknown: '未判定',
+  };
+  return labels[normalized] || text || '未判定';
+}
+
+function displayRunStatus(value) {
+  const normalized = String(value || '').toLowerCase();
+  const labels = {
+    done: '完成',
+    ok: '完成',
+    success: '完成',
+    failed: '失败',
+    fail: '失败',
+    error: '失败',
+    timeout: '超时',
+    skip_recorded: '已跳过',
+    budget_exceeded: '达到预算保护',
+  };
+  return labels[normalized] || nonEmptyText(value, '未知');
+}
+
+function displayFlowStatus(value) {
+  const normalized = String(value || '').toLowerCase();
+  const labels = {
+    complete: '完整',
+    partial: '部分完整',
+    incomplete: '不完整',
+    missing: '缺少路径',
+    unresolved: '待复核',
+    done: '完成',
+  };
+  return labels[normalized] || nonEmptyText(value, '未记录');
+}
+
+function displayReportMode(value) {
+  const normalized = String(value || '').toLowerCase();
+  const labels = {
+    full: '完整报告',
+    light: '轻量报告',
+    raw: '原始结果',
+  };
+  return labels[normalized] || nonEmptyText(value, '未记录');
+}
+
+function displayFlowMode(value) {
+  const normalized = String(value || '').toLowerCase();
+  const labels = {
+    postsolve: '求解后完整流',
+    raw: '原始污点流',
+    candidate: '候选流',
+  };
+  return labels[normalized] || nonEmptyText(value, '未记录');
+}
+
+function displayEvidenceKind(value) {
+  const normalized = String(value || '').toLowerCase();
+  const labels = {
+    complete_taint_path: '完整污点路径',
+    materialized_taint_path: '已物化污点路径',
+    source_sink_path: 'source 到 sink 路径',
+    candidate_path: '候选传播路径',
+  };
+  return labels[normalized] || nonEmptyText(value, '未记录');
+}
+
+function displayIncompleteReason(value) {
+  const normalized = String(value || '').toLowerCase();
+  const labels = {
+    candidate_has_no_pag_nodes: '候选端点没有稳定的 PAG 节点',
+    source_has_no_pag_nodes: 'source 没有稳定的 PAG 节点',
+    sink_has_no_pag_nodes: 'sink 没有稳定的 PAG 节点',
+    timeout: '分析超时',
+    budget_exceeded: '达到预算保护',
+  };
+  return labels[normalized] || nonEmptyText(value, '未记录');
+}
+
+function displayList(values, formatter = nonEmptyText) {
+  const list = (Array.isArray(values) ? values : [])
+    .map(value => formatter(value))
+    .filter(value => value && value !== '无');
+  return list.length ? list.join('、') : '无';
+}
+
+function ruleKey(value) {
+  return String(value || '').replace(/^(binding|template)\./, '');
+}
+
+function semanticRuleAssetPathForProject(project) {
+  const normalizedProject = String(project || '').toLowerCase();
+  const preset = REUSABLE_SEMANTIC_ASSET_PRESETS.find(item => item.project.toLowerCase() === normalizedProject);
+  if (!preset) return '';
+  return path.join(
+    preset.modelRoot,
+    'project',
+    preset.enableModel,
+    'rules',
+    'semanticflow.rules.json'
+  );
+}
+
+function collectVulnerabilityEvidenceFromAsset(out, asset) {
+  if (!asset || typeof asset !== 'object') return;
+  for (const binding of Array.isArray(asset.bindings) ? asset.bindings : []) {
+    const evidence = binding?.metadata?.vulnerabilityEvidence;
+    if (!evidence) continue;
+    for (const key of [
+      binding.bindingId,
+      ...(Array.isArray(binding.effectTemplateRefs) ? binding.effectTemplateRefs : []),
+    ]) {
+      out.set(ruleKey(key), evidence);
+    }
+  }
+
+  for (const template of Array.isArray(asset.effectTemplates) ? asset.effectTemplates : []) {
+    const evidence = template?.metadata?.vulnerabilityEvidence;
+    if (!evidence) continue;
+    out.set(ruleKey(template.id), evidence);
+  }
+}
+
+function loadVulnerabilityEvidenceFromRulesPath(out, rulesPath) {
+  if (!rulesPath) return;
+  const resolved = path.resolve(rulesPath);
+  const candidates = [];
+  if (isFile(resolved)) {
+    candidates.push(resolved);
+  } else if (isDirectory(resolved)) {
+    for (const entry of fs.readdirSync(resolved, { withFileTypes: true })) {
+      if (!entry.isFile()) continue;
+      if (!entry.name.endsWith('.json') && !entry.name.endsWith('.rules.json')) continue;
+      candidates.push(path.join(resolved, entry.name));
+    }
+  }
+  for (const candidate of candidates) {
+    collectVulnerabilityEvidenceFromAsset(out, readJsonIfExists(candidate));
+  }
+}
+
+function loadVulnerabilityEvidenceFromSummary(summary) {
+  const out = new Map();
+  for (const source of Array.isArray(summary?.ruleSourceStatus) ? summary.ruleSourceStatus : []) {
+    if (!source?.applied || !source?.exists || !source?.path) continue;
+    loadVulnerabilityEvidenceFromRulesPath(out, source.path);
+  }
+  return out;
+}
+
+function loadProjectVulnerabilityEvidence(project, summary) {
+  const out = loadVulnerabilityEvidenceFromSummary(summary);
+  if (out.size > 0) return out;
+
+  const assetPath = semanticRuleAssetPathForProject(project);
+  loadVulnerabilityEvidenceFromRulesPath(out, assetPath);
+  return out;
+}
+
+function stripEntryPrefix(factId) {
+  return String(factId || '').replace(/^entry\d+:/, '');
+}
+
+function loadTraceFactMap(summaryPath) {
+  const runRoot = path.dirname(path.dirname(summaryPath || ''));
+  const tracePath = path.join(runRoot, 'audit', 'trace_graph', 'full_trace_graph.json');
+  const traceGraph = readJsonIfExists(tracePath);
+  const out = new Map();
+  for (const fact of Array.isArray(traceGraph?.facts) ? traceGraph.facts : []) {
+    if (!fact?.id) continue;
+    out.set(String(fact.id), fact);
+    out.set(stripEntryPrefix(fact.id), fact);
+  }
+  return out;
+}
+
+function compactMethodName(value) {
+  let text = String(value || '').trim();
+  const colonIndex = text.lastIndexOf(': ');
+  if (colonIndex >= 0) text = text.slice(colonIndex + 2);
+  text = text.replace(/^%dflt\./, '');
+  text = text.replace(/\([^)]*\).*$/, '');
+  return text || '';
+}
+
+function compactStatement(value) {
+  return String(value || '')
+    .replace(/<@[^:>]+:\s*([^>]+)>/g, (_match, signature) => compactMethodName(signature))
+    .replace(/\bstaticinvoke\s+/g, '')
+    .replace(/\binstanceinvoke\s+/g, '')
+    .replace(/\bthis\./g, '')
+    .replace(/\bnapi\./g, 'napi.')
+    .replace(/@%unk\/%unk:\s*/g, '')
+    .replace(/%dflt\./g, '')
+    .replace(/\.\./g, '.')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function readableTraceFact(fact) {
+  if (!fact) return '';
+  const method = compactMethodName(fact.method);
+  const stmt = compactStatement(fact.stmt || fact.value);
+  if (method && stmt) return `${method}: ${stmt}`;
+  return method || stmt || '';
+}
+
+function readableStepsForFactIds(factIds, traceFacts) {
+  const steps = [];
+  for (const factId of Array.isArray(factIds) ? factIds : []) {
+    const step = readableTraceFact(traceFacts.get(String(factId)) || traceFacts.get(stripEntryPrefix(factId)));
+    if (!step) continue;
+    if (steps[steps.length - 1] !== step) steps.push(step);
+  }
+  return steps;
+}
+
+function buildCompleteFlowRecords(summary, summaryPath) {
+  const entries = Array.isArray(summary?.entries) ? summary.entries : [];
+  const entry = entries.find(item => Array.isArray(item.materializedTaintFlows) && item.materializedTaintFlows.length > 0);
+  if (!entry) return null;
+
+  const project = path.basename(summary?.repo || '');
+  const vulnerabilityEvidence = loadProjectVulnerabilityEvidence(project, summary);
+  const traceFacts = loadTraceFactMap(summaryPath);
+  const traces = Array.isArray(entry.flowRuleTraces) ? entry.flowRuleTraces : [];
+  const flows = entry.materializedTaintFlows.map((flow, index) => {
+    const trace = traces[index] || {};
+    const paths = Array.isArray(flow.paths) ? flow.paths : [];
+    const completePathCount = paths.filter(pathItem => pathItem?.status === 'complete').length;
+    const evidence = vulnerabilityEvidence.get(ruleKey(trace.sinkRuleId)) || null;
+    return {
+      index: index + 1,
+      sourceDir: entry.sourceDir || '',
+      status: flow.status || '',
+      judgement: judgementText(flow.judgement),
+      evidenceKinds: Array.isArray(flow.evidenceKinds) ? flow.evidenceKinds : [],
+      incompleteReasons: Array.isArray(flow.incompleteReasons) ? flow.incompleteReasons : [],
+      completePathCount,
+      source: trace.source || '',
+      sourceRuleId: trace.sourceRuleId || '',
+      sink: trace.sink || '',
+      sinkEndpoint: trace.sinkEndpoint || '',
+      sinkFieldPath: Array.isArray(trace.sinkFieldPath) ? trace.sinkFieldPath : [],
+      sinkRuleId: trace.sinkRuleId || '',
+      transferRuleIds: Array.isArray(trace.transferRuleIds) ? trace.transferRuleIds : [],
+      vulnerabilityEvidence: evidence,
+      paths: paths.map((pathItem, pathIndex) => ({
+        pathIndex: pathIndex + 1,
+        status: pathItem?.status || '',
+        judgement: judgementText(pathItem?.judgement),
+        evidenceKinds: Array.isArray(pathItem?.evidenceKinds) ? pathItem.evidenceKinds : [],
+        incompleteReasons: Array.isArray(pathItem?.incompleteReasons) ? pathItem.incompleteReasons : [],
+        factIds: Array.isArray(pathItem?.factIds) ? pathItem.factIds : [],
+        readableSteps: readableStepsForFactIds(pathItem?.factIds, traceFacts),
+      })),
+    };
+  });
+
+  return {
+    project,
+    summaryPath,
+    generatedAt: new Date().toISOString(),
+    reportMode: summary?.reportMode || '',
+    flowMode: summary?.flowMode || '',
+    entry: {
+      sourceDir: entry.sourceDir || '',
+      entryName: entry.entryName || '',
+      status: entry.status || '',
+      flowCount: entry.flowCount || flows.length,
+      seedCount: entry.seedCount || 0,
+    },
+    completeFlowCount: flows.length,
+    flows,
+  };
+}
+
+function compactFlowText(value) {
+  return String(value || '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function renderSingleFlowPath(flow) {
+  const evidence = flow?.vulnerabilityEvidence || {};
+  const source = compactFlowText(flow?.source);
+  const sink = compactFlowText(flow?.sink);
+  const location = compactFlowText(
+    evidence.evidenceFile || evidence.evidenceLine
+      ? `${evidence.evidenceFile || ''}${evidence.evidenceLine ? `:${evidence.evidenceLine}` : ''}`
+      : ''
+  );
+
+  const selectedPath =
+    (flow?.paths || []).find(pathItem => Array.isArray(pathItem.readableSteps) && pathItem.readableSteps.length > 0 && pathItem.status === 'complete') ||
+    (flow?.paths || []).find(pathItem => Array.isArray(pathItem.readableSteps) && pathItem.readableSteps.length > 0);
+  const pathItems = [
+    source,
+    ...(selectedPath?.readableSteps || []),
+    sink,
+  ]
+    .map(compactFlowText)
+    .filter(Boolean)
+    .filter((item, index, items) => index === 0 || item !== items[index - 1]);
+  if (!pathItems.length) return '';
+  return `${pathItems.join(' -> ')}${location ? ` @ ${location}` : ''}`;
+}
+
+function renderFlowPathList(flows) {
+  return (Array.isArray(flows) ? flows : [])
+    .map(renderSingleFlowPath)
+    .filter(Boolean)
+    .map((line, index) => `${index + 1}. ${line}`)
+    .join('\n');
+}
+
+function renderCompleteFlowMarkdown(report) {
+  return renderFlowPathList(report.flows || []);
+}
+
+function renderVulnerabilityFlowMarkdown(report) {
+  return renderFlowPathList(report.flows || []);
+}
+
+function writeCompleteFlowArtifacts(projectOut, summaryJson) {
+  if (!isFile(summaryJson)) return [];
+  try {
+    const summary = JSON.parse(fs.readFileSync(summaryJson, 'utf8'));
+    const report = buildCompleteFlowRecords(summary, summaryJson);
+    if (!report || report.completeFlowCount <= 0) return [];
+
+    const confirmedReport = {
+      ...report,
+      completeFlowCount: report.flows.filter(flow => flow.judgement === 'Confirmed').length,
+      flows: report.flows.filter(flow => flow.judgement === 'Confirmed'),
+    };
+    const flowDir = path.join(projectOut, 'complete_flows');
+    ensureDirectory(flowDir);
+    const completeJson = path.join(flowDir, 'complete_taint_flows.json');
+    const completeMd = path.join(flowDir, 'complete_taint_flows.md');
+    const confirmedJson = path.join(flowDir, 'confirmed_complete_taint_flows.json');
+    const confirmedMd = path.join(flowDir, 'confirmed_complete_taint_flows.md');
+    const vulnerabilityJson = path.join(flowDir, 'vulnerability_flows.json');
+    const vulnerabilityMd = path.join(flowDir, 'vulnerability_flows.md');
+    const vulnerabilityReport = {
+      ...report,
+      completeFlowCount: report.flows.filter(flow => flow.vulnerabilityEvidence).length,
+      flows: report.flows.filter(flow => flow.vulnerabilityEvidence),
+    };
+    fs.writeFileSync(completeJson, JSON.stringify(report, null, 2), 'utf8');
+    fs.writeFileSync(completeMd, renderCompleteFlowMarkdown(report), 'utf8');
+    fs.writeFileSync(confirmedJson, JSON.stringify(confirmedReport, null, 2), 'utf8');
+    fs.writeFileSync(confirmedMd, renderCompleteFlowMarkdown(confirmedReport), 'utf8');
+    fs.writeFileSync(vulnerabilityJson, JSON.stringify(vulnerabilityReport, null, 2), 'utf8');
+    fs.writeFileSync(vulnerabilityMd, renderVulnerabilityFlowMarkdown(vulnerabilityReport), 'utf8');
+    return [`complete_flows_md=${completeMd}`];
+  } catch {
+    return [];
+  }
+}
+
 function discoverBatchArtifacts(batchDone) {
   const artifacts = [];
-  if (batchDone?.summary && isFile(batchDone.summary)) {
-    artifacts.push(`summary=${batchDone.summary}`);
-  }
   if (batchDone?.records && isFile(batchDone.records)) {
-    artifacts.push(`records=${batchDone.records}`);
     for (const record of readJsonl(batchDone.records)) {
       const projectOut = record?.outputDir;
       if (!projectOut || !isDirectory(projectOut)) continue;
-      const summaryMd = path.join(projectOut, 'summary', 'summary.md');
       const summaryJson = path.join(projectOut, 'summary', 'summary.json');
-      const traceMd = path.join(projectOut, 'audit', 'trace_graph', 'full_trace_graph.md');
-      const traceJson = path.join(projectOut, 'audit', 'trace_graph', 'full_trace_graph.json');
-      if (isFile(summaryMd)) artifacts.push(`final_summary_md=${summaryMd}`);
-      if (isFile(summaryJson)) artifacts.push(`final_summary_json=${summaryJson}`);
-      if (isFile(traceMd)) artifacts.push(`trace_graph_md=${traceMd}`);
-      if (isFile(traceJson)) artifacts.push(`trace_graph_json=${traceJson}`);
+      artifacts.push(...writeCompleteFlowArtifacts(projectOut, summaryJson));
     }
   }
   return artifacts;
 }
 
+function describeGeneratedArtifacts(artifacts) {
+  const labelByMarker = [
+    ['vulnerability_flows_md=', '漏洞流报告'],
+    ['complete_flows_md=', '完整污点流报告'],
+    ['confirmed_complete_flows_md=', '已确认完整污点流报告'],
+    ['final_summary_md=', '分析摘要报告'],
+    ['trace_graph_md=', '完整传播图'],
+    ['summary=', '批量汇总表'],
+    ['records=', '批量运行记录'],
+  ];
+  const labels = [];
+  for (const artifact of artifacts) {
+    const matched = labelByMarker.find(([marker]) => artifact.startsWith(marker));
+    if (matched && !labels.includes(matched[1])) labels.push(matched[1]);
+  }
+  const readable = labels.length ? labels.join('、') : '污点流结果';
+  return `${readable}已生成，可在“结果预览”中查看。`;
+}
+
+function formatElapsedMs(value) {
+  const ms = Number(value);
+  if (!Number.isFinite(ms) || ms <= 0) return '';
+  return `${(ms / 1000).toFixed(1)} 秒`;
+}
+
+function readableBatchLine(line) {
+  const text = String(line || '').trim();
+  if (!text) return '';
+  if (text.includes('summary=') || text.includes('final_summary_') || text.includes('complete_flows_') || text.includes('trace_graph_') || text.includes('records=')) {
+    return text;
+  }
+  if (text.startsWith('[BRIDGE] Executing:')) return '';
+  if (text.startsWith('[BRIDGE] ArkTaint root:')) return '';
+  if (text.startsWith('[BRIDGE_ERROR]')) {
+    return `桥接服务异常：${text.replace('[BRIDGE_ERROR]', '').trim()}`;
+  }
+  const llmStart = text.match(/^LLM\s+语义建模\s+start\s+profile=(.+)$/i);
+  if (llmStart) return `调用大模型参与语义资产生成：${displayLlmProfile(llmStart[1])}。`;
+  const llmDone = text.match(/^LLM\s+语义建模\s+done\s+profile=(.+)$/i);
+  if (llmDone) return `大模型语义资产生成完成：${displayLlmProfile(llmDone[1])}。`;
+  const llmRetry = text.match(/^LLM\s+语义建模.*retry.*profile=([^\s]+).*sample=([^\s]+).*error=(.*)$/i);
+  if (llmRetry) {
+    return `大模型语义建模样本重试：模型 ${displayLlmProfile(llmRetry[1])}，样本 ${llmRetry[2]}，原因：${llmRetry[3] || '请求未完成'}。`;
+  }
+  const batchStart = text.match(/batch_start\s+projects=(\d+).*timeout_s=(\d+)/i);
+  if (batchStart) {
+    return `分析任务已启动：共 ${batchStart[1]} 个项目，单项目超时保护 ${batchStart[2]} 秒。`;
+  }
+  const selected = text.match(/selected_projects=(\d+)/i);
+  if (selected) return `已确认本次分析项目数：${selected[1]}。`;
+  const start = text.match(/\[(\d+)\/(\d+)\]\s+project=([^\s]+)\s+start/i);
+  if (start) return `开始分析项目：${start[3]}（${start[1]}/${start[2]}）。`;
+  const done = text.match(/\[(\d+)\/(\d+)\]\s+project=([^\s]+)\s+status=([^\s]+)\s+elapsed_ms=(\d+)\s+flows=([^\s]*)/i);
+  if (done) {
+    const status = displayRunStatus(done[4]);
+    const flows = done[6] || '0';
+    return `项目分析${status}：${done[3]}，发现 ${flows} 条候选污点流，用时 ${formatElapsedMs(done[5])}。`;
+  }
+  const heartbeat = text.match(/\[heartbeat\]\s+project=([^\s]+)\s+elapsed_s=(\d+)\s+last=(.*)$/i);
+  if (heartbeat) {
+    const last = heartbeat[3] || '';
+    if (last.includes('semanticflow_llm=request_start')) {
+      return `正在进行大模型语义建模：${heartbeat[1]}，已运行 ${heartbeat[2]} 秒。`;
+    }
+    if (last.includes('ArkMain profiling') || last.includes('entry closure')) {
+      return `正在恢复 ArkTS 生命周期入口和延后执行路径：${heartbeat[1]}，已运行 ${heartbeat[2]} 秒。`;
+    }
+    if (last.includes('module warning') || last.includes('official_declaration_semantic_slots')) {
+      return `正在加载官方 API 与项目语义资产：${heartbeat[1]}，已运行 ${heartbeat[2]} 秒。`;
+    }
+    if (last.includes('no output yet')) {
+      return `正在初始化项目分析环境：${heartbeat[1]}，已运行 ${heartbeat[2]} 秒。`;
+    }
+    return `项目分析进行中：${heartbeat[1]}，已运行 ${heartbeat[2]} 秒。`;
+  }
+  const batchDone = text.match(/batch_done\s+projects=(\d+)\s+completed=(\d+)\s+failed=(\d+)\s+total_flows=(\d+)/i);
+  if (batchDone) {
+    return `全部分析完成：${batchDone[2]}/${batchDone[1]} 个项目成功，失败 ${batchDone[3]} 个，共发现 ${batchDone[4]} 条候选污点流。`;
+  }
+  if (text.startsWith('[analyzeRunner] stage=semantic_asset_discovery start')) return '开始整理大模型语义资产和项目语义资产。';
+  if (text.startsWith('[analyzeRunner] stage=semantic_asset_discovery done')) {
+    const assets = text.match(/assets=(\d+)/i)?.[1];
+    const accepted = text.match(/accepted=(\d+)/i)?.[1];
+    return `语义资产整理完成${assets ? `：加载 ${assets} 条资产` : ''}${accepted ? `，可进入分析 ${accepted} 条` : ''}，正在进入项目构建。`;
+  }
+  if (text.startsWith('[analyzeRunner] stage=scene_build start')) {
+    const project = text.match(/project=([^\s]+)/i)?.[1];
+    return `开始构建 ArkTS 程序场景和调用关系${project ? `：${project}` : ''}。`;
+  }
+  if (text.startsWith('[analyzeRunner] stage=scene_build done')) {
+    const dirs = text.match(/source_dirs=(\d+)/i)?.[1];
+    return `程序场景构建完成${dirs ? `，识别 ${dirs} 个源码目录` : ''}。`;
+  }
+  if (text.startsWith('[analyzeRunner] stage=taint_solve start')) return '开始执行静态污点分析求解。';
+  if (text.startsWith('[analyzeRunner] stage=taint_solve done')) {
+    const flows = text.match(/(?:complete_flows|flows)=(\d+)/i)?.[1];
+    const vulnerabilityFlows = text.match(/vulnerability_flows=(\d+)/i)?.[1];
+    return `静态污点分析求解完成${flows ? `，发现 ${flows} 条候选污点流` : ''}${vulnerabilityFlows ? `，其中 ${vulnerabilityFlows} 条绑定漏洞证据` : ''}。`;
+  }
+  return text;
+}
+
 async function streamBatchProcess(req, res, command, args, cwd, options = {}) {
   createSseResponse(res);
 
-  writeEvent(res, 'sys', { message: `[BRIDGE] ArkTaint root: ${cwd}` });
-  writeEvent(res, 'sys', { message: `[BRIDGE] Executing: ${command} ${args.join(' ')}` });
+  writeEvent(res, 'sys', { message: '分析任务已提交，正在检查项目范围和运行参数。' });
 
   if (options.__llmProbeBeforeAnalyze) {
     await runLlmProbeBeforeAnalyze(res, cwd, options);
   }
 
   let batchDone = null;
-  const child = spawn(command, args, { cwd, shell: false, windowsHide: true });
-  const forwardLine = (type, line) => {
-    const parsed = parseBatchDoneLine(line);
-    if (parsed) batchDone = parsed;
-    writeEvent(res, type, { message: line });
-  };
+    const child = spawn(command, args, { cwd, shell: false, windowsHide: true });
+    const forwardLine = (type, line) => {
+      const parsed = parseBatchDoneLine(line);
+      if (parsed) batchDone = parsed;
+      const readable = readableBatchLine(line);
+      if (readable) writeEvent(res, type, { message: readable });
+    };
   const stdoutForwarder = createBufferedLineHandler(line => forwardLine('log', line));
   const stderrForwarder = createBufferedLineHandler(line => forwardLine('error', line));
   const heartbeat = setInterval(() => res.write(': keep-alive\n\n'), 15000);
@@ -653,6 +1346,7 @@ async function streamBatchProcess(req, res, command, args, cwd, options = {}) {
     stderrForwarder.flush();
     const artifacts = discoverBatchArtifacts(batchDone);
     if (artifacts.length > 0) {
+      writeEvent(res, 'log', { message: describeGeneratedArtifacts(artifacts) });
       writeEvent(res, 'log', { message: artifacts.join(' ') });
     }
     writeEvent(res, 'done', { code });
@@ -805,7 +1499,15 @@ app.post('/api/upload-project-bundle', async (req, res) => {
     fs.writeFileSync(archivePath, decodeBase64Content(contentBase64));
     await expandArchive(archivePath, extractedRoot);
 
-    const detectedProjects = listChildDirectories(extractedRoot);
+    const uploadedProjectRoots = findUploadedProjectRoots(extractedRoot);
+    const normalizedUpload =
+      uploadedProjectRoots.length === 1 && path.resolve(uploadedProjectRoots[0]) === path.resolve(extractedRoot)
+        ? normalizeDirectRootProject(sessionRoot, extractedRoot, fileName)
+        : {
+            projectRoot: extractedRoot,
+            detectedProjects: uploadedProjectRoots.map(dir => toRelativeProjectName(extractedRoot, dir)),
+          };
+    const detectedProjects = normalizedUpload.detectedProjects;
     if (!detectedProjects.length) {
       removeDirectory(sessionRoot);
       return res.status(400).json({ error: '压缩包解压后没有发现可分析的项目目录' });
@@ -813,7 +1515,7 @@ app.post('/api/upload-project-bundle', async (req, res) => {
 
     return res.json({
       bundleName: fileName,
-      projectRoot: extractedRoot,
+      projectRoot: normalizedUpload.projectRoot,
       detectedProjects,
       projectCount: detectedProjects.length,
     });
@@ -879,9 +1581,18 @@ app.post('/api/analyze', (req, res) => {
 app.post('/api/batch-analyze', (req, res) => {
   const root = normalizePath(req.body.arktaintRoot || DEFAULT_ARKTAINT_ROOT);
   const projectRoot = normalizePath(req.body.projectRoot);
+  const requestedProjects = parseProjectSelection(req.body.projects);
   const rootValidation = validateArkTaintRoot(root);
   if (!rootValidation.ok) return res.status(400).json({ error: `ArkTaint 根目录无效：${rootValidation.reason}` });
-  if (!isDirectory(projectRoot)) return res.status(400).json({ error: '项目集合目录不存在' });
+  if (!String(req.body.uploadedBundleName || '').trim()) {
+    return res.status(400).json({ error: '请先上传项目 zip 压缩包' });
+  }
+  if (!isDirectory(projectRoot) || !isInsideDirectory(UPLOAD_ROOT, projectRoot)) {
+    return res.status(400).json({ error: '项目解压目录无效，请重新上传 zip 压缩包' });
+  }
+  if (requestedProjects.length === 0) {
+    return res.status(400).json({ error: '未识别到可分析项目，请重新上传包含 ArkTS/OpenHarmony 项目的 zip 压缩包' });
+  }
   try {
     requireBuiltArtifact(root, path.join('out', 'tools', 'real_project_batch_analyze.js'));
     const batchOptions = attachReusableSemanticAssets({ ...req.body, projectRoot });
@@ -903,7 +1614,11 @@ app.post('/api/batch-analyze', (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`[ArkTaint Bridge] listening on http://localhost:${PORT}`);
-  console.log(`[ArkTaint Bridge] default root: ${DEFAULT_ARKTAINT_ROOT}`);
-});
+export { buildCompleteFlowRecords, loadProjectVulnerabilityEvidence, writeCompleteFlowArtifacts };
+
+if (process.env.ARKTAINT_BRIDGE_NO_LISTEN !== '1') {
+  app.listen(PORT, () => {
+    console.log(`[ArkTaint Bridge] listening on http://localhost:${PORT}`);
+    console.log(`[ArkTaint Bridge] default root: ${DEFAULT_ARKTAINT_ROOT}`);
+  });
+}

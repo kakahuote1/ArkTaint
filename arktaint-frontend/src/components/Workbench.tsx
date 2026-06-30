@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import {
   ArrowLeft,
   ArrowRight,
@@ -42,7 +43,7 @@ type RunSnapshot = {
 type ReportPreviewKind = 'markdown' | 'json' | 'text';
 
 const bridgeBaseUrl = import.meta.env.VITE_ARKTAINT_BRIDGE_URL || 'http://localhost:3001';
-const storageKey = 'arktaint.console.settings.v8';
+const storageKey = 'arktaint.console.settings.v9';
 
 const configPanels: Array<{
   id: ConfigPanel;
@@ -55,8 +56,8 @@ const configPanels: Array<{
   {
     id: 'scope',
     title: '项目接入',
-    hint: '确定本次任务对应的真实项目范围',
-    lead: '完成项目上传、项目范围识别与结果输出设置，建立本次分析任务的基础上下文。',
+    hint: '上传 zip 并自动识别真实项目',
+    lead: '上传包含真实 ArkTS/OpenHarmony 项目的 zip 压缩包，系统会解压并自动识别本次分析范围。',
     required: true,
     icon: FolderOpen,
   },
@@ -111,13 +112,34 @@ function cleanLines(value: string) {
 
 function getLogClass(log: LogEntry) {
   const text = log.message.toLowerCase();
-  if (log.type === 'error' || text.includes('error') || text.includes('fail') || text.includes('timeout')) {
+  if (
+    log.type === 'error' ||
+    text.includes('error') ||
+    text.includes('fail') ||
+    text.includes('timeout') ||
+    log.message.includes('失败') ||
+    log.message.includes('超时') ||
+    log.message.includes('异常')
+  ) {
     return 'log-error';
   }
-  if (text.includes('warn') || text.includes('need-human-check') || text.includes('partial')) {
+  if (
+    text.includes('warn') ||
+    text.includes('need-human-check') ||
+    text.includes('partial') ||
+    log.message.includes('待复核') ||
+    log.message.includes('未完成')
+  ) {
     return 'log-warn';
   }
-  if (log.type === 'done' || text.includes('summary_json') || text.includes('final_summary_json') || text.includes('complete')) {
+  if (
+    log.type === 'done' ||
+    text.includes('summary_json') ||
+    text.includes('final_summary_json') ||
+    text.includes('complete') ||
+    log.message.includes('完成') ||
+    log.message.includes('已生成')
+  ) {
     return 'log-success';
   }
   return 'log-info';
@@ -125,6 +147,20 @@ function getLogClass(log: LogEntry) {
 
 function inferPhase(message: string) {
   const text = message.toLowerCase();
+  if (
+    message.includes('结果报告') ||
+    message.includes('污点分析求解') ||
+    message.includes('候选污点流') ||
+    message.includes('全部分析完成')
+  ) {
+    return '求解与结果';
+  }
+  if (message.includes('大模型') || message.includes('语义资产') || message.includes('建模增强')) {
+    return '建模增强';
+  }
+  if (message.includes('程序场景') || message.includes('调用关系') || message.includes('初始化项目分析环境')) {
+    return '场景构建';
+  }
   if (text.includes('summary_json') || text.includes('result_json') || text.includes('final_summary')) return '求解与结果';
   if (
     text.includes('semanticflow') ||
@@ -150,6 +186,20 @@ function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+function pushArtifact(artifacts: ArtifactItem[], artifact: ArtifactItem) {
+  if (!artifacts.some(item => item.label === artifact.label && item.path === artifact.path)) {
+    artifacts.push(artifact);
+  }
+}
+
+function deriveCompleteFlowArtifact(artifactPath: string) {
+  if (!/[\\/]vulnerability_flows\.md$/i.test(artifactPath)) return null;
+  return artifactPath.replace(/[\\/]vulnerability_flows\.md$/i, match => {
+    const separator = match.startsWith('\\') ? '\\' : '/';
+    return `${separator}complete_taint_flows.md`;
+  });
+}
+
 function parseArtifacts(message: string): ArtifactItem[] {
   const candidates = artifactMarkers.map(item => ({ ...item }));
   const artifacts: ArtifactItem[] = [];
@@ -158,41 +208,84 @@ function parseArtifacts(message: string): ArtifactItem[] {
     let matched: RegExpExecArray | null;
     while ((matched = pattern.exec(message)) !== null) {
       const artifactPath = matched[1]?.trim();
-      if (artifactPath) artifacts.push({ label: item.label, path: artifactPath });
+      if (artifactPath) {
+        const derivedCompletePath = item.marker === 'vulnerability_flows_md='
+          ? deriveCompleteFlowArtifact(artifactPath)
+          : null;
+        if (derivedCompletePath) pushArtifact(artifacts, { label: '污点流结果', path: derivedCompletePath });
+        pushArtifact(artifacts, { label: item.label, path: artifactPath });
+      }
     }
   }
   return artifacts;
 }
 
 const artifactMarkers = [
-    { marker: 'summary_json=', label: 'Summary JSON' },
-    { marker: 'final_summary_json=', label: '最终 Summary JSON' },
-    { marker: 'summary_md=', label: 'Summary Markdown' },
-    { marker: 'final_summary_md=', label: '最终 Summary Markdown' },
-    { marker: 'result_json=', label: '结果 JSON' },
-    { marker: 'complete_vulnerability_flows_md=', label: '完整漏洞流 Markdown' },
-    { marker: 'complete_vulnerability_flows_json=', label: '完整漏洞流 JSON' },
-    { marker: 'confirmed_vulnerability_flows_md=', label: '已确认完整漏洞流 Markdown' },
-    { marker: 'confirmed_vulnerability_flows_json=', label: '已确认完整漏洞流 JSON' },
-    { marker: 'complete_flows_md=', label: '完整污点流 Markdown' },
-    { marker: 'complete_flows_json=', label: '完整污点流 JSON' },
-    { marker: 'confirmed_complete_flows_md=', label: 'Confirmed 完整污点流 Markdown' },
-    { marker: 'confirmed_complete_flows_json=', label: 'Confirmed 完整污点流 JSON' },
-    { marker: 'trace_graph_md=', label: '完整传播图 Markdown' },
-    { marker: 'trace_graph_json=', label: '完整传播图 JSON' },
-    { marker: 'records=', label: '批量运行记录' },
-    { marker: 'summary=', label: '批量汇总 CSV' },
-    { marker: 'output_dir=', label: '输出目录' },
-    { marker: 'session=', label: 'SemanticFlow Session' },
-  ];
+  { marker: 'complete_flows_md=', label: '污点流结果' },
+  { marker: 'confirmed_complete_flows_md=', label: '已确认污点流结果' },
+  { marker: 'vulnerability_flows_md=', label: '漏洞流结果' },
+];
+
+const artifactTextMarkers = [
+  ...artifactMarkers.map(item => item.marker),
+  'summary_json=',
+  'final_summary_json=',
+  'summary_md=',
+  'final_summary_md=',
+  'result_json=',
+  'vulnerability_flows_json=',
+  'complete_vulnerability_flows_md=',
+  'complete_vulnerability_flows_json=',
+  'confirmed_vulnerability_flows_md=',
+  'confirmed_vulnerability_flows_json=',
+  'complete_flows_json=',
+  'confirmed_complete_flows_json=',
+  'trace_graph_md=',
+  'trace_graph_json=',
+  'records=',
+  'summary=',
+  'output_dir=',
+  'session=',
+];
 
 function isArtifactMarkerMessage(message: string) {
-  return artifactMarkers.some(item => message.includes(item.marker));
+  return artifactTextMarkers.some(marker => message.includes(marker));
+}
+
+function parseFlowPreviewItems(content: string) {
+  const normalized = content.replace(/\r\n/g, '\n').trim();
+  if (!normalized) return [];
+  const lines = normalized.split('\n');
+  const items: string[] = [];
+  let current = '';
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line) continue;
+    const matched = line.match(/^\d+\.\s*(.*)$/);
+    if (matched) {
+      if (current.trim()) items.push(current.trim());
+      current = matched[1] || '';
+    } else if (current) {
+      current = `${current} ${line}`;
+    }
+  }
+  if (current.trim()) items.push(current.trim());
+  return items;
 }
 
 function parseProjectRunStatus(message: string) {
   const matched = message.match(/\[(\d+)\/(\d+)\]\s+project=([^\s]+)\s+status=([^\s]+)/i);
-  if (!matched) return null;
+  if (!matched) {
+    const readableMatched = message.match(/项目分析(完成|已跳过)：([^，]+)，/);
+    if (readableMatched) {
+      return { project: readableMatched[2], total: 0, status: 'completed' as const };
+    }
+    const failedMatched = message.match(/项目分析(失败|超时|达到预算保护)：([^，]+)，/);
+    if (failedMatched) {
+      return { project: failedMatched[2], total: 0, status: 'failed' as const };
+    }
+    return null;
+  }
 
   const statusText = matched[4].toLowerCase();
   if (
@@ -322,8 +415,7 @@ export default function Workbench() {
   const [reportPreviewKind, setReportPreviewKind] = useState<ReportPreviewKind>('text');
   const [reportPreviewContent, setReportPreviewContent] = useState('');
 
-  const [outputDir, setOutputDir] = useState(readText('outputDir'));
-  const [projectRoot, setProjectRoot] = useState(readText('projectRoot', 'D:\\cursor\\workplace\\project'));
+  const [projectRoot, setProjectRoot] = useState(readText('projectRoot'));
   const [projects, setProjects] = useState(readText('projects'));
   const [uploadedBundleName, setUploadedBundleName] = useState(readText('uploadedBundleName'));
   const [uploadingBundle, setUploadingBundle] = useState(false);
@@ -396,7 +488,7 @@ export default function Workbench() {
   );
   const selectedProjectCount = projectList.length;
   const bridgeReady = Boolean(bridgeConfig?.valid) && !bridgeError;
-  const scopeReady = bridgeReady && Boolean(projectRoot.trim()) && selectedProjectCount > 0;
+  const scopeReady = bridgeReady && Boolean(uploadedBundleName.trim()) && Boolean(projectRoot.trim()) && selectedProjectCount > 0;
   const strategyReady = Boolean(profile && reportMode);
   const llmDirectReady = Boolean(llmModel.trim() && llmApiUrl.trim() && llmApiKey.trim());
   const llmReady = llmConfigMode === 'direct' ? llmDirectReady : Boolean(llmConfig.trim());
@@ -430,21 +522,9 @@ export default function Workbench() {
 
   const previewArtifact = useMemo(() => {
     const preferredLabels = [
-      '已确认完整漏洞流 Markdown',
-      '完整漏洞流 Markdown',
-      '已确认完整漏洞流 JSON',
-      '完整漏洞流 JSON',
-      'Confirmed 完整污点流 Markdown',
-      '完整污点流 Markdown',
-      'Confirmed 完整污点流 JSON',
-      '完整污点流 JSON',
-      '完整传播图 Markdown',
-      '完整传播图 JSON',
-      '最终 Summary Markdown',
-      'Summary Markdown',
-      '最终 Summary JSON',
-      'Summary JSON',
-      '批量汇总 CSV',
+      '污点流结果',
+      '已确认污点流结果',
+      '漏洞流结果',
     ];
     for (const label of preferredLabels) {
       const matched = runSnapshot.artifacts.find(item => item.label === label);
@@ -453,10 +533,16 @@ export default function Workbench() {
     return null;
   }, [runSnapshot.artifacts]);
 
+  const flowPreviewItems = useMemo(
+    () => reportPreviewKind === 'markdown' || reportPreviewKind === 'text'
+      ? parseFlowPreviewItems(reportPreviewContent)
+      : [],
+    [reportPreviewContent, reportPreviewKind]
+  );
+
   const payload = useMemo(
     () => ({
       taskMode: 'batch' as TaskMode,
-      outputDir,
       projectRoot,
       projects,
       uploadedBundleName,
@@ -509,7 +595,6 @@ export default function Workbench() {
       rulesOpen,
     }),
     [
-      outputDir,
       projectRoot,
       projects,
       uploadedBundleName,
@@ -596,17 +681,6 @@ export default function Workbench() {
     localStorage.setItem(storageKey, JSON.stringify(payload));
   }, [payload]);
 
-  const handlePickFolder = async (setter: (value: string) => void) => {
-    try {
-      const response = await fetch(`${bridgeBaseUrl}/api/pick-folder`);
-      if (!response.ok) throw new Error('目录选择失败');
-      const data = await response.json();
-      if (data.path) setter(data.path);
-    } catch {
-      setBridgeError('目录选择不可用，请确认本地桥接服务已经启动。');
-    }
-  };
-
   const uploadBundle = async (file: File) => {
     if (!file.name.toLowerCase().endsWith('.zip')) {
       setUploadMessage('目前只支持上传 zip 压缩包。');
@@ -615,6 +689,9 @@ export default function Workbench() {
 
     setUploadingBundle(true);
     setUploadMessage(`正在上传 ${file.name}...`);
+    setUploadedBundleName('');
+    setProjectRoot('');
+    setProjects('');
     try {
       const contentBase64 = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
@@ -737,13 +814,21 @@ export default function Workbench() {
     setLogs(prev => [...prev, toLog(message, type, time)]);
     setRunSnapshot(prev => {
       const next: RunSnapshot = { ...prev, phase: inferPhase(message) };
-      const selected = message.match(/selected_projects=(\d+)/i);
+      const selected = message.match(/selected_projects=(\d+)/i) || message.match(/已确认本次分析项目数：(\d+)/);
       if (selected) next.selectedProjects = Number(selected[1]);
-      const progress = message.match(/\[(\d+)\/(\d+)\]\s+project=([^\s]+)/i);
+      const progress =
+        message.match(/\[(\d+)\/(\d+)\]\s+project=([^\s]+)/i) ||
+        message.match(/开始分析项目：([^（]+)（(\d+)\/(\d+)）/);
       if (progress) {
-        next.currentProjectIndex = Number(progress[1]);
-        next.currentProjectTotal = Number(progress[2]);
-        next.currentProjectName = progress[3];
+        if (progress.length === 4 && message.includes('开始分析项目：')) {
+          next.currentProjectIndex = Number(progress[2]);
+          next.currentProjectTotal = Number(progress[3]);
+          next.currentProjectName = progress[1];
+        } else {
+          next.currentProjectIndex = Number(progress[1]);
+          next.currentProjectTotal = Number(progress[2]);
+          next.currentProjectName = progress[3];
+        }
       }
       return next;
     });
@@ -759,12 +844,10 @@ export default function Workbench() {
     setReportPreviewError('');
     setReportPreviewContent('');
     setReportPreviewKind('text');
-    setLogs([
-      toLog(`连接本地桥接服务：${bridgeBaseUrl}`, 'sys'),
-      toLog(`项目集合目录：${projectRoot.trim()}`, 'sys'),
-      toLog(uploadedBundleName ? `上传压缩包：${uploadedBundleName}` : '未记录上传压缩包名称', 'sys'),
-      toLog(selectedProjectCount > 0 ? `本次显式指定项目数：${selectedProjectCount}` : '本次将按目录自动发现项目', 'sys'),
-    ]);
+      setLogs([
+        toLog('分析任务正在启动。', 'sys'),
+        toLog(selectedProjectCount > 0 ? `已选择 ${selectedProjectCount} 个项目进入分析。` : '系统将自动识别可分析项目。', 'sys'),
+      ]);
     setRunSnapshot({
       phase: '项目接入',
       artifacts: [],
@@ -778,7 +861,6 @@ export default function Workbench() {
         body: JSON.stringify({
           ...payload,
           projectRoot: projectRoot.trim(),
-          outputDir: outputDir.trim(),
         }),
       });
       if (!response.ok) throw new Error(await response.text());
@@ -878,25 +960,11 @@ export default function Workbench() {
         </div>
       </div>
       <div className="form-grid relaxed">
-        <Field label="项目集合目录" wide>
-          <div className="path-row">
-            <input
-              value={projectRoot}
-              onChange={event => setProjectRoot(event.target.value)}
-              placeholder="选择或填写真实项目集合目录，例如 D:\cursor\workplace\project"
-            />
-            <button type="button" className="folder-button" onClick={() => handlePickFolder(setProjectRoot)}>
-              <FolderOpen size={14} />
-              选择
-            </button>
-          </div>
-          <div className="validation-note idle">
-            可以直接填写本机项目集合目录；如需上传压缩包，也可以使用下方 zip 入口。
-          </div>
+        <Field label="上传项目压缩包" wide note="后续测试只接受 zip 上传，系统会从解压结果中自动识别可分析项目。">
           <div className="upload-card">
             <div className="upload-copy">
               <strong>{uploadedBundleName || '上传项目压缩包'}</strong>
-              <span>上传后自动完成解压与识别，直接进入分析准备阶段。</span>
+              <span>上传后自动完成解压、项目识别和分析范围准备。</span>
             </div>
             <label className={`folder-button upload-button ${uploadingBundle ? 'disabled' : ''}`}>
               <input
@@ -920,18 +988,8 @@ export default function Workbench() {
           </div>
         </Field>
 
-        <Field label="识别到的项目" wide note="系统将自动识别项目列表，也可按需调整分析范围。">
-          <textarea value={projects} onChange={event => setProjects(event.target.value)} />
-        </Field>
-
-        <Field label="输出目录" wide note="未指定时，系统将使用默认结果输出位置。">
-          <div className="path-row">
-            <input value={outputDir} readOnly placeholder="选择分析结果输出位置" />
-            <button type="button" className="folder-button" onClick={() => handlePickFolder(setOutputDir)}>
-              <FolderOpen size={14} />
-              选择
-            </button>
-          </div>
+        <Field label="识别到的项目" wide note="项目列表由上传 zip 的解压结果自动生成，启动时将按该列表分析。">
+          <textarea value={projects} readOnly placeholder="上传 zip 后自动显示项目列表" />
         </Field>
       </div>
     </section>
@@ -1305,21 +1363,21 @@ export default function Workbench() {
               <span className="icon-badge"><FolderOpen size={15} /></span>
               <div>
                 <strong>分析范围</strong>
-                <p>用于确认本次任务的分析对象范围及结果输出位置。</p>
+                <p>用于确认本次任务的上传压缩包和自动识别项目。</p>
               </div>
             </div>
             <dl className="summary-list">
               <div>
-                <dt>项目目录</dt>
-                <dd>{projectRoot.trim() || '未选择'}</dd>
+                <dt>项目压缩包</dt>
+                <dd>{uploadedBundleName.trim() || '未上传'}</dd>
               </div>
               <div>
                 <dt>项目数量</dt>
                 <dd>{selectedProjectCount > 0 ? `${selectedProjectCount} 个` : '未选择'}</dd>
               </div>
               <div>
-                <dt>输出目录</dt>
-                <dd>{outputDir.trim() || '未选择'}</dd>
+                <dt>识别项目</dt>
+                <dd>{projectList.length ? projectList.join('、') : '未识别'}</dd>
               </div>
             </dl>
           </section>
@@ -1502,7 +1560,7 @@ export default function Workbench() {
         <div>
           <span className="eyebrow">分析流程</span>
           <h3>{analyzing ? '正在运行 ArkTaint 批量分析' : '运行控制'}</h3>
-          <p>集中呈现任务阶段、分析产物与实时输出，便于持续掌握本次任务执行状态。</p>
+          <p>集中呈现任务阶段、项目进度与实时输出，便于持续掌握本次任务执行状态。</p>
         </div>
         <div className="run-hero-actions">
           <button type="button" className="secondary-button" onClick={() => navigateScreen('config')}>
@@ -1522,7 +1580,7 @@ export default function Workbench() {
             <span className="icon-badge"><Clock3 size={16} /></span>
             <div>
               <strong>运行状态</strong>
-              <p>系统将持续更新当前阶段、项目进度、产物数量与任务状态。</p>
+              <p>系统将持续更新当前阶段、项目进度与任务状态。</p>
             </div>
           </div>
           <div className="runtime-grid">
@@ -1531,8 +1589,8 @@ export default function Workbench() {
               <strong>{runSnapshot.phase}</strong>
             </div>
             <div>
-              <span>产物</span>
-              <strong>{runSnapshot.artifacts.length}</strong>
+              <span>报告</span>
+              <strong>{previewArtifact ? '已生成' : '等待中'}</strong>
             </div>
             <div>
               <span>当前项目</span>
@@ -1553,31 +1611,6 @@ export default function Workbench() {
           )}
         </section>
 
-        {runSnapshot.artifacts.length > 0 && (
-          <section className="surface-panel artifact-panel">
-            <div className="panel-heading compact">
-              <span className="icon-badge"><FileText size={16} /></span>
-              <div>
-                <strong>产物</strong>
-                <p>支持快速复制产物路径，便于进一步查看 summary、result 与 session 文件。</p>
-              </div>
-            </div>
-            <div className="artifact-list">
-              {runSnapshot.artifacts.map(item => (
-                <button
-                  key={`${item.label}-${item.path}`}
-                  type="button"
-                  className="artifact-card"
-                  onClick={() => navigator.clipboard?.writeText(item.path)}
-                  title="点击复制路径"
-                >
-                  <strong>{item.label}</strong>
-                  <span>{item.path}</span>
-                </button>
-              ))}
-            </div>
-          </section>
-        )}
       </div>
 
       <section className="surface-panel terminal-panel">
@@ -1660,19 +1693,19 @@ export default function Workbench() {
         <section className="surface-panel run-history-note">
           <strong>上次运行</strong>
           <span>
-            退出码：{runSnapshot.exitCode ?? 'unknown'} / 产物：{runSnapshot.artifacts.length} / 日志：{logs.length}
+            退出码：{runSnapshot.exitCode ?? 'unknown'} / 报告：{previewArtifact ? '已生成' : '未生成'} / 日志：{logs.length}
           </span>
         </section>
       )}
 
-      {reportPreviewOpen && (
+      {reportPreviewOpen && createPortal(
         <div className="preview-overlay" onClick={() => setReportPreviewOpen(false)}>
           <section className="preview-dialog surface-panel" onClick={event => event.stopPropagation()}>
             <div className="panel-heading compact">
               <span className="icon-badge"><FileText size={16} /></span>
               <div>
-                <strong>结果预览</strong>
-                <p>{previewArtifact?.path || '当前暂无可预览报告'}</p>
+                <strong>{previewArtifact?.label || '污点流结果'}</strong>
+                <p>{flowPreviewItems.length > 0 ? `共 ${flowPreviewItems.length} 条` : '当前报告内容为空'}</p>
               </div>
             </div>
             <div className="preview-body">
@@ -1680,6 +1713,15 @@ export default function Workbench() {
                 <div className="preview-placeholder">正在加载报告内容...</div>
               ) : reportPreviewError ? (
                 <div className="preview-placeholder preview-error">{reportPreviewError}</div>
+              ) : flowPreviewItems.length > 0 ? (
+                <ol className="flow-preview-list">
+                  {flowPreviewItems.map((flow, index) => (
+                    <li key={`${index}-${flow.slice(0, 32)}`} className="flow-preview-item">
+                      <span className="flow-preview-index">{index + 1}</span>
+                      <code>{flow}</code>
+                    </li>
+                  ))}
+                </ol>
               ) : (
                 <pre data-kind={reportPreviewKind}>{reportPreviewContent || '当前报告内容为空。'}</pre>
               )}
@@ -1690,7 +1732,8 @@ export default function Workbench() {
               </button>
             </div>
           </section>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
